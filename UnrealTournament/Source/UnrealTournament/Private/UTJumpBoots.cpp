@@ -96,13 +96,9 @@ void AUTJumpBoots::ClientRemoved_Implementation()
 
 void AUTJumpBoots::OwnerEvent_Implementation(FName EventName)
 {
-	static FName NAME_MultiJump(TEXT("MultiJump"));
-	static FName NAME_Jump(TEXT("Jump"));
-	static FName NAME_Landed(TEXT("Landed"));
-
 	if (Role == ROLE_Authority)
 	{
-		if (EventName == NAME_Jump)
+		if (EventName == InventoryEventName::Jump)
 		{
 			if (UTOwner && Cast<AUTPlayerController>(UTOwner->GetController()) && UTOwner->IsLocallyControlled() && (NumJumps == 3))
 			{
@@ -113,7 +109,7 @@ void AUTJumpBoots::OwnerEvent_Implementation(FName EventName)
 				}
 			}
 		}
-		else if (EventName == NAME_MultiJump)
+		else if (EventName == InventoryEventName::MultiJump)
 		{
 			NumJumps--;
 			if (SuperJumpEffect != NULL)
@@ -148,12 +144,12 @@ void AUTJumpBoots::OwnerEvent_Implementation(FName EventName)
 
 			UUTGameplayStatics::UTPlaySound(GetWorld(), SuperJumpSound, GetUTOwner(), SRT_AllButOwner);
 		}
-		else if (EventName == NAME_Landed && NumJumps <= 0)
+		else if (((EventName == InventoryEventName::Landed) || (EventName == InventoryEventName::LandedWater)) && (NumJumps <= 0))
 		{
 			Destroy();
 		}
 	}
-	else if (EventName == NAME_MultiJump)
+	else if (EventName == InventoryEventName::MultiJump)
 	{
 		UUTGameplayStatics::UTPlaySound(GetWorld(), SuperJumpSound, GetUTOwner(), SRT_AllButOwner);
 	}

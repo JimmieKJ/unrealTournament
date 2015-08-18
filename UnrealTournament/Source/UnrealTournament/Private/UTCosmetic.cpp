@@ -91,6 +91,24 @@ void AUTCosmetic::OnWearerDeath_Implementation(TSubclassOf<UDamageType> DamageTy
 
 }
 
+void AUTCosmetic::SetBodiesToSimulatePhysics()
+{
+	if (GetRootComponent())
+	{
+		UPrimitiveComponent* PrimComponent = Cast<UPrimitiveComponent>(GetRootComponent());
+		if (PrimComponent)
+		{
+			PrimComponent->BodyInstance.bSimulatePhysics = true;
+			PrimComponent->SetCollisionProfileName(FName(TEXT("CharacterMesh")));
+			PrimComponent->SetCollisionObjectType(ECC_PhysicsBody);
+			PrimComponent->SetCollisionResponseToChannel(ECC_Visibility, ECR_Ignore);
+			PrimComponent->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+			PrimComponent->SetPhysicsLinearVelocity(FVector(0, 0, 1));
+			PrimComponent->SetNotifyRigidBodyCollision(true);
+		}
+	}
+}
+
 void AUTCosmetic::OnVariantSelected_Implementation(int32 Variant)
 {
 	if (Variant >= 0 && Variant < VariantColorSwaps.Num())

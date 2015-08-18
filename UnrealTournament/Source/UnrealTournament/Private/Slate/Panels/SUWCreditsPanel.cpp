@@ -35,14 +35,10 @@ void SUWCreditsPanel::ConstructPanel(FVector2D ViewportSize)
 
 void SUWCreditsPanel::OnShowPanel(TSharedPtr<SUWindowsDesktop> inParentWindow)
 {
-	// Have to hack around SWebBrowser not allowing url changes
-	WebBrowserBox->RemoveSlot(CreditsWebBrowser.ToSharedRef());
-	WebBrowserBox->AddSlot()
-	[
-		SAssignNew(CreditsWebBrowser, SWebBrowser)
-		.InitialURL(TEXT("http://epic.gm/utcontrib"))
-		.ShowControls(false)
-	];
+	if (CreditsWebBrowser.IsValid())
+	{
+		CreditsWebBrowser->LoadURL(TEXT("http://epic.gm/utcontrib"));
+	}
 }
 
 #endif

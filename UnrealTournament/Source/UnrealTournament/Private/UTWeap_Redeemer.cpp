@@ -23,6 +23,8 @@ AUTWeap_Redeemer::AUTWeap_Redeemer(const class FObjectInitializer& ObjectInitial
 
 	KillStatsName = NAME_RedeemerKills;
 	DeathStatsName = NAME_RedeemerDeaths;
+	HitsStatsName = NAME_RedeemerHits;
+	ShotsStatsName = NAME_RedeemerShots;
 }
 
 AUTProjectile* AUTWeap_Redeemer::FireProjectile()
@@ -62,6 +64,14 @@ AUTProjectile* AUTWeap_Redeemer::FireProjectile()
 				}
 
 				RemoteRedeemer->CollisionComp->bGenerateOverlapEvents = true;
+				if (Role == ROLE_Authority)
+				{
+					AUTPlayerState* PS = UTOwner->Controller ? Cast<AUTPlayerState>(UTOwner->Controller->PlayerState) : NULL;
+					if (PS && (ShotsStatsName != NAME_None))
+					{
+						PS->ModifyStatsValue(ShotsStatsName, 1);
+					}
+				}
 			}
 			else
 			{

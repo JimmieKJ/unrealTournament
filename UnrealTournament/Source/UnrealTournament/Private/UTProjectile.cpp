@@ -80,6 +80,8 @@ AUTProjectile::AUTProjectile(const class FObjectInitializer& ObjectInitializer)
 	MasterProjectile = NULL;
 	bHasSpawnedFully = false;
 	bLowPriorityLight = false;
+
+	StatsHitCredit = 1.f;
 }
 
 bool AUTProjectile::DisableEmitterLights() const 
@@ -624,8 +626,6 @@ void AUTProjectile::OnStop(const FHitResult& Hit)
 
 void AUTProjectile::OnBounce(const struct FHitResult& ImpactResult, const FVector& ImpactVelocity)
 {
-	bCanHitInstigator = true;
-
 	if (Cast<AUTProjectile>(ImpactResult.Actor.Get()) == NULL || InteractsWithProj(Cast<AUTProjectile>(ImpactResult.Actor.Get())))
 	{
 		// Spawn bounce effect
@@ -637,6 +637,15 @@ void AUTProjectile::OnBounce(const struct FHitResult& ImpactResult, const FVecto
 		if (BounceSound != NULL)
 		{
 			UUTGameplayStatics::UTPlaySound(GetWorld(), BounceSound, this, SRT_IfSourceNotReplicated, false);
+		}
+	}
+
+	if (!bCanHitInstigator)
+	{
+		bCanHitInstigator = true;
+		if (Instigator != NULL && IsOverlappingActor(Instigator))
+		{
+			ProcessHit(Instigator, Cast<UPrimitiveComponent>(Instigator->GetRootComponent()), GetActorLocation(), ImpactVelocity.GetSafeNormal());
 		}
 	}
 }
@@ -737,6 +746,14 @@ void AUTProjectile::DamageImpactedActor_Implementation(AActor* OtherActor, UPrim
 			}
 		}
 	}
+	if ((Role == ROLE_Authority) && (HitsStatsName != NAME_None))
+	{
+		AUTPlayerState* PS = InstigatorController ? Cast<AUTPlayerState>(InstigatorController->PlayerState) : NULL;
+		if (PS)
+		{
+			PS->ModifyStatsValue(HitsStatsName, StatsHitCredit);
+		}
+	}
 
 	// treat as point damage if projectile has no radius
 	if (DamageParams.OuterRadius > 0.0f)
@@ -781,8 +798,17 @@ void AUTProjectile::Explode_Implementation(const FVector& HitLocation, const FVe
 				{
 					IgnoreActors.Add(ImpactedActor);
 				}
+				StatsHitCredit = 0.f;
 				UUTGameplayStatics::UTHurtRadius(this, AdjustedDamageParams.BaseDamage, AdjustedDamageParams.MinimumDamage, AdjustedMomentum, HitLocation + HitNormal, AdjustedDamageParams.InnerRadius, AdjustedDamageParams.OuterRadius, AdjustedDamageParams.DamageFalloff,
 					MyDamageType, IgnoreActors, this, InstigatorController, FFInstigatorController, FFDamageType);
+				if ((Role == ROLE_Authority) && (HitsStatsName != NAME_None))
+				{
+					AUTPlayerState* PS = InstigatorController ? Cast<AUTPlayerState>(InstigatorController->PlayerState) : NULL;
+					if (PS)
+					{
+						PS->ModifyStatsValue(HitsStatsName, StatsHitCredit / AdjustedDamageParams.BaseDamage);
+					}
+				}
 			}
 			if (Role == ROLE_Authority)
 			{

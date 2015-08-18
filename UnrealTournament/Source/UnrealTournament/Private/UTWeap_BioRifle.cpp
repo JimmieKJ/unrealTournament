@@ -22,7 +22,7 @@ AUTWeap_BioRifle::AUTWeap_BioRifle(const class FObjectInitializer& ObjectInitial
 
 	GlobConsumeTime = 0.33f;
 
-	MaxGlobStrength = 10;
+	MaxGlobStrength = 9;
 	GlobStrength = 0;
 
 	SqueezeFireInterval = 0.2f;
@@ -35,6 +35,8 @@ AUTWeap_BioRifle::AUTWeap_BioRifle(const class FObjectInitializer& ObjectInitial
 	}
 	KillStatsName = NAME_BioRifleKills;
 	DeathStatsName = NAME_BioRifleDeaths;
+	HitsStatsName = NAME_BioRifleHits;
+	ShotsStatsName = NAME_BioRifleShots;
 }
 
 void AUTWeap_BioRifle::UpdateSqueeze()
@@ -204,8 +206,7 @@ void AUTWeap_BioRifle::FireShot()
 		ClearGlobStrength();
 		if (GetUTOwner() != NULL)
 		{
-			static FName NAME_FiredWeapon(TEXT("FiredWeapon"));
-			GetUTOwner()->InventoryEvent(NAME_FiredWeapon);
+			GetUTOwner()->InventoryEvent(InventoryEventName::FiredWeapon);
 		}
 	}
 	else

@@ -17,10 +17,10 @@ UUTHUDWidget_SpectatorSlideOut::UUTHUDWidget_SpectatorSlideOut(const class FObje
 	ScreenPosition = FVector2D(0.0f, 0.005f);
 	Origin = FVector2D(0.0f, 0.0f);
 
-	FlagX = 0.09;
-	ColumnHeaderPlayerX = 0.18f;
+	FlagX = 0.09f;
+	ColumnHeaderPlayerX = 0.2f;
 	ColumnHeaderScoreX = 0.8f;
-	ColumnHeaderArmor = 0.95f;
+	ColumnHeaderArmor = 0.94f;
 	ColumnY = 0.11f * Size.Y;
 
 	CellHeight = 32;
@@ -133,6 +133,15 @@ bool UUTHUDWidget_SpectatorSlideOut::ShouldDraw_Implementation(bool bShowScores)
 		{
 			return false;
 		}
+
+#if !UE_SERVER
+		UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(UTHUDOwner->UTPlayerOwner->Player);
+		if (LP && LP->bRecordingReplay)
+		{
+			return false;
+		}
+#endif
+
 		return (UTHUDOwner->UTPlayerOwner->bRequestingSlideOut || UTHUDOwner->UTPlayerOwner->bShowCameraBinds || (SlideIn > 0.f));
 	}
 	return false;
@@ -397,11 +406,6 @@ void UUTHUDWidget_SpectatorSlideOut::DrawPowerup(AUTPickup* Pickup, float XOffse
 		FLinearColor DrawColor = FLinearColor::Yellow;
 		DrawText(FText::Format(NSLOCTEXT("UTCharacter", "ArmorDisplay", "{Armor}"), Args), XOffset + 0.16f*Size.X, YOffset + ColumnY, SlideOutFont, FVector2D(1.f, 1.f), FLinearColor::Black, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
 	}
-	else if (PickupInventory)
-	{
-		FCanvasIcon HUDIcon = PickupInventory->GetInventoryType()->GetDefaultObject<AUTInventory>()->HUDIcon;
-		DrawTexture(HUDIcon.Texture, XOffset + 0.1f*Size.X, YOffset - 0.021f*Size.X, 0.1f*Size.X, 0.1f*Size.X, HUDIcon.U, HUDIcon.V, HUDIcon.UL, HUDIcon.VL, 0.8f, FLinearColor::White);
-	}
 	else
 	{
 		FCanvasIcon HUDIcon = Pickup->HUDIcon;
@@ -583,13 +587,13 @@ void UUTHUDWidget_SpectatorSlideOut::DrawPlayer(int32 Index, AUTPlayerState* Pla
 
 	FTextureUVs FlagUV;
 
-	UTexture2D* NewFlagAtlas = UTHUDOwner->ResolveFlag(PlayerState->CountryFlag, FlagUV);
+	UTexture2D* NewFlagAtlas = UTHUDOwner->ResolveFlag(PlayerState, FlagUV);
 	DrawTexture(NewFlagAtlas, XOffset + (Width * FlagX), YOffset + 18, FlagUV.UL, FlagUV.VL, FlagUV.U, FlagUV.V, 36, 26, 1.0, FLinearColor::White, FVector2D(0.0f, 0.5f));
 
 	// Draw the Text
 	if (Index >= 0)
 	{
-		FText Position = FText::Format(NSLOCTEXT("UTScoreboard", "PositionFormatText", "{0}."), FText::AsNumber(Index));
+		FText Position = FText::Format(NSLOCTEXT("UTScoreboard", "PositionFormatText", "{0}"), FText::AsNumber(Index));
 		DrawText(Position, XOffset + 4.f, YOffset + ColumnY, SlideOutFont, 1.f, 1.f, DrawColor, ETextHorzPos::Left, ETextVertPos::Center);
 	}
 	FVector2D NameSize = DrawText(PlayerName, XOffset + (Width * ColumnHeaderPlayerX), YOffset + ColumnY, SlideOutFont, PlayerState->SpectatorNameScale, PlayerState->SpectatorNameScale, DrawColor, ETextHorzPos::Left, ETextVertPos::Center);
@@ -630,7 +634,7 @@ void UUTHUDWidget_SpectatorSlideOut::DrawPlayer(int32 Index, AUTPlayerState* Pla
 				if (DefaultWeapon)
 				{
 					float WeaponScale = 0.5f * (1.f + FMath::Clamp(0.6f - GetWorld()->GetTimeSeconds() + Character->LastWeaponFireTime, 0.f, 0.4f));  
-					DrawTexture(WeaponAtlas, XOffset + Width, YOffset + ColumnY - 0.015f*Width, WeaponScale*DefaultWeapon->WeaponBarSelectedUVs.UL, WeaponScale*DefaultWeapon->WeaponBarSelectedUVs.VL, DefaultWeapon->WeaponBarSelectedUVs.U + DefaultWeapon->WeaponBarSelectedUVs.UL, DefaultWeapon->WeaponBarSelectedUVs.V, -1.f * DefaultWeapon->WeaponBarSelectedUVs.UL, DefaultWeapon->WeaponBarSelectedUVs.VL, 1.0, FLinearColor::White);
+					DrawTexture(WeaponAtlas, XOffset + 1.01f*Width, YOffset + ColumnY - 0.015f*Width, WeaponScale*DefaultWeapon->WeaponBarSelectedUVs.UL, WeaponScale*DefaultWeapon->WeaponBarSelectedUVs.VL, DefaultWeapon->WeaponBarSelectedUVs.U + DefaultWeapon->WeaponBarSelectedUVs.UL, DefaultWeapon->WeaponBarSelectedUVs.V, -1.f * DefaultWeapon->WeaponBarSelectedUVs.UL, DefaultWeapon->WeaponBarSelectedUVs.VL, 1.0, FLinearColor::White);
 				}
 			}
 		}

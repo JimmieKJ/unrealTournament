@@ -30,6 +30,8 @@
 #include "StatNames.h"
 #include "UTGhostComponent.h"
 #include "UTTimedPowerup.h"
+#include "UTWaterVolume.h"
+#include "UTLift.h"
 
 UUTMovementBaseInterface::UUTMovementBaseInterface(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -56,7 +58,7 @@ AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 	BaseEyeHeight = DefaultBaseEyeHeight;
 	CrouchedEyeHeight = 40.f;
 	DefaultCrouchedEyeHeight = 40.f;
-	FloorSlideEyeHeight = 5.f;
+	FloorSlideEyeHeight = 1.f;
 	CharacterCameraComponent->RelativeLocation = FVector(0, 0, DefaultBaseEyeHeight); // Position the camera
 
 	// Create a mesh component that will be used when being viewed from a '1st person' view (when controlling this pawn)
@@ -88,7 +90,6 @@ AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 	HeadRadius = 18.0f;
 	HeadHeight = 8.0f;
 	HeadBone = FName(TEXT("head"));
-	EmoteSpeed = 1.0f;
 	UnfeignCount = 0;
 
 	BobTime = 0.f;
@@ -106,7 +107,7 @@ AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 	CrouchEyeOffset = EyeOffset;
 	TargetEyeOffset = EyeOffset;
 	EyeOffsetInterpRate = FVector(18.f, 9.f, 9.f);
-	CrouchEyeOffsetInterpRate = 6.f;
+	CrouchEyeOffsetInterpRate = 12.f;
 	EyeOffsetDecayRate = FVector(7.f, 7.f, 7.f);
 	EyeOffsetJumpBob = 20.f;
 	EyeOffsetLandBob = -110.f;
@@ -142,7 +143,7 @@ AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 	MaxSavedPositionAge = 0.3f; // @TODO FIXMESTEVE should use server's MaxPredictionPing to determine this - note also that bots will increase this if needed to satisfy their tracking requirements
 	MaxShotSynchDelay = 0.1f;
 
-	MaxStackedArmor = 200;
+	MaxStackedArmor = 150;
 	MaxDeathLifeSpan = 30.0f;
 	MinWaterSoundInterval = 0.8f;
 	LastWaterSoundTime = 0.f;
@@ -157,8 +158,15 @@ AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 	bIsTranslocating = false;
 	LastTakeHitTime = -10000.0f;
 	LastTakeHitReplicatedTime = -10000.0f;
+	SlideTargetHeight = 55.f;
 
 	GhostComponent = ObjectInitializer.CreateDefaultSubobject<UUTGhostComponent>(this, TEXT("GhostComp"));
+}
+
+float AUTCharacter::GetWeaponBobScaling()
+{
+	AUTPlayerController* PC = Cast<AUTPlayerController>(GetController());
+	return PC ? PC->WeaponBobGlobalScaling : 1.f;
 }
 
 void AUTCharacter::SetBase(UPrimitiveComponent* NewBaseComponent, const FName BoneName, bool bNotifyPawn)
@@ -692,6 +700,7 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 
 		int32 ResultDamage = FMath::TruncToInt(Damage);
 		FVector ResultMomentum = UTGetDamageMomentum(DamageEvent, this, EventInstigator);
+		bool bRadialDamage = false;
 		if (DamageEvent.IsOfType(FRadialDamageEvent::ClassID))
 		{
 			bool bScaleMomentum = !DamageEvent.IsOfType(FUTRadialDamageEvent::ClassID) || ((const FUTRadialDamageEvent&)DamageEvent).bScaleMomentum;
@@ -711,6 +720,7 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 					ResultMomentum *= AdjustedDamage / Damage;
 				}
 				ResultDamage = FMath::TruncToInt(AdjustedDamage);
+				bRadialDamage = true;
 			}
 		}
 		if (!IsDead())
@@ -728,6 +738,19 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 			{
 				Game->ModifyDamage(ResultDamage, ResultMomentum, this, EventInstigator, HitInfo, DamageCauser, DamageEvent.DamageTypeClass);
 			}
+			if (bRadialDamage)
+			{
+				AUTProjectile* Proj = Cast<AUTProjectile>(DamageCauser);
+				if (Proj)
+				{
+					Proj->StatsHitCredit += ResultDamage;
+				}
+				else if (Cast<AUTRemoteRedeemer>(DamageCauser))
+				{
+					Cast<AUTRemoteRedeemer>(DamageCauser)->StatsHitCredit += ResultDamage;
+				}
+			}
+
 			AUTInventory* HitArmor = NULL;
 			ModifyDamageTaken(ResultDamage, ResultMomentum, HitArmor, HitInfo, EventInstigator, DamageCauser, DamageEvent.DamageTypeClass);
 			if (HitArmor)
@@ -812,8 +835,31 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 
 			if (IsRagdoll())
 			{
-				// intentionally always apply to root because that replicates better
-				GetMesh()->AddImpulseAtLocation(1.1f*ResultMomentum, GetMesh()->GetComponentLocation());
+				if (GetNetMode() != NM_Standalone)
+				{
+					// intentionally always apply to root because that replicates better, and damp to prevent excessive team boost
+					// @TODO FIXMESTEVE - want to always apply to correct bone, and damp scaled based on mesh GetMass().
+					AUTGameState* GS = EventInstigator ? Cast<AUTGameState>(GetWorld()->GetGameState()) : NULL;
+					float PushScaling = (GS && GS->OnSameTeam(this, EventInstigator)) ? 0.5f : 1.f;
+					GetMesh()->AddImpulseAtLocation(PushScaling*ResultMomentum, GetMesh()->GetComponentLocation());
+				}
+				else
+				{
+					FVector HitLocation = GetMesh()->GetComponentLocation();
+					if (DamageEvent.IsOfType(FPointDamageEvent::ClassID))
+					{
+						HitLocation = ((const FPointDamageEvent&)DamageEvent).HitInfo.Location;
+					}
+					else if (DamageEvent.IsOfType(FRadialDamageEvent::ClassID))
+					{
+						const FRadialDamageEvent& RadialEvent = (const FRadialDamageEvent&)DamageEvent;
+						if (RadialEvent.ComponentHits.Num() > 0)
+						{
+							HitLocation = RadialEvent.ComponentHits[0].Location;
+						}
+					}
+					GetMesh()->AddImpulseAtLocation(ResultMomentum, HitLocation);
+				}
 			}
 			else if (UTCharacterMovement != NULL)
 			{
@@ -913,7 +959,7 @@ void AUTCharacter::SetLastTakeHitInfo(int32 AttemptedDamage, int32 Damage, const
 	{
 		LastTakeHitInfo.HitArmor = ((HitArmor != NULL) && HitArmor->ShouldDisplayHitEffect(AttemptedDamage, Damage, Health, ArmorAmount)) ? HitArmor->GetClass() : NULL; // the inventory object is bOnlyRelevantToOwner and wouldn't work on other clients
 	}
-	if ((LastTakeHitInfo.HitArmor == NULL) && (HitArmor == NULL) && (Health > 0) && (Damage == AttemptedDamage) && (Health + Damage > 100) && ((Damage > 90) || (Health > 90)))
+	if ((LastTakeHitInfo.HitArmor == NULL) && (HitArmor == NULL) && (Health > 0) && (Damage == AttemptedDamage) && (Health + Damage > HealthMax) && ((Damage > 90) || (Health > 90)))
 	{
 		// notify superhealth hit effect
 		LastTakeHitInfo.HitArmor = AUTTimedPowerup::StaticClass();
@@ -1113,7 +1159,8 @@ void AUTCharacter::NotifyTakeHit(AController* InstigatedBy, int32 Damage, FVecto
 		AUTPlayerController* PC = Cast<AUTPlayerController>(Controller);
 		if (PC != NULL)
 		{
-			PC->NotifyTakeHit(InstigatedBy, Damage, Momentum, DamageEvent);
+			// pass some damage even if armor absorbed all of it, so client will get visual hit indicator
+			PC->NotifyTakeHit(InstigatedBy, HitArmor ? FMath::Max(Damage, 1) : Damage, Momentum, DamageEvent);
 		}
 		else
 		{
@@ -1132,6 +1179,11 @@ void AUTCharacter::OnRepFloorSliding()
 	{
 		UTCharacterMovement->bIsFloorSliding = bRepFloorSliding;
 	}
+}
+
+bool AUTCharacter::K2_Died(AController* EventInstigator, TSubclassOf<UDamageType> DamageType)
+{
+	return Died(EventInstigator, FUTPointDamageEvent(Health + 1, FHitResult(), FVector(0.0f, 0.0f, -1.0f), DamageType));
 }
 
 bool AUTCharacter::Died(AController* EventInstigator, const FDamageEvent& DamageEvent)
@@ -1191,7 +1243,7 @@ bool AUTCharacter::Died(AController* EventInstigator, const FDamageEvent& Damage
 		OnDied.Broadcast(EventInstigator, DamageEvent.DamageTypeClass ? DamageEvent.DamageTypeClass.GetDefaultObject() : NULL);
 
 		PlayDying();
-		if ((GetWorld()->GetTimeSeconds() - FlakShredTime < 0.05f) && (FlakShredInstigator == EventInstigator))
+		if ((GetWorld()->GetTimeSeconds() - FlakShredTime < 0.05f) && FlakShredInstigator && (FlakShredInstigator == EventInstigator))
 		{
 			AnnounceShred(Cast<AUTPlayerController>(EventInstigator));
 		}
@@ -1210,13 +1262,13 @@ bool AUTCharacter::Died(AController* EventInstigator, const FDamageEvent& Damage
 	}
 }
 
-void AUTCharacter::AnnounceShred(AUTPlayerController *PC)
+void AUTCharacter::AnnounceShred(AUTPlayerController *KillerPC)
 {
-	AUTPlayerState* PS = PC ? Cast<AUTPlayerState>(PC->PlayerState) : NULL;
-	if (PS && CloseFlakRewardMessageClass)
+	AUTPlayerState* KillerPS = KillerPC ? Cast<AUTPlayerState>(KillerPC->PlayerState) : NULL;
+	if (KillerPS && CloseFlakRewardMessageClass)
 	{
-		PS->ModifyStatsValue(FlakShredStatName, 1);
-		PC->SendPersonalMessage(CloseFlakRewardMessageClass, PS->GetStatsValue(FlakShredStatName));
+		KillerPS->ModifyStatsValue(FlakShredStatName, 1);
+		KillerPC->SendPersonalMessage(CloseFlakRewardMessageClass, KillerPS->GetStatsValue(FlakShredStatName), PlayerState, KillerPS);
 	}
 }
 
@@ -1230,8 +1282,11 @@ void AUTCharacter::StartRagdoll()
 		return;
 	}
 
-	// turn off any taccom  @TODO FIXMESTEVE - should be able to keep on, at least when feigning
-	UpdateTacComMesh(false);
+	// turn off any taccom when dead
+	if (bTearOff || !bFeigningDeath)
+	{
+		UpdateTacComMesh(false);
+	}
 
 	SetActorEnableCollision(true);
 	StopFiring();
@@ -1291,6 +1346,8 @@ void AUTCharacter::StopRagdoll()
 	{
 		CheckRagdollFallingDamage(FHitResult(NULL, NULL, GetActorLocation(), FVector(0.0f, 0.0f, 1.0f)));
 	}
+
+	UTCharacterMovement->Velocity = GetMesh()->GetComponentVelocity();
 
 	GetCapsuleComponent()->DetachFromParent(true);
 	FRotator FixedRotation = GetCapsuleComponent()->RelativeRotation;
@@ -1420,6 +1477,13 @@ void AUTCharacter::PlayDying()
 		}
 	}
 
+	if (Eyewear && Eyewear->GetAttachParentActor())
+	{
+		Eyewear->DetachRootComponentFromParent(true);
+
+		Eyewear->OnWearerDeath(LastTakeHitInfo.DamageType);
+	}
+
 	if (GetNetMode() != NM_DedicatedServer && (GetWorld()->TimeSeconds - GetLastRenderTime() < 3.0f || IsLocallyViewed()))
 	{
 		TSubclassOf<UUTDamageType> UTDmg(*LastTakeHitInfo.DamageType);
@@ -1547,7 +1611,7 @@ bool AUTCharacter::ServerFeignDeath_Validate()
 void AUTCharacter::ServerFeignDeath_Implementation()
 {
 	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-	if (Role == ROLE_Authority && !IsDead() && (!GS || GS->IsMatchInProgress()) && !BlockFeignDeath())
+	if (Role == ROLE_Authority && !IsDead() && (!GS || (GS->IsMatchInProgress() && !GS->IsMatchAtHalftime())) && !BlockFeignDeath())
 	{
 		if (bFeigningDeath)
 		{
@@ -1561,30 +1625,32 @@ void AUTCharacter::ServerFeignDeath_Implementation()
 				FCollisionShape CapsuleShape = FCollisionShape::MakeCapsule(GetCapsuleComponent()->GetUnscaledCapsuleRadius(), GetCharacterMovement()->CrouchedHalfHeight);
 				static const FName NAME_FeignTrace = FName(TEXT("FeignTrace"));
 				FCollisionQueryParams CapsuleParams(NAME_FeignTrace, false, this);
-				FCollisionResponseParams ResponseParam;
-
-				// Expand in place 
-				TArray<FOverlapResult> Overlaps;
-				bool bEncroached = GetWorld()->OverlapMultiByChannel(Overlaps, ActorLocation, FQuat::Identity, ECC_Pawn, CapsuleShape, CapsuleParams, ResponseParam);
-				if (!bEncroached)
+				// don't allow unfeigning if flying through the air
+				if (IsInWater() || GetWorld()->SweepTestByChannel(ActorLocation + TraceOffset, ActorLocation - TraceOffset, FQuat::Identity, ECC_Pawn, CapsuleShape, FeignDeathTrace))
 				{
-					UnfeignCount = 0;
-					bFeigningDeath = false;
-					PlayFeignDeath();
-				}
-				else if (UnfeignCount > 5)
-				{
-					FHitResult FakeHit(this, NULL, GetActorLocation(), GetActorRotation().Vector());
-					FUTPointDamageEvent FakeDamageEvent(0, FakeHit, FVector(0, 0, 0), UUTDmgType_FeignFail::StaticClass());
-					UUTGameplayStatics::UTPlaySound(GetWorld(), PainSound, this, SRT_All, false, FVector::ZeroVector, Cast<AUTPlayerController>(Controller), NULL, false);
-					Died(NULL, FakeDamageEvent);
-				}
-				else
-				{
-					// nudge body in random direction
-					FVector FeignNudge = FeignNudgeMag * FVector(FMath::FRand(), FMath::FRand(), 0.f).GetSafeNormal();
-					FeignNudge.Z = 0.4f*FeignNudgeMag;
-					GetMesh()->AddImpulseAtLocation(FeignNudge, GetMesh()->GetComponentLocation());
+					// Expand in place 
+					TArray<FOverlapResult> Overlaps;
+					bool bEncroached = GetWorld()->OverlapMultiByChannel(Overlaps, ActorLocation, FQuat::Identity, ECC_Pawn, CapsuleShape, CapsuleParams);
+					if (!bEncroached)
+					{
+						UnfeignCount = 0;
+						bFeigningDeath = false;
+						PlayFeignDeath();
+					}
+					else if (UnfeignCount > 5)
+					{
+						FHitResult FakeHit(this, NULL, GetActorLocation(), GetActorRotation().Vector());
+						FUTPointDamageEvent FakeDamageEvent(0, FakeHit, FVector(0, 0, 0), UUTDmgType_FeignFail::StaticClass());
+						UUTGameplayStatics::UTPlaySound(GetWorld(), PainSound, this, SRT_All, false, FVector::ZeroVector, Cast<AUTPlayerController>(Controller), NULL, false);
+						Died(NULL, FakeDamageEvent);
+					}
+					else
+					{
+						// nudge body in random direction
+						FVector FeignNudge = FeignNudgeMag * FVector(FMath::FRand(), FMath::FRand(), 0.f).GetSafeNormal();
+						FeignNudge.Z = 0.4f*FeignNudgeMag;
+						GetMesh()->AddImpulseAtLocation(FeignNudge, GetMesh()->GetComponentLocation());
+					}
 				}
 			}
 		}
@@ -1875,13 +1941,9 @@ void AUTCharacter::StartFire(uint8 FireModeNum)
 
 void AUTCharacter::StopFire(uint8 FireModeNum)
 {
-	if (DrivenVehicle && !DrivenVehicle->IsLocallyControlled())
+	if (DrivenVehicle ? !DrivenVehicle->IsLocallyControlled() : !IsLocallyControlled())
 	{
-		UE_LOG(LogUTCharacter, Warning, TEXT("StopFire() can only be called on the owning client"));
-	}
-	else if (!DrivenVehicle && !IsLocallyControlled())
-	{
-		UE_LOG(LogUTCharacter, Warning, TEXT("StopFire() can only be called on the owning client"));
+			// UE_LOG(LogUTCharacter, Warning, TEXT("StopFire() can only be called on the owning client"));
 	}
 	else if (Weapon != NULL)
 	{
@@ -1974,7 +2036,7 @@ void AUTCharacter::FiringInfoUpdated()
 	}
 
 	AUTPlayerController* UTPC = GetLocalViewer();
-	if (Weapon != NULL && (bLocalFlashLoc || UTPC == NULL || UTPC->GetPredictionTime() == 0.f) && Weapon != NULL && Weapon->ShouldPlay1PVisuals())
+	if ((bLocalFlashLoc || UTPC == NULL || UTPC->GetPredictionTime() == 0.f || !IsLocallyControlled()) && Weapon != NULL && Weapon->ShouldPlay1PVisuals())
 	{
 		if (!FlashLocation.IsZero())
 		{
@@ -2588,8 +2650,6 @@ void AUTCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& O
 	DOREPLIFETIME_CONDITION(AUTCharacter, bFeigningDeath, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, bRepFloorSliding, COND_SkipOwner);
 	DOREPLIFETIME_CONDITION(AUTCharacter, bSpawnProtectionEligible, COND_None);
-	DOREPLIFETIME_CONDITION(AUTCharacter, EmoteReplicationInfo, COND_None);
-	DOREPLIFETIME_CONDITION(AUTCharacter, EmoteSpeed, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, DrivenVehicle, COND_OwnerOnly);
 	DOREPLIFETIME_CONDITION(AUTCharacter, bHasHighScore, COND_None);
 	DOREPLIFETIME_CONDITION(AUTCharacter, WalkMovementReductionPct, COND_OwnerOnly);
@@ -2667,7 +2727,7 @@ bool AUTCharacter::CanDodge() const
 
 bool AUTCharacter::CanDodgeInternal_Implementation() const
 {
-	return !bIsCrouched && UTCharacterMovement && UTCharacterMovement->CanDodge() && (UTCharacterMovement->Velocity.Z > -1.f * MaxSafeFallSpeed) && EmoteCount == 0;
+	return !bIsCrouched && UTCharacterMovement && UTCharacterMovement->CanDodge() && (UTCharacterMovement->Velocity.Z > -1.f * MaxSafeFallSpeed) && EmoteCount == 0 && !IsRagdoll() && !bInRagdollRecovery;
 }
 
 bool AUTCharacter::Dodge(FVector DodgeDir, FVector DodgeCross)
@@ -2684,6 +2744,7 @@ bool AUTCharacter::Dodge(FVector DodgeDir, FVector DodgeCross)
 		if (UTCharacterMovement->PerformDodge(DodgeDir, DodgeCross))
 		{
 			MovementEventUpdated(bPotentialWallDodge ? EME_WallDodge : EME_Dodge, DodgeDir);
+			InventoryEvent(InventoryEventName::Dodge);
 			return true;
 		}
 	}
@@ -2925,8 +2986,7 @@ void AUTCharacter::Landed(const FHitResult& Hit)
 
 	if (!bClientUpdating)
 	{
-		static FName NAME_Landed(TEXT("Landed"));
-		InventoryEvent(NAME_Landed);
+		InventoryEvent(InventoryEventName::Landed);
 
 		LastHitBy = NULL;
 
@@ -2958,6 +3018,20 @@ void AUTCharacter::Landed(const FHitResult& Hit)
 		{
 			B->NotifyLanded(Hit);
 		}
+	}
+}
+
+void AUTCharacter::EnteredWater(AUTWaterVolume* WaterVolume)
+{
+	PlayWaterSound(WaterVolume->EntrySound ? WaterVolume->EntrySound : WaterEntrySound);
+	if (UTCharacterMovement)
+	{
+		if ((FMath::Abs(UTCharacterMovement->Velocity.Z) > UTCharacterMovement->MaxWaterSpeed) && IsLocallyControlled() && Cast<APlayerController>(GetController()))
+		{
+			UUTGameplayStatics::UTPlaySound(GetWorld(), FastWaterEntrySound, this, SRT_None);
+		}
+		UTCharacterMovement->Velocity.Z *= WaterVolume->PawnEntryVelZScaling;
+		UTCharacterMovement->BrakingDecelerationSwimming = WaterVolume->BrakingDecelerationSwimming;
 	}
 }
 
@@ -3226,12 +3300,20 @@ void AUTCharacter::UpdateSkin()
 		{
 			GetMesh()->SetMaterial(i, ReplicatedBodyMaterial);
 		}
+		for (int32 i = 0; i < FirstPersonMesh->GetNumMaterials(); i++)
+		{
+			FirstPersonMesh->SetMaterial(i, ReplicatedBodyMaterial);
+		}
 	}
 	else
 	{
 		for (int32 i = 0; i < GetMesh()->GetNumMaterials(); i++)
 		{
 			GetMesh()->SetMaterial(i, BodyMIs.IsValidIndex(i) ? BodyMIs[i] : GetClass()->GetDefaultObject<AUTCharacter>()->GetMesh()->GetMaterial(i));
+		}
+		for (int32 i = 0; i < FirstPersonMesh->GetNumMaterials(); i++)
+		{
+			FirstPersonMesh->SetMaterial(i, GetClass()->GetDefaultObject<AUTCharacter>()->FirstPersonMesh->GetMaterial(i));
 		}
 	}
 	if (Weapon != NULL)
@@ -3307,6 +3389,15 @@ AUTPlayerController* AUTCharacter::GetLocalViewer()
 void AUTCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+	
+	if (GetMovementBase() && Cast<AUTLift>(GetMovementBase()->GetOwner()) && (GetMovementBase()->GetOwner()->GetVelocity().Z >= 0.f))
+	{
+		GetMesh()->ClothBlendWeight = 0.5f;
+	}
+	else
+	{
+		GetMesh()->ClothBlendWeight = 1.0f;
+	}
 
 	if (GetMesh()->MeshComponentUpdateFlag >= EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered && !GetMesh()->bRecentlyRendered && !IsLocallyControlled() 
 		&& GetCharacterMovement()->MovementMode == MOVE_Walking && !bFeigningDeath && !IsDead())
@@ -3360,11 +3451,24 @@ void AUTCharacter::Tick(float DeltaTime)
 	}
 	if (OverlayMesh != NULL && OverlayMesh->IsRegistered())
 	{
-		UMaterialInstanceDynamic* MID = Cast<UMaterialInstanceDynamic>(OverlayMesh->GetMaterial(0));
-		if (MID != NULL)
+		// FIXME: temp hack for showdown prototype
+		bool bSendHealthToOverlay = false;
+		for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
 		{
-			static FName NAME_Damage(TEXT("Damage"));
-			MID->SetScalarParameterValue(NAME_Damage, 0.01f * (100.f - FMath::Clamp<float>(Health, 0.f, 100.f)));
+			if (It->PlayerController != NULL && It->PlayerController->PlayerState != NULL && It->PlayerController->PlayerState->bOnlySpectator)
+			{
+				bSendHealthToOverlay = true;
+				break;
+			}
+		}
+		if (bSendHealthToOverlay)
+		{
+			UMaterialInstanceDynamic* MID = Cast<UMaterialInstanceDynamic>(OverlayMesh->GetMaterial(0));
+			if (MID != NULL)
+			{
+				static FName NAME_Damage(TEXT("Damage"));
+				MID->SetScalarParameterValue(NAME_Damage, 0.01f * (100.f - FMath::Clamp<float>(Health, 0.f, 100.f)));
+			}
 		}
 	}
 
@@ -3521,13 +3625,29 @@ void AUTCharacter::Tick(float DeltaTime)
 
 	if (IsInWater())
 	{
-		if (IsRagdoll() && GetMesh())
+		if (IsRagdoll() && !bInRagdollRecovery && GetMesh() && (!GS || GS->IsMatchInProgress()))
 		{
 			// apply force to fake buoyancy and fluid friction
-			float FloatMag = (IsDead() || !PositionIsInWater(GetActorLocation() + FVector(0.f, 0.f, 30.f))) ? 80.f : 190.f;
+			float FloatMag = (IsDead() || !PositionIsInWater(GetMesh()->GetBoneLocation(TEXT("neck_01")) +FVector(0.f, 0.f, 10.f))) ? 110.f : 190.f;
 			FVector FluidForce = -500.f * GetVelocity() - FVector(0.f, 0.f, FloatMag*GetWorld()->GetGravityZ());
-			GetMesh()->AddForce(0.7f*FluidForce, FName((TEXT("spine_02"))));
-			GetMesh()->AddForce(0.3f*FluidForce);
+
+			// also apply any current force
+			FVector SpineLoc = GetMesh()->GetBoneLocation(TEXT("spine_02"));
+			AUTWaterVolume* WaterVolume = Cast<AUTWaterVolume>(PositionIsInWater(GetActorLocation()));
+			if (WaterVolume)
+			{
+				FluidForce += 3.f * FloatMag * WaterVolume->GetCurrentFor(this);
+			}
+
+			GetMesh()->AddForce(0.3f*FluidForce, FName(TEXT("spine_02")));
+			GetMesh()->AddForce(0.1f*FluidForce);
+			GetMesh()->AddForce(0.1f*FluidForce, FName(TEXT("spine_03")));
+			GetMesh()->AddForce(0.07f*FluidForce, FName(TEXT("neck_01")));
+
+			GetMesh()->AddForce(0.025f*FluidForce + 2500.f * (GetMesh()->GetBoneLocation(TEXT("lowerarm_l")) - SpineLoc).GetSafeNormal2D(), FName((TEXT("lowerarm_l"))));
+			GetMesh()->AddForce(0.025f*FluidForce + 2500.f * (GetMesh()->GetBoneLocation(TEXT("lowerarm_r")) - SpineLoc).GetSafeNormal2D(), FName((TEXT("lowerarm_r"))));
+			GetMesh()->AddForce(0.04f*FluidForce + 5000.f * (GetMesh()->GetBoneLocation(TEXT("foot_l")) - SpineLoc).GetSafeNormal2D(), FName((TEXT("foot_l"))));
+			GetMesh()->AddForce(0.04f*FluidForce + 5000.f * (GetMesh()->GetBoneLocation(TEXT("foot_r")) - SpineLoc).GetSafeNormal2D(), FName((TEXT("foot_r"))));
 		}
 		if ((Role == ROLE_Authority) && (Health > 0))
 		{
@@ -3586,7 +3706,7 @@ bool AUTCharacter::IsInWater() const
 {
 	if (IsRagdoll())
 	{
-		return PositionIsInWater(GetActorLocation());
+		return (PositionIsInWater(GetActorLocation()) != NULL);
 	}
 	return (GetCharacterMovement() && GetCharacterMovement()->IsInWater());
 }
@@ -3594,16 +3714,16 @@ bool AUTCharacter::IsInWater() const
 bool AUTCharacter::HeadIsUnderWater() const
 {
 	FVector HeadLocation = GetActorLocation() + FVector(0.f, 0.f, BaseEyeHeight);
-	return PositionIsInWater(HeadLocation);
+	return (PositionIsInWater(HeadLocation) != NULL);
 }
 
 bool AUTCharacter::FeetAreInWater() const
 {
 	FVector FootLocation = GetActorLocation() - FVector(0.f, 0.f, GetCapsuleComponent()->GetScaledCapsuleHalfHeight());
-	return PositionIsInWater(FootLocation);
+	return (PositionIsInWater(FootLocation) != NULL);
 }
 
-bool AUTCharacter::PositionIsInWater(const FVector& Position) const
+APhysicsVolume* AUTCharacter::PositionIsInWater(const FVector& Position) const
 {
 	// check for all volumes that overlapposition
 	APhysicsVolume* NewVolume = NULL;
@@ -3621,7 +3741,7 @@ bool AUTCharacter::PositionIsInWater(const FVector& Position) const
 			NewVolume = V;
 		}
 	}
-	return (NewVolume && NewVolume->bWaterVolume);
+	return (NewVolume && NewVolume->bWaterVolume) ? NewVolume : NULL;
 }
 
 void AUTCharacter::TakeDrowningDamage()
@@ -3748,16 +3868,17 @@ void AUTCharacter::ApplyCharacterData(TSubclassOf<AUTCharacterContent> CharType)
 	// FIXME: TEMP FOR GDC: needed because of TeamMaterials
 	TSubclassOf<AUTCharacterContent> DefaultClass = LoadClass<AUTCharacterContent>(NULL, TEXT("/Game/RestrictedAssets/Character/Malcom_New/Malcolm_New.Malcolm_New_C"), NULL, LOAD_None, NULL);
 
+	AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
 	const AUTCharacterContent* Data = (CharType != NULL) ? CharType.GetDefaultObject() : (DefaultClass != NULL ? DefaultClass.GetDefaultObject() : NULL);
 	if (Data->Mesh != NULL)
 	{
 		FComponentReregisterContext ReregisterContext(GetMesh());
 		GetMesh()->OverrideMaterials = Data->Mesh->OverrideMaterials;
 		// FIXME: TEMP FOR GDC: team override materials
-		AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
 		if (PS != NULL && PS->Team != NULL)
 		{
-			for (int32 i = FMath::Min<int32>(Data->Mesh->GetNumMaterials(), Data->TeamMaterials.Num()) - 1; i >= 0; i--)
+			GetMesh()->OverrideMaterials.SetNumZeroed(FMath::Min<int32>(Data->Mesh->GetNumMaterials(), Data->TeamMaterials.Num()));
+			for (int32 i = GetMesh()->OverrideMaterials.Num() - 1; i >= 0; i--)
 			{
 				if (Data->TeamMaterials[i] != NULL)
 				{
@@ -3782,7 +3903,22 @@ void AUTCharacter::ApplyCharacterData(TSubclassOf<AUTCharacterContent> CharType)
 			GetMesh()->RelativeLocation = Data->Mesh->RelativeLocation;
 			GetMesh()->RelativeRotation = Data->Mesh->RelativeRotation;
 		}
+		// reapply any temporary override effects
+		if (OverlayMesh != NULL)
+		{
+			OverlayMesh->DetachFromParent();
+			OverlayMesh->UnregisterComponent();
+			OverlayMesh = NULL;
+			UpdateCharOverlays();
+		}
+		UpdateSkin();
 	}
+
+	if (Data->CharacterVoice && PS != NULL)
+	{
+		PS->CharacterVoice = Data->CharacterVoice;
+	}
+
 }
 
 void AUTCharacter::NotifyTeamChanged()
@@ -4048,7 +4184,7 @@ bool AUTCharacter::CanBlockTelefrags()
 {
 	for (TInventoryIterator<AUTArmor> It(this); It; ++It)
 	{
-		if (It->ArmorType == FName(TEXT("ShieldBelt")))
+		if (It->ArmorType == ArmorTypeName::ShieldBelt)
 		{
 			return true;
 		}
@@ -4100,7 +4236,7 @@ void AUTCharacter::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector
 		FVector::DotProduct(CameraDir, (GetActorLocation() - CameraPosition)) > 0.0f && GS != NULL)
 	{
 		float Dist = (CameraPosition - GetActorLocation()).Size();
-		if ((GS->OnSameTeam(PC->GetPawn(), this) || bSpectating) && (bTacCom || Dist <= (bSpectating ? SpectatorIndicatorMaxDistance : TeamPlayerIndicatorMaxDistance)))
+		if ((GS->OnSameTeam(PC->GetPawn(), this) || bSpectating || GS->HasMatchEnded() || GS->IsMatchAtHalftime()) && (bTacCom || Dist <= (bSpectating ? SpectatorIndicatorMaxDistance : TeamPlayerIndicatorMaxDistance)))
 		{
 			float TextXL, YL;
 			float Scale = Canvas->ClipX / 1920.f;
@@ -4122,7 +4258,7 @@ void AUTCharacter::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector
 			UFont* TinyFont = AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->TinyFont;
 			Canvas->TextSize(TinyFont, PlayerState->PlayerName, TextXL, YL, Scale, Scale);
 			float X, Y;
-			Canvas->TextSize(TinyFont, FString("+999   A999"), X, Y, Scale, Scale);
+			Canvas->TextSize(TinyFont, FString("+999  A999"), X, Y, Scale, Scale);
 			float XL = bFarAway ? TextXL : FMath::Max(X, TextXL);
 			FVector WorldPosition = GetMesh()->GetComponentLocation();
 			FVector ScreenPosition = Canvas->Project(WorldPosition + FVector(0.f, 0.f, GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight() * 2.25f));
@@ -4134,10 +4270,10 @@ void AUTCharacter::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector
 				TeamColor.R *= 0.3f;
 				TeamColor.G *= 0.3f;
 				TeamColor.B *= 0.3f;
-				TeamColor.A = 0.4f;
+				TeamColor.A = 0.3f;
 				Canvas->SetLinearDrawColor(TeamColor);
 				float Border = 2.f*Scale;
-				float Height = bFarAway ? 0.75*YL : YL + 0.5*YL;
+				float Height = bFarAway ? 0.75*YL : YL + 0.45*YL;
 				Canvas->DrawTile(Canvas->DefaultTexture, XPos - Border, YPos - YL - Border, XL + 2.f*Border, Height + 2.f*Border, 0, 0, 1, 1);
 				FLinearColor BeaconTextColor = FLinearColor::White;
 				BeaconTextColor.A = 0.6f;
@@ -4158,9 +4294,9 @@ void AUTCharacter::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector
 					if (ArmorAmount == 0)
 					{
 						Canvas->TextSize(TinyFont, TextItem.Text.ToString(), X, Y, Scale, Scale);
-						XOffset += 0.5 * (XL - X);
+						XOffset += 0.5f * (XL - X);
 					}
-					TextItem.Position = FVector2D(FMath::TruncToFloat(Canvas->OrgX + XOffset), FMath::TruncToFloat(Canvas->OrgY + YPos - 0.5f*YL));
+					TextItem.Position = FVector2D(FMath::TruncToFloat(Canvas->OrgX + XOffset), FMath::TruncToFloat(Canvas->OrgY + YPos - 0.51f*YL));
 					Canvas->DrawItem(TextItem);
 
 					if (ArmorAmount > 0)
@@ -4209,6 +4345,9 @@ void AUTCharacter::SetHatClass(TSubclassOf<AUTHat> HatClass)
 			Hat->SetActorRelativeLocation(HatRelativeLocation);
 			Hat->OnVariantSelected(HatVariant);
 
+			// We may already be invisible
+			Hat->SetActorHiddenInGame(bInvisible);
+
 			// If replication of has high score happened before hat replication, locally update it here
 			if (bHasHighScore)
 			{
@@ -4247,6 +4386,8 @@ void AUTCharacter::SetEyewearClass(TSubclassOf<AUTEyewear> EyewearClass)
 		{
 			Eyewear->AttachRootComponentTo(GetMesh(), FName(TEXT("GlassesSocket")), EAttachLocation::SnapToTarget, true);
 			Eyewear->OnVariantSelected(EyewearVariant);
+			// We may already be invisible
+			Eyewear->SetActorHiddenInGame(bInvisible);
 		}
 	}
 	else
@@ -4315,88 +4456,22 @@ void AUTCharacter::OnRepCosmeticSpreeCount()
 	}
 }
 
-bool AUTCharacter::ServerFasterEmote_Validate()
-{
-	return true;
-}
-
-void AUTCharacter::ServerFasterEmote_Implementation()
-{
-	EmoteSpeed = FMath::Min(EmoteSpeed + 0.25f, 3.0f);	
-	OnRepEmoteSpeed();
-}
-
-bool AUTCharacter::ServerSlowerEmote_Validate()
-{
-	return true;
-}
-
-void AUTCharacter::ServerSlowerEmote_Implementation()
-{
-	EmoteSpeed = FMath::Max(EmoteSpeed - 0.25f, 0.0f);
-	OnRepEmoteSpeed();
-}
-
-bool AUTCharacter::ServerSetEmoteSpeed_Validate(float NewEmoteSpeed)
-{
-	return true;
-}
-
-void AUTCharacter::ServerSetEmoteSpeed_Implementation(float NewEmoteSpeed)
-{
-	EmoteSpeed = FMath::Clamp(NewEmoteSpeed, 0.0f, 3.0f);
-	OnRepEmoteSpeed();
-}
-
-void AUTCharacter::OnRepEmoteSpeed()
+void AUTCharacter::SetEmoteSpeed(float NewEmoteSpeed)
 {
 	if (CurrentEmote)
 	{
 		UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
 		if (AnimInstance != NULL)
 		{
-			AnimInstance->Montage_SetPlayRate(CurrentEmote, EmoteSpeed);
+			AnimInstance->Montage_SetPlayRate(CurrentEmote, NewEmoteSpeed);
 		}
 	}
 }
 
-void AUTCharacter::OnRepTaunt()
-{
-	PlayTauntByIndex(EmoteReplicationInfo.EmoteIndex);
-}
-
-void AUTCharacter::PlayTaunt()
-{
-	PlayTauntByIndex(0);
-}
-
-void AUTCharacter::PlayTauntByIndex(int32 TauntIndex)
-{
-	AUTPlayerState* UTPS = Cast<AUTPlayerState>(PlayerState);
-	if (UTPS != nullptr && !bFeigningDeath)
-	{
-		if (TauntIndex == 0 && UTPS->TauntClass != nullptr)
-		{
-			EmoteReplicationInfo.EmoteIndex = TauntIndex;
-			PlayTauntByClass(UTPS->TauntClass);
-		}
-		else if (TauntIndex == 1 && UTPS->Taunt2Class != nullptr)
-		{
-			EmoteReplicationInfo.EmoteIndex = TauntIndex;
-			PlayTauntByClass(UTPS->Taunt2Class);
-		}
-	}
-}
-
-void AUTCharacter::PlayTauntByClass(TSubclassOf<AUTTaunt> TauntToPlay)
+void AUTCharacter::PlayTauntByClass(TSubclassOf<AUTTaunt> TauntToPlay, float EmoteSpeed)
 {
 	if (!bFeigningDeath && TauntToPlay != nullptr && TauntToPlay->GetDefaultObject<AUTTaunt>()->TauntMontage)
 	{
-		if (Role == ROLE_Authority)
-		{
-			EmoteReplicationInfo.EmoteCount++;
-		}
-
 		StopFiring();
 		if (Hat)
 		{
@@ -4846,8 +4921,19 @@ void AUTCharacter::HasHighScoreChanged_Implementation()
 			{
 				LeaderHatClass = Hat->LeaderHatClass;
 			}
-			else
+
+			if (LeaderHatClass == nullptr)
 			{
+				AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+				if (GS != nullptr && GS->GameModeClass != nullptr)
+				{
+					TSubclassOf<AUTGameMode> UTGameClass(*GS->GameModeClass);
+					if (UTGameClass->GetDefaultObject<AUTGameMode>()->bNoDefaultLeaderHat)
+					{
+						return;
+					}
+				}
+
 				LeaderHatClass = DefaultLeaderHatClass;
 			}
 
@@ -4865,6 +4951,9 @@ void AUTCharacter::HasHighScoreChanged_Implementation()
 				LeaderHat->SetActorRelativeRotation(HatRelativeRotation);
 				LeaderHat->SetActorRelativeLocation(HatRelativeLocation);
 				LeaderHat->OnVariantSelected(HatVariant);
+
+				// We may already be invisible
+				LeaderHat->SetActorHiddenInGame(bInvisible);
 
 				if (Hat)
 				{
@@ -4894,6 +4983,23 @@ void AUTCharacter::SetWalkMovementReduction(float InPct, float InDuration)
 	if (UTCharacterMovement)
 	{
 		UTCharacterMovement->NeedsClientAdjustment();
+	}
+}
+
+void AUTCharacter::HideCharacter(bool bHideCharacter)
+{
+	SetActorHiddenInGame(bHideCharacter);
+	if (Hat)
+	{
+		Hat->SetActorHiddenInGame(bHideCharacter);
+	}
+	if (Eyewear)
+	{
+		Eyewear->SetActorHiddenInGame(bHideCharacter);
+	}
+	if (WeaponAttachment)
+	{
+		WeaponAttachment->SetActorHiddenInGame(bHideCharacter);
 	}
 }
 

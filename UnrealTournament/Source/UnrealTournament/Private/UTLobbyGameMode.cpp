@@ -18,7 +18,6 @@
 AUTLobbyGameMode::AUTLobbyGameMode(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	DefaultPawnClass = NULL;
 	MinPlayersToStart = 2;
 
 	// use our custom HUD class
@@ -39,6 +38,8 @@ void AUTLobbyGameMode::InitGame( const FString& MapName, const FString& Options,
 	UE_LOG(UT,Log,TEXT("===================="));
 	UE_LOG(UT,Log,TEXT("  Init Lobby Game"));
 	UE_LOG(UT,Log,TEXT("===================="));
+
+	GetWorld()->bShouldSimulatePhysics = false;
 
 	Super::InitGame(MapName, Options, ErrorMessage);
 
@@ -72,10 +73,6 @@ void AUTLobbyGameMode::InitGameState()
 
 		// Setupo the beacons to listen for updates from Game Server Instances
 		UTLobbyGameState->SetupLobbyBeacons();
-
-		// Break the MOTD up in to strings to be sent to clients when they login.
-		FString Converted = UTLobbyGameState->ServerMOTD.Replace( TEXT("\\n"), TEXT("\n"));
-		Converted.ParseIntoArray(ParsedMOTD,TEXT("\n"),true);
 	}
 	else
 	{
@@ -167,6 +164,17 @@ FString AUTLobbyGameMode::InitNewPlayer(class APlayerController* NewPlayerContro
 			PS->DesiredFriendToJoin = FriendID;
 		}
 
+		FString MatchId = ParseOption(Options, TEXT("MatchId"));
+		if (!MatchId.IsEmpty())
+		{
+			PS->DesiredMatchIdToJoin = MatchId;
+			
+			if (GetIntOption(Options, TEXT("SpectatorOnly"), 0) > 0)
+			{
+				PS->DesiredTeamNum=255;
+			}
+		}
+
 		PS->bReturnedFromMatch = HasOption(Options,"RTM");
 	}
 
@@ -215,11 +223,7 @@ void AUTLobbyGameMode::PostLogin( APlayerController* NewPlayer )
 	AUTBasePlayerController* PC = Cast<AUTBasePlayerController>(NewPlayer);
 	if (PC)
 	{
-		for (int32 i = 0; i < ParsedMOTD.Num(); i++)
-		{
-			PC->ClientSay(NULL, ParsedMOTD[i], ChatDestinations::MOTD);
-		}
-
+		PC->ClientSay(NULL, UTLobbyGameState->ServerMOTD, ChatDestinations::MOTD);
 		// Set my initial presence....
 		PC->ClientSetPresence(TEXT("Sitting in a Hub"), true, true, true, false);
 	}
@@ -290,32 +294,23 @@ void AUTLobbyGameMode::PreLogin(const FString& Options, const FString& Address, 
 	Super::PreLogin(Options, Address, UniqueId, ErrorMessage);
 }
 
-int32 AUTLobbyGameMode::GetInstanceData(TArray<FGuid>& InstanceIDs)
+void AUTLobbyGameMode::GetInstanceData(TArray<TSharedPtr<FServerInstanceData>>& InstanceData)
 {
-	InstanceIDs.Empty();
 	if (UTLobbyGameState)
 	{
-		for (int32 i=0;i<UTLobbyGameState->GameInstances.Num(); i++)
-		{
-			AUTLobbyMatchInfo* MatchInfo = UTLobbyGameState->GameInstances[i].MatchInfo;
-
-			if (MatchInfo && !MatchInfo->bDedicatedMatch && MatchInfo->ShouldShowInDock())
-			{
-				InstanceIDs.Add(MatchInfo->UniqueMatchID);
-			}
-		}
-
 		for (int32 i=0; i < UTLobbyGameState->AvailableMatches.Num();i++)
 		{
 			AUTLobbyMatchInfo* MatchInfo = UTLobbyGameState->AvailableMatches[i];
 
 			if (MatchInfo && !MatchInfo->bDedicatedMatch && MatchInfo->ShouldShowInDock())
 			{
-				InstanceIDs.Add(MatchInfo->UniqueMatchID);
+				int32 NumPlayers = MatchInfo->NumPlayersInMatch();
+				TSharedPtr<FServerInstanceData> Data = FServerInstanceData::Make(MatchInfo->UniqueMatchID, MatchInfo->CurrentRuleset->Title, (MatchInfo->InitialMapInfo.IsValid() ? MatchInfo->InitialMapInfo->Title : MatchInfo->InitialMap), NumPlayers, MatchInfo->CurrentRuleset->MaxPlayers, 0, MatchInfo->GetFlags(), MatchInfo->AverageRank, MatchInfo->CurrentRuleset->bTeamGame);
+				MatchInfo->GetPlayerData(Data->Players);
+				InstanceData.Add(Data);
 			}
 		}
 	}
-	return InstanceIDs.Num();
 }
 
 int32 AUTLobbyGameMode::GetNumPlayers()

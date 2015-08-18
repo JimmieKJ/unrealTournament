@@ -16,7 +16,6 @@ AUTReplicatedMapInfo::AUTReplicatedMapInfo(const class FObjectInitializer& Objec
 #if !UE_SERVER
 	MapBrush = nullptr;
 #endif
-
 }
 
 void AUTReplicatedMapInfo::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
@@ -34,6 +33,15 @@ void AUTReplicatedMapInfo::GetLifetimeReplicatedProps(TArray< FLifetimeProperty 
 	DOREPLIFETIME_CONDITION(AUTReplicatedMapInfo, MapScreenshotReference, COND_InitialOnly);
 
 	DOREPLIFETIME(AUTReplicatedMapInfo, VoteCount);
+}
+
+void AUTReplicatedMapInfo::PreInitializeComponents()
+{
+	Super::PreInitializeComponents();
+	if (GetWorld()->GetNetMode() != NM_DedicatedServer)
+	{
+		PreLoadScreenshot();
+	}
 }
 
 bool AUTReplicatedMapInfo::IsNetRelevantFor(const AActor* RealViewer, const AActor* ViewTarget, const FVector& SrcLocation) const
@@ -83,4 +91,38 @@ void AUTReplicatedMapInfo::OnRep_VoteCount()
 {
 	UE_LOG(UT,Log,TEXT("Updated"));
 	bNeedsUpdate = true;
+}
+
+void AUTReplicatedMapInfo::OnRep_MapScreenshotReference()
+{
+	PreLoadScreenshot();
+}
+
+void AUTReplicatedMapInfo::PreLoadScreenshot()
+{
+	if (!MapScreenshotReference.IsEmpty())
+	{
+		FString Package = MapScreenshotReference;
+		const int32 Pos = Package.Find(TEXT("."), ESearchCase::CaseSensitive, ESearchDir::FromStart);
+		if ( Pos != INDEX_NONE )
+		{
+			Package = Package.Left(Pos);
+		}
+
+		LoadPackageAsync(Package, FLoadPackageAsyncDelegate::CreateUObject(this, &AUTReplicatedMapInfo::MapTextureLoadComplete),0);
+	}
+}
+
+void AUTReplicatedMapInfo::MapTextureLoadComplete(const FName& InPackageName, UPackage* LoadedPackage, EAsyncLoadingResult::Type Result)
+{
+	if (Result == EAsyncLoadingResult::Succeeded)	
+	{
+		MapScreenshot = FindObject<UTexture2D>(nullptr, *MapScreenshotReference);
+		if (MapScreenshot)
+		{
+#if !UE_SERVER
+			MapBrush = new FSlateDynamicImageBrush(MapScreenshot, FVector2D(256.0, 128.0), NAME_None);
+#endif
+		}
+	}
 }

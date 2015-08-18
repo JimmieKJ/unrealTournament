@@ -16,6 +16,7 @@
 #include "Slate/Panels/SUWCreditsPanel.h"
 #include "Slate/SUWMessageBox.h"
 #include "Slate/SUWindowsStyle.h"
+#include "Slate/SUTStyle.h"
 #include "Slate/SUWDialog.h"
 #include "Slate/SUWToast.h"
 #include "Slate/SUWInputBox.h"
@@ -24,6 +25,7 @@
 #include "Slate/SUWPlayerInfoDialog.h"
 #include "Slate/SUWHUDSettingsDialog.h"
 #include "Slate/SUTQuickMatch.h"
+#include "Slate/SUTJoinInstance.h"
 #include "Slate/SUWFriendsPopup.h"
 #include "Slate/SUWRedirectDialog.h"
 #include "Slate/SUWVideoCompressionDialog.h"
@@ -44,6 +46,8 @@
 #include "UTVideoRecordingFeature.h"
 #include "Slate/SUWYoutubeUpload.h"
 #include "Slate/SUWYoutubeConsent.h"
+#include "Slate/SUWMatchSummary.h"
+#include "UTLobbyGameState.h"
 
 UUTLocalPlayer::UUTLocalPlayer(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -214,6 +218,7 @@ void UUTLocalPlayer::PlayerAdded(class UGameViewportClient* InViewportClient, in
 {
 #if !UE_SERVER
 	SUWindowsStyle::Initialize();
+	SUTStyle::Initialize();
 #endif
 
 	Super::PlayerAdded(InViewportClient, InControllerID);
@@ -269,6 +274,20 @@ bool UUTLocalPlayer::IsMenuGame()
 void UUTLocalPlayer::ShowMenu()
 {
 #if !UE_SERVER
+	
+	if (bRecordingReplay)
+	{
+		static const FName VideoRecordingFeatureName("VideoRecording");
+		if (IModularFeatures::Get().IsModularFeatureAvailable(VideoRecordingFeatureName))
+		{
+			UTVideoRecordingFeature* VideoRecorder = &IModularFeatures::Get().GetModularFeature<UTVideoRecordingFeature>(VideoRecordingFeatureName);
+			if (VideoRecorder)
+			{
+				VideoRecorder->CancelRecording();
+			}
+		}
+	}
+
 	// Create the slate widget if it doesn't exist
 	if (!DesktopSlateWidget.IsValid())
 	{
@@ -489,6 +508,7 @@ TSharedPtr<class SUWCreditsPanel> UUTLocalPlayer::GetCreditsPanel()
 bool UUTLocalPlayer::AreMenusOpen()
 {
 	return DesktopSlateWidget.IsValid()
+		|| MatchSummaryWindow.IsValid()
 		|| LoadoutMenu.IsValid()
 		|| OpenDialogs.Num() > 0;
 	//Add any widget thats not in the menu here
@@ -538,7 +558,7 @@ void UUTLocalPlayer::HideHUDSettings()
 #endif
 }
 
-bool UUTLocalPlayer::IsLoggedIn() 
+bool UUTLocalPlayer::IsLoggedIn() const
 { 
 	return OnlineIdentityInterface.IsValid() && OnlineIdentityInterface->GetLoginStatus(GetControllerId());
 }
@@ -775,12 +795,8 @@ void UUTLocalPlayer::OnLoginStatusChanged(int32 LocalUserNum, ELoginStatus::Type
 		}
 		FUTAnalytics::LoginStatusChanged(UniqueID.ToString());
 
-		// If we hage a pending session, then join it.
-		if (bPendingSession)
-		{
-			bPendingSession = false;
-			OnlineSessionInterface->JoinSession(0, GameSessionName, PendingSession);
-		}
+		// If we have a pending session, then join it.
+		JoinPendingSession();
 	}
 
 
@@ -938,6 +954,16 @@ void UUTLocalPlayer::RemovePlayerOnlineStatusChangedDelegate(FDelegateHandle Del
 	PlayerOnlineStatusChanged.Remove(DelegateHandle);
 }
 
+FDelegateHandle UUTLocalPlayer::RegisterChatArchiveChangedDelegate(const FChatArchiveChanged::FDelegate& NewDelegate)
+{
+	return ChatArchiveChanged.Add(NewDelegate);
+}
+
+void UUTLocalPlayer::RemoveChatArchiveChangedDelegate(FDelegateHandle DelegateHandle)
+{
+	ChatArchiveChanged.Remove(DelegateHandle);
+}
+
 
 void UUTLocalPlayer::ShowToast(FText ToastText)
 {
@@ -1021,6 +1047,13 @@ void UUTLocalPlayer::LoadProfileSettings()
 
 void UUTLocalPlayer::ReadProfileItems()
 {
+#if !UE_BUILD_SHIPPING
+	// this code ends up invoking the asset registry (slow in dev builds) so command line option to skip
+	if (FParse::Param(FCommandLine::Get(), TEXT("noitems")))
+	{
+		return;
+	}
+#endif
 	TSharedPtr<FUniqueNetId> UserID = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());
 	if (UserID.IsValid() && FPlatformTime::Seconds() > LastItemReadTime + 60.0)
 	{
@@ -1156,7 +1189,7 @@ void UUTLocalPlayer::OnReadProfileItemsComplete(FHttpRequestPtr HttpRequest, FHt
 {
 	if (bSucceeded)
 	{
-		ParseProfileItemJson(HttpResponse->GetContentAsString(), ProfileItems);
+		ParseProfileItemJson(HttpResponse->GetContentAsString(), ProfileItems, OnlineXP);
 	}
 }
 
@@ -1248,9 +1281,11 @@ void UUTLocalPlayer::SetNickname(FString NewName)
 	}
 }
 
-void UUTLocalPlayer::SaveChat(FName Type, FString Message, FLinearColor Color)
+void UUTLocalPlayer::SaveChat(FName Type, FString Sender, FString Message, FLinearColor Color, bool bMyChat)
 {
-	ChatArchive.Add( FStoredChatMessage::Make(Type, Message, Color));
+	TSharedPtr<FStoredChatMessage> ArchiveMessage = FStoredChatMessage::Make(Type, Sender, Message, Color, int32(GetWorld()->GetRealTimeSeconds()), bMyChat );
+	ChatArchive.Add( ArchiveMessage );
+	ChatArchiveChanged.Broadcast(this, ArchiveMessage );
 }
 
 FName UUTLocalPlayer::TeamStyleRef(FName InName)
@@ -1720,7 +1755,7 @@ void UUTLocalPlayer::ReturnToMainMenu()
 	}
 }
 
-bool UUTLocalPlayer::JoinSession(const FOnlineSessionSearchResult& SearchResult, bool bSpectate, FName QuickMatchType, bool bFindMatch, int32 DesiredTeam)
+bool UUTLocalPlayer::JoinSession(const FOnlineSessionSearchResult& SearchResult, bool bSpectate, FName QuickMatchType, bool bFindMatch, int32 DesiredTeam,  FString MatchId)
 {
 	UE_LOG(UT,Log, TEXT("##########################"));
 	UE_LOG(UT,Log, TEXT("Joining a New Session"));
@@ -1733,7 +1768,11 @@ bool UUTLocalPlayer::JoinSession(const FOnlineSessionSearchResult& SearchResult,
 
 	ConnectDesiredTeam = DesiredTeam;
 
+	PendingJoinMatchId =  MatchId;
+
+
 	FUniqueNetIdRepl UniqueId = OnlineIdentityInterface->GetUniquePlayerId(0);
+
 	if (!UniqueId.IsValid())
 	{
 		return false;
@@ -1749,10 +1788,21 @@ bool UUTLocalPlayer::JoinSession(const FOnlineSessionSearchResult& SearchResult,
 		}
 		else
 		{
+			SearchResult.Session.SessionSettings.Get(SETTING_TRUSTLEVEL, CurrentSessionTrustLevel);
 			OnlineSessionInterface->JoinSession(0, GameSessionName, SearchResult);
 		}
 
 		return true;
+	}
+}
+
+void UUTLocalPlayer::JoinPendingSession()
+{
+	if (bPendingSession)
+	{
+		bPendingSession = false;
+		PendingSession.Session.SessionSettings.Get(SETTING_TRUSTLEVEL, CurrentSessionTrustLevel);
+		OnlineSessionInterface->JoinSession(0, GameSessionName, PendingSession);
 	}
 }
 
@@ -1806,6 +1856,12 @@ void UUTLocalPlayer::OnJoinSessionComplete(FName SessionName, EOnJoinSessionComp
 			if (ConnectDesiredTeam >= 0)
 			{
 				ConnectionString += FString::Printf(TEXT("?Team=%i"), ConnectDesiredTeam);
+			}
+
+			if (!PendingJoinMatchId.IsEmpty())
+			{
+				ConnectionString += FString::Printf(TEXT("?MatchId=%s"), * PendingJoinMatchId);
+				PendingJoinMatchId.Empty();
 			}
 
 			FWorldContext &Context = GEngine->GetWorldContextFromWorldChecked(GetWorld());
@@ -1875,10 +1931,9 @@ void UUTLocalPlayer::OnDestroySessionComplete(FName SessionName, bool bWasSucces
 	{
 		Logout();
 	}
-	else if (bPendingSession)
+	else
 	{
-		bPendingSession = false;
-		OnlineSessionInterface->JoinSession(0,GameSessionName,PendingSession);
+		JoinPendingSession();
 	}
 
 }
@@ -2035,6 +2090,40 @@ void UUTLocalPlayer::SetCountryFlag(FName NewFlag, bool bSave)
 	}
 }
 
+FName UUTLocalPlayer::GetAvatar()
+{
+	if (CurrentProfileSettings)
+	{
+		return CurrentProfileSettings->Avatar;
+	}
+
+	if (PlayerController)
+	{
+		AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerController->PlayerState);
+		if (PS) return PS->Avatar;
+	}
+	return NAME_None;
+}
+
+void UUTLocalPlayer::SetAvatar(FName NewAvatar, bool bSave)
+{
+	if (CurrentProfileSettings)
+	{
+		CurrentProfileSettings->Avatar = NewAvatar;
+		if (bSave)
+		{
+			SaveProfileSettings();
+		}
+	}
+
+	AUTBasePlayerController * BasePC = Cast<AUTBasePlayerController>(PlayerController);
+	if (BasePC != NULL)
+	{
+		BasePC->ServerSetAvatar(NewAvatar);
+	}
+}
+
+
 #if !UE_SERVER
 
 void UUTLocalPlayer::StartQuickMatch(FString QuickMatchType)
@@ -2135,7 +2224,67 @@ bool UUTLocalPlayer::IsInSession()
 void UUTLocalPlayer::ShowPlayerInfo(TWeakObjectPtr<AUTPlayerState> Target)
 {
 #if !UE_SERVER
-	OpenDialog(SNew(SUWPlayerInfoDialog).PlayerOwner(this).TargetPlayerState(Target));
+	if (MatchSummaryWindow.IsValid() && Target.IsValid())
+	{
+		MatchSummaryWindow->SelectPlayerState(Target.Get());
+	}
+	else
+	{
+		if (DesktopSlateWidget.IsValid() && !IsMenuGame() && Cast<AUTLobbyGameState>(GetWorld()->GameState) == nullptr)
+		{
+			HideMenu();
+		}
+		OpenDialog(SNew(SUWPlayerInfoDialog).PlayerOwner(this).TargetPlayerState(Target));
+	}
+#endif
+}
+
+int32 UUTLocalPlayer::GetFriendsList(TArray< FUTFriend >& OutFriendsList)
+{
+	OutFriendsList.Empty();
+
+	TArray< TSharedPtr< IFriendItem > > FriendsList;
+	int32 RetVal = IFriendsAndChatModule::Get().GetFriendsAndChatManager()->GetFilteredFriendsList(FriendsList);
+	for (auto Friend : FriendsList)
+	{
+		OutFriendsList.Add(FUTFriend(Friend->GetUniqueID()->ToString(), Friend->GetName()));
+	}
+
+	return RetVal;
+}
+
+int32 UUTLocalPlayer::GetRecentPlayersList(TArray< FUTFriend >& OutRecentPlayersList)
+{
+	OutRecentPlayersList.Empty();
+
+	TArray< TSharedPtr< IFriendItem > > RecentPlayersList;
+	int32 RetVal = IFriendsAndChatModule::Get().GetFriendsAndChatManager()->GetRecentPlayersList(RecentPlayersList);
+	for (auto RecentPlayer : RecentPlayersList)
+	{
+		OutRecentPlayersList.Add(FUTFriend(RecentPlayer->GetUniqueID()->ToString(), RecentPlayer->GetName()));
+	}
+
+	return RetVal;
+}
+
+
+void UUTLocalPlayer::OnTauntPlayed(AUTPlayerState* PS, TSubclassOf<AUTTaunt> TauntToPlay, float EmoteSpeed)
+{
+#if !UE_SERVER
+	if (MatchSummaryWindow.IsValid())
+	{
+		MatchSummaryWindow->PlayTauntByClass(PS, TauntToPlay, EmoteSpeed);
+	}
+#endif
+}
+
+void UUTLocalPlayer::OnEmoteSpeedChanged(AUTPlayerState* PS, float EmoteSpeed)
+{
+#if !UE_SERVER
+	if (MatchSummaryWindow.IsValid())
+	{
+		MatchSummaryWindow->SetEmoteSpeed(PS, EmoteSpeed);
+	}
 #endif
 }
 
@@ -2155,7 +2304,7 @@ void UUTLocalPlayer::UpdateRedirect(const FString& FileURL, int32 NumBytes, floa
 
 bool UUTLocalPlayer::ContentExists(const FPackageRedirectReference& Redirect)
 {
-	FString Path = FPaths::Combine(*FPaths::GameSavedDir(), TEXT("DownloadedPaks"), *Redirect.PackageName) + TEXT(".pak");
+	FString Path = FPaths::Combine(*FPaths::GameSavedDir(), TEXT("Paks"), TEXT("DownloadedPaks"), *Redirect.PackageName) + TEXT(".pak");
 	UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
 	if (UTEngine)
 	{
@@ -2317,8 +2466,18 @@ void UUTLocalPlayer::CloseLoadout()
 void UUTLocalPlayer::OpenMapVote(AUTGameState* GameState)
 {
 #if !UE_SERVER
-	SAssignNew(MapVoteMenu,SUWMapVoteDialog).PlayerOwner(this).GameState(GameState);
-	OpenDialog( MapVoteMenu.ToSharedRef(), 200 );
+	if (!MapVoteMenu.IsValid())
+	{
+
+		if (GameState == NULL)
+		{
+			GameState = GetWorld()->GetGameState<AUTGameState>();
+			if (GameState == NULL) return;
+		}
+
+		SAssignNew(MapVoteMenu,SUWMapVoteDialog).PlayerOwner(this).GameState(GameState);
+		OpenDialog( MapVoteMenu.ToSharedRef(), 200 );
+	}
 #endif
 }
 void UUTLocalPlayer::CloseMapVote()
@@ -2328,6 +2487,48 @@ void UUTLocalPlayer::CloseMapVote()
 	{
 		CloseDialog(MapVoteMenu.ToSharedRef());		
 		MapVoteMenu.Reset();
+	}
+#endif
+}
+
+void UUTLocalPlayer::OpenMatchSummary(AUTGameState* GameState)
+{
+#if !UE_SERVER
+	if (MatchSummaryWindow.IsValid())
+	{
+		CloseMatchSummary();
+	}
+	SAssignNew(MatchSummaryWindow, SUWMatchSummary).PlayerOwner(this).GameState(GameState);
+
+	//Disable world rendering since this is a fullscreen widget with a render target
+	GEngine->GameViewport->bDisableWorldRendering = true;
+
+	UUTGameViewportClient* UTGVC = Cast<UUTGameViewportClient>(GEngine->GameViewport);
+	if (MatchSummaryWindow.IsValid() && UTGVC != nullptr)
+	{
+		UTGVC->AddViewportWidgetContent(MatchSummaryWindow.ToSharedRef(), -1);
+		FSlateApplication::Get().SetKeyboardFocus(MatchSummaryWindow.ToSharedRef(), EKeyboardFocusCause::Keyboard);
+	}
+#endif
+}
+void UUTLocalPlayer::CloseMatchSummary()
+{
+#if !UE_SERVER
+	UUTGameViewportClient* UTGVC = Cast<UUTGameViewportClient>(GEngine->GameViewport);
+	if (MatchSummaryWindow.IsValid() && UTGVC != nullptr)
+	{
+		UTGVC->RemoveViewportWidgetContent(MatchSummaryWindow.ToSharedRef());
+		MatchSummaryWindow.Reset();
+
+		//Enable rendering again
+		GEngine->GameViewport->bDisableWorldRendering = false;
+
+		//Since we use SUInGameHomePanel for the time being for chat, we need to clear bForceScores
+		AUTPlayerController* PC = Cast<AUTPlayerController>(PlayerController);
+		if (PC && PC->MyUTHUD)
+		{
+			PC->MyUTHUD->bForceScores = false;
+		}
 	}
 #endif
 }
@@ -2768,6 +2969,8 @@ void UUTLocalPlayer::OnFindSessionByIdComplete(int32 LocalUserNum, bool bWasSuce
 
 void UUTLocalPlayer::CloseAllUI()
 {
+	ChatArchive.Empty();
+
 	GEngine->GameViewport->RemoveAllViewportWidgets();
 #if !UE_SERVER
 	OpenDialogs.Empty();
@@ -2787,5 +2990,36 @@ void UUTLocalPlayer::CloseAllUI()
 	ReplayWindow.Reset();
 	YoutubeDialog.Reset();
 	YoutubeConsentDialog.Reset();
+	CloseMatchSummary();
 #endif
 }
+
+void UUTLocalPlayer::AttemptJoinInstance(TSharedPtr<FServerData> ServerData, FString InstanceId, bool bSpectate)
+{
+#if !UE_SERVER
+
+	SAssignNew(JoinInstanceDialog, SUTJoinInstance)
+		.PlayerOwner(this)
+		.ServerData(ServerData)
+		.InstanceId(InstanceId)
+		.bSpectator(bSpectate);
+
+	if (JoinInstanceDialog.IsValid())
+	{
+		GEngine->GameViewport->AddViewportWidgetContent(JoinInstanceDialog.ToSharedRef(), 151);
+		JoinInstanceDialog->TellSlateIWantKeyboardFocus();
+	}
+#endif
+}
+void UUTLocalPlayer::CloseJoinInstanceDialog()
+{
+#if !UE_SERVER
+	if (JoinInstanceDialog.IsValid())
+	{
+		GEngine->GameViewport->RemoveViewportWidgetContent(JoinInstanceDialog.ToSharedRef());
+		JoinInstanceDialog.Reset();
+	}
+#endif
+
+}
+

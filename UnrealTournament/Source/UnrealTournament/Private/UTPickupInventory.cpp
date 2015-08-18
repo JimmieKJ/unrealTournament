@@ -290,6 +290,7 @@ void AUTPickupInventory::InventoryTypeUpdated_Implementation()
 		OnRep_RespawnTimeRemaining();
 	}
 
+	HUDIcon = (InventoryType != NULL) ? InventoryType.GetDefaultObject()->HUDIcon : FCanvasIcon();
 	TakenSound = (InventoryType != NULL) ? TakenSound = InventoryType.GetDefaultObject()->PickupSound : GetClass()->GetDefaultObject<AUTPickupInventory>()->TakenSound;
 }
 
@@ -403,7 +404,7 @@ void AUTPickupInventory::GiveTo_Implementation(APawn* Target)
 				AUTGameMode* UTGameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
 				if (UTGameMode != nullptr)
 				{
-					UTGameMode->BroadcastSpectatorPickup(PS, Inventory);
+					UTGameMode->BroadcastSpectatorPickup(PS, Inventory->StatsNameCount, Inventory->GetClass());
 				}
 			}
 		}

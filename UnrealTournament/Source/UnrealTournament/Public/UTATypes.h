@@ -54,11 +54,73 @@ namespace ETextVertPos
 	};
 }
 
+const FName NAME_Custom = FName(TEXT("Custom"));
+const FName NAME_RedCountryFlag = FName(TEXT("Red.Team"));
+const FName NAME_BlueCountryFlag = FName(TEXT("Blue.Team"));
+
 namespace CarriedObjectState
 {
 	const FName Home = FName(TEXT("Home"));
 	const FName Held = FName(TEXT("Held"));
 	const FName Dropped = FName(TEXT("Dropped"));
+}
+
+namespace InventoryEventName
+{
+	const FName Landed = FName(TEXT("Landed"));
+	const FName LandedWater = FName(TEXT("LandedWater"));
+	const FName FiredWeapon = FName(TEXT("FiredWeapon"));
+	const FName Jump = FName(TEXT("Jump"));
+	const FName MultiJump = FName(TEXT("MultiJump"));
+	const FName Dodge = FName(TEXT("Dodge"));
+}
+
+namespace StatusMessage
+{
+	const FName NeedBackup = FName(TEXT("NeedBackup"));
+	const FName EnemyFCHere = FName(TEXT("EnemyFCHere"));
+	const FName AreaSecure = FName(TEXT("AreaSecure"));
+	const FName IGotFlag = FName(TEXT("IGotFlag"));
+	const FName DefendFlag = FName(TEXT("DefendFlag"));
+	const FName DefendFC = FName(TEXT("DefendFC"));
+	const FName GetFlagBack = FName(TEXT("GetFlagBack"));
+	const FName ImGoingIn = FName(TEXT("ImGoingIn"));
+	const FName ImOnDefense = FName(TEXT("ImOnDefense"));
+	const FName ImOnOffense = FName(TEXT("ImOnOffense"));
+	const FName SpreadOut = FName(TEXT("SpreadOut"));
+	const FName BaseUnderAttack = FName(TEXT("BaseUnderAttack"));
+}
+
+namespace HighlightNames
+{
+	const FName TopScorer = FName(TEXT("TopScorer"));
+	const FName MostKills = FName(TEXT("MostKills"));
+	const FName LeastDeaths = FName(TEXT("LeastDeaths"));
+	const FName BestKD = FName(TEXT("BestKD"));
+	const FName MostWeaponKills = FName(TEXT("MostWeaponKills"));
+	const FName BestCombo = FName(TEXT("BestCombo"));
+	const FName MostHeadShots = FName(TEXT("MostHeadShots"));
+	const FName MostAirRockets = FName(TEXT("MostAirRockets"));
+
+	const FName TopScorerRed = FName(TEXT("TopScorerRed"));
+	const FName TopScorerBlue = FName(TEXT("TopScorerBlue"));
+	const FName TopFlagCapturesRed = FName(TEXT("TopFlagCapturesRed"));
+	const FName TopFlagCapturesBlue = FName(TEXT("TopFlagCapturesBlue"));
+	const FName FlagCaptures = FName(TEXT("FlagCaptures"));
+	const FName TopAssistsRed = FName(TEXT("TopAssistsRed"));
+	const FName TopAssistsBlue = FName(TEXT("TopAssistsBlue"));
+	const FName Assists = FName(TEXT("Assists"));
+	const FName TopFlagReturnsRed = FName(TEXT("TopFlagReturnsRed"));
+	const FName TopFlagReturnsBlue = FName(TEXT("TopFlagReturnsBlue"));
+	const FName FlagReturns = FName(TEXT("FlagReturns"));
+}
+
+namespace ArmorTypeName
+{
+	const FName ShieldBelt = FName(TEXT("ShieldBelt"));
+	const FName ThighPads = FName(TEXT("ThighPads"));
+	const FName FlakVest = FName(TEXT("FlakVest"));
+	const FName Helmet = FName(TEXT("Helmet"));
 }
 
 namespace ChatDestinations
@@ -576,57 +638,119 @@ static FName NAME_MapInfo_ScreenshotReference(TEXT("ScreenshotReference"));
 // Called upon completion of a redirect transfer.  
 DECLARE_MULTICAST_DELEGATE_ThreeParams(FContentDownloadComplete, class UUTGameViewportClient*, ERedirectStatus::Type, const FString&);
 
+
+
+USTRUCT()
+struct FMatchPlayerListStruct
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY()
+	FString PlayerName;
+
+	UPROPERTY()
+	FString PlayerId;
+
+	UPROPERTY()
+	FString PlayerScore;
+
+	UPROPERTY()
+	uint32 TeamNum;
+
+	FMatchPlayerListStruct()
+		: PlayerName(TEXT(""))
+		, PlayerId(TEXT(""))
+		, PlayerScore(TEXT(""))
+		, TeamNum(255)
+	{
+	}
+
+	FMatchPlayerListStruct(const FString& inPlayerName, const FString& inPlayerId, const FString& inPlayerScore, uint32 inTeamNum)
+		: PlayerName(inPlayerName)
+		, PlayerId(inPlayerId)
+		, PlayerScore(inPlayerScore)
+		, TeamNum(inTeamNum)
+	{
+	}
+};
+
+
+struct FMatchPlayerListCompare
+{
+	FORCEINLINE bool operator()( const FMatchPlayerListStruct A, const FMatchPlayerListStruct B ) const 
+	{
+		return A.PlayerName < B.PlayerName;
+	}
+};
+
+
 USTRUCT()
 struct FServerInstanceData 
 {
 	GENERATED_USTRUCT_BODY()
 
 	UPROPERTY()
-	FString RuleSetIcon;
+	FGuid InstanceId;
 
 	UPROPERTY()
-	FString Description;
+	FString RulesTitle;
 
 	UPROPERTY()
-	UTexture2D* BadgeTexture;
+	FString MapName;
+	
+	UPROPERTY()
+	int32 NumPlayers;
 
-#if !UE_SERVER
-	FSlateDynamicImageBrush* SlateBadge;
-#endif
+	UPROPERTY()
+	int32 MaxPlayers;
+
+	UPROPERTY()
+	int32 NumFriends;
+
+	UPROPERTY()
+	uint32 Flags;
+
+	UPROPERTY()
+	int32 Rank;
+
+	UPROPERTY()
+	bool bTeamGame;
+
+	UPROPERTY()
+	TArray<FMatchPlayerListStruct> Players;
 
 	FServerInstanceData()
-		: RuleSetIcon(TEXT(""))
-		, Description(TEXT(""))
-		, BadgeTexture(NULL)
+		: RulesTitle(TEXT(""))
+		, MapName(TEXT(""))
+		, NumPlayers(0)
+		, MaxPlayers(0)
+		, NumFriends(0)
+		, Flags(0x00)
+		, Rank(1500)
+		, bTeamGame(false)
 	{
 	}
 
-	FServerInstanceData(FString inRuleSetIcon, FString inDescription)
-		: RuleSetIcon(inRuleSetIcon)
-		, Description(inDescription)
-		, BadgeTexture(NULL)
+	FServerInstanceData(FGuid inInstanceId, const FString& inRulesTitle, const FString& inMapName, int32 inNumPlayers, int32 inMaxPlayers, int32 inNumFriends, uint32 inFlags, int32 inRank, bool inbTeamGame)
+		: InstanceId(inInstanceId)
+		, RulesTitle(inRulesTitle)
+		, MapName(inMapName)
+		, NumPlayers(inNumPlayers)
+		, MaxPlayers(inMaxPlayers)
+		, NumFriends(inNumFriends)
+		, Flags(inFlags)
+		, Rank(inRank)
+		, bTeamGame(inbTeamGame)
 	{
 	}
 
-	static TSharedRef<FServerInstanceData> Make(FServerInstanceData& inData)
+	static TSharedRef<FServerInstanceData> Make(FGuid inInstanceId, const FString& inRulesTitle, const FString& inMapName, int32 inNumPlayers, int32 inMaxPlayers, int32 inNumFriends, uint32 inFlags, int32 inRank, bool inbTeamGame)
 	{
-		return MakeShareable( new FServerInstanceData( inData.RuleSetIcon, inData.Description) );
+		return MakeShareable( new FServerInstanceData( inInstanceId, inRulesTitle, inMapName, inNumPlayers, inMaxPlayers, inNumFriends, inFlags, inRank, inbTeamGame) );
 	}
+
 
 };
-
-UENUM()
-namespace EHudKillMsgStyle
-{
-	enum Type
-	{
-		KMS_Text,
-		KMS_Icon,
-		KMS_Both,
-		KMS_None,
-		MAX,
-	};
-}
 
 namespace EQuickMatchResults
 {
@@ -650,3 +774,61 @@ namespace EEpicDefaultRuleTags
 	const FString iCTF = TEXT("iCTF");
 	const FString iCTFT = TEXT("iCTF+T");
 }
+
+
+USTRUCT(BlueprintType)
+struct FCrosshairInfo
+{
+	GENERATED_USTRUCT_BODY()
+
+		FCrosshairInfo()
+	{
+		//Global is used to describe the crosshair that is used when bCustomWeaponCrosshairs == false
+		WeaponClassName = TEXT("Global");
+		CrosshairClassName = TEXT("/Game/RestrictedAssets/UI/Crosshairs/BP_DefaultCrosshair.BP_DefaultCrosshair_C");
+		Color = FLinearColor::White;
+		Scale = 1.0f;
+	}
+
+	UPROPERTY(EditAnywhere, GlobalConfig, Category = CrosshairInfo)
+	FString CrosshairClassName;
+
+	UPROPERTY(EditAnywhere, GlobalConfig, Category = CrosshairInfo)
+	FString WeaponClassName;
+
+	UPROPERTY(EditAnywhere, GlobalConfig, Category = CrosshairInfo)
+	float Scale;
+
+	UPROPERTY(EditAnywhere, GlobalConfig, Category = CrosshairInfo)
+	FLinearColor Color;
+
+	bool operator==(const FCrosshairInfo& Other) const
+	{
+		return WeaponClassName == Other.WeaponClassName;
+	}
+};
+
+namespace EPlayerListContentCommand
+{
+	const FName PlayerCard = FName(TEXT("PlayerCard"));
+	const FName ChangeTeam = FName(TEXT("ChangeTeam"));
+	const FName Spectate = FName(TEXT("Spectate"));
+	const FName Kick = FName(TEXT("Kick"));
+	const FName Ban = FName(TEXT("Ban"));
+	const FName Invite = FName(TEXT("Invite"));
+}
+
+UENUM()
+namespace EInstanceJoinResult
+{
+	enum Type
+	{
+		MatchNoLongerExists,
+		MatchLocked,
+		MatchRankFail,
+		JoinViaLobby,
+		JoinDirectly,
+		MAX,
+	};
+}
+

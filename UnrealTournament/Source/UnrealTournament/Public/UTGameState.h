@@ -57,6 +57,10 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = GameState)
 	uint32 bCasterControl : 1;
 
+	/**If true, had to force balance teams. */
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = GameState)
+		uint32 bForcedBalance : 1;
+
 	/** If a single player's (or team's) score hits this limited, the game is over */
 	UPROPERTY(Replicated, EditDefaultsOnly, BlueprintReadOnly, Category = GameState)
 	int32 GoalScore;
@@ -273,22 +277,25 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 	virtual void CompactSpectatingIDs();
 
 	UPROPERTY()
-		FName SecondaryAttackerStat;
+	FName SecondaryAttackerStat;
 
 protected:
 	static const uint8 MAX_OVERLAY_MATERIALS = 16;
 	/** overlay materials, mapped to bits in UTCharacter's OverlayFlags/WeaponOverlayFlags and used to efficiently handle character/weapon overlays
 	 * only replicated at startup so set any used materials via BeginPlay()
 	 */
-	UPROPERTY(Replicated)
+	UPROPERTY(ReplicatedUsing = OnRep_OverlayMaterials)
 	UMaterialInterface* OverlayMaterials[MAX_OVERLAY_MATERIALS];
-	UPROPERTY(Replicated)
+	UPROPERTY(ReplicatedUsing = OnRep_OverlayMaterials)
 	UMaterialInterface* OverlayMaterials1P[MAX_OVERLAY_MATERIALS];
 
 	virtual void HandleMatchHasEnded() override
 	{
 		MatchEndTime = GetWorld()->TimeSeconds;
 	}
+
+	UFUNCTION()
+	virtual void OnRep_OverlayMaterials();
 
 public:
 	// Will be true if this is an instanced server from a lobby.
@@ -346,6 +353,30 @@ public:
 
 	// Create a replicated map info from a map's asset registry data
 	virtual AUTReplicatedMapInfo* CreateMapInfo(const FAssetData& MapAsset);
+
+	/** Used to translate replicated FName refs to highlights into text. */
+	TMap< FName, FText> HighlightMap;
+
+	/** Clear highlights array. */
+	UFUNCTION(BlueprintCallable, Category = "Game")
+		virtual void ClearHighlights();
+
+	virtual void UpdateMatchHighlights();
+
+	/** On server side - generate a list of highlights for each player.  Every UTPlayerStates' MatchHighlights array will have been cleared when this is called. */
+	UFUNCTION(BlueprintNativeEvent, Category = "Game")
+		void UpdateHighlights();
+
+	/** On client side, returns an array of text based on the PlayerStates Highlights. */
+	UFUNCTION(BlueprintNativeEvent, Category = "Game")
+		TArray<FText> GetPlayerHighlights(AUTPlayerState* PlayerState);
+
+	/** After all major highlights added, fill in some minor ones if there is space left. */
+	UFUNCTION(BlueprintNativeEvent, Category = "Game")
+		void AddMinorHighlights(AUTPlayerState* PS);
+
+	/** Add appropriate top scorer highlights to each team score leader. */
+	virtual void SetTopScorerHighlights(AUTPlayerState* TopScorerRed, AUTPlayerState* TopScorerBlue);
 
 	UPROPERTY()
 		TArray<FName> GameScoreStats;
@@ -409,7 +440,11 @@ public:
 	UFUNCTION(BlueprintCallable, Category = GameState)
 	bool AreAllPlayersReady();
 
-
+	/** returns whether the player can choose to spawn at the passed in start point (for game modes that allow players to pick)
+	 * valid on both client and server
+	 */
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = GameState)
+	bool IsAllowedSpawnPoint(AUTPlayerState* Chooser, APlayerStart* DesiredStart) const;
 };
 
 

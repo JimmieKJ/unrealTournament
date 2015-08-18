@@ -18,6 +18,11 @@ void AUTBaseGameMode::PreInitializeComponents()
 
 void AUTBaseGameMode::InitGame( const FString& MapName, const FString& Options, FString& ErrorMessage )
 {
+	if (!PlayerPawnObject.IsNull())
+	{
+		DefaultPawnClass = Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *PlayerPawnObject.ToStringReference().AssetLongPathname, NULL, LOAD_NoWarn));
+	}
+
 	// Grab the InstanceID if it's there.
 	LobbyInstanceID = GetIntOption( Options, TEXT("InstanceID"), 0);
 	
@@ -33,6 +38,11 @@ void AUTBaseGameMode::InitGame( const FString& MapName, const FString& Options, 
 
 	bRequirePassword = !ServerPassword.IsEmpty() || !SpectatePassword.IsEmpty();
 	bTrainingGround = EvalBoolOptions(ParseOption(Options, TEXT("TG")), bTrainingGround);
+
+	if (bTrainingGround)
+	{
+		UE_LOG(UT,Log,TEXT("=== This is a Training Ground Server.  It will only be visibly to beginners ==="));
+	}
 
 	
 	UE_LOG(UT,Log,TEXT("Password: %i %s"), bRequirePassword, ServerPassword.IsEmpty() ? TEXT("NONE") : *ServerPassword)
@@ -52,9 +62,8 @@ FName AUTBaseGameMode::GetNextChatDestination(AUTPlayerState* PlayerState, FName
 	return ChatDestinations::Local;
 }
 
-int32 AUTBaseGameMode::GetInstanceData(TArray<FGuid>& InstanceIDs)
+void AUTBaseGameMode::GetInstanceData(TArray<TSharedPtr<FServerInstanceData>>& InstanceData)
 {
-	return 0;
 }
 
 int32 AUTBaseGameMode::GetNumPlayers()

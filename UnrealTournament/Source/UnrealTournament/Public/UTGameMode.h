@@ -10,6 +10,7 @@
 
 namespace MatchState
 {
+	extern UNREALTOURNAMENT_API const FName PlayerIntro;					// Playing the player intro in the match summary window
 	extern UNREALTOURNAMENT_API const FName CountdownToBegin;				// We are entering this map, actors are not yet ticking
 	extern UNREALTOURNAMENT_API const FName MatchEnteringOvertime;			// The game is entering overtime
 	extern UNREALTOURNAMENT_API const FName MatchIsInOvertime;				// The game is in overtime
@@ -21,6 +22,10 @@ USTRUCT()
 struct FLoadoutInfo
 {
 	GENERATED_USTRUCT_BODY()
+
+	// The class of the weapon to include
+	UPROPERTY()
+	FString ItemClassStringRef;
 
 	// The class of the weapon to include
 	UPROPERTY()
@@ -126,6 +131,10 @@ public:
 	UPROPERTY(config)
 	int32 TimeLimit;    
 
+	/** multiplier to all XP awarded */
+	UPROPERTY()
+	float XPMultiplier;
+
 	/** Will be TRUE if the game has ended */
 	UPROPERTY()
 	uint32 bGameEnded:1;    
@@ -133,10 +142,6 @@ public:
 	/** Will be TRUE if this is a team game */
 	UPROPERTY()
 	uint32 bTeamGame:1;
-
-	/** TRUE if we have started the count down to the match starting */
-	UPROPERTY()
-	bool bStartedCountDown;
 
 	UPROPERTY(BlueprintReadWrite, Category = "Game")
 	bool bFirstBloodOccurred;
@@ -221,6 +226,14 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Game")
 	bool bAmmoIsLimited;
 
+	/** If true, the intro cinematic will play just before the countown to begin */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Game")
+	bool bPlayPlayerIntro;
+
+	/** Last time asnyone sent a taunt voice message. */
+	UPROPERTY()
+	float LastGlobalTauntTime;
+
 	/** Toggle invulnerability */
 	UFUNCTION(Exec, BlueprintCallable, Category = AI)
 	virtual void Demigod();
@@ -278,6 +291,10 @@ public:
 
 	/** cached list of UTBotCharacter assets from the asset registry, so we don't need to query the registry every time we add a bot */
 	TArray<FAssetData> BotAssets;
+
+	/** Sorted array of remaining eligible bot characters to select from. */
+	UPROPERTY()
+	TArray<UUTBotCharacter*> EligibleBots;
 
 	/** type of SquadAI that contains game specific AI logic for this gametype */
 	UPROPERTY(EditDefaultsOnly, Category = AI)
@@ -384,6 +401,9 @@ public:
 	virtual void HandleCountdownToBegin();
 	virtual void CheckCountDown();
 
+	virtual void HandlePlayerIntro();
+	virtual void EndPlayerIntro();
+
 	virtual void HandleMatchIsWaitingToStart() override;
 	virtual void HandleMatchHasStarted();
 	virtual void AnnounceMatchStart();
@@ -411,7 +431,7 @@ public:
 	virtual void BuildServerResponseRules(FString& OutRules);
 
 	void AddKillEventToReplay(AController* Killer, AController* Other, TSubclassOf<UDamageType> DamageType);
-	void AddMultiKillEventToReplay(AController* Killer);
+	void AddMultiKillEventToReplay(AController* Killer, int32 MultiKillLevel);
 	void AddSpreeKillEventToReplay(AController* Killer, int32 SpreeLevel);
 protected:
 
@@ -514,7 +534,7 @@ public:
 	virtual void BroadcastSpectator(AActor* Sender, TSubclassOf<ULocalMessage> Message, int32 Switch, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject);
 
 	/**Sends a pickup message to all spectators*/
-	virtual void BroadcastSpectatorPickup(AUTPlayerState* PS, const AUTInventory* Inventory);
+	virtual void BroadcastSpectatorPickup(AUTPlayerState* PS, FName StatsName, UClass* PickupClass);
 
 	/** called on the default object of the game class being played to precache announcer sounds
 	 * needed because announcers are dynamically loaded for convenience of user announcer packs, so we need to load up the audio we think we'll use at game time
@@ -549,7 +569,7 @@ protected:
 	virtual void SendEndOfGameStats(FName Reason);
 	virtual void UpdateSkillRating();
 
-	virtual void AwardProfileItems();
+	virtual void AwardXP();
 
 private:
 	// hacked into ReceiveBeginPlay() so we can do mutator replacement of Actors and such
@@ -621,13 +641,15 @@ public:
 	virtual void BuildRewardInfo(AUTPlayerState* PlayerState, TSharedPtr<class SUTTabWidget> TabWidget, TArray<TSharedPtr<struct TAttributeStat> >& StatList);
 	virtual void BuildWeaponInfo(AUTPlayerState* PlayerState, TSharedPtr<class SUTTabWidget> TabWidget, TArray<TSharedPtr<struct TAttributeStat> >& StatList);
 	virtual void BuildMovementInfo(AUTPlayerState* PlayerState, TSharedPtr<class SUTTabWidget> TabWidget, TArray<TSharedPtr<struct TAttributeStat> >& StatList);
-
 #endif
 
 	virtual void InstanceNextMap(const FString& NextMap);
 
 	// Allow game modes to restrict some content.
 	virtual bool ValidateHat(AUTPlayerState* HatOwner, const FString& HatClass);
+	
+	UPROPERTY(EditDefaultsOnly, Category="Game")
+	bool bNoDefaultLeaderHat;
 
 	UPROPERTY(Config)
 	TArray<FLoadoutInfo> AvailableLoadout;
@@ -636,7 +658,7 @@ public:
 	UFUNCTION(BlueprintNativeEvent, Category="Game")
 	bool PlayerCanAltRestart( APlayerController* Player );
 
-	virtual void GetGameURLOptions(TArray<FString>& OptionsList, int32& DesiredPlayerCount);
+	virtual void GetGameURLOptions(const TArray<TSharedPtr<TAttributePropertyBase>>& MenuProps, TArray<FString>& OptionsList, int32& DesiredPlayerCount);
 
 	// Called from the Beacon, it makes this server become a dedicated instance
 	virtual void BecomeDedicatedInstance(FGuid HubGuid);

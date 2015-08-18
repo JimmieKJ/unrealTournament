@@ -396,7 +396,7 @@ void SUWGameSetupDialog::BuildMapList()
 					Package = Package.Left(Pos);
 				}
 
-				LoadPackageAsync(Package, FLoadPackageAsyncDelegate::CreateRaw(this, &SUWGameSetupDialog::TextureLoadComplete),0);
+				LoadPackageAsync(Package, FLoadPackageAsyncDelegate::CreateSP(this, &SUWGameSetupDialog::TextureLoadComplete), 0);
 			}
 		}
 
@@ -462,7 +462,7 @@ void SUWGameSetupDialog::BuildMapPanel()
 					.Padding(10.0f,0.0f,0.0f,0.0f)
 					[
 						SNew(STextBlock)
-						.Text(NSLOCTEXT("SUWGameSetupDialog","MapListInstructions","Select Starting Map..."))
+						.Text(NSLOCTEXT("SUWGameSetupDialog","MapListInstructions","Select Starting Map"))
 						.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.TextStyle")
 					]
 				]

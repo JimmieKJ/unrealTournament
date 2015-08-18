@@ -21,7 +21,7 @@ bool UUTKillerMessage::UseLargeFont(int32 MessageIndex) const
 	return false;
 }
 
-FLinearColor UUTKillerMessage::GetMessageColor(int32 MessageIndex) const
+FLinearColor UUTKillerMessage::GetMessageColor_Implementation(int32 MessageIndex) const
 {
 	return FLinearColor::White;
 }

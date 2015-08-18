@@ -36,7 +36,8 @@ void UUTHUDWidget_Spectator::DrawSimpleMessage(FText SimpleMessage, float DeltaT
 	{
 		return;
 	}
-	float BackgroundWidth = 1920.f;
+	float ScreenWidth = (Canvas->ClipX / RenderScale);
+	float BackgroundWidth = ScreenWidth;
 	float TextPosition = 360.f;
 	float MessageOffset = 0.f;
 	float YOffset = 0.f;
@@ -45,12 +46,13 @@ void UUTHUDWidget_Spectator::DrawSimpleMessage(FText SimpleMessage, float DeltaT
 		float YL = 0.0f;
 		Canvas->StrLen(UTHUDOwner->LargeFont, SimpleMessage.ToString(), BackgroundWidth, YL);
 		BackgroundWidth += 64.f;
-		MessageOffset = UTGameState->HasMatchEnded() ? 960.f - 0.5f*BackgroundWidth : 1920.f - BackgroundWidth;
+		MessageOffset = UTGameState->HasMatchEnded() ? (ScreenWidth * 0.5f) - 0.5f*BackgroundWidth : ScreenWidth - BackgroundWidth;
 		TextPosition = 32.f + MessageOffset;
 		YOffset = -32.f;
 	}
 
 	// Draw the Background
+	bMaintainAspectRatio = false;
 	DrawTexture(TextureAtlas, MessageOffset, YOffset, BackgroundWidth, 108.0f, 4, 2, 124, 128, 1.0);
 	if (bViewingMessage)
 	{
@@ -58,6 +60,8 @@ void UUTHUDWidget_Spectator::DrawSimpleMessage(FText SimpleMessage, float DeltaT
 	}
 	else
 	{
+		bMaintainAspectRatio = true;
+
 		// Draw the Logo
 		DrawTexture(TextureAtlas, 20, 54, 301, 98, 162, 14, 301, 98.0, 1.0f, FLinearColor::White, FVector2D(0.0, 0.5));
 
@@ -87,9 +91,18 @@ FText UUTHUDWidget_Spectator::GetSpectatorMessageText(bool &bViewingMessage)
 			// Look to see if we are waiting to play and if we must be ready.  If we aren't, just exit cause we don
 			if (UTGameState->IsMatchInCountdown())
 			{
-				SpectatorMessage = (UTPS && UTPS->RespawnChoiceA && UTPS->RespawnChoiceB)
-					? NSLOCTEXT("UUTHUDWidget_Spectator", "Choose Start", "Choose your start position")
-					: NSLOCTEXT("UUTHUDWidget_Spectator", "MatchStarting", "Match is about to start");
+				if (UTPS && UTPS->RespawnChoiceA && UTPS->RespawnChoiceB)
+				{
+					SpectatorMessage = NSLOCTEXT("UUTHUDWidget_Spectator", "Choose Start", "Choose your start position");
+				}
+				else if (UTGameState->bForcedBalance)
+				{
+					SpectatorMessage = NSLOCTEXT("UUTHUDWidget_Spectator", "BalanceTeams", "Balancing teams - match is about to start.");
+				}
+				else
+				{
+					SpectatorMessage = NSLOCTEXT("UUTHUDWidget_Spectator", "MatchStarting", "Match is about to start");
+				}
 			}
 			else if (UTGameState->PlayersNeeded > 0)
 			{
@@ -110,6 +123,10 @@ FText UUTHUDWidget_Spectator::GetSpectatorMessageText(bool &bViewingMessage)
 			else if (UTPS && UTPS->bOnlySpectator)
 			{
 				SpectatorMessage = NSLOCTEXT("UUTHUDWidget_Spectator", "WaitingForReady", "Waiting for players to ready up.");
+			}
+			else if (UTHUDOwner->GetScoreboard() && UTHUDOwner->GetScoreboard()->IsInteractive())
+			{
+				SpectatorMessage = NSLOCTEXT("UUTHUDWidget_Spectator", "CloseMenu", "Press [ESC] to close menu.");
 			}
 			else
 			{

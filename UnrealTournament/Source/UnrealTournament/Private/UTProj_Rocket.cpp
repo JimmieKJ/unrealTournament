@@ -10,8 +10,10 @@ AUTProj_Rocket::AUTProj_Rocket(const class FObjectInitializer& ObjectInitializer
 : Super(ObjectInitializer)
 {
 	DamageParams.BaseDamage = 100;
-	DamageParams.OuterRadius = 420.f;
-	Momentum = 142500.0f;
+	DamageParams.OuterRadius = 330.f;  
+	DamageParams.InnerRadius = 15.f; 
+	DamageParams.MinimumDamage = 20.f;
+	Momentum = 140000.0f;
 	InitialLifeSpan = 10.f;
 	ProjectileMovement->InitialSpeed = 2900.f;
 	ProjectileMovement->MaxSpeed = 2900.f;
@@ -70,7 +72,7 @@ void AUTProj_Rocket::DamageImpactedActor_Implementation(AActor* OtherActor, UPri
 				PS->ModifyStatsValue(NAME_AirRox, 1);
 				AirRoxCount = PS->GetStatsValue(NAME_AirRox);
 			}
-			PC->SendPersonalMessage(AirRocketRewardClass, AirRoxCount);
+			PC->SendPersonalMessage(AirRocketRewardClass, AirRoxCount, PS, HitCharacter->PlayerState);
 		}
 	}
 }

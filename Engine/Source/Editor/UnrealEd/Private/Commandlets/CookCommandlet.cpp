@@ -1097,19 +1097,7 @@ bool UCookCommandlet::NewCook( const TArray<ITargetPlatform*>& Platforms, TArray
 			MapList.Add(MapToCook.FilePath);
 		}
 	}
-
-	// if we still don't have any mapsList check if the allmaps ini section is filled out
-	// this is for backwards compatibility
-	if (MapList.Num() == 0)
-	{
-		GEditor->ParseMapSectionIni(TEXT("-MAPINISECTION=AllMaps"), MapList);
-	}
-
-
-	// put the always cook map list at the front of the map list
-	AlwaysCookMapList.Append(MapList);
-	Swap(MapList, AlwaysCookMapList);
-
+	
 	TArray<FString> CmdLineMapEntries;
 	TArray<FString> CmdLineDirEntries;
 	TArray<FString> CmdLineCultEntries;
@@ -1151,6 +1139,17 @@ bool UCookCommandlet::NewCook( const TArray<ITargetPlatform*>& Platforms, TArray
 		// Check for -COOKCULTURES=<culture name> entries
 		CmdLineCultEntries += GetSwitchValueElements(TEXT("COOKCULTURES"));
 	}
+
+	// if we still don't have any mapsList check if the allmaps ini section is filled out
+	// this is for backwards compatibility
+	if (MapList.Num() == 0 && CmdLineMapEntries.Num() == 0)
+	{
+		GEditor->ParseMapSectionIni(TEXT("-MAPINISECTION=AllMaps"), MapList);
+	}
+
+	// put the always cook map list at the front of the map list
+	AlwaysCookMapList.Append(MapList);
+	Swap(MapList, AlwaysCookMapList);
 
 	// Also append any cookdirs from the project ini files; these dirs are relative to the game content directory
 	{

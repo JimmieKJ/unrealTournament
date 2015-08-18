@@ -8,6 +8,7 @@
 #include "UTHat.h"
 #include "UTTaunt.h"
 #include "UTCharacterContent.h"
+#include "UTCrosshair.h"
 
 class FPackageContent : public TSharedFromThis< FPackageContent >
 {
@@ -20,6 +21,7 @@ public:
 	void PackageHat(UClass* HatClass);
 	void PackageTaunt(UClass* TauntClass);
 	void PackageCharacter(UClass* CharacterClass);
+	void PackageCrosshair(UClass* CrosshairClass);
 
 	void CreateUATTask(const FString& CommandLine, const FString& DLCName, const FText& TaskName, const FText &TaskShortName, const FSlateBrush* TaskIcon);
 private:
@@ -33,6 +35,7 @@ private:
 	void OpenPackageHatWindow();
 	void OpenPackageTauntWindow();
 	void OpenPackageCharacterWindow();
+	void OpenPackageCrosshairWindow();
 	
 	void CreatePackageContentMenu(FToolBarBuilder& Builder);
 	TSharedRef<FExtender> OnExtendLevelEditorViewMenu(const TSharedRef<FUICommandList> CommandList);
@@ -79,6 +82,7 @@ public:
 		PACKAGE_Hat,
 		PACKAGE_Character,
 		PACKAGE_Taunt,
+		PACKAGE_Crosshair,
 	};
 
 	SLATE_BEGIN_ARGS(SPackageContentDialog)
@@ -189,5 +193,28 @@ public:
 		const bool bCharacterContentBased = InUnloadedClassData->IsChildOf(AUTCharacterContent::StaticClass());
 		const bool bBlueprintType = InUnloadedClassData->HasAnyClassFlags(CLASS_CompiledFromBlueprint);
 		return bCharacterContentBased && bBlueprintType;
+	}
+};
+
+class FCrosshairClassFilter : public IClassViewerFilter
+{
+public:
+
+	virtual bool IsClassAllowed(const FClassViewerInitializationOptions& InInitOptions, const UClass* InClass, TSharedRef< FClassViewerFilterFuncs > InFilterFuncs) override
+	{
+		if (NULL != InClass)
+		{
+			const bool bCrosshairContentBased = InClass->IsChildOf(UUTCrosshair::StaticClass());
+			const bool bBlueprintType = InClass->HasAnyClassFlags(CLASS_CompiledFromBlueprint);
+			return bCrosshairContentBased && bBlueprintType;
+		}
+		return false;
+	}
+
+	virtual bool IsUnloadedClassAllowed(const FClassViewerInitializationOptions& InInitOptions, const TSharedRef< const IUnloadedBlueprintData > InUnloadedClassData, TSharedRef< FClassViewerFilterFuncs > InFilterFuncs) override
+	{
+		const bool bCrosshairContentBased = InUnloadedClassData->IsChildOf(UUTCrosshair::StaticClass());
+		const bool bBlueprintType = InUnloadedClassData->HasAnyClassFlags(CLASS_CompiledFromBlueprint);
+		return bCrosshairContentBased && bBlueprintType;
 	}
 };

@@ -85,7 +85,7 @@ class UNREALTOURNAMENT_API UUTSpreeMessage : public UUTLocalMessage
 		bIsUnique = true;
 		bIsConsoleMessage = false;
 		Lifetime = 3.f;
-
+		bWantsBotReaction = true;
 	}
 
 	virtual void ClientReceive(const FClientReceiveData& ClientData) const override
@@ -96,7 +96,7 @@ class UNREALTOURNAMENT_API UUTSpreeMessage : public UUTLocalMessage
 		{
 			if (PC != NULL && PC->Announcer != NULL)
 			{
-				PC->Announcer->PlayAnnouncement(GetClass(), ClientData.MessageIndex, ClientData.OptionalObject);
+				PC->Announcer->PlayAnnouncement(GetClass(), ClientData.MessageIndex, ClientData.RelatedPlayerState_1, ClientData.RelatedPlayerState_2, ClientData.OptionalObject);
 			}
 		}
 		else if (PC != NULL)
@@ -109,7 +109,7 @@ class UNREALTOURNAMENT_API UUTSpreeMessage : public UUTLocalMessage
 		}
 	}
 
-	virtual FLinearColor GetMessageColor(int32 MessageIndex) const override
+	virtual FLinearColor GetMessageColor_Implementation(int32 MessageIndex) const override
 	{
 		return (MessageIndex < 0) ? FLinearColor::White : FLinearColor(1.f, 0.5f, 0.f, 1.f);
 	}

@@ -17,6 +17,7 @@ void UUTWeaponStateFiring::BeginState(const UUTWeaponState* PrevState)
 
 void UUTWeaponStateFiring::EndState()
 {
+	bDelayShot = false;
 	ToggleLoopingEffects(false);
 	GetOuterAUTWeapon()->OnStoppedFiring();
 	GetOuterAUTWeapon()->StopFiringEffects();
@@ -42,8 +43,6 @@ bool UUTWeaponStateFiring::WillSpawnShot(float DeltaTime)
 {
 	return (GetOuterAUTWeapon()->GetUTOwner()->IsPendingFire(GetOuterAUTWeapon()->GetCurrentFireMode())) && (GetOuterAUTWeapon()->GetWorldTimerManager().GetTimerRemaining(RefireCheckHandle) < DeltaTime);
 }
-
-static float LastShotTime = 0.f;
 
 void UUTWeaponStateFiring::RefireCheckTimer()
 {
@@ -73,10 +72,9 @@ void UUTWeaponStateFiring::RefireCheckTimer()
 		}
 		else if (GetOuterAUTWeapon()->HandleContinuedFiring())
 		{
-			bDelayShot = GetOuterAUTWeapon()->bNetDelayedShot && !GetUTOwner()->DelayedShotFound();
+			bDelayShot = GetOuterAUTWeapon()->bNetDelayedShot && !GetUTOwner()->DelayedShotFound() && Cast<APlayerController>(GetUTOwner()->GetController());
 			if (!bDelayShot)
 			{
-				LastShotTime = GetWorld()->GetTimeSeconds();
 				FireShot();
 			}
 		}
@@ -89,8 +87,8 @@ void UUTWeaponStateFiring::HandleDelayedShot()
 	if (bDelayShot)
 	{
 		GetOuterAUTWeapon()->bNetDelayedShot = true;
-		FireShot();
 		bDelayShot = false;
+		FireShot();
 		GetOuterAUTWeapon()->bNetDelayedShot = false;
 	}
 }
@@ -109,6 +107,8 @@ void UUTWeaponStateFiring::FireShot()
 
 void UUTWeaponStateFiring::PutDown()
 {
+	HandleDelayedShot();
+
 	// by default, firing states delay put down until the weapon returns to active via player letting go of the trigger, out of ammo, etc
 	// However, allow putdown time to overlap with reload time - start a timer to do an early check
 	float TimeTillPutDown = GetOuterAUTWeapon()->GetWorldTimerManager().GetTimerRemaining(RefireCheckHandle);

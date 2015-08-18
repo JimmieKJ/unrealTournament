@@ -20,6 +20,7 @@ protected:
 	virtual FReply OnCloseMenu(TSharedPtr<SComboButton> MenuButton);
 
 	virtual FReply OnTeamChangeClick();
+	virtual FReply OnReadyChangeClick();
 	virtual FReply OnMapVoteClick();
 	virtual FReply OnSpectateClick();
 	virtual void SetInitialPanel();

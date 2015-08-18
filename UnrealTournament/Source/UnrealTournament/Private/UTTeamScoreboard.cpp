@@ -8,6 +8,7 @@
 UUTTeamScoreboard::UUTTeamScoreboard(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
 	NumPages = 2;
+	TeamScoringHeader = NSLOCTEXT("UTTeamScoreboard", "TeamScoringBreakDownHeader", "Team Scoring Breakdown");
 }
 
 void UUTTeamScoreboard::DrawTeamPanel(float RenderDelta, float& YOffset)
@@ -307,13 +308,12 @@ void UUTTeamScoreboard::DrawTeamScoreBreakdown(float DeltaTime, float& YPos, flo
 	StatsFontInfo.TextFont = UTHUDOwner->SmallFont;
 	bHighlightStatsLineTopValue = true;
 
-	FText CombinedHeader = NSLOCTEXT("UTTeamScoreboard", "TeamScoringBreakDownHeader", "Team Scoring Breakdown");
 	float XL, SmallYL ;
 	Canvas->TextSize(UTHUDOwner->SmallFont, "TEST", XL, SmallYL, RenderScale, RenderScale);
 	StatsFontInfo.TextHeight = SmallYL;
 	float MedYL;
-	Canvas->TextSize(UTHUDOwner->MediumFont, CombinedHeader.ToString(), XL, MedYL, RenderScale, RenderScale);
-	Canvas->DrawText(UTHUDOwner->MediumFont, CombinedHeader, XOffset + 0.5f*(ScoreWidth - XL), YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
+	Canvas->TextSize(UTHUDOwner->MediumFont, TeamScoringHeader.ToString(), XL, MedYL, RenderScale, RenderScale);
+	Canvas->DrawText(UTHUDOwner->MediumFont, TeamScoringHeader, XOffset + 0.5f*(ScoreWidth - XL), YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
 	YPos += 1.1f * MedYL;
 
 	if (UTGameState == NULL || UTGameState->Teams.Num() < 2 || UTGameState->Teams[0] == NULL || UTGameState->Teams[1] == NULL)
@@ -356,10 +356,35 @@ void UUTTeamScoreboard::DrawTeamStats(float DeltaTime, float& YPos, float XOffse
 	DrawStatsLine(NSLOCTEXT("UTScoreboard", "PadPickups", "Thigh Pad Pickups"), UTGameState->Teams[0]->GetStatsValue(NAME_ArmorPadsCount), UTGameState->Teams[1]->GetStatsValue(NAME_ArmorPadsCount), DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
 	DrawStatsLine(NSLOCTEXT("UTScoreboard", "HelmetPickups", "Helmet Pickups"), UTGameState->Teams[0]->GetStatsValue(NAME_HelmetCount), UTGameState->Teams[1]->GetStatsValue(NAME_HelmetCount), DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
 
+	int32 TeamStat0 = UTGameState->Teams[0]->GetStatsValue(NAME_UDamageCount);
+	int32 TeamStat1 = UTGameState->Teams[1]->GetStatsValue(NAME_UDamageCount);
+	if (TeamStat0 > 0 || TeamStat1 > 0)
+	{
+		DrawStatsLine(NSLOCTEXT("UTScoreboard", "UDamagePickups", "UDamage Pickups"), TeamStat0, TeamStat1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
+	}
+	TeamStat0 = UTGameState->Teams[0]->GetStatsValue(NAME_BerserkCount);
+	TeamStat1 = UTGameState->Teams[1]->GetStatsValue(NAME_BerserkCount);
+	if (TeamStat0 > 0 || TeamStat1 > 0)
+	{
+		DrawStatsLine(NSLOCTEXT("UTScoreboard", "BerserkPickups", "Berserk Pickups"), TeamStat0, TeamStat1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
+	}
+	TeamStat0 = UTGameState->Teams[0]->GetStatsValue(NAME_InvisibilityCount);
+	TeamStat1 = UTGameState->Teams[1]->GetStatsValue(NAME_InvisibilityCount);
+	if (TeamStat0 > 0 || TeamStat1 > 0)
+	{
+		DrawStatsLine(NSLOCTEXT("UTScoreboard", "InvisibilityPickups", "Invisibility Pickups"), TeamStat0, TeamStat1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
+	}
+	TeamStat0 = UTGameState->Teams[0]->GetStatsValue(NAME_KegCount);
+	TeamStat1 = UTGameState->Teams[1]->GetStatsValue(NAME_KegCount);
+	if (TeamStat0 > 0 || TeamStat1 > 0)
+	{
+		DrawStatsLine(NSLOCTEXT("UTScoreboard", "KegPickups", "Keg Pickups"), TeamStat0, TeamStat1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
+	}
+
 	DrawClockTeamStatsLine(NSLOCTEXT("UTScoreboard", "UDamage", "UDamage Control"), NAME_UDamageTime, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth, true);
 	DrawClockTeamStatsLine(NSLOCTEXT("UTScoreboard", "Berserk", "Berserk Control"), NAME_BerserkTime, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth, true);
 	DrawClockTeamStatsLine(NSLOCTEXT("UTScoreboard", "Invisibility", "Invisibility Control"), NAME_InvisibilityTime, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth, true);
-
+	
 	int32 BootJumpsRed = UTGameState->Teams[0]->GetStatsValue(NAME_BootJumps);
 	int32 BootJumpsBlue = UTGameState->Teams[1]->GetStatsValue(NAME_BootJumps);
 	if ((BootJumpsRed != 0) || (BootJumpsBlue != 0))

@@ -19,6 +19,8 @@
 #include "UTRemoteRedeemer.h"
 #include "UTGameEngine.h"
 #include "UTFlagInfo.h"
+#include "UTCrosshair.h"
+#include "UTATypes.h"
 
 AUTHUD::AUTHUD(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
@@ -68,8 +70,10 @@ AUTHUD::AUTHUD(const class FObjectInitializer& ObjectInitializer) : Super(Object
 	TeamIconUV[0] = FVector2D(257.f, 940.f);
 	TeamIconUV[1] = FVector2D(333.f, 940.f);
 
-	KillMsgStyle = EHudKillMsgStyle::KMS_Icon;
+	bDrawChatKillMsg = false;
 	bDrawPopupKillMsg = true;
+
+	bCustomWeaponCrosshairs = true;
 }
 
 void AUTHUD::BeginPlay()
@@ -319,7 +323,6 @@ UUTHUDWidget* AUTHUD::FindHudWidgetByClass(TSubclassOf<UUTHUDWidget> SearchWidge
 
 void AUTHUD::CreateScoreboard(TSubclassOf<class UUTScoreboard> NewScoreboardClass)
 {
-	//MyUTScoreboard = ConstructObject<UUTScoreboard>(NewScoreboardClass, GetTransientPackage());
 	// Scoreboards are now HUD widgets
 }
 
@@ -347,9 +350,45 @@ void AUTHUD::ToggleScoreboard(bool bShow)
 
 void AUTHUD::NotifyMatchStateChange()
 {
-	if (MyUTScoreboard != NULL)
+	// FIXMESTEVE - in playerintro mode, open match summary if not open (option for UTLP openmatchsummary)
+	UUTLocalPlayer* UTLP = UTPlayerOwner ? Cast<UUTLocalPlayer>(UTPlayerOwner->Player) : NULL;
+	AUTGameState* GS = Cast<AUTGameState>(GetWorld()->GetGameState());
+	if (UTLP && GS && !GS->IsPendingKillPending() && (GS->GetMatchState() != MatchState::CountdownToBegin))
 	{
-		MyUTScoreboard->SetScoringPlaysTimer(GetWorld()->GetGameState()->GetMatchState() == MatchState::WaitingPostMatch);
+		if (GS->GetMatchState() == MatchState::WaitingPostMatch)
+		{
+			GetWorldTimerManager().SetTimer(MatchSummaryHandle, this, &AUTHUD::OpenMatchSummary, 3.0f, false);
+		}
+		else if (GS->GetMatchState() == MatchState::WaitingToStart)
+		{
+			// GetWorldTimerManager().SetTimer(MatchSummaryHandle, this, &AUTHUD::OpenMatchSummary, 0.5f, false);
+		}
+		else if (GS->GetMatchState() == MatchState::PlayerIntro)
+		{
+			GetWorldTimerManager().SetTimer(MatchSummaryHandle, this, &AUTHUD::OpenMatchSummary, 0.2f, false);
+		}
+		else
+		{
+			UTLP->CloseMatchSummary();
+		}
+	}
+}
+
+void AUTHUD::OpenMatchSummary()
+{
+	UUTLocalPlayer* UTLP = UTPlayerOwner ? Cast<UUTLocalPlayer>(UTPlayerOwner->Player) : NULL;
+	AUTGameState* GS = Cast<AUTGameState>(GetWorld()->GetGameState());
+	if (UTLP && GS && !GS->IsPendingKillPending())
+	{
+		// temp check for testing, until match summary is ready.  Make sure same setting for client and server
+		if (UUTGameEngine::StaticClass()->GetDefaultObject<UUTGameEngine>()->bShowMatchSummary)
+		{
+			UTLP->OpenMatchSummary(GS);
+			if (GS->GetMatchState() == MatchState::WaitingToStart)
+			{
+				UTLP->ShowMenu();
+			}
+		}
 	}
 }
 
@@ -753,12 +792,28 @@ FText AUTHUD::GetPlaceSuffix(int32 Value)
 	return FText::GetEmpty();
 }
 
-UTexture2D* AUTHUD::ResolveFlag(FName Flag, FTextureUVs& UV)
+UTexture2D* AUTHUD::ResolveFlag(AUTPlayerState* PS, FTextureUVs& UV)
 {
 	UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
-	if (UTEngine != nullptr)
+	if (PS && UTEngine)
 	{
-		UUTFlagInfo* FlagInfo = UTEngine->GetFlag(Flag);
+		FName FlagName = PS->CountryFlag;
+		if (FlagName == NAME_None)
+		{
+			if (PS->bIsABot)
+			{
+				if (PS->Team)
+				{
+					// use team flag
+					FlagName = (PS->Team->TeamIndex == 0) ? NAME_RedCountryFlag : NAME_BlueCountryFlag;
+				}
+				else
+				{
+					return nullptr;
+				}
+			}
+		}
+		UUTFlagInfo* FlagInfo = UTEngine->GetFlag(FlagName);
 		if (FlagInfo != nullptr)
 		{
 			UV = FlagInfo->UV;
@@ -771,4 +826,57 @@ UTexture2D* AUTHUD::ResolveFlag(FName Flag, FTextureUVs& UV)
 EInputMode::Type AUTHUD::GetInputMode_Implementation() 
 {
 	return EInputMode::EIM_None;
+}
+
+UUTCrosshair* AUTHUD::GetCrosshair(AUTWeapon* Weapon)
+{
+	FCrosshairInfo* CrosshairInfo = GetCrosshairInfo(Weapon);
+	if (CrosshairInfo != nullptr)
+	{
+		for (int32 i = 0; i < LoadedCrosshairs.Num(); i++)
+		{
+			if (LoadedCrosshairs[i]->GetClass()->GetPathName() == CrosshairInfo->CrosshairClassName)
+			{
+				return LoadedCrosshairs[i];
+			}
+		}
+
+		//Didn't find it so create a new one
+		UClass* TestClass = LoadObject<UClass>(NULL, *CrosshairInfo->CrosshairClassName);
+		if (TestClass != NULL && !TestClass->HasAnyClassFlags(CLASS_Abstract) && TestClass->IsChildOf(UUTCrosshair::StaticClass()))
+		{
+			UUTCrosshair* NewCrosshair = NewObject<UUTCrosshair>(this, TestClass);
+			LoadedCrosshairs.Add(NewCrosshair);
+		}
+	}
+	return nullptr;
+}
+
+FCrosshairInfo* AUTHUD::GetCrosshairInfo(AUTWeapon* Weapon)
+{
+	FString WeaponClass = (!bCustomWeaponCrosshairs || Weapon == nullptr) ? TEXT("Global") : Weapon->GetClass()->GetPathName();
+
+	FCrosshairInfo* FoundInfo = CrosshairInfos.FindByPredicate([WeaponClass](const FCrosshairInfo& Info) { return Info.WeaponClassName == WeaponClass; });
+	if (FoundInfo != nullptr)
+	{
+		return FoundInfo;
+	}
+
+	//Make a Global one if we couldn't find one
+	if (WeaponClass == TEXT("Global"))
+	{
+		return &CrosshairInfos[CrosshairInfos.Add(FCrosshairInfo())];
+	}
+	else
+	{
+		//Create a new crosshair for this weapon based off the global one
+		FCrosshairInfo NewInfo;
+		FCrosshairInfo* GlobalCrosshair = CrosshairInfos.FindByPredicate([](const FCrosshairInfo& Info){ return Info.WeaponClassName == TEXT("Global"); });
+		if (GlobalCrosshair != nullptr)
+		{
+			NewInfo = *GlobalCrosshair;
+		}
+		NewInfo.WeaponClassName = WeaponClass;
+		return &CrosshairInfos[CrosshairInfos.Add(NewInfo)];
+	}
 }

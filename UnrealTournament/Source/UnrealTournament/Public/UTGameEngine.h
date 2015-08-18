@@ -1,6 +1,7 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "UTVideoRecordingFeature.h"
 #include "UTGameEngine.generated.h"
 
 UCLASS()
@@ -9,6 +10,8 @@ class UNREALTOURNAMENT_API UUTGameEngine : public UGameEngine
 	GENERATED_UCLASS_BODY()
 
 private:
+	TArray< TAssetSubclassOf<AUTWeapon> > AlwaysLoadedWeaponsStringRefs;
+
 	/** used to have the standard weapon set always loaded for UI performance and load times */
 	UPROPERTY()
 	TArray< TSubclassOf<AUTWeapon> > AlwaysLoadedWeapons;
@@ -67,6 +70,9 @@ public:
 	UPROPERTY(config)
 	bool bAllowClientNetProfile;
 
+	UPROPERTY(config)
+		bool bShowMatchSummary;
+
 	/* Frame rate cap */
 	UPROPERTY(config)
 	float FrameRateCap;
@@ -79,6 +85,8 @@ public:
 
 	/** set to process ID of owning game client when running a "listen" server (which is really dedicated + client on same machine) */
 	uint32 OwningProcessID;
+	
+	UTVideoRecordingFeature* VideoRecorder;
 
 	TMap<FString, FString> DownloadedContentChecksums;
 	TMap<FString, FString> MountedDownloadedContentChecksums;
@@ -118,6 +126,9 @@ public:
 	static class UUTLevelSummary* LoadLevelSummary(const FString& MapName);
 
 	bool GetMonitorRefreshRate(int32& MonitorRefreshRate);
+
+	bool CheckVersionOfPakFile(const FString& PakFilename) const;
+
 protected:
 	virtual bool ShouldShutdownWorldNetDriver() override;
 	void OnLoadingMoviePlaybackFinished();

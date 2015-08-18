@@ -45,7 +45,6 @@ DECLARE_LOG_CATEGORY_EXTERN(UTLoading, Log, All);
 #include "UTCarriedObject.h"
 #include "UTGameMode.h"
 #include "UTTeamGameMode.h"
-#include "Stat.h"
 #include "StatManager.h"
 #include "OnlineEntitlementsInterface.h"
 
@@ -84,6 +83,8 @@ extern UNREALTOURNAMENT_API FString GetRequiredEntitlementFromPackageName(FName 
 extern UNREALTOURNAMENT_API bool LocallyHasEntitlement(const FString& Entitlement);
 /** returns whether any local player has the profile item required to use the specified object (cosmetic, character, etc) */
 extern UNREALTOURNAMENT_API bool LocallyOwnsItemFor(const FString& Path);
+/** returns whether any local player has the given achievement */
+extern UNREALTOURNAMENT_API bool LocallyHasAchievement(FName Achievement);
 
 /** returns asset data for all assets of the specified class 
  * do not use for Blueprints as you can only query for all blueprints period; use GetAllBlueprintAssetData() to query the blueprint's underlying class
@@ -115,7 +116,7 @@ extern UNREALTOURNAMENT_API FHttpRequestPtr ReadBackendStats(const FHttpRequestC
 /** reads profile item json and fills in the items array
  * array is emptied first
  */
-extern UNREALTOURNAMENT_API void ParseProfileItemJson(const FString& Data, TArray<struct FProfileItemEntry>& ItemList);
+extern UNREALTOURNAMENT_API void ParseProfileItemJson(const FString& Data, TArray<struct FProfileItemEntry>& ItemList, int32& XP);
 /** returns whether the given object requires an inventory item to grant rights to it */
 extern UNREALTOURNAMENT_API bool NeedsProfileItem(UObject* TestObj);
 /** sends backend request to give item(s) to a player */
@@ -123,3 +124,6 @@ extern UNREALTOURNAMENT_API void GiveProfileItems(TSharedPtr<FUniqueNetId> Uniqu
 
 /** prefix for stat names for our hacky "inventory as stats" implementation */
 extern const FString ITEM_STAT_PREFIX;
+
+/** looks up XP in level table */
+extern UNREALTOURNAMENT_API int32 GetLevelForXP(int32 XPValue);

@@ -226,6 +226,18 @@ void AUTLobbyGameState::CheckForExistingMatch(AUTLobbyPlayerState* NewPlayer, bo
 			JoinMatch(FriendsMatch, NewPlayer);
 		}
 	}
+	else if (!NewPlayer->DesiredMatchIdToJoin.IsEmpty() )
+	{
+		FGuid MatchGuid;
+		FGuid::Parse(NewPlayer->DesiredMatchIdToJoin, MatchGuid);
+		AUTLobbyMatchInfo* MatchInfo = FindMatch(MatchGuid);
+		NewPlayer->DesiredMatchIdToJoin.Empty();
+
+		if (MatchInfo)
+		{
+			JoinMatch(MatchInfo, NewPlayer, (NewPlayer->DesiredTeamNum == 255));
+		}
+	}
 }
 
 TWeakObjectPtr<AUTReplicatedGameRuleset> AUTLobbyGameState::FindRuleset(FString TagToFind)
@@ -338,7 +350,7 @@ void AUTLobbyGameState::JoinMatch(AUTLobbyMatchInfo* MatchInfo, AUTLobbyPlayerSt
 		return;
 	}
 
-	MatchInfo->AddPlayer(NewPlayer);
+	MatchInfo->AddPlayer(NewPlayer, false, bAsSpectator);
 }
 
 void AUTLobbyGameState::RemoveFromAMatch(AUTLobbyPlayerState* PlayerOwner)
@@ -433,6 +445,12 @@ void AUTLobbyGameState::LaunchGameInstance(AUTLobbyMatchInfo* MatchOwner, FStrin
 		
 		// Add in additional command line params
 		if (!AdditionalInstanceCommandLine.IsEmpty()) Options += TEXT(" ") + AdditionalInstanceCommandLine;
+		
+		FString SLevel;
+		if (FParse::Value(FCommandLine::Get(), TEXT("SLevel="), SLevel))
+		{
+			Options += TEXT(" -SLevel=") + SLevel;
+		}
 
 		UE_LOG(UT,Verbose,TEXT("Launching %s with Params %s"), *ExecPath, *Options);
 
@@ -537,7 +555,7 @@ void AUTLobbyGameState::GameInstance_MatchBadgeUpdate(uint32 InGameInstanceID, c
 }
 
 
-void AUTLobbyGameState::GameInstance_PlayerUpdate(uint32 InGameInstanceID, FUniqueNetIdRepl PlayerID, const FString& PlayerName, int32 PlayerScore, bool bSpectator, bool bLastUpdate, int32 PlayerRank)
+void AUTLobbyGameState::GameInstance_PlayerUpdate(uint32 InGameInstanceID, FUniqueNetIdRepl PlayerID, const FString& PlayerName, int32 PlayerScore, bool bSpectator, uint8 TeamNum, bool bLastUpdate, int32 PlayerRank, FName Avatar)
 {
 	// Find the match
 	for (int32 i = 0; i < GameInstances.Num(); i++)
@@ -564,6 +582,8 @@ void AUTLobbyGameState::GameInstance_PlayerUpdate(uint32 InGameInstanceID, FUniq
 							Match->PlayersInMatchInstance[j].PlayerScore = PlayerScore;
 							Match->PlayersInMatchInstance[j].bIsSpectator = bSpectator;
 							Match->PlayersInMatchInstance[j].PlayerRank = PlayerRank;
+							Match->PlayersInMatchInstance[j].TeamNum = TeamNum;
+							Match->PlayersInMatchInstance[j].Avatar = Avatar;
 							Match->UpdateRank();
 							return;
 						}
@@ -572,7 +592,7 @@ void AUTLobbyGameState::GameInstance_PlayerUpdate(uint32 InGameInstanceID, FUniq
 				}
 
 				// A player not in the instance table.. add them
-				Match->PlayersInMatchInstance.Add(FPlayerListInfo(PlayerID, PlayerName, PlayerScore, bSpectator, PlayerRank));
+				Match->PlayersInMatchInstance.Add(FPlayerListInfo(PlayerID, PlayerName, PlayerScore, bSpectator, TeamNum, PlayerRank, Avatar));
 				Match->UpdateRank();
 			}
 		}
@@ -969,5 +989,67 @@ void AUTLobbyGameState::HandleQuickplayRequest(AUTServerBeaconClient* Beacon, co
 		// We couldn't create a match, so tell the client to look elsewhere.
 		Beacon->ClientQuickplayNotAvailable();
 	}
+}
 
+void AUTLobbyGameState::RequestInstanceJoin(AUTServerBeaconClient* Beacon, const FString& InstanceId, bool bSpectator, int32 Rank)
+{
+	AUTLobbyMatchInfo* DestinationMatchInfo = NULL;
+	// Look to see if this instance is still in the start up phase...
+	for (int32 i=0; i < AvailableMatches.Num(); i++)
+	{
+		if (AvailableMatches[i] && (AvailableMatches[i]->CurrentState == ELobbyMatchState::WaitingForPlayers || AvailableMatches[i]->CurrentState == ELobbyMatchState::Launching))
+		{
+			if (AvailableMatches[i]->UniqueMatchID.ToString() == InstanceId)
+			{
+				DestinationMatchInfo = AvailableMatches[i];
+				break;
+			}
+		}
+	}
+
+	if (DestinationMatchInfo == NULL)
+	{
+
+		for (int32 i=0; i < GameInstances.Num(); i++)
+		{
+			if (GameInstances[i].MatchInfo->UniqueMatchID.ToString() == InstanceId)
+			{
+				DestinationMatchInfo = GameInstances[i].MatchInfo;
+				break;
+			}
+		}
+	}
+
+	if (DestinationMatchInfo && (DestinationMatchInfo->CurrentState == ELobbyMatchState::InProgress || DestinationMatchInfo->CurrentState != ELobbyMatchState::WaitingForPlayers || DestinationMatchInfo->CurrentState != ELobbyMatchState::Launching) )
+	{
+		if (DestinationMatchInfo->SkillTest(Rank,false))
+		{
+			if (!bSpectator || DestinationMatchInfo->bSpectatable)
+			{
+				// Add checks for passworded and friends only matches..
+
+				if (DestinationMatchInfo->CurrentState == ELobbyMatchState::InProgress)
+				{
+					Beacon->ClientRequestInstanceResult(EInstanceJoinResult::JoinDirectly, DestinationMatchInfo->GameInstanceGUID);									
+				}
+				else
+				{
+					Beacon->ClientRequestInstanceResult(EInstanceJoinResult::JoinViaLobby, DestinationMatchInfo->UniqueMatchID.ToString());									
+				}
+			}
+			else
+			{
+				Beacon->ClientRequestInstanceResult(EInstanceJoinResult::MatchLocked, TEXT(""));
+			}
+		}
+		else
+		{
+			Beacon->ClientRequestInstanceResult(EInstanceJoinResult::MatchRankFail, TEXT(""));
+		}
+	}
+	else
+	{
+		// Let the user know the match no longer exists....
+		Beacon->ClientRequestInstanceResult(EInstanceJoinResult::MatchNoLongerExists, TEXT(""));
+	}
 }

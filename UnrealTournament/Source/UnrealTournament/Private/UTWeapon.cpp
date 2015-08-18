@@ -20,6 +20,7 @@
 #include "UTPlayerCameraManager.h"
 #include "UTHUD.h"
 #include "UTGameViewportClient.h"
+#include "UTCrosshair.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogUTWeapon, Log, All);
 
@@ -51,6 +52,8 @@ AUTWeapon::AUTWeapon(const FObjectInitializer& ObjectInitializer)
 	FriendlyMomentumScaling = 1.f;
 	FireEffectInterval = 1;
 	FireEffectCount = 0;
+	FireZOffset = 0.f;
+	FireZOffsetTime = 0.f;
 
 	InactiveState = ObjectInitializer.CreateDefaultSubobject<UUTWeaponStateInactive>(this, TEXT("StateInactive"));
 	ActiveState = ObjectInitializer.CreateDefaultSubobject<UUTWeaponStateActive>(this, TEXT("StateActive"));
@@ -354,6 +357,15 @@ void AUTWeapon::StartFire(uint8 FireModeNum)
 		bool bClientFired = BeginFiringSequence(FireModeNum, false);
 		if (Role < ROLE_Authority)
 		{
+			if (UTOwner)
+			{
+				float ZOffset = uint8(FMath::Clamp(UTOwner->GetPawnViewLocation().Z - UTOwner->GetActorLocation().Z + 127.5f, 0.f, 255.f));
+				if (ZOffset != uint8(FMath::Clamp(UTOwner->BaseEyeHeight + 127.5f, 0.f, 255.f)))
+				{
+					ServerStartFireOffset(FireModeNum, ZOffset, bClientFired);
+					return;
+				}
+			}
 			ServerStartFire(FireModeNum, bClientFired); 
 		}
 	}
@@ -363,11 +375,27 @@ void AUTWeapon::ServerStartFire_Implementation(uint8 FireModeNum, bool bClientFi
 {
 	if (!UTOwner->IsFiringDisabled())
 	{
+		FireZOffsetTime = 0.f;
 		BeginFiringSequence(FireModeNum, bClientFired);
 	}
 }
 
 bool AUTWeapon::ServerStartFire_Validate(uint8 FireModeNum, bool bClientFired)
+{
+	return true;
+}
+
+void AUTWeapon::ServerStartFireOffset_Implementation(uint8 FireModeNum, uint8 ZOffset, bool bClientFired)
+{
+	if (!UTOwner->IsFiringDisabled())
+	{
+		FireZOffset = ZOffset - 127;
+		FireZOffsetTime = GetWorld()->GetTimeSeconds();
+		BeginFiringSequence(FireModeNum, bClientFired);
+	}
+}
+
+bool AUTWeapon::ServerStartFireOffset_Validate(uint8 FireModeNum, uint8 ZOffset, bool bClientFired)
 {
 	return true;
 }
@@ -763,7 +791,7 @@ FHitResult AUTWeapon::GetImpactEffectHit(APawn* Shooter, const FVector& StartLoc
 	// trace for precise hit location and hit normal
 	FHitResult Hit;
 	FVector TargetToGun = (StartLoc - TargetLoc).GetSafeNormal();
-	if (Shooter->GetWorld()->LineTraceSingleByChannel(Hit, TargetLoc + TargetToGun * 10.0f, TargetLoc - TargetToGun * 10.0f, COLLISION_TRACE_WEAPON, FCollisionQueryParams(FName(TEXT("ImpactEffect")), true, Shooter)))
+	if (Shooter->GetWorld()->LineTraceSingleByChannel(Hit, TargetLoc + TargetToGun * 32.0f, TargetLoc - TargetToGun * 32.0f, COLLISION_TRACE_WEAPON, FCollisionQueryParams(FName(TEXT("ImpactEffect")), true, Shooter)))
 	{
 		return Hit;
 	}
@@ -781,7 +809,7 @@ void AUTWeapon::GetImpactSpawnPosition(const FVector& TargetLoc, FVector& SpawnL
 
 bool AUTWeapon::CancelImpactEffect(const FHitResult& ImpactHit)
 {
-	return ImpactHit.Actor.IsValid() && (Cast<AUTCharacter>(ImpactHit.Actor.Get()) || Cast<AUTProjectile>(ImpactHit.Actor.Get()));
+	return (!ImpactHit.Actor.IsValid() && !ImpactHit.Component.IsValid()) || Cast<AUTCharacter>(ImpactHit.Actor.Get()) || Cast<AUTProjectile>(ImpactHit.Actor.Get());
 }
 
 void AUTWeapon::PlayImpactEffects(const FVector& TargetLoc, uint8 FireMode, const FVector& SpawnLocation, const FRotator& SpawnRotation)
@@ -868,9 +896,9 @@ void AUTWeapon::FireShot()
 	}
 	if (GetUTOwner() != NULL)
 	{
-		static FName NAME_FiredWeapon(TEXT("FiredWeapon"));
-		GetUTOwner()->InventoryEvent(NAME_FiredWeapon);
+		GetUTOwner()->InventoryEvent(InventoryEventName::FiredWeapon);
 	}
+	FireZOffsetTime = 0.f;
 }
 
 bool AUTWeapon::IsFiring() const
@@ -998,6 +1026,10 @@ FVector AUTWeapon::GetFireStartLoc(uint8 FireMode)
 		if (bFPFireFromCenter && bIsFirstPerson)
 		{
 			BaseLoc = UTOwner->GetPawnViewLocation();
+			if (GetWorld()->GetTimeSeconds() - FireZOffsetTime < 0.06f)
+			{
+				BaseLoc.Z = FireZOffset + UTOwner->GetActorLocation().Z;
+			}
 		}
 		else
 		{
@@ -1120,52 +1152,85 @@ void AUTWeapon::NetSynchRandomSeed()
 	}
 }
 
-void AUTWeapon::HitScanTrace(const FVector& StartLocation, const FVector& EndTrace, FHitResult& Hit, float PredictionTime)
+void AUTWeapon::HitScanTrace(const FVector& StartLocation, const FVector& EndTrace, float TraceRadius, FHitResult& Hit, float PredictionTime)
 {
-	bool bRewindPlayers = ((PredictionTime > 0.f) && (Role == ROLE_Authority));
-	ECollisionChannel TraceChannel = bRewindPlayers ? COLLISION_TRACE_WEAPONNOCHARACTER : COLLISION_TRACE_WEAPON;
-	if (!GetWorld()->LineTraceSingleByChannel(Hit, StartLocation, EndTrace, TraceChannel, FCollisionQueryParams(GetClass()->GetFName(), true, UTOwner)))
+	ECollisionChannel TraceChannel = COLLISION_TRACE_WEAPONNOCHARACTER;
+	FCollisionQueryParams QueryParams(GetClass()->GetFName(), true, UTOwner);
+	if (TraceRadius <= 0.0f)
 	{
-		Hit.Location = EndTrace;
+		if (!GetWorld()->LineTraceSingleByChannel(Hit, StartLocation, EndTrace, TraceChannel, QueryParams))
+		{
+			Hit.Location = EndTrace;
+		}
 	}
-	if (bRewindPlayers && !(Hit.Location - StartLocation).IsNearlyZero())
+	else
+	{
+		if (GetWorld()->SweepSingleByChannel(Hit, StartLocation, EndTrace, FQuat::Identity, TraceChannel, FCollisionShape::MakeSphere(TraceRadius), QueryParams))
+		{
+			Hit.Location += (EndTrace - StartLocation).GetSafeNormal() * TraceRadius; // so impact point is still on the surface of the target collision
+		}
+		else
+		{
+			Hit.Location = EndTrace;
+		}
+	}
+	if (!(Hit.Location - StartLocation).IsNearlyZero())
 	{
 		AUTCharacter* BestTarget = NULL;
 		FVector BestPoint(0.f);
+		FVector BestCapsulePoint(0.f);
+		float BestCollisionRadius = 0.f;
 		for (FConstPawnIterator Iterator = GetWorld()->GetPawnIterator(); Iterator; ++Iterator)
 		{
 			AUTCharacter* Target = Cast<AUTCharacter>(*Iterator);
 			if (Target && (Target != UTOwner))
 			{
 				// find appropriate rewind position, and test against trace from StartLocation to Hit.Location
-				FVector TargetLocation = Target->GetRewindLocation(PredictionTime);
+				FVector TargetLocation = ((PredictionTime > 0.f) && (Role == ROLE_Authority)) ? Target->GetRewindLocation(PredictionTime) : Target->GetActorLocation();
 
 				// now see if trace would hit the capsule
-				// @TODO FIXMESTEVE actually make this a check against a capsule, not a cylinder
-				float CollisionRadius = Target->GetCapsuleComponent()->GetScaledCapsuleRadius();
 				float CollisionHeight = Target->GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
-				FVector ClosestPoint = FMath::ClosestPointOnSegment(TargetLocation, StartLocation, Hit.Location);
-				// if ClosestPoint is end of segment, then almost certainly something else was hit first
-				if (!(ClosestPoint - Hit.Location).IsNearlyZero()
-					&& (FMath::Abs(TargetLocation.Z - ClosestPoint.Z) < CollisionHeight)
-					&& ((TargetLocation - ClosestPoint).Size2D() < CollisionRadius))
+				if (Target->UTCharacterMovement && Target->UTCharacterMovement->bIsFloorSliding)
 				{
-					// we would hit this character - see if it is the best hit
-					if (!BestTarget || ((ClosestPoint - StartLocation).SizeSquared() < (BestPoint - StartLocation).SizeSquared()))
-					{
-						BestTarget = Target;
-						BestPoint = ClosestPoint;
-					}
+					TargetLocation.Z = TargetLocation.Z - CollisionHeight + Target->SlideTargetHeight;
+					CollisionHeight = Target->SlideTargetHeight;
+				}
+				float CollisionRadius = Target->GetCapsuleComponent()->GetScaledCapsuleRadius();
+
+				bool bHitTarget = false;
+				FVector ClosestPoint(0.f);
+				FVector ClosestCapsulePoint = TargetLocation;
+				if (CollisionRadius >= CollisionHeight)
+				{
+					ClosestPoint = FMath::ClosestPointOnSegment(TargetLocation, StartLocation, Hit.Location);
+					bHitTarget = ((ClosestPoint - TargetLocation).SizeSquared() < FMath::Square(CollisionHeight + TraceRadius));
+				}
+				else
+				{
+					FVector CapsuleSegment = FVector(0.f, 0.f, CollisionHeight - CollisionRadius);
+					FMath::SegmentDistToSegmentSafe(StartLocation, Hit.Location, TargetLocation - CapsuleSegment, TargetLocation + CapsuleSegment, ClosestPoint, ClosestCapsulePoint);
+					bHitTarget = ((ClosestPoint - ClosestCapsulePoint).SizeSquared() < FMath::Square(CollisionRadius + TraceRadius));
+				}
+				if (bHitTarget &&  (!BestTarget || ((ClosestPoint - StartLocation).SizeSquared() < (BestPoint - StartLocation).SizeSquared())))
+				{
+					BestTarget = Target;
+					BestPoint = ClosestPoint;
+					BestCapsulePoint = ClosestCapsulePoint;
+					BestCollisionRadius = CollisionRadius;
 				}
 			}
 		}
 		if (BestTarget)
 		{
 			// we found a player to hit, so update hit result
-			// @TODO FIXMESTEVE - need proper hit location for shot on surface of capsule
-			Hit.Location = BestPoint;
-			Hit.Normal = (EndTrace - StartLocation).GetSafeNormal();
-			Hit.ImpactNormal = Hit.Normal;
+
+			// first find proper hit location on surface of capsule
+			float ClosestDistSq = (BestPoint - BestCapsulePoint).SizeSquared();
+			float BackDist = FMath::Sqrt(FMath::Max(0.f, BestCollisionRadius*BestCollisionRadius - ClosestDistSq));
+
+			Hit.Location = BestPoint + BackDist * (StartLocation - EndTrace).GetSafeNormal();
+			Hit.Normal = (Hit.Location - BestCapsulePoint).GetSafeNormal();
+			Hit.ImpactNormal = Hit.Normal; 
 			Hit.Actor = BestTarget;
 			Hit.bBlockingHit = true;
 			Hit.Component = BestTarget->GetCapsuleComponent();
@@ -1188,10 +1253,15 @@ void AUTWeapon::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 
 	FHitResult Hit;
 	AUTPlayerController* UTPC = Cast<AUTPlayerController>(UTOwner->Controller);
+	AUTPlayerState* PS = UTOwner->Controller ? Cast<AUTPlayerState>(UTOwner->Controller->PlayerState) : NULL;
 	float PredictionTime = UTPC ? UTPC->GetPredictionTime() : 0.f;
-	HitScanTrace(SpawnLocation, EndTrace, Hit, PredictionTime);
+	HitScanTrace(SpawnLocation, EndTrace, InstantHitInfo[CurrentFireMode].TraceHalfSize, Hit, PredictionTime);
 	if (Role == ROLE_Authority)
 	{
+		if (PS && (ShotsStatsName != NAME_None))
+		{
+			PS->ModifyStatsValue(ShotsStatsName, 1);
+		}
 		UTOwner->SetFlashLocation(Hit.Location, CurrentFireMode);
 		// warn bot target, if any
 		if (UTPC != NULL)
@@ -1238,6 +1308,10 @@ void AUTWeapon::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 	}
 	if (Hit.Actor != NULL && Hit.Actor->bCanBeDamaged && bDealDamage)
 	{
+		if ((Role == ROLE_Authority) && PS && (HitsStatsName != NAME_None))
+		{
+			PS->ModifyStatsValue(HitsStatsName, 1);
+		}
 		Hit.Actor->TakeDamage(InstantHitInfo[CurrentFireMode].Damage, FUTPointDamageEvent(InstantHitInfo[CurrentFireMode].Damage, Hit, FireDir, InstantHitInfo[CurrentFireMode].DamageType, FireDir * GetImpartedMomentumMag(Hit.Actor.Get())), UTOwner->Controller, this);
 	}
 	if (OutHit != NULL)
@@ -1328,6 +1402,11 @@ AUTProjectile* AUTWeapon::FireProjectile()
 	if (Role == ROLE_Authority)
 	{
 		UTOwner->IncrementFlashCount(CurrentFireMode);
+		AUTPlayerState* PS = UTOwner->Controller ? Cast<AUTPlayerState>(UTOwner->Controller->PlayerState) : NULL;
+		if (PS && (ShotsStatsName != NAME_None))
+		{
+			PS->ModifyStatsValue(ShotsStatsName, 1);
+		}
 	}
 	// spawn the projectile at the muzzle
 	const FVector SpawnLocation = GetFireStartLoc();
@@ -1385,6 +1464,7 @@ AUTProjectile* AUTWeapon::SpawnNetPredictedProjectile(TSubclassOf<AUTProjectile>
 	{
 		if (Role == ROLE_Authority)
 		{
+			NewProjectile->HitsStatsName = HitsStatsName;
 			if ((CatchupTickDelta > 0.f) && NewProjectile->ProjectileMovement)
 			{
 				// server ticks projectile to match with when client actually fired
@@ -1692,11 +1772,21 @@ void AUTWeapon::DrawWeaponCrosshair_Implementation(UUTHUDWidget* WeaponHudWidget
 			AUTPlayerState* PS;
 			if (ShouldDrawFFIndicator(WeaponHudWidget->UTHUDOwner->PlayerOwner, PS))
 			{
-				WeaponHudWidget->DrawTexture(WeaponHudWidget->UTHUDOwner->HUDAtlas, 0, 0, 2.f* W * CrosshairScale, 2.f * H * CrosshairScale, 407, 940, 72, 72, 1.0, FLinearColor::Green, FVector2D(0.5f, 0.5f));
+				WeaponHudWidget->DrawTexture(WeaponHudWidget->UTHUDOwner->HUDAtlas, 0, 0, W * CrosshairScale, H * CrosshairScale, 407, 940, 72, 72, 1.0, FLinearColor::Green, FVector2D(0.5f, 0.5f));
 			}
 			else
 			{
-				WeaponHudWidget->DrawTexture(CrosshairTexture, 0, 0, W * CrosshairScale, H * CrosshairScale, 0.0, 0.0, 16, 16, 1.0, GetCrosshairColor(WeaponHudWidget), FVector2D(0.5f, 0.5f));
+				UUTCrosshair* Crosshair = WeaponHudWidget->UTHUDOwner->GetCrosshair(this);
+				FCrosshairInfo* CrosshairInfo = WeaponHudWidget->UTHUDOwner->GetCrosshairInfo(this);
+
+				if (Crosshair != nullptr && CrosshairInfo != nullptr)
+				{
+					Crosshair->DrawCrosshair(WeaponHudWidget->GetCanvas(), this, RenderDelta, GetCrosshairScale(WeaponHudWidget->UTHUDOwner) * CrosshairInfo->Scale, WeaponHudWidget->UTHUDOwner->GetCrosshairColor(CrosshairInfo->Color));
+				}
+				else
+				{
+					WeaponHudWidget->DrawTexture(CrosshairTexture, 0, 0, W * CrosshairScale, H * CrosshairScale, 0.0, 0.0, 16, 16, 1.0, GetCrosshairColor(WeaponHudWidget), FVector2D(0.5f, 0.5f));
+				}
 				UpdateCrosshairTarget(PS, WeaponHudWidget, RenderDelta);
 			}
 		}
@@ -1994,7 +2084,7 @@ void AUTWeapon::NotifyKillWhileHolding_Implementation(TSubclassOf<UDamageType> D
 {
 }
 
-int32 AUTWeapon::GetWeaponKillStats(AUTPlayerState * PS) const
+int32 AUTWeapon::GetWeaponKillStats(AUTPlayerState* PS) const
 {
 	int32 KillCount = 0;
 	if (PS)
@@ -2011,7 +2101,7 @@ int32 AUTWeapon::GetWeaponKillStats(AUTPlayerState * PS) const
 	return KillCount;
 }
 
-int32 AUTWeapon::GetWeaponDeathStats(AUTPlayerState * PS) const
+int32 AUTWeapon::GetWeaponDeathStats(AUTPlayerState* PS) const
 {
 	int32 DeathCount = 0;
 	if (PS)
@@ -2026,6 +2116,16 @@ int32 AUTWeapon::GetWeaponDeathStats(AUTPlayerState * PS) const
 		}
 	}
 	return DeathCount;
+}
+
+float AUTWeapon::GetWeaponHitsStats(AUTPlayerState* PS) const
+{
+	return (PS && (HitsStatsName != NAME_None)) ? PS->GetStatsValue(HitsStatsName) : 0.f;
+}
+
+float AUTWeapon::GetWeaponShotsStats(AUTPlayerState* PS) const
+{
+	return (PS && (ShotsStatsName != NAME_None)) ? PS->GetStatsValue(ShotsStatsName) : 0.f;
 }
 
 // TEMP for testing 1p offsets

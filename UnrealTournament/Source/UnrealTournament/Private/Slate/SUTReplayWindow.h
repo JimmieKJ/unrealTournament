@@ -3,6 +3,8 @@
 
 #include "SlateBasics.h"
 #include "Slate/SlateGameResources.h"
+#include "Runtime/NetworkReplayStreaming/NetworkReplayStreaming/Public/NetworkReplayStreaming.h"
+#include "Widgets/SUTProgressSlider.h"
 
 #if !UE_SERVER
 
@@ -39,6 +41,9 @@ protected:
 	FReply OnRecordButtonClicked();
 	void RecordSeekCompleted(bool bSucceeded);
 	FReply OnScreenshotButtonClicked();
+	FReply OnScreenshotConfigButtonClicked();
+	FReply OnCommentButtonClicked();
+	void ScreenshotConfigResult(TSharedPtr<SCompoundWidget> Dialog, uint16 ButtonID);
 
 	TSharedPtr<class SUTProgressSlider> TimeSlider;
 	TSharedPtr<class SButton> RecordButton;
@@ -87,31 +92,33 @@ protected:
 	bool GetGameMousePosition(FVector2D& MousePosition) const;
 	virtual bool MouseClickHUD();
 	
-	struct FBookmarkEvent
-	{
-		FString id;
-		FString meta;
-		float time;
-	};
+	void KillsEnumerated(const FReplayEventList& ReplayEventList, bool bSucceeded);
+	void FlagCapsEnumerated(const FReplayEventList& ReplayEventList, bool bSucceeded);
+	void FlagReturnsEnumerated(const FReplayEventList& ReplayEventList, bool bSucceeded);
+	void FlagDenyEnumerated(const FReplayEventList& ReplayEventList, bool bSucceeded);
+	void MultiKillsEnumerated(const FReplayEventList& ReplayEventList, bool bSucceeded);
+	void SpreeKillsEnumerated(const FReplayEventList& ReplayEventList, bool bSucceeded);
+	void CommentsEnumerated(const FReplayEventList& ReplayEventList, bool bSucceeded);
 
-	void KillsEnumerated(const FString& JsonString, bool bSucceeded);
-	void FlagCapsEnumerated(const FString& JsonString, bool bSucceeded);
-	void FlagReturnsEnumerated(const FString& JsonString, bool bSucceeded);
-	void FlagDenyEnumerated(const FString& JsonString, bool bSucceeded);
-	void MultiKillsEnumerated(const FString& JsonString, bool bSucceeded);
-	void SpreeKillsEnumerated(const FString& JsonString, bool bSucceeded);
-	void ParseJsonIntoBookmarkArray(const FString& JsonString, TArray<FBookmarkEvent>& BookmarkArray);
+	TArray<FReplayEventListItem> KillEvents;
+	TArray<FReplayEventListItem> FlagCapEvents;
+	TArray<FReplayEventListItem> FlagDenyEvents;
+	TArray<FReplayEventListItem> FlagReturnEvents;
+	TArray<FReplayEventListItem> MultiKillEvents;
+	TArray<FReplayEventListItem> SpreeKillEvents;
+	TArray<FReplayEventListItem> CommentEvents;
 
-	TArray<FBookmarkEvent> KillEvents;
-	TArray<FBookmarkEvent> FlagCapEvents;
-	TArray<FBookmarkEvent> FlagDenyEvents;
-	TArray<FBookmarkEvent> FlagReturnEvents;
-	TArray<FBookmarkEvent> MultiKillEvents;
-	TArray<FBookmarkEvent> SpreeKillEvents;
+	TArray<FBookmarkTimeAndColor> CurrentBookmarks;
+	TArray<FString> EventDataRequests;
+	TMap<FString, FString> EventDataInfo;
 
 	bool bDrawTooltip;
 	float TooltipTime;
 	FVector2D ToolTipPos;
+	FString TooltipBookmarkText;
+	float ToolTipTargetSizeX;
+	float ToolTipCurrentSizeX;
+	float ToolTipCurrentSizeY;
 
 	FText GetTooltipText() const;
 	FVector2D GetTimeTooltipSize() const;
@@ -119,6 +126,8 @@ protected:
 
 	EVisibility GetVis() const;
 
+	void BookmarkDataReady(const TArray<uint8>& Data, bool bSucceeded, FString EventID, FString EventType);
+	void CommentDialogResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
 private:
 	TWeakObjectPtr<class UUTLocalPlayer> PlayerOwner;
 	TWeakObjectPtr<class UDemoNetDriver> DemoNetDriver;

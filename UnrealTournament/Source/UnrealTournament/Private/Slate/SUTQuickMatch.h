@@ -7,6 +7,7 @@
 #if !UE_SERVER
 
 const int32 PING_ALLOWANCE = 30;
+const int32 PLAYER_ALLOWANCE = 5;
 
 class FServerSearchInfo
 {
@@ -16,7 +17,7 @@ public:
 	int32 NoPlayers;
 
 	int32 ServerTrustLevel;
-	int32 bServerIsTrainingGround;
+	bool bServerIsTrainingGround;
 
 	TWeakObjectPtr<AUTServerBeaconClient> Beacon;
 

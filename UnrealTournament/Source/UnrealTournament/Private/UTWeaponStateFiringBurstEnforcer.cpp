@@ -163,6 +163,7 @@ float UUTWeaponStateFiringBurstEnforcer::GetRemainingCooldownTime()
 
 void UUTWeaponStateFiringBurstEnforcer::PutDown()
 {
+	HandleDelayedShot();
 	if ((CurrentShot == BurstSize) && GetRemainingCooldownTime() == 0.0f)
 	{
 		GetOuterAUTWeapon()->UnEquip();

@@ -31,7 +31,7 @@ class UNREALTOURNAMENT_API AUTTeamGameMode : public AUTGameMode
 	bool bAllowURLTeamCountOverride;
 
 	/** whether we should attempt to keep teams balanced */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = TeamGame)
+	UPROPERTY(Config, EditAnywhere, BlueprintReadWrite, Category = TeamGame)
 	bool bBalanceTeams;
 
 	/** whether we should announce your team */
@@ -71,6 +71,10 @@ class UNREALTOURNAMENT_API AUTTeamGameMode : public AUTGameMode
 	virtual void CheckBotCount() override;
 	virtual void DefaultTimer() override;
 
+	/** whether we should force teams to be balanced right now
+	 * @param bInitialTeam - if true, request comes from a player requesting its initial team (not a team switch)
+	 */
+	virtual bool ShouldBalanceTeams(bool bInitialTeam) const;
 	/** Process team change request.  May fail based on team sizes and balancing rules. */
 	virtual bool ChangeTeam(AController* Player, uint8 NewTeam = 255, bool bBroadcast = true);
 
@@ -99,8 +103,4 @@ class UNREALTOURNAMENT_API AUTTeamGameMode : public AUTGameMode
 protected:
 	virtual void SendEndOfGameStats(FName Reason);
 	virtual void UpdateLobbyBadge(FString BadgeText);
-
-public:
-	virtual void GetGameURLOptions(TArray<FString>& OptionsList, int32& DesiredPlayerCount);
-
 };

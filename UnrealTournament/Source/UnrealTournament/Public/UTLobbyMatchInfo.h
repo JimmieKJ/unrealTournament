@@ -36,14 +36,22 @@ struct FPlayerListInfo
 	UPROPERTY()
 	int32 PlayerRank;
 
+	UPROPERTY()
+	uint8 TeamNum;
+
+	UPROPERTY()
+	FName Avatar;
+
 	FPlayerListInfo() {};
 
-	FPlayerListInfo(FUniqueNetIdRepl inPlayerID, FString inPlayerName, float inPlayerScore, bool inbIsSpectator, int32 inPlayerRank)
+	FPlayerListInfo(FUniqueNetIdRepl inPlayerID, FString inPlayerName, float inPlayerScore, bool inbIsSpectator, uint8 inTeamNum, int32 inPlayerRank, FName inAvatar)
 		: PlayerID(inPlayerID)
 		, bIsSpectator(inbIsSpectator)
 		, PlayerName(inPlayerName)
 		, PlayerScore(inPlayerScore)
 		, PlayerRank(inPlayerRank)
+		, TeamNum(inTeamNum)
+		, Avatar(inAvatar)
 	{
 	}
 
@@ -127,7 +135,7 @@ public:
 	// Cache some data
 	virtual void PreInitializeComponents() override;
 
-	virtual void AddPlayer(AUTLobbyPlayerState* PlayerToAdd, bool bIsOwner = false);
+	virtual void AddPlayer(AUTLobbyPlayerState* PlayerToAdd, bool bIsOwner = false, bool bIsSpectator = false);
 	virtual bool RemovePlayer(AUTLobbyPlayerState* PlayerToRemove);
 	virtual FText GetActionText();
 
@@ -253,6 +261,8 @@ protected:
 	UFUNCTION()
 	virtual void OnRep_MatchStats();
 
+	/** return current size of teams for team game */
+	TArray<int32> GetTeamSizes() const;
 public:
 	int32 MatchGameTime;
 
@@ -274,9 +284,7 @@ public:
 	void ServerCreateCustomRule(const FString& GameMode, const FString& StartingMap, const FString& Description, const TArray<FString>& GameOptions, int32 DesiredSkillLevel, int32 DesiredPlayerCount, bool bTeamGame);
 
 	bool IsBanned(FUniqueNetIdRepl Who);
-	TWeakObjectPtr<AUTReplicatedMapInfo> GetMapInformation(FString MapPackage);
-
-	void LoadInitialMapInfo();
+	void GetMapInformation();
 
 public:
 	// Unique for each match on this hub.  This will be used to lookup data regarding a given instance.
@@ -321,9 +329,16 @@ public:
 	// This will be true if the redirects have changed.  When true, the UI should attempt to download any of the objects within the redirects.
 	bool bRedirectsHaveChanged;
 
+	void FillPlayerColumnsForDisplay(TArray<FMatchPlayerListStruct>& FirstColumn, TArray<FMatchPlayerListStruct>& SecondColumn, FString& Spectators);
+	void GetPlayerData(TArray<FMatchPlayerListStruct>& PlayerData);
+
+	int32 CountFriendsInMatch(const TArray<FUTFriend>& Friends);
+
 protected:
 	UFUNCTION()
 	void OnRep_RedirectsChanged();
+
+
 
 };
 

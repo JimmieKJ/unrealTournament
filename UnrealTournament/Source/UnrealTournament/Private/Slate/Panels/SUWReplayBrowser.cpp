@@ -296,25 +296,32 @@ void SUWReplayBrowser::OnEnumerateStreamsComplete(const TArray<FNetworkReplayStr
 
 	for (const auto& StreamInfo : Streams)
 	{
-		float SizeInKilobytes = StreamInfo.SizeInBytes / 1024.0f;
-
-		TSharedPtr<FReplayData> NewDemoEntry = MakeShareable(new FReplayData());
-
-		NewDemoEntry->StreamInfo = StreamInfo;
-		NewDemoEntry->Date = StreamInfo.Timestamp.ToString(TEXT("%m/%d/%Y %h:%M %A"));	// UTC time
-		NewDemoEntry->Size = SizeInKilobytes >= 1024.0f ? FString::Printf(TEXT("%2.2f MB"), SizeInKilobytes / 1024.0f) : FString::Printf(TEXT("%i KB"), (int)SizeInKilobytes);
-
-		UE_LOG(UT, Verbose, TEXT("Stream found %s, %s, Live: %s"), *StreamInfo.FriendlyName, *StreamInfo.Name, StreamInfo.bIsLive ? TEXT("YES") : TEXT("NO"));
-
-		if (bLiveOnly)
+		if (StreamInfo.bIsLive && StreamInfo.LengthInMS < 15000)
 		{
-			if (!StreamInfo.bIsLive)
-			{
-				continue;
-			}
+			UE_LOG(UT, Verbose, TEXT("Live stream found %s, but too short"), *StreamInfo.FriendlyName);
 		}
+		else
+		{
+			float SizeInKilobytes = StreamInfo.SizeInBytes / 1024.0f;
 
-		ReplayList.Add(NewDemoEntry);
+			TSharedPtr<FReplayData> NewDemoEntry = MakeShareable(new FReplayData());
+
+			NewDemoEntry->StreamInfo = StreamInfo;
+			NewDemoEntry->Date = StreamInfo.Timestamp.ToString(TEXT("%m/%d/%Y %h:%M %A"));	// UTC time
+			NewDemoEntry->Size = SizeInKilobytes >= 1024.0f ? FString::Printf(TEXT("%2.2f MB"), SizeInKilobytes / 1024.0f) : FString::Printf(TEXT("%i KB"), (int)SizeInKilobytes);
+
+			UE_LOG(UT, Verbose, TEXT("Stream found %s, %s, Live: %s"), *StreamInfo.FriendlyName, *StreamInfo.Name, StreamInfo.bIsLive ? TEXT("YES") : TEXT("NO"));
+
+			if (bLiveOnly)
+			{
+				if (!StreamInfo.bIsLive)
+				{
+					continue;
+				}
+			}
+
+			ReplayList.Add(NewDemoEntry);
+		}
 	}
 
 	// Sort demo names by date

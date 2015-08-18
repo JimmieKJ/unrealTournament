@@ -134,7 +134,7 @@ void AUTWeaponAttachment::SetSkin(UMaterialInterface* NewSkin)
 
 bool AUTWeaponAttachment::CancelImpactEffect(const FHitResult& ImpactHit)
 {
-	return ImpactHit.Actor.IsValid() && (Cast<AUTCharacter>(ImpactHit.Actor.Get()) || Cast<AUTProjectile>(ImpactHit.Actor.Get()));
+	return (!ImpactHit.Actor.IsValid() && !ImpactHit.Component.IsValid()) || Cast<AUTCharacter>(ImpactHit.Actor.Get()) || Cast<AUTProjectile>(ImpactHit.Actor.Get());
 }
 
 void AUTWeaponAttachment::PlayFiringEffects()

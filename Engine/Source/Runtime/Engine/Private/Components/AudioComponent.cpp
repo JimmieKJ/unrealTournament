@@ -21,6 +21,7 @@ UAudioComponent::UAudioComponent(const FObjectInitializer& ObjectInitializer)
 	bVisualizeComponent = true;
 #endif
 	VolumeMultiplier = 1.f;
+	VolumeWeightedPriorityScale = 1.f;
 	PitchMultiplier = 1.f;
 	VolumeModulationMin = 1.f;
 	VolumeModulationMax = 1.f;
@@ -126,7 +127,10 @@ void UAudioComponent::PlayInternal(const float StartTime, const float FadeInDura
 		// If this is an auto destroy component we need to prevent it from being auto-destroyed since we're really just restarting it
 		bool bCurrentAutoDestroy = bAutoDestroy;
 		bAutoDestroy = false;
-		Stop();
+		if (!bShouldRemainActiveIfDropped)
+		{
+			Stop();
+		}
 		bAutoDestroy = bCurrentAutoDestroy;
 	}
 
@@ -141,6 +145,7 @@ void UAudioComponent::PlayInternal(const float StartTime, const float FadeInDura
 			NewActiveSound.SoundClassOverride = SoundClassOverride;
 
 			NewActiveSound.VolumeMultiplier = (VolumeModulationMax + ((VolumeModulationMin - VolumeModulationMax) * FMath::SRand())) * VolumeMultiplier;
+			NewActiveSound.VolumeWeightedPriorityScale = VolumeWeightedPriorityScale;
 			NewActiveSound.PitchMultiplier = (PitchModulationMax + ((PitchModulationMin - PitchModulationMax) * FMath::SRand())) * PitchMultiplier;
 			NewActiveSound.HighFrequencyGainMultiplier = HighFrequencyGainMultiplier;
 

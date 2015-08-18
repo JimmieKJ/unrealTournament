@@ -3,7 +3,6 @@
 #pragma once
 
 #include "UTTeamInterface.h"
-#include "Stat.h"
 #include "Online.h"
 #include "OnlineSubsystemTypes.h"
 #include "UTDamageType.h"
@@ -12,6 +11,9 @@
 #include "UTTaunt.h"
 #include "Http.h"
 #include "UTProfileItem.h"
+#include "SHyperlink.h"
+#include "UTCharacterVoice.h"
+#include "StatManager.h"
 
 #include "UTPlayerState.generated.h"
 
@@ -45,6 +47,18 @@ struct FTempBanInfo
 	{
 	}
 
+};
+
+USTRUCT()
+struct FEmoteRepInfo
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY()
+	uint8 EmoteCount;
+
+	UPROPERTY()
+	int32 EmoteIndex;
 };
 
 class AUTReplicatedMapInfo;
@@ -134,6 +148,38 @@ public:
 
 	virtual void UpdateReady();
 
+	/** Voice used by this player/bot for speech (taunts, etc.). */
+	UPROPERTY(BlueprintReadOnly, Category = Sounds)
+		TSubclassOf<class UUTCharacterVoice> CharacterVoice;
+
+	UPROPERTY()
+		bool bShouldAutoTaunt;
+
+	/** Current index to use as basis for next selection in Taunt list. */
+	UPROPERTY()
+		int32 TauntSelectionIndex;
+
+	/** Last time this player sent a taunt voice message. */
+	UPROPERTY()
+		float LastTauntTime;
+
+	FTimerHandle PlayKillAnnouncement;
+	FTimerHandle UpdateOldNameHandle;
+
+	/** Delay oldname update so it's available for name change notification. */
+	virtual void UpdateOldName();
+
+	/** Whether this player plays auto-taunts. */
+	virtual bool ShouldAutoTaunt() const;
+
+	virtual void AnnounceKill();
+
+	virtual void AnnounceSameTeam(class AUTPlayerController* ShooterPC);
+
+	virtual void AnnounceReactionTo(const AUTPlayerState* ReactionPS) const;
+
+	virtual void AnnounceStatus(FName NewStatus);
+
 	/** Used for tracking multikills - not always correct as it is reset when player dies. */
 	UPROPERTY(BlueprintReadWrite, Category = PlayerState)
 	float LastKillTime;
@@ -184,12 +230,54 @@ public:
 	UPROPERTY(BlueprintReadOnly, replicated, Category = PlayerState)
 	bool bIsDemoRecording;
 
+	UPROPERTY()
+	bool bAllowedEarlyLeave;
+
 	// Player Stats 
 
 	/** This is the unique ID for stats generation*/
 	UPROPERTY(replicated)
 	FString StatsID;
 	
+	/** Add an entry to MatchHighlights only if an empty slot is found. */
+	virtual void AddMatchHighlight(FName NewHighlight, float HighlightData);
+
+	/** Set at end of match and half-time. */
+	UPROPERTY(replicated)
+		FName MatchHighlights[5];
+
+	/** Set at end of match and half-time. */
+	UPROPERTY(replicated)
+		float MatchHighlightData[5];
+
+	/** Set at end of match and half-time. */
+	UPROPERTY(replicated)
+		TSubclassOf<class AUTWeapon> FavoriteWeapon;
+
+
+protected:
+	/** XP player had before current match, read from backend (-1 until successful read) */
+	UPROPERTY()
+	int32 PrevXP;
+	/** XP awarded to this player so far (server only, replicated to owning client via RPC after end of game) */
+	UPROPERTY()
+	FXPBreakdown XP;
+public:
+	inline int32 GetPrevXP() const
+	{
+		return PrevXP;
+	}
+	inline const FXPBreakdown& GetXP() const
+	{
+		return XP;
+	}
+	inline bool CanAwardOnlineXP() const
+	{
+		return PrevXP >= 0 && UniqueId.IsValid() && !StatsID.IsEmpty(); // PrevXP == -1 before a successful read, should always be >= 0 after even if there was no value
+	}
+
+	void GiveXP(const FXPBreakdown& AddXP);
+
 	// How long until this player can respawn.  It's not directly replicated to the clients instead it's set
 	// locally via OnDeathsReceived.  It will be set to the value of "GameState.RespawnWaitTime"
 
@@ -268,10 +356,13 @@ public:
 
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = PlayerState)
 	virtual void SetWaitingPlayer(bool B);
+
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = PlayerState)
-	virtual void IncrementKills(TSubclassOf<UDamageType> DamageType, bool bEnemyKill);
+	virtual void IncrementKills(TSubclassOf<UDamageType> DamageType, bool bEnemyKill, AUTPlayerState* VictimPS=NULL);
+
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = PlayerState)
 	virtual void IncrementDeaths(TSubclassOf<UDamageType> DamageType, AUTPlayerState* KillerPlayerState);
+
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = PlayerState)
 	virtual void AdjustScore(int32 ScoreAdjustment);
 
@@ -346,6 +437,8 @@ public:
 	virtual void SetTeamForSideSwap_Implementation(uint8 NewTeamNum) override
 	{}
 
+	virtual bool ShouldBroadCastWelcomeMessage(bool bExiting = false) override;
+
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type Reason) override;
 
@@ -362,8 +455,14 @@ public:
 	FName CountryFlag;
 
 	virtual void SetUniqueId(const TSharedPtr<FUniqueNetId>& InUniqueId) override;
+	
 	/** read profile items for this user from the backend */
 	virtual void ReadProfileItems();
+
+	virtual void Destroyed() override;
+
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = PlayerState)
+	FName Avatar;
 
 private:
 	FHttpRequestPtr ItemListReq;
@@ -452,6 +551,13 @@ public:
 	UPROPERTY(Replicated)
 	int32 AverageRank;
 
+	UPROPERTY(Replicated)
+	int32 TrainingLevel;
+
+#if !UE_SERVER
+	FText GetTrainingLevelText();
+#endif
+
 	// transient, for TeamInfo leader updates - persistent value is stored in StatsData
 	float AttackerScore;
 	float SecondaryAttackerScore;
@@ -472,6 +578,7 @@ public:
 	const FSlateBrush* GetELOBadgeImage() const;
 	const FSlateBrush* GetELOBadgeNumberImage() const;
 	void BuildPlayerInfo(TSharedPtr<class SUTTabWidget> TabWidget, TArray<TSharedPtr<struct TAttributeStat> >& StatList);
+	void EpicIDClicked();
 #endif
 
 	// If true, the game type considers this player special.
@@ -525,7 +632,42 @@ public:
 	UFUNCTION(server, reliable, withvalidation)
 	virtual void RegisterVote(AUTReplicatedMapInfo* VoteInfo);
 
+	/** Used to get around bIsInactive = COND_InitialOnly 
+	Setting this will move the Playerstate to the appropriate active/inactive player list*/
+	UPROPERTY(replicatedUsing = OnRep_UTIsInactive)
+	uint32 bUTIsInactive : 1;
+
+	UFUNCTION()
+	virtual void OnRep_UTIsInactive();
+
 	virtual void OnRep_bIsInactive() override;
+
+	UPROPERTY(replicatedUsing = OnRepTaunt)
+	FEmoteRepInfo EmoteReplicationInfo;
+
+	UFUNCTION()
+	virtual void OnRepTaunt();
+
+	UPROPERTY(replicatedUsing = OnRepEmoteSpeed)
+	float EmoteSpeed;
+
+	UFUNCTION()
+	virtual void OnRepEmoteSpeed();
+
+	UFUNCTION(BlueprintCallable, Category = Taunt)
+	void PlayTauntByIndex(int32 TauntIndex);
+
+	UFUNCTION(BlueprintCallable, Category = Taunt)
+	void PlayTauntByClass(TSubclassOf<AUTTaunt> TauntToPlay);
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	virtual void ServerSetEmoteSpeed(float NewEmoteSpeed);
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	virtual void ServerFasterEmote();
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	virtual void ServerSlowerEmote();
 };
 
 

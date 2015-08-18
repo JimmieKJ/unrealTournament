@@ -139,6 +139,7 @@ public:
 	virtual bool IsFastForwarding() { return bIsFastForwarding; }
 	void AddEvent(const FString& Group, const FString& Meta, const TArray<uint8>& Data);
 	void EnumerateEvents(const FString& Group, FEnumerateEventsCompleteDelegate& EnumerationCompleteDelegate);
+	void RequestEventData(const FString& EventID, FOnRequestEventDataComplete& RequestEventDataCompleteDelegate);
 
 	/**
 	 * Adds a join-in-progress user to the set of users associated with the currently recording replay (if any)

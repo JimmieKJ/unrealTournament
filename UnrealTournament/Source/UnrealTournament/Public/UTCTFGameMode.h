@@ -46,6 +46,8 @@ class UNREALTOURNAMENT_API AUTCTFGameMode : public AUTTeamGameMode
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = CTF)
 	int32 AdvantageDuration;
 
+	TAssetSubclassOf<AUTWeapon> TranslocatorObject;
+
 	UFUNCTION(exec)
 	void CheatScore();
 

@@ -51,6 +51,10 @@ UUTScoreboard::UUTScoreboard(const class FObjectInitializer& ObjectInitializer) 
 	static ConstructorHelpers::FObjectFinder<UTexture2D> Tex(TEXT("Texture2D'/Game/RestrictedAssets/UI/Textures/UTScoreboard01.UTScoreboard01'"));
 	TextureAtlas = Tex.Object;
 
+	KillsColumn = 0.4f;
+	DeathsColumn = 0.52f;
+	ShotsColumn = 0.72f;
+	AccuracyColumn = 0.84f;
 	ValueColumn = 0.5f;
 	ScoreColumn = 0.75f;
 	bHighlightStatsLineTopValue = false;
@@ -400,15 +404,32 @@ void UUTScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float R
 
 	if (PlayerState->KickPercent > 0)
 	{
-		FText Kick = FText::Format(NSLOCTEXT("Common","PercFormat","{0}%"),FText::AsNumber(PlayerState->KickPercent));
-		DrawText(Kick, XOffset, YOffset + ColumnY, UTHUDOwner->TinyFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Left, ETextVertPos::Center);
+		float XL, SmallYL;
+		Canvas->TextSize(UTHUDOwner->SmallFont, "Kick", XL, SmallYL, RenderScale, RenderScale);
+		DrawText(NSLOCTEXT("UTScoreboard", "Kick", "Kick"), XOffset + 0.01f*Width, YOffset + ColumnY - 0.27f*SmallYL, UTHUDOwner->TinyFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Left, ETextVertPos::Center);
+		FText Kick = FText::Format(NSLOCTEXT("Common", "PercFormat", "{0}%"), FText::AsNumber(PlayerState->KickPercent));
+		DrawText(Kick, XOffset + 0.01f*Width, YOffset + ColumnY + 0.33f*SmallYL, UTHUDOwner->TinyFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Left, ETextVertPos::Center);
+	}
+	else if (!PlayerState->bIsABot)
+	{
+		UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(UTHUDOwner->UTPlayerOwner->Player);
+		if (LP)
+		{
+			int32 Badge;
+			int32 Level;
+			UUTLocalPlayer::GetBadgeFromELO(PlayerState->AverageRank, Badge, Level);
+			Badge = FMath::Clamp<int32>(Badge, 0, 3);
+			Level = FMath::Clamp<int32>(Level, 0, 8);
+			float MedalPosition = (UTGameState && !UTGameState->bTeamGame) ? ColumnMedalX : 0.5f * FlagX;
+			DrawTexture(TextureAtlas, XOffset + (Width * MedalPosition), YOffset + 16, 32, 32, BadgeUVs[Badge].X, BadgeUVs[Badge].Y, 32, 32, 1.0, FLinearColor::White, FVector2D(0.5f, 0.5f));
+			DrawTexture(TextureAtlas, XOffset + (Width * MedalPosition), YOffset + 16, 32, 32, BadgeNumberUVs[Level].X, BadgeNumberUVs[Level].Y, 32, 32, 1.0, FLinearColor::White, FVector2D(0.5f, 0.5f));
+		}
 	}
 
 	DrawTexture(TextureAtlas, XOffset, YOffset, Width, 36, 149, 138, 32, 32, FinalBarOpacity, BarColor);	// NOTE: Once I make these interactable.. have a selection color too
 
 	FTextureUVs FlagUV;
-
-	UTexture2D* NewFlagAtlas = UTHUDOwner->ResolveFlag(PlayerState->CountryFlag, FlagUV);
+	UTexture2D* NewFlagAtlas = UTHUDOwner->ResolveFlag(PlayerState, FlagUV);
 	DrawTexture(NewFlagAtlas, XOffset + (Width * FlagX), YOffset + 18, FlagUV.UL, FlagUV.VL, FlagUV.U, FlagUV.V, 36, 26, 1.0, FLinearColor::White, FVector2D(0.0f, 0.5f));
 
 	// Draw the Text
@@ -440,22 +461,6 @@ void UUTScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float R
 	}
 	DrawText(PlayerPing, XOffset + (Width * ColumnHeaderPingX), YOffset + ColumnY, UTHUDOwner->SmallFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
 
-	if (!PlayerState->bIsABot)
-	{
-		int32 Badge;
-		int32 Level;
-
-		UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(UTHUDOwner->UTPlayerOwner->Player);
-		if (LP)
-		{
-			UUTLocalPlayer::GetBadgeFromELO(PlayerState->AverageRank, Badge, Level);
-			Badge = FMath::Clamp<int32>(Badge,0, 3);
-			Level = FMath::Clamp<int32>(Level,0, 8);
-			float MedalPosition = (UTGameState && !UTGameState->bTeamGame) ? ColumnMedalX : 0.5f * FlagX;
-			DrawTexture(TextureAtlas, XOffset + (Width * MedalPosition), YOffset + 16, 32, 32, BadgeUVs[Badge].X, BadgeUVs[Badge].Y, 32, 32, 1.0, FLinearColor::White, FVector2D(0.5f, 0.5f));
-			DrawTexture(TextureAtlas, XOffset + (Width * MedalPosition), YOffset + 16, 32, 32, BadgeNumberUVs[Level].X, BadgeNumberUVs[Level].Y, 32, 32, 1.0, FLinearColor::White, FVector2D(0.5f, 0.5f));
-		}
-	}
 }
 
 void UUTScoreboard::DrawPlayerScore(AUTPlayerState* PlayerState, float XOffset, float YOffset, float Width, FLinearColor DrawColor)
@@ -685,7 +690,7 @@ void UUTScoreboard::DrawTextStatsLine(FText StatsName, FString StatValue, FStrin
 	YPos += StatsFontInfo.TextHeight;
 }
 
-void UUTScoreboard::DrawWeaponStatsLine(FText StatsName, int32 StatValue, int32 ScoreValue, float DeltaTime, float XOffset, float& YPos, const FStatsFontInfo& StatsFontInfo, float ScoreWidth, bool bIsBestWeapon)
+void UUTScoreboard::DrawWeaponStatsLine(FText StatsName, int32 StatValue, int32 ScoreValue, int32 Shots, float Accuracy, float DeltaTime, float XOffset, float& YPos, const FStatsFontInfo& StatsFontInfo, float ScoreWidth, bool bIsBestWeapon)
 {
 	Canvas->SetLinearDrawColor(bIsBestWeapon ? FLinearColor::Yellow : FLinearColor::White);
 	Canvas->DrawText(StatsFontInfo.TextFont, StatsName, XOffset, YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
@@ -693,19 +698,32 @@ void UUTScoreboard::DrawWeaponStatsLine(FText StatsName, int32 StatValue, int32 
 	if (StatValue >= 0)
 	{
 		Canvas->SetLinearDrawColor((StatValue >= 15) ? FLinearColor::Yellow : FLinearColor::White);
-		Canvas->DrawText(StatsFontInfo.TextFont, FString::Printf(TEXT(" %i"), StatValue), XOffset + ValueColumn*ScoreWidth, YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
+		Canvas->DrawText(StatsFontInfo.TextFont, FString::Printf(TEXT(" %i"), StatValue), XOffset + KillsColumn*ScoreWidth, YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
 	}
 	if (ScoreValue >= 0)
 	{
 		Canvas->SetLinearDrawColor(FLinearColor::White);
-		Canvas->DrawText(StatsFontInfo.TextFont, FString::Printf(TEXT(" %i"), ScoreValue), XOffset + ScoreColumn*ScoreWidth, YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
+		Canvas->DrawText(StatsFontInfo.TextFont, FString::Printf(TEXT(" %i"), ScoreValue), XOffset + DeathsColumn*ScoreWidth, YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
+	}
+	if (Shots >= 0)
+	{
+		Canvas->SetLinearDrawColor(FLinearColor::White);
+		Canvas->DrawText(StatsFontInfo.TextFont, FString::Printf(TEXT(" %i"), Shots), XOffset + ShotsColumn*ScoreWidth, YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
+
+		Canvas->SetLinearDrawColor(FLinearColor::White);
+		Canvas->DrawText(StatsFontInfo.TextFont, FString::Printf(TEXT(" %3.1f%%"), Accuracy), XOffset + AccuracyColumn*ScoreWidth, YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
 	}
 	YPos += StatsFontInfo.TextHeight;
 }
 
 void UUTScoreboard::DrawWeaponStats(AUTPlayerState* PS, float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float MaxHeight, const FStatsFontInfo& StatsFontInfo)
 {
-	DrawTextStatsLine(NSLOCTEXT("UTScoreboard", "WeaponColumnTitle", "Weapon"), "Kills With", "Deaths By", DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth, 0);
+	Canvas->SetLinearDrawColor(FLinearColor::White);
+	Canvas->DrawText(UTHUDOwner->TinyFont, "Kills with", XOffset + (KillsColumn-0.05f)*ScoreWidth, YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
+	Canvas->DrawText(UTHUDOwner->TinyFont, "Deaths by", XOffset + (DeathsColumn - 0.05f)*ScoreWidth, YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
+	Canvas->DrawText(UTHUDOwner->TinyFont, "Shots", XOffset + (ShotsColumn - 0.02f)*ScoreWidth, YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
+	Canvas->DrawText(UTHUDOwner->TinyFont, "Accuracy", XOffset + (AccuracyColumn - 0.03f)*ScoreWidth, YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
+	YPos += StatsFontInfo.TextHeight;
 
 	/** List of weapons to display stats for. */
 	if (StatsWeapons.Num() == 0)
@@ -730,7 +748,9 @@ void UUTScoreboard::DrawWeaponStats(AUTPlayerState* PS, float DeltaTime, float& 
 	for (int32 i = 0; i < StatsWeapons.Num(); i++)
 	{
 		int32 Kills = StatsWeapons[i]->GetWeaponKillStats(PS);
-		DrawWeaponStatsLine(StatsWeapons[i]->DisplayName, Kills, StatsWeapons[i]->GetWeaponDeathStats(PS), DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth, (i == BestWeaponIndex));
+		float Shots = StatsWeapons[i]->GetWeaponShotsStats(PS);
+		float Accuracy = (Shots > 0) ? 100.f * StatsWeapons[i]->GetWeaponHitsStats(PS)/ Shots : 0.f;
+		DrawWeaponStatsLine(StatsWeapons[i]->DisplayName, Kills, StatsWeapons[i]->GetWeaponDeathStats(PS), Shots, Accuracy, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth, (i == BestWeaponIndex));
 		if (Kills > BestWeaponKills)
 		{
 			BestWeaponKills = Kills;
@@ -751,7 +771,7 @@ void UUTScoreboard::DrawWeaponStats(AUTPlayerState* PS, float DeltaTime, float& 
 	Canvas->DrawText(StatsFontInfo.TextFont, "----------------------------------------------------------------", XOffset, YPos, RenderScale, RenderScale, StatsFontInfo.TextRenderInfo);
 	YPos += StatsFontInfo.TextHeight;
 
-	float BestComboRating = 0.01f*PS->GetStatsValue(NAME_BestShockCombo);
+	float BestComboRating = PS->GetStatsValue(NAME_BestShockCombo);
 	DrawTextStatsLine(NSLOCTEXT("UTScoreboard", "ShockComboRating", "Best Shock Combo Rating"), FString::Printf(TEXT(" %4.1f"), BestComboRating), "", DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth, (BestComboRating > 8.f));
 }
 
@@ -871,6 +891,27 @@ void UUTScoreboard::DrawPlayerStats(AUTPlayerState* PS, float DeltaTime, float& 
 	DrawStatsLine(NSLOCTEXT("UTScoreboard", "VestPickups", "Armor Vest Pickups"), PS->GetStatsValue(NAME_ArmorVestCount), -1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
 	DrawStatsLine(NSLOCTEXT("UTScoreboard", "PadPickups", "Thigh Pad Pickups"), PS->GetStatsValue(NAME_ArmorPadsCount), -1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
 	DrawStatsLine(NSLOCTEXT("UTScoreboard", "HelmetPickups", "Helmet Pickups"), PS->GetStatsValue(NAME_HelmetCount), -1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
+
+	int32 PickupCount = PS->GetStatsValue(NAME_UDamageCount);
+	if (PickupCount > 0)
+	{
+		DrawStatsLine(NSLOCTEXT("UTScoreboard", "UDamagePickups", "UDamage Pickups"), PickupCount, -1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
+	}
+	PickupCount = PS->GetStatsValue(NAME_BerserkCount);
+	if (PickupCount > 0)
+	{
+		DrawStatsLine(NSLOCTEXT("UTScoreboard", "BerserkPickups", "Berserk Pickups"), PickupCount, -1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
+	}
+	PickupCount = PS->GetStatsValue(NAME_InvisibilityCount);
+	if (PickupCount > 0)
+	{
+		DrawStatsLine(NSLOCTEXT("UTScoreboard", "InvisibilityPickups", "Invisibility Pickups"), PickupCount, -1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
+	}
+	PickupCount = PS->GetStatsValue(NAME_KegCount);
+	if (PickupCount > 0)
+	{
+		DrawStatsLine(NSLOCTEXT("UTScoreboard", "KegPickups", "Keg Pickups"), PickupCount, -1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
+	}
 
 	int32 ClockVal = PS->GetStatsValue(NAME_UDamageTime);
 	if (ClockVal > 0)

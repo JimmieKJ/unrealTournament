@@ -187,7 +187,7 @@ void SUWRedirectDialog::HttpRequestComplete(FHttpRequestPtr InHttpRequest, FHttp
 		{
 			IPlatformFile& PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
 		
-			FString Path = FPaths::Combine(*FPaths::GameSavedDir(), TEXT("DownloadedPaks"));
+			FString Path = FPaths::Combine(*FPaths::GameSavedDir(), TEXT("Paks"), TEXT("DownloadedPaks"));
 			if (!PlatformFile.DirectoryExists(*Path))
 			{
 				PlatformFile.CreateDirectoryTree(*Path);

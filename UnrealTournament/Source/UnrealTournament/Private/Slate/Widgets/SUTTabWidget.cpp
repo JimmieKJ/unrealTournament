@@ -11,6 +11,7 @@ void SUTTabWidget::Construct(const FArguments& InArgs)
 {
 	OnTabButtonSelectionChanged = InArgs._OnTabButtonSelectionChanged;
 	OnTabButtonNumberChanged = InArgs._OnTabButtonNumberChanged;
+	TabTextStyle = InArgs._TabTextStyle;
 
 	TabsContainer = SNew(SWrapBox)
 		.UseAllottedWidth(true);
@@ -53,7 +54,7 @@ void SUTTabWidget::AddTab(FText ButtonLabel, TSharedPtr<SWidget> Widget)
 			.ContentPadding(FMargin(15.0f, 10.0f, 70.0f, 0.0f))
 			.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.OptionTabButton")
 			.ClickMethod(EButtonClickMethod::MouseDown)
-			.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.SmallTextStyle")
+			.TextStyle(TabTextStyle)
 			.Text(ButtonLabel)
 			.OnClicked(this, &SUTTabWidget::OnButtonClicked, ButtonLabel);
 

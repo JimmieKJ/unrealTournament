@@ -21,6 +21,8 @@ AUTWeap_ShockRifle::AUTWeap_ShockRifle(const FObjectInitializer& ObjectInitializ
 	AltKillStatsName = NAME_ShockCoreKills;
 	DeathStatsName = NAME_ShockBeamDeaths;
 	AltDeathStatsName = NAME_ShockCoreDeaths;
+	HitsStatsName = NAME_ShockRifleHits;
+	ShotsStatsName = NAME_ShockRifleShots;
 }
 
 void AUTWeap_ShockRifle::AttachToOwner_Implementation()
@@ -110,9 +112,9 @@ void AUTWeap_ShockRifle::PlayFiringEffects()
 	}
 }
 
-void AUTWeap_ShockRifle::HitScanTrace(const FVector& StartLocation, const FVector& EndTrace, FHitResult& Hit, float PredictionTime)
+void AUTWeap_ShockRifle::HitScanTrace(const FVector& StartLocation, const FVector& EndTrace, float TraceRadius, FHitResult& Hit, float PredictionTime)
 {
-	Super::HitScanTrace(StartLocation, EndTrace, Hit, PredictionTime);
+	Super::HitScanTrace(StartLocation, EndTrace, TraceRadius, Hit, PredictionTime);
 
 	bPlayComboEffects = (Cast<AUTProj_ShockBall>(Hit.GetActor()) != NULL);
 }

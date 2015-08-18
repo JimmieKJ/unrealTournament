@@ -22,9 +22,12 @@ struct FInstantHitDamageInfo
 	float Momentum;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DamageInfo")
 	float TraceRange;
+	/** size of trace (radius of sphere); if <= 0, line trace is used */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "DamageInfo")
+	float TraceHalfSize;
 
 	FInstantHitDamageInfo()
-		: Damage(10), TraceRange(25000.0f)
+		: Damage(10), Momentum(0.0f), TraceRange(25000.0f), TraceHalfSize(0.0f)
 	{}
 };
 
@@ -423,7 +426,19 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 
 	/** Tell server fire button was pressed.  bClientFired is true if client actually fired weapon. */
 	UFUNCTION(Server, Reliable, WithValidation)
-	virtual void ServerStartFire(uint8 FireModeNum, bool bClientFired);
+		virtual void ServerStartFire(uint8 FireModeNum, bool bClientFired);
+
+	/** ServerStartFire, also pass Z offset since it is interpolating. */
+	UFUNCTION(Server, Reliable, WithValidation)
+	virtual void ServerStartFireOffset(uint8 FireModeNum, uint8 ZOffset, bool bClientFired);
+
+	/** Just replicated ZOffset for shot fire location. */
+	UPROPERTY()
+		float FireZOffset;
+
+	/** When received FireZOffset - only valid for same time and next frame. */
+	UPROPERTY()
+		float FireZOffsetTime;
 
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerStopFire(uint8 FireModeNum);
@@ -573,7 +588,7 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	void K2_FireInstantHit(bool bDealDamage, FHitResult& OutHit);
 
 	/** Handles rewind functionality for net games with ping prediction */
-	virtual void HitScanTrace(const FVector& StartLocation, const FVector& EndTrace, FHitResult& Hit, float PredictionTime);
+	virtual void HitScanTrace(const FVector& StartLocation, const FVector& EndTrace, float TraceRadius, FHitResult& Hit, float PredictionTime);
 
 	UFUNCTION(BlueprintCallable, Category = Firing)
 	virtual AUTProjectile* FireProjectile();
@@ -733,6 +748,8 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 
 	virtual void GotoEquippingState(float OverflowTime);
 	
+	virtual bool IsUnEquipping() { return GetCurrentState() == UnequippingState; };
+
 	/** informational function that returns the damage radius that a given fire mode has (used by e.g. bots) */
 	UFUNCTION(BlueprintNativeEvent, Category = AI)
 	float GetDamageRadius(uint8 TestMode) const;
@@ -852,8 +869,16 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
 		FName AltDeathStatsName;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
+		FName HitsStatsName;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
+		FName ShotsStatsName;
+
 	virtual int32 GetWeaponKillStats(AUTPlayerState * PS) const;
 	virtual int32 GetWeaponDeathStats(AUTPlayerState * PS) const;
+	virtual float GetWeaponShotsStats(AUTPlayerState * PS) const;
+	virtual float GetWeaponHitsStats(AUTPlayerState * PS) const;
 
 	// TEMP for testing 1p offsets
 	UFUNCTION(exec)

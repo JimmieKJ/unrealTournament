@@ -16,6 +16,7 @@ UUTLocalMessage::UUTLocalMessage(const class FObjectInitializer& ObjectInitializ
 	StyleTag = FName(TEXT("Default"));
 	bOptionalSpoken = false;
 	AnnouncementDelay = 0.f;
+	bWantsBotReaction = false;
 }
 
 void UUTLocalMessage::ClientReceive(const FClientReceiveData& ClientData) const
@@ -49,7 +50,7 @@ void UUTLocalMessage::ClientReceive(const FClientReceiveData& ClientData) const
 		AUTPlayerController* PC = Cast<AUTPlayerController>(ClientData.LocalPC);
 		if (PC != NULL && PC->Announcer != NULL)
 		{
-			PC->Announcer->PlayAnnouncement(GetClass(), ClientData.MessageIndex, ClientData.OptionalObject);
+			PC->Announcer->PlayAnnouncement(GetClass(), ClientData.MessageIndex, ClientData.RelatedPlayerState_1, ClientData.RelatedPlayerState_2, ClientData.OptionalObject);
 		}
 	}
 	OnClientReceive(ClientData.LocalPC, ClientData.MessageIndex, ClientData.RelatedPlayerState_1, ClientData.RelatedPlayerState_2, ClientData.OptionalObject);
@@ -75,17 +76,17 @@ bool UUTLocalMessage::UseLargeFont(int32 MessageIndex) const
 	return true;
 }
 
-FLinearColor UUTLocalMessage::GetMessageColor(int32 MessageIndex) const
+FLinearColor UUTLocalMessage::GetMessageColor_Implementation(int32 MessageIndex) const
 {
 	return FLinearColor::White;
 }
 
-float UUTLocalMessage::GetScaleInTime(int32 MessageIndex) const
+float UUTLocalMessage::GetScaleInTime_Implementation(int32 MessageIndex) const
 {
 	return 0.2f;
 }
 
-float UUTLocalMessage::GetScaleInSize(int32 MessageIndex) const
+float UUTLocalMessage::GetScaleInSize_Implementation(int32 MessageIndex) const
 {
 	return 1.f;
 }
@@ -120,6 +121,7 @@ void UUTLocalMessage::GetArgs(FFormatNamedArguments& Args, int32 Switch, bool bT
 	Args.Add(TEXT("Player1Score"), RelatedPlayerState_1 != NULL ? FText::AsNumber(int32(RelatedPlayerState_1->Score)) : FText::GetEmpty());
 	Args.Add(TEXT("Player2Name"), RelatedPlayerState_2 != NULL ? FText::FromString(RelatedPlayerState_2->PlayerName) : FText::GetEmpty());
 	Args.Add(TEXT("Player2Score"), RelatedPlayerState_2 != NULL ? FText::AsNumber(int32(RelatedPlayerState_2->Score)) : FText::GetEmpty());
+	Args.Add(TEXT("Player1OldName"), RelatedPlayerState_1 != NULL ? FText::FromString(RelatedPlayerState_1->OldName) : FText::GetEmpty());
 
 	AUTPlayerState* UTPlayerState = Cast<AUTPlayerState>(RelatedPlayerState_1);
 	Args.Add(TEXT("Player1Team"), (UTPlayerState && UTPlayerState->Team) ? UTPlayerState->Team->TeamName : FText::GetEmpty());
@@ -164,6 +166,11 @@ bool UUTLocalMessage::PartiallyDuplicates(int32 Switch1, int32 Switch2, UObject*
 FName UUTLocalMessage::GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject) const
 {
 	return NAME_None;
+}
+
+USoundBase* UUTLocalMessage::GetAnnouncementSound_Implementation(int32 Switch, const UObject* OptionalObject) const
+{
+	return NULL;
 }
 
 bool UUTLocalMessage::InterruptAnnouncement_Implementation(int32 Switch, const UObject* OptionalObject, TSubclassOf<UUTLocalMessage> OtherMessageClass, int32 OtherSwitch, const UObject* OtherOptionalObject) const

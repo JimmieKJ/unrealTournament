@@ -110,6 +110,15 @@ class UNREALTOURNAMENT_API AUTProjectile : public AActor, public IUTResetInterfa
 	TSubclassOf<UDamageType> MyDamageType;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Damage)
 	float Momentum;
+
+	/** How much stats hit credit to give when this projectile hits. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Damage)
+		float StatsHitCredit;
+
+	/** Set by the firing weapon. */
+	UPROPERTY()
+		FName HitsStatsName;
+
 	/** whether the projectile can impact its Instigator (player who fired it) */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Damage)
 	bool bCanHitInstigator;

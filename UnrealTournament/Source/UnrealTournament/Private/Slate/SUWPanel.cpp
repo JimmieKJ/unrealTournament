@@ -49,4 +49,15 @@ TSharedRef<SWidget> SUWPanel::GenerateStringListWidget(TSharedPtr<FString> InIte
 }
 
 
+AUTPlayerState* SUWPanel::GetOwnerPlayerState()
+{
+	AUTBasePlayerController* PC = Cast<AUTBasePlayerController>(PlayerOwner->PlayerController);
+	if (PC) 
+	{
+		return Cast<AUTPlayerState>(PC->PlayerState);
+	}
+	return NULL;
+}
+
+
 #endif

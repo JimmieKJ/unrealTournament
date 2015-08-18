@@ -675,6 +675,9 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
 			ConfidentialFilter.Include(".../NoRedist/...");
             ConfidentialFilter.Include(".../EpicInternal/...");
             ConfidentialFilter.Include(".../Environments/Outside/TestMaps/...");
+            ConfidentialFilter.Include(".../Character/Human/Female/...");
+            ConfidentialFilter.Include(".../Character/Skaarji/...");
+            ConfidentialFilter.Include(".../Character/Necris_Female/...");
 			foreach (UnrealTargetPlatform PossiblePlatform in Enum.GetValues(typeof(UnrealTargetPlatform)))
 			{
 				if(PossiblePlatform != Platform && PossiblePlatform != UnrealTargetPlatform.Unknown)

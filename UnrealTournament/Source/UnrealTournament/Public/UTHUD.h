@@ -200,6 +200,10 @@ public:
 
 	virtual void NotifyMatchStateChange();
 
+	FTimerHandle MatchSummaryHandle;
+
+	virtual void OpenMatchSummary();
+
 	inline UUTScoreboard* GetScoreboard() const
 	{
 		return MyUTScoreboard;
@@ -240,7 +244,7 @@ public:
 	bool bUseWeaponColors;
 
 	UPROPERTY(globalconfig)
-	TEnumAsByte<EHudKillMsgStyle::Type> KillMsgStyle;
+	bool bDrawChatKillMsg;
 
 	UPROPERTY(globalconfig)
 	bool bDrawPopupKillMsg;
@@ -321,10 +325,35 @@ private:
 
 public:
 
-	UTexture2D* ResolveFlag(FName Flag, FTextureUVs& UV);
+	UTexture2D* ResolveFlag(AUTPlayerState* PS, FTextureUVs& UV);
 
 	/**Returns the necessary input mode for the hud this tick*/
 	UFUNCTION(BlueprintNativeEvent)
 	EInputMode::Type GetInputMode();
+
+	/**The list of crosshair information for each weapon*/
+	UPROPERTY(globalconfig)
+	TArray<FCrosshairInfo> CrosshairInfos;
+
+	/**If true, crosshairs can be unique per weapon*/
+	UPROPERTY(globalconfig)
+	bool bCustomWeaponCrosshairs;
+
+	/**Gets the crosshair for the weapon. Creates a new one if necessary*/
+	UFUNCTION(BlueprintCallable, Category = Crosshair)
+	class UUTCrosshair* GetCrosshair(AUTWeapon* Weapon);
+
+	FCrosshairInfo* GetCrosshairInfo(AUTWeapon* Weapon);
+
+	UPROPERTY()
+	TArray<class UUTCrosshair*> LoadedCrosshairs;
+
+	/** called by PlayerController (locally) when clicking mouse while crosshair is selected
+	 * return true to override default behavior
+	 */
+	virtual bool OverrideMouseClick(FKey Key, EInputEvent EventType)
+	{
+		return false;
+	}
 };
 

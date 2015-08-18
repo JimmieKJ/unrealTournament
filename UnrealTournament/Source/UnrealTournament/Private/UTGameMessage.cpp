@@ -34,7 +34,7 @@ bool UUTGameMessage::UseLargeFont(int32 MessageIndex) const
 	return (MessageIndex == 0) || (MessageIndex == 1) || (MessageIndex == 7) || (MessageIndex == 9) || (MessageIndex == 10);
 }
 
-float UUTGameMessage::GetScaleInSize(int32 MessageIndex) const
+float UUTGameMessage::GetScaleInSize_Implementation(int32 MessageIndex) const
 {
 	if ((MessageIndex >= 2) && (MessageIndex <= 6))
 	{
@@ -43,7 +43,7 @@ float UUTGameMessage::GetScaleInSize(int32 MessageIndex) const
 	return UseLargeFont(MessageIndex) ? 3.f : 4.f;
 }
 
-FLinearColor UUTGameMessage::GetMessageColor(int32 MessageIndex) const
+FLinearColor UUTGameMessage::GetMessageColor_Implementation(int32 MessageIndex) const
 {
 	if (MessageIndex == 9)
 	{

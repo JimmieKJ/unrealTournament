@@ -4,6 +4,8 @@
 #include "UTPlayerInput.h"
 #include "GameFramework/InputSettings.h"
 
+const FName AchievementIDs::TutorialComplete(TEXT("TutorialComplete"));
+
 UUTProfileSettings::UUTProfileSettings(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
@@ -11,6 +13,11 @@ UUTProfileSettings::UUTProfileSettings(const FObjectInitializer& ObjectInitializ
 	bSuppressToastsInGame = false;
 
 	bNeedProfileWriteOnLevelChange = false;
+
+	ReplayCustomBloomIntensity = 0.2f;
+	ReplayCustomDOFScale = 1.0f;
+
+	Avatar = FName("UT.Avatar.0");
 }
 
 void UUTProfileSettings::ClearWeaponPriorities()
@@ -18,10 +25,9 @@ void UUTProfileSettings::ClearWeaponPriorities()
 	WeaponPriorities.Empty();
 }
 
-
 void UUTProfileSettings::VersionFixup()
 {
-	if (SettingsRevisionNum == EMOTE_TO_TAUNT_PROFILESETTINGS_VERSION)
+	if (SettingsRevisionNum <= EMOTE_TO_TAUNT_PROFILESETTINGS_VERSION)
 	{
 		for (auto Iter = ActionMappings.CreateIterator(); Iter; ++Iter)
 		{
@@ -39,13 +45,22 @@ void UUTProfileSettings::VersionFixup()
 			}
 		}
 	}
-	if (SettingsRevisionNum == TAUNTFIXUP_PROFILESETTINGS_VERSION)
+	if (SettingsRevisionNum <= TAUNTFIXUP_PROFILESETTINGS_VERSION)
 	{
 		FInputActionKeyMapping Taunt2;
 		Taunt2.ActionName = FName(TEXT("PlayTaunt2"));
 		Taunt2.Key = EKeys::K;
 		ActionMappings.AddUnique(Taunt2);
 	}
+	if (SettingsRevisionNum <= SLIDEFROMRUN_FIXUP_PROFILESETTINGS_VERSION)
+	{
+		bAllowSlideFromRun = true;
+	}
+	if (SettingsRevisionNum <= HEARTAUNTS_FIXUP_PROFILESETTINGS_VERSION)
+	{
+		bHearsTaunts = true;
+	}
+	
 }
 
 void UUTProfileSettings::SetWeaponPriority(FString WeaponClassName, float NewPriority)
@@ -99,8 +114,9 @@ void UUTProfileSettings::GatherAllSettings(UUTLocalPlayer* ProfilePlayer)
 		bSingleTapAfterJump = PC->bSingleTapAfterJump;
 		bAutoWeaponSwitch = PC->bAutoWeaponSwitch;
 		bAllowSlideFromRun = PC->bAllowSlideFromRun;
+		bHearsTaunts = PC->bHearsTaunts;
 		WeaponBob = PC->WeaponBobGlobalScaling;
-		WeaponHand = PC->GetWeaponHand();
+		WeaponHand = PC->GetPreferredWeaponHand();
 		FFAPlayerColor = PC->FFAPlayerColor;
 
 		PlayerFOV = PC->ConfigDefaultFOV;
@@ -181,6 +197,7 @@ void UUTProfileSettings::ApplyAllSettings(UUTLocalPlayer* ProfilePlayer)
 		PC->bSingleTapAfterJump = bSingleTapAfterJump;
 		PC->bAutoWeaponSwitch = bAutoWeaponSwitch;
 		PC->bAllowSlideFromRun = bAllowSlideFromRun;
+		PC->bHearsTaunts = bHearsTaunts;
 		PC->WeaponBobGlobalScaling = WeaponBob;
 		PC->SetWeaponHand(WeaponHand);
 		PC->FFAPlayerColor = FFAPlayerColor;
@@ -271,6 +288,26 @@ void UUTProfileSettings::ApplyAllSettings(UUTLocalPlayer* ProfilePlayer)
 		}
 	}
 	UUTPlayerInput::StaticClass()->GetDefaultObject<UUTPlayerInput>()->ForceRebuildingKeyMaps(true);
+
+	//Don't overwrite default crosshair info if nothing has been saved to the profile yet
+	if (CrosshairInfos.Num() > 0)
+	{
+		//Apply crosshair settings to the hud(s)
+		TArray<AUTHUD*> Huds;
+		if (PC != nullptr && PC->MyUTHUD != nullptr)
+		{
+			Huds.Add(PC->MyUTHUD);
+		}
+		Huds.Add(AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>());
+
+		for (AUTHUD* Hud : Huds)
+		{
+			Hud->LoadedCrosshairs.Empty(); //Force the hud to rebuild crosshairs after loading
+			Hud->CrosshairInfos = CrosshairInfos;
+			Hud->bCustomWeaponCrosshairs = bCustomWeaponCrosshairs;
+			Hud->SaveConfig();
+		}
+	}
 }
 
 bool UUTProfileSettings::HasTokenBeenPickedUpBefore(FName TokenUniqueID)
@@ -290,10 +327,64 @@ void UUTProfileSettings::TokenRevoke(FName TokenUniqueID)
 
 void UUTProfileSettings::TokensCommit()
 {
-	for (auto ID : TempFoundTokenUniqueIDs)
+	for (FName ID : TempFoundTokenUniqueIDs)
 	{
 		FoundTokenUniqueIDs.AddUnique(ID);
 		bNeedProfileWriteOnLevelChange = true;
+	}
+
+	// see if all achievement tokens have been picked up
+	if (!Achievements.Contains(AchievementIDs::TutorialComplete))
+	{
+		bool bCompletedTutorial = true;
+		static TArray<FName, TInlineAllocator<60>> TutorialTokens = []()
+		{
+			TArray<FName, TInlineAllocator<60>> List;
+			FNumberFormattingOptions Options;
+			Options.MinimumIntegralDigits = 3;
+			for (int32 i = 0; i < 15; i++)
+			{
+				List.Add(FName(*FString::Printf(TEXT("movementtraining_token_%i"), *FText::AsNumber(i).ToString())));
+			}
+			for (int32 i = 0; i < 15; i++)
+			{
+				List.Add(FName(*FString::Printf(TEXT("weapontraining_token_%i"), *FText::AsNumber(i).ToString())));
+			}
+			for (int32 i = 0; i < 10; i++)
+			{
+				List.Add(FName(*FString::Printf(TEXT("pickuptraining_token_%i"), *FText::AsNumber(i).ToString())));
+			}
+			for (int32 i = 0; i < 5; i++)
+			{
+				List.Add(FName(*FString::Printf(TEXT("tuba_token_%i"), *FText::AsNumber(i).ToString())));
+			}
+			for (int32 i = 0; i < 5; i++)
+			{
+				List.Add(FName(*FString::Printf(TEXT("outpost23_token_%i"), *FText::AsNumber(i).ToString())));
+			}
+			for (int32 i = 0; i < 5; i++)
+			{
+				List.Add(FName(*FString::Printf(TEXT("face_token_%i"), *FText::AsNumber(i).ToString())));
+			}
+			for (int32 i = 0; i < 5; i++)
+			{
+				List.Add(FName(*FString::Printf(TEXT("asdf_token_%i"), *FText::AsNumber(i).ToString())));
+			}
+			return List;
+		}();
+		for (FName TestToken : TutorialTokens)
+		{
+			if (!FoundTokenUniqueIDs.Contains(TestToken))
+			{
+				bCompletedTutorial = false;
+				break;
+			}
+		}
+		if (bCompletedTutorial)
+		{
+			Achievements.Add(AchievementIDs::TutorialComplete);
+			// TODO: toast
+		}
 	}
 
 	TempFoundTokenUniqueIDs.Empty();

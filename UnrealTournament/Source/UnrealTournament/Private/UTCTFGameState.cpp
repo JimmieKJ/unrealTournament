@@ -37,6 +37,20 @@ AUTCTFGameState::AUTCTFGameState(const FObjectInitializer& ObjectInitializer)
 	TeamStats.Add(NAME_TeamFlagHeldTime);
 
 	SecondaryAttackerStat = NAME_FlagHeldTime;
+
+	HighlightMap.Add(HighlightNames::TopFlagCapturesRed, NSLOCTEXT("AUTGameMode", "TopFlagCapturesRed", "Most Flag Caps for Red with <UT.MatchSummary.HighlightText.Value>{0}</>."));
+	HighlightMap.Add(HighlightNames::TopFlagCapturesBlue, NSLOCTEXT("AUTGameMode", "TopFlagCapturesBlue", "Most Flag Caps for Blue with <UT.MatchSummary.HighlightText.Value>{0}</>."));
+	HighlightMap.Add(HighlightNames::TopAssistsRed, NSLOCTEXT("AUTGameMode", "TopAssistsRed", "Most Assists for Red with <UT.MatchSummary.HighlightText.Value>{0}</>."));
+	HighlightMap.Add(HighlightNames::TopAssistsRed, NSLOCTEXT("AUTGameMode", "TopAssistsRed", "Most Assists for Blue with <UT.MatchSummary.HighlightText.Value>{0}</>."));
+	HighlightMap.Add(HighlightNames::TopFlagReturnsRed, NSLOCTEXT("AUTGameMode", "TopFlagReturnsRed", "Most Flag Returns for Red with <UT.MatchSummary.HighlightText.Value>{0}</>."));
+	HighlightMap.Add(HighlightNames::TopFlagReturnsBlue, NSLOCTEXT("AUTGameMode", "TopFlagReturnsBlue", "Most Flag Returns for Blue with <UT.MatchSummary.HighlightText.Value>{0}</>."));
+
+	HighlightMap.Add(NAME_FCKills, NSLOCTEXT("AUTGameMode", "FCKills", "Killed Enemy Flag Carrier (<UT.MatchSummary.HighlightText.Value>{0}</>)."));
+	HighlightMap.Add(NAME_FlagGrabs, NSLOCTEXT("AUTGameMode", "FlagGrabs", "Grabbed Enemy Flag (<UT.MatchSummary.HighlightText.Value>{0}</>)."));
+	HighlightMap.Add(NAME_FlagSupportKills, NSLOCTEXT("AUTGameMode", "FlagSupportKills", "Killed Enemy chasing Flag Carrier (<UT.MatchSummary.HighlightText.Value>{0}</>)."));
+	HighlightMap.Add(HighlightNames::FlagCaptures, NSLOCTEXT("AUTGameMode", "FlagCaptures", "Captured Flag (<UT.MatchSummary.HighlightText.Value>{0}</>)."));
+	HighlightMap.Add(HighlightNames::Assists, NSLOCTEXT("AUTGameMode", "Assists", "Assisted Flag Capture (<UT.MatchSummary.HighlightText.Value>{0}</>)."));
+	HighlightMap.Add(HighlightNames::FlagReturns, NSLOCTEXT("AUTGameMode", "FlagReturns", "Returned Flag (<UT.MatchSummary.HighlightText.Value>{0}</>)."));
 }
 
 void AUTCTFGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
@@ -124,9 +138,7 @@ AUTTeamInfo* AUTCTFGameState::FindLeadingTeam()
 
 		if (bTied) WinningTeam = NULL;
 	}
-
 	return WinningTeam;	
-
 }
 
 FName AUTCTFGameState::GetFlagState(uint8 TeamNum)
@@ -135,7 +147,6 @@ FName AUTCTFGameState::GetFlagState(uint8 TeamNum)
 	{
 		return FlagBases[TeamNum]->GetFlagState();
 	}
-
 	return NAME_None;
 }
 
@@ -145,7 +156,6 @@ AUTPlayerState* AUTCTFGameState::GetFlagHolder(uint8 TeamNum)
 	{
 		return FlagBases[TeamNum]->GetCarriedObjectHolder();
 	}
-
 	return NULL;
 }
 
@@ -155,10 +165,8 @@ AUTCTFFlagBase* AUTCTFGameState::GetFlagBase(uint8 TeamNum)
 	{
 		return FlagBases[TeamNum];
 	}
-
 	return NULL;
 }
-
 
 void AUTCTFGameState::ResetFlags()
 {
@@ -169,54 +177,33 @@ void AUTCTFGameState::ResetFlags()
 			FlagBases[i]->RecallFlag();
 		}
 	}
-
 }
 
 bool AUTCTFGameState::IsMatchInProgress() const
 {
 	FName MatchState = GetMatchState();
-	if (MatchState == MatchState::InProgress || MatchState == MatchState::MatchIsInOvertime || MatchState == MatchState::MatchIsAtHalftime ||
-			MatchState == MatchState::MatchEnteringHalftime || MatchState == MatchState::MatchExitingHalftime ||
-			MatchState == MatchState::MatchEnteringSuddenDeath || MatchState == MatchState::MatchIsInSuddenDeath)
-	{
-		return true;
-	}
-
-	return false;
+	return (MatchState == MatchState::InProgress || MatchState == MatchState::MatchIsInOvertime || MatchState == MatchState::MatchIsAtHalftime ||
+		MatchState == MatchState::MatchEnteringHalftime || MatchState == MatchState::MatchExitingHalftime ||
+		MatchState == MatchState::MatchEnteringSuddenDeath || MatchState == MatchState::MatchIsInSuddenDeath);
 }
 
 bool AUTCTFGameState::IsMatchInOvertime() const
 {
 	FName MatchState = GetMatchState();
-	if (MatchState == MatchState::MatchIsInOvertime ||	MatchState == MatchState::MatchEnteringSuddenDeath || MatchState == MatchState::MatchIsInSuddenDeath)
-	{
-		return true;
-	}
-
-	return false;
+	return (MatchState == MatchState::MatchIsInOvertime || MatchState == MatchState::MatchEnteringSuddenDeath || MatchState == MatchState::MatchIsInSuddenDeath);
 }
 
 
 bool AUTCTFGameState::IsMatchAtHalftime() const
 {
 	FName MatchState = GetMatchState();
-	if (MatchState == MatchState::MatchIsAtHalftime || MatchState == MatchState::MatchEnteringHalftime || MatchState == MatchState::MatchExitingHalftime)
-	{
-		return true;
-	}
-
-	return false;
+	return (MatchState == MatchState::MatchIsAtHalftime || MatchState == MatchState::MatchEnteringHalftime || MatchState == MatchState::MatchExitingHalftime);
 }
 
 bool AUTCTFGameState::IsMatchInSuddenDeath() const
 {
 	FName MatchState = GetMatchState();
-	if (MatchState == MatchState::MatchEnteringSuddenDeath || MatchState == MatchState::MatchIsInSuddenDeath)
-	{
-		return true;
-	}
-
-	return false;
+	return (MatchState == MatchState::MatchEnteringSuddenDeath || MatchState == MatchState::MatchIsInSuddenDeath);
 }
 
 FName AUTCTFGameState::OverrideCameraStyle(APlayerController* PCOwner, FName CurrentCameraStyle)
@@ -385,4 +372,117 @@ bool AUTCTFGameState::GetImportantPickups_Implementation(TArray<AUTPickup*>& Pic
 	});
 
 	return true;
+}
+
+void AUTCTFGameState::UpdateHighlights_Implementation()
+{
+	AUTPlayerState* TopFlagCaps[2] = { NULL, NULL };
+	AUTPlayerState* TopAssists[2] = { NULL, NULL };
+	AUTPlayerState* TopFlagReturns[2] = { NULL, NULL };
+
+	for (int32 i = 0; i < PlayerArray.Num() - 1; i++)
+	{
+		AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerArray[i]);
+		if (PS && !PS->bOnlySpectator)
+		{
+			int32 TeamIndex = PS->Team ? PS->Team->TeamIndex : 0;
+			// @TODO FIXMESTEVE support tie scores!
+			if (PS->FlagCaptures > (TopFlagCaps[TeamIndex] ? TopFlagCaps[TeamIndex]->FlagCaptures : 0))
+			{
+				TopFlagCaps[TeamIndex] = PS;
+			}
+			if (PS->Assists > (TopAssists[TeamIndex] ? TopAssists[TeamIndex]->Assists : 0))
+			{
+				TopAssists[TeamIndex] = PS;
+			}
+			if (PS->FlagReturns > (TopFlagReturns[TeamIndex] ? TopFlagReturns[TeamIndex]->FlagReturns : 0))
+			{
+				TopFlagReturns[TeamIndex] = PS;
+			}
+		}
+	}
+
+	if (TopFlagCaps[0] != NULL)
+	{
+		TopFlagCaps[0]->AddMatchHighlight(HighlightNames::TopFlagCapturesRed, TopFlagCaps[0]->FlagCaptures);
+	}
+	if (TopFlagCaps[1] != NULL)
+	{
+		TopFlagCaps[1]->AddMatchHighlight(HighlightNames::TopFlagCapturesBlue, TopFlagCaps[1]->FlagCaptures);
+	}
+	if (TopAssists[0] != NULL)
+	{
+		TopAssists[0]->AddMatchHighlight(HighlightNames::TopAssistsRed, TopAssists[0]->Assists);
+	}
+	if (TopAssists[1] != NULL)
+	{
+		TopAssists[1]->AddMatchHighlight(HighlightNames::TopAssistsBlue, TopAssists[1]->Assists);
+	}
+	if (TopFlagReturns[0] != NULL)
+	{
+		TopFlagReturns[0]->AddMatchHighlight(HighlightNames::TopFlagReturnsRed, TopFlagReturns[0]->FlagReturns);
+	}
+	if (TopFlagReturns[1] != NULL)
+	{
+		TopFlagReturns[1]->AddMatchHighlight(HighlightNames::TopFlagReturnsBlue, TopFlagReturns[1]->FlagReturns);
+	}
+
+	// add flag results for non-top players
+	for (int32 i = 0; i < PlayerArray.Num() - 1; i++)
+	{
+		AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerArray[i]);
+		if (PS && PS->Team)
+		{
+			int32 TeamIndex = PS->Team->TeamIndex;
+			if ((PS != TopFlagCaps[TeamIndex]) && (PS->FlagCaptures > 0))
+			{
+				PS->AddMatchHighlight(HighlightNames::FlagCaptures, PS->FlagCaptures);
+			}
+			if ((PS != TopAssists[TeamIndex]) && (PS->Assists > 0))
+			{
+				PS->AddMatchHighlight(HighlightNames::Assists, PS->Assists);
+			}
+			if ((PS != TopFlagReturns[TeamIndex]) && (PS->FlagReturns > 0))
+			{
+				PS->AddMatchHighlight(HighlightNames::FlagReturns, PS->FlagReturns);
+			}
+		}
+	}
+
+	Super::UpdateHighlights_Implementation();
+}
+
+void AUTCTFGameState::AddMinorHighlights_Implementation(AUTPlayerState* PS)
+{
+	// skip if already filled with major highlights
+	if (PS->MatchHighlights[4] != NAME_None)
+	{
+		return;
+	}
+
+	if (PS->GetStatsValue(NAME_FCKills) > 0)
+	{
+		PS->AddMatchHighlight(NAME_FCKills, PS->GetStatsValue(NAME_FCKills));
+		if (PS->MatchHighlights[4] != NAME_None)
+		{
+			return;
+		}
+	}
+	if (PS->GetStatsValue(NAME_FlagGrabs) > 0)
+	{
+		PS->AddMatchHighlight(NAME_FlagGrabs, PS->GetStatsValue(NAME_FlagGrabs));
+		if (PS->MatchHighlights[4] != NAME_None)
+		{
+			return;
+		}
+	}
+	if (PS->GetStatsValue(NAME_FlagSupportKills) > 0)
+	{
+		PS->AddMatchHighlight(NAME_FlagSupportKills, PS->GetStatsValue(NAME_FlagSupportKills));
+		if (PS->MatchHighlights[4] != NAME_None)
+		{
+			return;
+		}
+	}
+	Super::AddMinorHighlights_Implementation(PS);
 }

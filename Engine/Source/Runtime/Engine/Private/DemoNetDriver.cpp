@@ -937,6 +937,14 @@ void UDemoNetDriver::EnumerateEvents(const FString& Group, FEnumerateEventsCompl
 	}
 }
 
+void UDemoNetDriver::RequestEventData(const FString& EventID, FOnRequestEventDataComplete& RequestEventDataCompleteDelegate)
+{
+	if (ReplayStreamer.IsValid())
+	{
+		ReplayStreamer->RequestEventData(EventID, RequestEventDataCompleteDelegate);
+	}
+}
+
 void UDemoNetDriver::TickDemoRecord( float DeltaSeconds )
 {
 	if ( ClientConnections.Num() == 0 )

@@ -6,6 +6,9 @@
 #include "UTFlagInfo.h"
 
 #if !UE_SERVER
+
+class SUTButton;
+
 class UNREALTOURNAMENT_API SUWPlayerSettingsDialog : public SUWDialog, public FGCObject
 {
 public:
@@ -33,6 +36,7 @@ public:
 	virtual void Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime) override;
 
 protected:
+	static const float BOB_SCALING_FACTOR;
 
 	/** world for rendering the player preview */
 	class UWorld* PlayerPreviewWorld;
@@ -56,6 +60,8 @@ protected:
 
 	/** counter for displaying weapon dialog since we need to display the "Loading Content" message first */
 	int32 WeaponConfigDelayFrames;
+
+	int32 OldSSRQuality;
 
 	AActor* PreviewEnvironment;
 
@@ -143,11 +149,20 @@ protected:
 	void OnFOVChange(float NewValue);
 	FString GetFOVLabelText(float SliderValue);
 
-	virtual void DragPlayerPreview(FVector2D MouseDelta);
+	virtual void DragPlayerPreview(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent);
 	virtual void ZoomPlayerPreview(float WheelDelta);
 	virtual void RecreatePlayerPreview();
 	virtual void UpdatePlayerRender(UCanvas* C, int32 Width, int32 Height);
 
 	virtual void AddReferencedObjects(FReferenceCollector& Collector) override;
+
+	TSharedPtr<SGridPanel> AvatarGrid;
+	TArray<TSharedPtr<SUTButton>> AvatarButtons;
+
+	TSharedPtr<SUTButton> AddAvatar(FName AvatarStyleReference, int32 Index);
+	FReply SelectAvatar(int32 Index, FName Avatar);
+	FName SelectedAvatar;
+	TArray<FName> AvatarList;
+
 };
 #endif

@@ -22,7 +22,7 @@ UUTVictoryMessage::UUTVictoryMessage(const class FObjectInitializer& ObjectIniti
 	RedTeamWinsText = NSLOCTEXT("UTVictoryMessage", "RedTeamWinsText", "Red Team Wins The Match!");
 }
 
-FLinearColor UUTVictoryMessage::GetMessageColor(int32 MessageIndex) const
+FLinearColor UUTVictoryMessage::GetMessageColor_Implementation(int32 MessageIndex) const
 {
 	return FLinearColor::Yellow;
 }

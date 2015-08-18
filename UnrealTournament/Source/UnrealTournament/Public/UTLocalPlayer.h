@@ -23,15 +23,24 @@ class SUWMapVoteDialog;
 class SUTReplayWindow;
 class FFriendsAndChatMessage;
 class AUTPlayerState;
+class SUWMatchSummary;
+class SUTJoinInstance;
+class FServerData;
 
 DECLARE_MULTICAST_DELEGATE_ThreeParams(FPlayerOnlineStatusChanged, class UUTLocalPlayer*, ELoginStatus::Type, const FUniqueNetId&);
 
-class FStoredChatMessage
+// This delegate will be triggered whenever a chat message is updated.
+
+class FStoredChatMessage : public TSharedFromThis<FStoredChatMessage>
 {
 public:
 	// Where did this chat come from
 	UPROPERTY()
 	FName Type;
+
+	// The Name of the server
+	UPROPERTY()
+	FString Sender;
 
 	// What was the message
 	UPROPERTY()
@@ -41,17 +50,45 @@ public:
 	UPROPERTY()
 	FLinearColor Color;
 
-	FStoredChatMessage(FName inType, FString inMessage, FLinearColor inColor)
-		: Type(inType), Message(inMessage), Color(inColor)
+	UPROPERTY()
+	int32 Timestamp;
+
+	// If this chat message was owned by the player
+	UPROPERTY()
+	bool bMyChat;
+
+	FStoredChatMessage(FName inType, FString inSender, FString inMessage, FLinearColor inColor, int32 inTimestamp, bool inbMyChat)
+		: Type(inType), Sender(inSender), Message(inMessage), Color(inColor), Timestamp(inTimestamp), bMyChat(inbMyChat)
 	{}
 
-	static TSharedRef<FStoredChatMessage> Make(FName inType, FString inMessage, FLinearColor inColor)
+	static TSharedRef<FStoredChatMessage> Make(FName inType, FString inSender, FString inMessage, FLinearColor inColor, int32 inTimestamp, bool inbMyChat)
 	{
-		return MakeShareable( new FStoredChatMessage( inType, inMessage, inColor ) );
+		return MakeShareable( new FStoredChatMessage( inType, inSender, inMessage, inColor, inTimestamp, inbMyChat ) );
 	}
 
 };
 
+DECLARE_MULTICAST_DELEGATE_TwoParams(FChatArchiveChanged, class UUTLocalPlayer*, TSharedPtr<FStoredChatMessage>);
+
+USTRUCT()
+struct FUTFriend
+{
+	GENERATED_USTRUCT_BODY()
+public:
+	FUTFriend()
+	{}
+
+	FUTFriend(FString inUserId, FString inDisplayName)
+		: UserId(inUserId), DisplayName(inDisplayName)
+	{}
+
+
+	UPROPERTY()
+	FString UserId;
+
+	UPROPERTY()
+	FString DisplayName;
+};
 
 UCLASS(config=Engine)
 class UNREALTOURNAMENT_API UUTLocalPlayer : public ULocalPlayer
@@ -104,7 +141,7 @@ public:
 
 	// Holds all of the chat this client has received.
 	TArray<TSharedPtr<FStoredChatMessage>> ChatArchive;
-	virtual void SaveChat(FName Type, FString Message, FLinearColor Color);
+	virtual void SaveChat(FName Type, FString Sender, FString Message, FLinearColor Color, bool bMyChat);
 
 	UPROPERTY(Config)
 	FString TutorialLaunchParams;
@@ -150,6 +187,8 @@ protected:
 
 	int32 ConnectDesiredTeam;
 
+	int32 CurrentSessionTrustLevel;
+
 public:
 	FProcHandle DedicatedServerProcessHandle;
 
@@ -189,7 +228,7 @@ public:
 	virtual void InitializeOnlineSubsystem();
 
 	// Returns true if this player is logged in to the UT Online Services
-	virtual bool IsLoggedIn();
+	virtual bool IsLoggedIn() const;
 
 	virtual FString GetOnlinePlayerNickname();
 
@@ -216,6 +255,17 @@ public:
 	 *	Removes the  call back to an object looking to know when a player's status changed.
 	 **/
 	virtual void RemovePlayerOnlineStatusChangedDelegate(FDelegateHandle DelegateHandle);
+
+
+	/**
+	 *	Registeres a delegate to get notifications of chat messages
+	 **/
+	virtual FDelegateHandle RegisterChatArchiveChangedDelegate(const FChatArchiveChanged::FDelegate& NewDelegate);
+
+	/**
+	 *	Removes a chat notification delegate.
+	 **/
+	virtual void RemoveChatArchiveChangedDelegate(FDelegateHandle DelegateHandle);
 
 
 #if !UE_SERVER
@@ -248,6 +298,7 @@ protected:
 	virtual void OnLogoutComplete(int32 LocalUserNum, bool bWasSuccessful);
 
 	FPlayerOnlineStatusChanged PlayerOnlineStatusChanged;
+	FChatArchiveChanged ChatArchiveChanged;
 
 	double LastProfileCloudWriteTime;
 	double ProfileCloudWriteCooldownTime;
@@ -355,7 +406,7 @@ public:
 	static void GetBadgeFromELO(int32 EloRating, int32& BadgeLevel, int32& SubLevel);
 
 	// Connect to a server via the session id.  Returns TRUE if the join continued, or FALSE if it failed to start
-	virtual bool JoinSession(const FOnlineSessionSearchResult& SearchResult, bool bSpectate, FName QuickMatch = NAME_None, bool bFindMatch = false, int32 DesiredTeam = -1);
+	virtual bool JoinSession(const FOnlineSessionSearchResult& SearchResult, bool bSpectate, FName QuickMatch = NAME_None, bool bFindMatch = false, int32 DesiredTeam = -1, FString MatchId=TEXT(""));
 	virtual void LeaveSession();
 	virtual void ReturnToMainMenu();
 
@@ -366,6 +417,7 @@ public:
 	bool IsPlayerShowingSocialNotification() const;
 
 protected:
+	virtual void JoinPendingSession();
 	virtual void OnJoinSessionComplete(FName SessionName, EOnJoinSessionCompleteResult::Type Result);
 	virtual void OnEndSessionComplete(FName SessionName, bool bWasSuccessful);
 	virtual void OnDestroySessionComplete(FName SessionName, bool bWasSuccessful);
@@ -416,6 +468,10 @@ public:
 	// and exit back to the main menu.  To do this, we store the Pending info here and when the main menu sees that the player has left a session
 	// THEN we perform the login.
 
+	virtual FName GetAvatar();
+	virtual void SetAvatar(FName NewAvatar, bool bSave=false);
+
+
 protected:
 	bool bPendingLoginCreds;
 	FString PendingLoginName;
@@ -444,6 +500,9 @@ public:
 	virtual void ShowConnectingDialog();
 	virtual void CloseConnectingDialog();
 
+	virtual int32 GetFriendsList(TArray< FUTFriend >& OutFriendsList);
+	virtual int32 GetRecentPlayersList(TArray< FUTFriend >& OutRecentPlayersList);
+
 	// returns true if this player is in a session
 	virtual bool IsInSession();
 
@@ -451,6 +510,8 @@ public:
 	int32 ServerPingBlockSize;
 
 	virtual void ShowPlayerInfo(TWeakObjectPtr<AUTPlayerState> Target);
+	virtual void OnTauntPlayed(AUTPlayerState* PS, TSubclassOf<AUTTaunt> TauntToPlay, float EmoteSpeed);
+	virtual void OnEmoteSpeedChanged(AUTPlayerState* PS, float EmoteSpeed);
 
 	// Request someone be my friend...
 	virtual void RequestFriendship(TSharedPtr<FUniqueNetId> FriendID);
@@ -473,6 +534,7 @@ protected:
 #if !UE_SERVER
 	TSharedPtr<SUWindowsDesktop> LoadoutMenu;
 	TSharedPtr<SUWMapVoteDialog> MapVoteMenu;
+	TSharedPtr<SUWMatchSummary> MatchSummaryWindow;
 #endif
 
 public:
@@ -481,6 +543,9 @@ public:
 
 	virtual void OpenMapVote(AUTGameState* GameState);
 	virtual void CloseMapVote();
+
+	virtual void OpenMatchSummary(AUTGameState* GameState);
+	virtual void CloseMatchSummary();
 
 	// What is your role within the unreal community.
 	EUnrealRoles::Type CommunityRole;
@@ -533,9 +598,16 @@ protected:
 	UPROPERTY()
 	TArray<FProfileItemEntry> ProfileItems;
 
+	/** XP gained in trusted online servers - read from backend */
+	UPROPERTY()
+	int32 OnlineXP;
+
 	/** Used to avoid reading too often */
 	double LastItemReadTime;
 	
+	// When connecting to a hub, if this is set it will be passed in.
+	FString PendingJoinMatchId;
+
 public:
 	/** Read profile items from the backend */
 	virtual void ReadProfileItems();
@@ -548,8 +620,27 @@ public:
 
 	float QuickMatchLimitTime;
 
+	inline int32 GetOnlineXP() const
+	{
+		return OnlineXP;
+	}
+	inline void AddOnlineXP(int32 NewXP)
+	{
+		OnlineXP += FMath::Max<float>(0, NewXP);
+	}
+
+	bool IsOnTrustedServer() const
+	{
+		return GetWorld()->GetNetMode() == NM_Client && IsLoggedIn() && CurrentSessionTrustLevel == 0;
+	}
+
+	virtual void AttemptJoinInstance(TSharedPtr<FServerData> ServerData, FString InstanceId, bool bSpectate);
+	virtual void CloseJoinInstanceDialog();
+
+protected:
+#if !UE_SERVER
+	TSharedPtr<SUTJoinInstance> JoinInstanceDialog;
+#endif
+
+
 };
-
-
-
-

@@ -73,6 +73,10 @@ class UNREALTOURNAMENT_API AUTWeap_Enforcer : public AUTWeapon
 	UPROPERTY()
 	int32 FireCount;
 
+	/** Toggle when firing dual enforcers to make them alternate. */
+	UPROPERTY()
+		bool bFireLeftSide;
+
 	UPROPERTY()
 	int32 ImpactCount;
 
@@ -109,7 +113,7 @@ class UNREALTOURNAMENT_API AUTWeap_Enforcer : public AUTWeapon
 
 	/** Switch to second enforcer mode
 	*/
-	UFUNCTION()
+	UFUNCTION(BlueprintCallable, Category = "Weapon")
 	virtual void BecomeDual();
 	virtual	float GetImpartedMomentumMag(AActor* HitActor) override;
 	virtual void DetachFromOwner_Implementation() override;

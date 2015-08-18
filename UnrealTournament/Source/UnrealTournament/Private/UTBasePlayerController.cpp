@@ -201,16 +201,22 @@ bool AUTBasePlayerController::ServerSay_Validate(const FString& Message, bool bT
 
 void AUTBasePlayerController::ServerSay_Implementation(const FString& Message, bool bTeamMessage)
 {
-	if (AllowTextMessage(Message))
+	if (AllowTextMessage(Message) && PlayerState != nullptr)
 	{
+		bool bSpectatorMsg = PlayerState->bOnlySpectator;
+
 		for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
 		{
-			AUTBasePlayerController* UTPC = Cast<AUTPlayerController>(*Iterator);
+			AUTBasePlayerController* UTPC = Cast<AUTBasePlayerController>(*Iterator);
 			if (UTPC != nullptr)
 			{
 				if (!bTeamMessage || UTPC->GetTeamNum() == GetTeamNum())
 				{
-					UTPC->ClientSay(UTPlayerState, Message, (bTeamMessage ? ChatDestinations::Team : ChatDestinations::Local));
+					// Dont send spectator chat to players
+					if (UTPC->PlayerState != nullptr && (!bSpectatorMsg || UTPC->PlayerState->bOnlySpectator))
+					{
+						UTPC->ClientSay(UTPlayerState, Message, (bTeamMessage ? ChatDestinations::Team : ChatDestinations::Local));
+					}
 				}
 			}
 		}
@@ -674,3 +680,25 @@ void AUTBasePlayerController::UpdateInputMode()
 	}
 }
 #endif
+
+bool AUTBasePlayerController::ServerSetAvatar_Validate(FName NewAvatar) { return true; }
+void AUTBasePlayerController::ServerSetAvatar_Implementation(FName NewAvatar)
+{
+	AUTPlayerState* UTPlayerState = Cast<AUTPlayerState>(PlayerState);
+	if (UTPlayerState)
+	{
+		UTPlayerState->Avatar = NewAvatar;
+	}
+
+}
+
+void AUTBasePlayerController::ReceivedPlayer()
+{
+	Super::ReceivedPlayer();
+	
+	UUTLocalPlayer* UTLocalPlayer = Cast<UUTLocalPlayer>(Player);
+	if (UTLocalPlayer)
+	{
+		ServerSetAvatar(UTLocalPlayer->GetAvatar());
+	}
+}

@@ -122,6 +122,11 @@ APlayerController* AUTTeamGameMode::Login(class UPlayer* NewPlayer, ENetRole Rem
 	return PC;
 }
 
+bool AUTTeamGameMode::ShouldBalanceTeams(bool bInitialTeam) const
+{
+	return bBalanceTeams && (!bInitialTeam || HasMatchStarted() || GetMatchState() == MatchState::CountdownToBegin);
+}
+
 bool AUTTeamGameMode::ChangeTeam(AController* Player, uint8 NewTeam, bool bBroadcast)
 {
 	if (Player == NULL)
@@ -159,12 +164,12 @@ bool AUTTeamGameMode::ChangeTeam(AController* Player, uint8 NewTeam, bool bBroad
 					}
 				}
 
-				if (bBalanceTeams && (PS->Team != NULL || HasMatchStarted() || GetMatchState() == MatchState::CountdownToBegin))
+				if (ShouldBalanceTeams(PS->Team == NULL))
 				{
 					for (int32 i = 0; i < Teams.Num(); i++)
 					{
 						// don't allow switching to a team with more players, or equal players if the player is on a team now
-						if (i != NewTeam && Teams[i]->GetSize() - ((PS->Team != NULL && PS->Team->TeamIndex == i) ? 1 : 0)  < Teams[NewTeam]->GetSize())
+						if (i != NewTeam && Teams[i]->GetNumHumans() - ((PS->Team != NULL && PS->Team->TeamIndex == i) ? 1 : 0)  < Teams[NewTeam]->GetNumHumans())
 						{
 							bForceTeam = true;
 							break;
@@ -237,13 +242,6 @@ uint8 AUTTeamGameMode::PickBalancedTeam(AUTPlayerState* PS, uint8 RequestedTeam)
 		}
 	}
 
-	for (int32 i = 0; i < BestTeams.Num(); i++)
-	{
-		if (BestTeams[i]->TeamIndex == RequestedTeam)
-		{
-			return RequestedTeam;
-		}
-	}
 	// if in doubt choose team with bots on it as the bots will leave if necessary to balance
 	{
 		TArray< AUTTeamInfo*, TInlineAllocator<4> > TeamsWithBots;
@@ -266,7 +264,23 @@ uint8 AUTTeamGameMode::PickBalancedTeam(AUTPlayerState* PS, uint8 RequestedTeam)
 		}
 		if (TeamsWithBots.Num() > 0)
 		{
+			for (int32 i = 0; i < TeamsWithBots.Num(); i++)
+			{
+				if (TeamsWithBots[i]->TeamIndex == RequestedTeam)
+				{
+					return RequestedTeam;
+				}
+			}
+
 			return TeamsWithBots[FMath::RandHelper(TeamsWithBots.Num())]->TeamIndex;
+		}
+	}
+
+	for (int32 i = 0; i < BestTeams.Num(); i++)
+	{
+		if (BestTeams[i]->TeamIndex == RequestedTeam)
+		{
+			return RequestedTeam;
 		}
 	}
 
@@ -290,6 +304,7 @@ void AUTTeamGameMode::HandleCountdownToBegin()
 				{
 					if (SortedTeams[i]->GetSize() > SortedTeams[j]->GetSize() + 1)
 					{
+						UTGameState->bForcedBalance = true;
 						ChangeTeam(SortedTeams[i]->GetTeamMembers()[0], j);
 						SortedTeams.Sort([](AUTTeamInfo& A, AUTTeamInfo& B) { return A.GetSize() > B.GetSize(); });
 					}
@@ -360,6 +375,7 @@ void AUTTeamGameMode::DefaultTimer()
 					if (B != NULL && B->GetPawn() == NULL)
 					{
 						ChangeTeam(B, SortedTeams[i]->GetTeamNum(), true);
+						break;
 					}
 				}
 			}
@@ -373,6 +389,11 @@ bool AUTTeamGameMode::ModifyDamage_Implementation(int32& Damage, FVector& Moment
 	{
 		Damage *= TeamDamagePct;
 		Momentum *= TeamMomentumPct;
+		AUTPlayerController* InstigatorPC = Cast<AUTPlayerController>(InstigatedBy);
+		if (InstigatorPC && Cast<AUTPlayerState>(Injured->PlayerState))
+		{
+			((AUTPlayerState *)(Injured->PlayerState))->AnnounceSameTeam(InstigatorPC);
+		}
 	}
 	Super::ModifyDamage_Implementation(Damage, Momentum, Injured, InstigatedBy, HitInfo, DamageCauser, DamageType);
 	return true;
@@ -440,12 +461,6 @@ bool AUTTeamGameMode::CheckScore_Implementation(AUTPlayerState* Scorer)
 	{
 		return false;
 	}
-}
-
-void AUTTeamGameMode::GetGameURLOptions(TArray<FString>& OptionsList, int32& DesiredPlayerCount)
-{
-	Super::GetGameURLOptions(OptionsList, DesiredPlayerCount);
-	OptionsList.Add(FString::Printf(TEXT("BalanceTeams=%i"), bBalanceTeams));
 }
 
 #if !UE_SERVER
@@ -601,7 +616,10 @@ void AUTTeamGameMode::SendEndOfGameStats(FName Reason)
 			
 			PS->SetStatsValue(NAME_MatchesPlayed, 1);
 			PS->SetStatsValue(NAME_TimePlayed, UTGameState->ElapsedTime);
-			PS->SetStatsValue(NAME_PlayerXP, PS->Score);
+			if (PS->CanAwardOnlineXP())
+			{
+				PS->SetStatsValue(NAME_PlayerXP, PS->GetXP().Total());
+			}
 
 			if (UTGameState->WinningTeam == PS->Team)
 			{
@@ -624,11 +642,18 @@ void AUTTeamGameMode::SendEndOfGameStats(FName Reason)
 			AUTPlayerState* PS = Cast<AUTPlayerState>(InactivePlayerArray[i]);
 			if (PS && !PS->HasWrittenStatsToCloud())
 			{
-				PS->SetStatsValue(NAME_MatchesQuit, 1);
+				if (!PS->bAllowedEarlyLeave)
+				{
+					PS->SetStatsValue(NAME_MatchesQuit, 1);
+				}
 
 				PS->SetStatsValue(NAME_MatchesPlayed, 1);
 				PS->SetStatsValue(NAME_TimePlayed, UTGameState->ElapsedTime);
-				PS->SetStatsValue(NAME_PlayerXP, PS->Score);
+				// quitters don't get XP
+				//if (PS->CanAwardOnlineXP())
+				//{
+				//	PS->SetStatsValue(NAME_PlayerXP, PS->GetXP().Total());
+				//}
 
 				if (UTGameState->WinningTeam == PS->Team)
 				{
@@ -651,7 +676,7 @@ void AUTTeamGameMode::SendEndOfGameStats(FName Reason)
 		UE_LOG(UT, Log, TEXT("Cloud stats write time %.3f"), CloudStatsTime);
 	}
 
-	AwardProfileItems();
+	AwardXP();
 }
 
 void AUTTeamGameMode::FindAndMarkHighScorer()

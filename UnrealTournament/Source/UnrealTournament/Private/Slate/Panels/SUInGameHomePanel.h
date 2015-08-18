@@ -18,6 +18,9 @@ public:
 
 	FReply virtual ChangeChatDestination(TSharedPtr<SComboButton> Button, FName NewDestination);
 
+	FText GetChatDestinationText() const;
+	FText GetChatDestinationTag(FName Destination);
+
 protected:
 
 	FName ChatDestination;
@@ -39,8 +42,6 @@ protected:
 
 	virtual void ChatTextChanged(const FText& NewText);
 	virtual void ChatTextCommited(const FText& NewText, ETextCommit::Type CommitType);
-	FText GetChatDestinationText() const;
-	FText GetChatDestinationTag(FName Destination);
 
 	virtual bool SupportsKeyboardFocus() const override
 	{

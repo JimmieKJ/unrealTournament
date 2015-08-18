@@ -9,13 +9,12 @@ IMPLEMENT_MODULE(FDefaultModuleImpl, CEF3Utils);
 #if WITH_CEF3
 namespace CEF3Utils
 {
-    void* CEF3DLLHandle = nullptr;
 #if PLATFORM_WINDOWS
+    void* CEF3DLLHandle = nullptr;
 	void* D3DHandle = nullptr;
 	void* MPEGHandle = nullptr;
-	void* ICUDTHandle = nullptr;
 	void* GLESHandle = nullptr;
-	void* EGLHandle = nullptr;
+    void* EGLHandle = nullptr;
 #endif
 
 	void LoadCEF3Modules()
@@ -37,30 +36,25 @@ namespace CEF3Utils
 		}
 
 	#if WINVER >= 0x600 // Different dll used pre-Vista
-		D3DHandle = FPlatformProcess::GetDllHandle(*FPaths::Combine(*DllPath, TEXT("d3dcompiler_46.dll")));
+		D3DHandle = FPlatformProcess::GetDllHandle(*FPaths::Combine(*DllPath, TEXT("d3dcompiler_47.dll")));
 	#else
 		D3DHandle = FPlatformProcess::GetDllHandle(*FPaths::Combine(*DllPath, TEXT("d3dcompiler_43.dll")));
 	#endif
 		MPEGHandle = FPlatformProcess::GetDllHandle(*FPaths::Combine(*DllPath, TEXT("ffmpegsumo.dll")));
-		ICUDTHandle = FPlatformProcess::GetDllHandle(*FPaths::Combine(*DllPath, TEXT("icudt.dll")));
 		GLESHandle = FPlatformProcess::GetDllHandle(*FPaths::Combine(*DllPath, TEXT("libGLESv2.dll")));
 		EGLHandle = FPlatformProcess::GetDllHandle(*FPaths::Combine(*DllPath, TEXT("libEGL.dll")));
-#elif PLATFORM_MAC
-        CEF3DLLHandle = FPlatformProcess::GetDllHandle(TEXT("libplugin_carbon_interpose.dylib"));
 #endif
 	}
 
 	void UnloadCEF3Modules()
 	{
+#if PLATFORM_WINDOWS
 		FPlatformProcess::FreeDllHandle(CEF3DLLHandle);
 		CEF3DLLHandle = nullptr;
-#if PLATFORM_WINDOWS
 		FPlatformProcess::FreeDllHandle(D3DHandle);
 		D3DHandle = nullptr;
 		FPlatformProcess::FreeDllHandle(MPEGHandle);
 		MPEGHandle = nullptr;
-		FPlatformProcess::FreeDllHandle(ICUDTHandle);
-		ICUDTHandle = nullptr;
 		FPlatformProcess::FreeDllHandle(GLESHandle);
 		GLESHandle = nullptr;
 		FPlatformProcess::FreeDllHandle(EGLHandle);

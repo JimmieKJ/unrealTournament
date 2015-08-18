@@ -36,6 +36,7 @@ AUTWeap_Enforcer::AUTWeap_Enforcer(const FObjectInitializer& ObjectInitializer)
 	bDualEnforcerMode = false;
 	bBecomeDual = false;
 	bCanThrowWeapon = false;
+	bFireLeftSide = false;
 	FOVOffset = FVector(0.7f, 1.f, 1.f);
 
 	LeftMesh = ObjectInitializer.CreateDefaultSubobject<USkeletalMeshComponent>(this, TEXT("LeftMesh"));
@@ -51,6 +52,8 @@ AUTWeap_Enforcer::AUTWeap_Enforcer(const FObjectInitializer& ObjectInitializer)
 
 	KillStatsName = NAME_EnforcerKills;
 	DeathStatsName = NAME_EnforcerDeaths;
+	HitsStatsName = NAME_EnforcerHits;
+	ShotsStatsName = NAME_EnforcerShots;
 
 	DisplayName = NSLOCTEXT("UTWeap_Enforcer", "DisplayName", "Enforcer");
 }
@@ -176,8 +179,8 @@ void AUTWeap_Enforcer::PlayFiringEffects()
 
 	if (UTOwner != NULL)
 	{
-		// If they last fired the right hand enforcer
-		if (!bDualEnforcerMode || (bDualEnforcerMode && !BurstFireMode && FireCount % 2 == 0) || (bDualEnforcerMode && BurstFireMode && FireCount / BurstFireMode->BurstSize == 0))
+		// Fire on right side by default, unless dual and bFireLeftSide
+		if (!bDualEnforcerMode || (BurstFireMode ? (FireCount / BurstFireMode->BurstSize == 0) : !bFireLeftSide))
 		{
 			if (!BurstFireMode || BurstFireMode->CurrentShot == 0)
 			{
@@ -230,6 +233,10 @@ void AUTWeap_Enforcer::PlayFiringEffects()
 				}
 			}
 		}
+		if (!BurstFireMode)
+		{
+			bFireLeftSide = !bFireLeftSide;
+		}
 	}
 }
 
@@ -239,7 +246,7 @@ void AUTWeap_Enforcer::PlayImpactEffects(const FVector& TargetLoc, uint8 FireMod
 	UUTWeaponStateFiringBurst* BurstFireMode = Cast<UUTWeaponStateFiringBurst>(FiringState[GetCurrentFireMode()]);
 	if (GetNetMode() != NM_DedicatedServer)
 	{
-		if (bDualEnforcerMode && ((!BurstFireMode && ImpactCount % 2 != 0) || (BurstFireMode && ImpactCount / BurstFireMode->BurstSize != 0)))
+		if (bDualEnforcerMode && (BurstFireMode ? (FireCount / BurstFireMode->BurstSize != 0) : bFireLeftSide))
 		{
 			// fire effects
 			static FName NAME_HitLocation(TEXT("HitLocation"));

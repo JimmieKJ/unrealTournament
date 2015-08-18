@@ -59,7 +59,7 @@ void UUTHUDWidget_CTFFlagStatus::Draw_Implementation(float DeltaTime)
 		FName FlagState = GS->GetFlagState(Team);
 		if (FlagState == CarriedObjectState::Held)
 		{
-			TakenIconTemplate.RenderColor = 0.25f * FLinearColor::White;
+			TakenIconTemplate.RenderColor = 0.7f * FLinearColor::White;
 			RenderObj_TextureAt(TakenIconTemplate, FlagStateX + 0.1f * FlagIconTemplate.GetWidth(), FlagStateY + 0.1f * FlagIconTemplate.GetHeight(), 1.1f * StatusScale * TakenIconTemplate.GetWidth(), 1.1f * StatusScale * TakenIconTemplate.GetHeight());
 			AUTPlayerState* Holder = GS->GetFlagHolder(Team);
 			if (Holder)

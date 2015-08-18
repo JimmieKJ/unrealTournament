@@ -78,6 +78,9 @@ public:
 	// The Unique ID of a friend this player wants to join
 	FString DesiredFriendToJoin;
 
+	// The Match Id we are trying to join
+	FString DesiredMatchIdToJoin;
+
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void Server_ReadyToBeginDataPush();
 
@@ -110,6 +113,12 @@ public:
 	// We don't need TeamInfo's for the lobby, just store a desired team num for now.  255 will be spectator.
 	UPROPERTY(Replicated)
 	uint8 DesiredTeamNum;
+
+	virtual uint8 GetTeamNum() const 
+	{
+		return DesiredTeamNum;
+	}
+
 };
 
 

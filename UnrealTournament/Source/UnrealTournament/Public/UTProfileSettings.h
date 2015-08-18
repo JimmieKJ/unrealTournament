@@ -14,7 +14,14 @@ static const uint32 VALID_PROFILESETTINGS_VERSION = 6;
 static const uint32 EMOTE_TO_TAUNT_PROFILESETTINGS_VERSION = 6;
 static const uint32 TAUNTFIXUP_PROFILESETTINGS_VERSION = 7;
 static const uint32 SPECTATING_FIXUP_PROFILESETTINGS_VERSION = 8;
-static const uint32 CURRENT_PROFILESETTINGS_VERSION = 9;
+static const uint32 SLIDEFROMRUN_FIXUP_PROFILESETTINGS_VERSION = 8;
+static const uint32 HEARTAUNTS_FIXUP_PROFILESETTINGS_VERSION = 10;
+static const uint32 CURRENT_PROFILESETTINGS_VERSION = 11;
+
+namespace AchievementIDs
+{
+	extern const FName TutorialComplete;
+};
 
 class UUTLocalPlayer;
 
@@ -103,7 +110,56 @@ class UNREALTOURNAMENT_API UUTProfileSettings : public UObject
 	UPROPERTY()
 	FName CountryFlag;
 
+	UPROPERTY()
+	TArray<FCrosshairInfo> CrosshairInfos;
+
+	UPROPERTY()
+	bool bCustomWeaponCrosshairs;
+
 	bool bNeedProfileWriteOnLevelChange;
+	
+	UPROPERTY()
+	uint32 ReplayScreenshotResX;
+
+	UPROPERTY()
+	uint32 ReplayScreenshotResY;
+	
+	UPROPERTY()
+	bool bReplayCustomPostProcess;
+
+	UPROPERTY()
+	float ReplayCustomBloomIntensity;
+	
+	UPROPERTY()
+	float ReplayCustomDOFAmount;
+
+	UPROPERTY()
+	float ReplayCustomDOFDistance;
+
+	UPROPERTY()
+	float ReplayCustomDOFScale;
+
+	UPROPERTY()
+	float ReplayCustomDOFNearBlur;
+
+	UPROPERTY()
+	float ReplayCustomDOFFarBlur;
+
+	UPROPERTY()
+	float ReplayCustomMotionBlurAmount;
+
+	UPROPERTY()
+	float ReplayCustomMotionBlurMax;
+
+	UPROPERTY()
+	TArray<FName> Achievements;
+
+	/** local XP, not synced with backend - granted for local play and untrusted servers */
+	UPROPERTY()
+	int32 LocalXP;
+
+	UPROPERTY()
+	FName Avatar;
 
 protected:
 
@@ -165,6 +221,9 @@ protected:
 	uint32 bAllowSlideFromRun : 1;
 
 	UPROPERTY()
+	uint32 bHearsTaunts : 1;
+
+	UPROPERTY()
 	FKey ConsoleKey;
 
 	UPROPERTY()
@@ -201,5 +260,4 @@ protected:
 	// If true, then the player will not show toasts in game.
 	UPROPERTY()
 	uint32 bSuppressToastsInGame : 1;
-
 };

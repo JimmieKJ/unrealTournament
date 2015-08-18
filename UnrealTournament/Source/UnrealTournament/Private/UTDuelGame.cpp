@@ -1,7 +1,7 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealTournament.h"
-#include "UTHUD_TeamDM.h"
+#include "UTHUD_Duel.h"
 #include "UTTimedPowerup.h"
 #include "UTPickupWeapon.h"
 #include "Slate/SlateGameResources.h"
@@ -13,7 +13,7 @@
 AUTDuelGame::AUTDuelGame(const class FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
-	HUDClass = AUTHUD_TeamDM::StaticClass();
+	HUDClass = AUTHUD_Duel::StaticClass();
 	DisplayName = NSLOCTEXT("UTGameMode", "Duel", "Duel");
 	PowerupDuration = 10.f;
 	GoalScore = 0;
@@ -25,6 +25,7 @@ AUTDuelGame::AUTDuelGame(const class FObjectInitializer& ObjectInitializer)
 	bHasRespawnChoices = true;
 	bWeaponStayActive = false;
 	bOnlyTheStrongSurvive = false;
+	bNoDefaultLeaderHat = true;
 }
 
 void AUTDuelGame::InitGameState()
@@ -101,10 +102,9 @@ void AUTDuelGame::PlayEndOfMatchMessage()
 	AUTGameMode::PlayEndOfMatchMessage();
 }
 
-void AUTDuelGame::GetGameURLOptions(TArray<FString>& OptionsList, int32& DesiredPlayerCount)
+void AUTDuelGame::GetGameURLOptions(const TArray<TSharedPtr<TAttributePropertyBase>>& MenuProps, TArray<FString>& OptionsList, int32& DesiredPlayerCount)
 {
-	OptionsList.Add(FString::Printf(TEXT("TimeLimit=%i"), TimeLimit));
-	OptionsList.Add(FString::Printf(TEXT("GoalScore=%i"), GoalScore));
+	Super::GetGameURLOptions(MenuProps, OptionsList, DesiredPlayerCount);
 	DesiredPlayerCount = 2;
 }
 
@@ -234,4 +234,7 @@ void AUTDuelGame::UpdateSkillRating()
 	}
 }
 
-
+void AUTDuelGame::FindAndMarkHighScorer()
+{
+	AUTGameMode::FindAndMarkHighScorer();
+}

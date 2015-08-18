@@ -72,7 +72,7 @@ class UNREALTOURNAMENT_API AUTWeap_ShockRifle : public AUTWeapon
 	UFUNCTION(BlueprintImplementableEvent, BlueprintCosmetic)
 	void Play1PComboEffects();
 
-	virtual void HitScanTrace(const FVector& StartLocation, const FVector& EndTrace, FHitResult& Hit, float PredictionTime) override;
+	virtual void HitScanTrace(const FVector& StartLocation, const FVector& EndTrace, float TraceRadius, FHitResult& Hit, float PredictionTime) override;
 	virtual AUTProjectile* FireProjectile() override;
 
 	/** returns whether AI using this weapon shouldn't fire because it's waiting for a combo trigger */

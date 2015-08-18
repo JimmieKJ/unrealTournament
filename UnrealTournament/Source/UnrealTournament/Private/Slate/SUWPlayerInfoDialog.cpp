@@ -24,6 +24,9 @@ void SUWPlayerInfoDialog::Construct(const FArguments& InArgs)
 {
 	FVector2D ViewportSize;
 	InArgs._PlayerOwner->ViewportClient->GetViewportSize(ViewportSize);
+
+	TargetPlayerState = InArgs._TargetPlayerState;
+
 	FText DialogTitle = FText::Format(NSLOCTEXT("SUWindowsDesktop", "PlayerInfoTitleFormat", "Player Info - {0}"), FText::FromString(InArgs._TargetPlayerState->PlayerName));
 	SUWDialog::Construct(SUWDialog::FArguments()
 							.PlayerOwner(InArgs._PlayerOwner)
@@ -38,7 +41,6 @@ void SUWPlayerInfoDialog::Construct(const FArguments& InArgs)
 							.bShadow(false)
 						);
 
-	TargetPlayerState = InArgs._TargetPlayerState;
 	if (TargetPlayerState.IsValid()) 
 	{
 		TargetUniqueId = TargetPlayerState->UniqueId.GetUniqueNetId();
@@ -54,6 +56,7 @@ void SUWPlayerInfoDialog::Construct(const FArguments& InArgs)
 	// allocate a preview scene for rendering
 	PlayerPreviewWorld = UWorld::CreateWorld(EWorldType::Preview, true);
 	PlayerPreviewWorld->bHack_Force_UsesGameHiddenFlags_True = true;
+	PlayerPreviewWorld->bShouldSimulatePhysics = true;
 	GEngine->CreateNewWorldContext(EWorldType::Preview).SetCurrentWorld(PlayerPreviewWorld);
 	PlayerPreviewWorld->InitializeActorsForPlay(FURL(), true);
 	ViewState.Allocate();
@@ -99,7 +102,7 @@ void SUWPlayerInfoDialog::Construct(const FArguments& InArgs)
 				.AutoWidth()
 				[
 					SNew(SBox)
-					.WidthOverride(350)
+					.WidthOverride(850)
 					[
 						SNew(SScaleBox)
 						.Stretch(EStretch::ScaleToFill)
@@ -131,10 +134,22 @@ void SUWPlayerInfoDialog::Construct(const FArguments& InArgs)
 
 	OnUpdatePlayerState();
 	TabWidget->SelectTab(0);
+
+	// Turn on Screen Space Reflection max quality
+	auto SSRQualityCVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.SSR.Quality"));
+	OldSSRQuality = SSRQualityCVar->GetInt();
+	SSRQualityCVar->Set(4, ECVF_SetByCode);
 }
 
 SUWPlayerInfoDialog::~SUWPlayerInfoDialog()
 {
+	// Reset Screen Space Reflection max quality, wish there was a cleaner way to reset the flags
+	auto SSRQualityCVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.SSR.Quality"));
+	EConsoleVariableFlags Flags = SSRQualityCVar->GetFlags();
+	Flags = (EConsoleVariableFlags)(((uint32)Flags & ~ECVF_SetByMask) | ECVF_SetByScalability);
+	SSRQualityCVar->Set(OldSSRQuality, ECVF_SetByCode);
+	SSRQualityCVar->SetFlags(Flags);
+
 	if (PlayerPreviewTexture != NULL)
 	{
 		PlayerPreviewTexture->OnNonUObjectRenderTargetUpdate.Unbind();
@@ -209,10 +224,19 @@ void SUWPlayerInfoDialog::RecreatePlayerPreview()
 		PreviewWeapon->Destroy();
 	}
 
-	AUTGameMode* DefaultGameMode = GetPlayerOwner()->GetWorld()->GetGameState()->GameModeClass->GetDefaultObject<AUTGameMode>();
+	AGameState* GameState = GetPlayerOwner()->GetWorld()->GetGameState();
+	AUTBaseGameMode* DefaultGameMode = GameState->GameModeClass->GetDefaultObject<AUTBaseGameMode>();
 	if (DefaultGameMode)
 	{
-		PlayerPreviewMesh = PlayerPreviewWorld->SpawnActor<AUTCharacter>(DefaultGameMode->DefaultPawnClass, FVector(300.0f, 0.f, 4.f), ActorRotation);
+		TSubclassOf<class APawn> DefaultPawnClass = Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *DefaultGameMode->PlayerPawnObject.ToStringReference().AssetLongPathname, NULL, LOAD_NoWarn));
+
+		//For gamemodes without a default pawn class (menu gamemodes), spawn our default one
+		if (DefaultPawnClass == nullptr)
+		{
+			DefaultPawnClass = Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *AUTGameMode::StaticClass()->GetDefaultObject<AUTGameMode>()->PlayerPawnObject.ToStringReference().AssetLongPathname, NULL, LOAD_NoWarn));
+		}
+
+		PlayerPreviewMesh = PlayerPreviewWorld->SpawnActor<AUTCharacter>(DefaultPawnClass, FVector(300.0f, 0.f, 4.f), ActorRotation);
 		if (PlayerPreviewMesh)
 		{
 			PlayerPreviewMesh->ApplyCharacterData(TargetPlayerState->GetSelectedCharacter());
@@ -299,12 +323,12 @@ void SUWPlayerInfoDialog::UpdatePlayerRender(UCanvas* C, int32 Width, int32 Heig
 	GetRendererModule().BeginRenderingViewFamily(C->Canvas, &ViewFamily);
 }
 
-void SUWPlayerInfoDialog::DragPlayerPreview(const FVector2D MouseDelta)
+void SUWPlayerInfoDialog::DragPlayerPreview(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
 {
 	if (PlayerPreviewMesh != nullptr)
 	{
 		bSpinPlayer = false;
-		PlayerPreviewMesh->SetActorRotation(PlayerPreviewMesh->GetActorRotation() + FRotator(0, 0.2f * -MouseDelta.X, 0.0f));
+		PlayerPreviewMesh->SetActorRotation(PlayerPreviewMesh->GetActorRotation() + FRotator(0, 0.2f * -MouseEvent.GetCursorDelta().X, 0.0f));
 	}
 }
 
@@ -364,11 +388,7 @@ FReply SUWPlayerInfoDialog::OnSendFriendRequest()
 
 FText SUWPlayerInfoDialog::GetFunnyText()
 {
-	float Rnd = FMath::FRand();
-	if (Rnd < 0.2) return NSLOCTEXT("SUWPlayerInfoDialog", "FunnyOne", "Narcissistic Much?");
-	if (Rnd < 0.4) return NSLOCTEXT("SUWPlayerInfoDialog", "Funnytwo", "Mirror Mirror...");
-
-	return NSLOCTEXT("SUWPlayerInfoDialog", "FunnyDefault", "Viewing Yourself!");
+	return NSLOCTEXT("SUWPlayerInfoDialog", "FunnyDefault", "Viewing self.");
 }
 
 void SUWPlayerInfoDialog::BuildFriendPanel()
@@ -644,7 +664,7 @@ void SUWPlayerInfoDialog::OnUpdatePlayerState()
 		TargetPlayerState->BuildPlayerInfo(TabWidget, StatList);
 
 		//Draw the game specific stats
-		AUTGameMode* DefaultGameMode = GetPlayerOwner()->GetWorld()->GetGameState()->GameModeClass->GetDefaultObject<AUTGameMode>();
+		AUTBaseGameMode* DefaultGameMode = GetPlayerOwner()->GetWorld()->GetGameState()->GameModeClass->GetDefaultObject<AUTBaseGameMode>();
 		if (DefaultGameMode)
 		{
 			DefaultGameMode->BuildPlayerInfo(TargetPlayerState.Get(), TabWidget, StatList);

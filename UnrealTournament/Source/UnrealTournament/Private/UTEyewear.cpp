@@ -8,3 +8,9 @@ AUTEyewear::AUTEyewear(const class FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
 }
+
+void AUTEyewear::OnWearerDeath_Implementation(TSubclassOf<UDamageType> DamageType)
+{
+	DetachRootComponentFromParent(true);
+	SetBodiesToSimulatePhysics();
+}

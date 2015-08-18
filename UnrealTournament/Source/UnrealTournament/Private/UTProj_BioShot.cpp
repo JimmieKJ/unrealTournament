@@ -50,7 +50,7 @@ AUTProj_BioShot::AUTProj_BioShot(const class FObjectInitializer& ObjectInitializ
 
 	GlobStrength = 1.f;
 	MaxRestingGlobStrength = 6;
-	DamageRadiusGain = 60.0f;
+	DamageRadiusGain = 45.0f;
 	InitialLifeSpan = 0.f;
 	ExtraRestTimePerStrength = 1.5f;
 
@@ -806,12 +806,7 @@ void AUTProj_BioShot::TickActor(float DeltaTime, ELevelTick TickType, FActorTick
 			ProjectileMovement->bIsHomingProjectile = false;
 			TrackedPawn = NULL;
 			bLanded = true;
-			if (FearSpot == NULL)
-			{
-				FActorSpawnParameters Params;
-				Params.Owner = this;
-				FearSpot = GetWorld()->SpawnActor<AUTAvoidMarker>(GetActorLocation(), GetActorRotation(), Params);
-			}
+			BioStabilityTimer();
 		}
 	}
 	else
@@ -1023,7 +1018,7 @@ void AUTProj_BioShot::DamageImpactedActor_Implementation(AActor* OtherActor, UPr
 			{
 				SnotRanking = (SnotSkill > 6.f) ? 5 : 1;
 			}
-			PC->SendPersonalMessage(AirSnotRewardClass, SnotRanking);
+			PC->SendPersonalMessage(AirSnotRewardClass, SnotRanking, PS, HitCharacter->PlayerState);
 		}
 	}
 }

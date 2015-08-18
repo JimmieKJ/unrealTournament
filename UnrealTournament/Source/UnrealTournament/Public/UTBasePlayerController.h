@@ -115,6 +115,11 @@ public:
 	UFUNCTION(client, reliable)
 	virtual void ClientRequireContentItemListComplete();
 
+	UFUNCTION(Server, Reliable, WithValidation)
+	virtual void ServerSetAvatar(FName NewAvatar);
+
+	virtual void ReceivedPlayer();
+
 protected:
 	FOnFindSessionsCompleteDelegate OnFindGUIDSessionCompleteDelegate;
 	FDelegateHandle OnFindGUIDSessionCompleteDelegateHandle;

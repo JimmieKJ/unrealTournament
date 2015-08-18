@@ -742,7 +742,7 @@ void AActor::PreReplication( IRepChangedPropertyTracker & ChangedPropertyTracker
 	UBlueprintGeneratedClass* BPClass = Cast<UBlueprintGeneratedClass>(GetClass());
 	if (BPClass != NULL)
 	{
-		BPClass->InstancePreReplication(ChangedPropertyTracker);
+		BPClass->InstancePreReplication(this, ChangedPropertyTracker);
 	}
 }
 

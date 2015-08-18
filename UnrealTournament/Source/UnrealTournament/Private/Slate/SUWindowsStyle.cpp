@@ -397,7 +397,9 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 		Style.Set("UT.Replay.Button.Record", new IMAGE_BRUSH("Icons/UT.Icon.Replay.Record", Icon24x24));
 		Style.Set("UT.Replay.Button.MarkStart", new IMAGE_BRUSH("Icons/UT.Icon.Replay.MarkStart", Icon24x24));
 		Style.Set("UT.Replay.Button.MarkEnd", new IMAGE_BRUSH("Icons/UT.Icon.Replay.MarkEnd", Icon24x24));
+		Style.Set("UT.Replay.Button.Comment", new IMAGE_BRUSH("Icons/UT.Icon.Replay.Comment", Icon24x24));
 		Style.Set("UT.Replay.Button.Screenshot", new IMAGE_BRUSH("Icons/UT.Icon.Replay.Screenshot", Icon24x24));
+		Style.Set("UT.Replay.Button.ScreenshotConfig", new IMAGE_BRUSH("Icons/UT.Icon.Replay.ScreenshotConfig", Icon24x24));
 
 		Style.Set("UT.Replay.Tooltip.BG", new IMAGE_BRUSH("Replay/UT.Replay.Tooltip.BG", Icon64x64));
 		Style.Set("UT.Replay.Tooltip.Arrow", new IMAGE_BRUSH("Replay/UT.Replay.Tooltip.Arrow", Icon16x16));
@@ -623,6 +625,7 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 	SetFriendsChatStyle(StyleRef);
 	SetMatchBadgeStyle(StyleRef);
 	SetMOTDStyle(StyleRef);
+	SetMatchSummaryStyle(StyleRef);
 
 	return StyleRef;
 }
@@ -680,6 +683,11 @@ void SUWindowsStyle::SetCommonStyle(TSharedRef<FSlateStyleSet> StyleRef)
 
 	Style.Set("UT.Common.NormalText", FTextBlockStyle()
 		.SetFont(TTF_FONT("Play-Bold", 20))
+		.SetColorAndOpacity(FLinearColor::White)
+		);
+
+	Style.Set("UT.Common.SmallText", FTextBlockStyle()
+		.SetFont(TTF_FONT("Play-Bold", 14))
 		.SetColorAndOpacity(FLinearColor::White)
 		);
 
@@ -1701,6 +1709,29 @@ void SUWindowsStyle::SetMOTDStyle(TSharedRef<FSlateStyleSet> StyleRef)
 	Style.Set("MOTD.Header.Huge", FTextBlockStyle()
 		.SetFont(TTF_FONT("Play-Regular", 32))
 		.SetColorAndOpacity(FLinearColor::White)
+		);
+}
+
+void SUWindowsStyle::SetMatchSummaryStyle(TSharedRef<FSlateStyleSet> StyleRef)
+{
+	FSlateStyleSet& Style = StyleRef.Get();
+
+	Style.Set("UT.MatchSummary.HighlightText.Normal", FTextBlockStyle()
+		.SetFont(TTF_FONT("Play-Bold", 20))
+		.SetColorAndOpacity(FLinearColor::Gray)
+		);
+
+	Style.Set("UT.MatchSummary.HighlightText.Value", FTextBlockStyle()
+		.SetFont(TTF_FONT("Play-Bold", 20))
+		.SetColorAndOpacity(FLinearColor(0.7f,0.5f,0.0f))
+		);
+
+	Style.Set("UT.MatchSummary.Highlight.BG", new FSlateColorBrush(FLinearColor(0.01f, 0.01f, 0.01f, 1.0f)));
+	Style.Set("UT.MatchSummary.Highlight.Border", new FSlateColorBrush(FLinearColor(0.5f, 0.5f, 0.5f, 1.0f)));
+
+	Style.Set("UT.MatchSummary.TabButton.TextStyle", FTextBlockStyle()
+		.SetFont(TTF_FONT("Play-Bold", 16))
+		.SetColorAndOpacity(FLinearColor(0.7f, 0.7f, 0.7f, 1.0f))
 		);
 }
 

@@ -47,14 +47,19 @@ AUTCTFGameMode::AUTCTFGameMode(const FObjectInitializer& ObjectInitializer)
 	CTFScoringClass = AUTCTFScoring::StaticClass();
 
 	//Add the translocator here for now :(
-	static ConstructorHelpers::FObjectFinder<UClass> WeapTranslocator(TEXT("BlueprintGeneratedClass'/Game/RestrictedAssets/Weapons/Translocator/BP_Translocator.BP_Translocator_C'"));
-	DefaultInventory.Add(WeapTranslocator.Object);
-
+	TranslocatorObject = FStringAssetReference(TEXT("/Game/RestrictedAssets/Weapons/Translocator/BP_Translocator.BP_Translocator_C"));
+	
 	DisplayName = NSLOCTEXT("UTGameMode", "CTF", "Capture the Flag");
 }
 
 void AUTCTFGameMode::InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage)
 {
+	if (!TranslocatorObject.IsNull())
+	{
+		TSubclassOf<AUTWeapon> WeaponClass = Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *TranslocatorObject.ToStringReference().AssetLongPathname, NULL, LOAD_NoWarn));
+		DefaultInventory.Add(WeaponClass);
+	}
+
 	Super::InitGame(MapName, Options, ErrorMessage);
 
 	bSuddenDeath = EvalBoolOptions(ParseOption(Options, TEXT("SuddenDeath")), bSuddenDeath);
@@ -132,6 +137,7 @@ void AUTCTFGameMode::ScoreObject_Implementation(AUTCarriedObject* GameObject, AU
 		{
 			BaseMutator->ScoreObject(GameObject, HolderPawn, Holder, Reason);
 		}
+		FindAndMarkHighScorer();
 
 		if ( Reason == FName("SentHome") )
 		{
@@ -175,7 +181,7 @@ void AUTCTFGameMode::ScoreObject_Implementation(AUTCarriedObject* GameObject, AU
 					AUTPlayerState* PS = Cast<AUTPlayerState>((*Iterator)->PlayerState);
 					if (PS && PS->bNeedsAssistAnnouncement)
 					{
-						PC->SendPersonalMessage(UUTCTFRewardMessage::StaticClass(), 2, PS, NULL, NULL);
+						PC->SendPersonalMessage(UUTCTFRewardMessage::StaticClass(), 2, PS, Holder, NULL);
 						PS->bNeedsAssistAnnouncement = false;
 					}
 				}
@@ -459,6 +465,7 @@ void AUTCTFGameMode::PlacePlayersAroundFlagBase(int32 TeamNum)
 
 void AUTCTFGameMode::HandleEnteringHalftime()
 {
+	UTGameState->UpdateMatchHighlights();
 	CTFGameState->ResetFlags();
 
 	// Figure out who we should look at
@@ -693,14 +700,15 @@ void AUTCTFGameMode::ScoreKill_Implementation(AController* Killer, AController* 
 				BroadcastLocalized(this, UUTFirstBloodMessage::StaticClass(), 0, AttackerPS, NULL, NULL);
 				bFirstBloodOccurred = true;
 			}
-			AttackerPS->IncrementKills(DamageType, true);
-			FindAndMarkHighScorer();
+			AUTPlayerState* OtherPlayerState = Other ? Cast<AUTPlayerState>(Other->PlayerState) : NULL;
+			AttackerPS->IncrementKills(DamageType, true, OtherPlayerState);
 		}
 	}
 	if (BaseMutator != NULL)
 	{
 		BaseMutator->ScoreKill(Killer, Other, DamageType);
 	}
+	FindAndMarkHighScorer();
 }
 
 bool AUTCTFGameMode::IsMatchInSuddenDeath()
@@ -982,10 +990,7 @@ void AUTCTFGameMode::BuildScoreInfo(AUTPlayerState* PlayerState, TSharedPtr<clas
 		return (PS->Deaths > 0) ? float(PS->Kills) / PS->Deaths : 0.f;
 	}, TwoDecimal)), StatList);
 
-	NewPlayerInfoLine(BotLeftPane, NSLOCTEXT("AUTGameMode", "BeltPickups", "Shield Belt Pickups"), MakeShareable(new TAttributeStat(PlayerState, NAME_ShieldBeltCount)), StatList);
-	NewPlayerInfoLine(BotLeftPane, NSLOCTEXT("AUTGameMode", "VestPickups", "Armor Vest Pickups"), MakeShareable(new TAttributeStat(PlayerState, NAME_ArmorVestCount)), StatList);
-	NewPlayerInfoLine(BotLeftPane, NSLOCTEXT("AUTGameMode", "PadPickups", "Thigh Pad Pickups"), MakeShareable(new TAttributeStat(PlayerState, NAME_ArmorPadsCount)), StatList);
-	NewPlayerInfoLine(BotLeftPane, NSLOCTEXT("AUTGameMode", "HelmetPickups", "Helmet Pickups"), MakeShareable(new TAttributeStat(PlayerState, NAME_HelmetCount)), StatList);
+
 	
 	TAttributeStat::StatValueTextFunc ToTime = [](const AUTPlayerState* PS, const TAttributeStat* Stat) -> FText
 	{
@@ -994,9 +999,22 @@ void AUTCTFGameMode::BuildScoreInfo(AUTPlayerState* PlayerState, TSharedPtr<clas
 		Seconds -= Mins * 60;
 		return FText::FromString(FString::Printf(TEXT("%d:%02d"), Mins, Seconds));
 	};
+
+	NewPlayerInfoLine(BotLeftPane, NSLOCTEXT("AUTGameMode", "UDamagePickups", "UDamage Pickups"), MakeShareable(new TAttributeStat(PlayerState, NAME_UDamageCount)), StatList);
+	NewPlayerInfoLine(BotLeftPane, NSLOCTEXT("AUTGameMode", "BerserkPickups", "Berserk Pickups"), MakeShareable(new TAttributeStat(PlayerState, NAME_BerserkCount)), StatList);
+	NewPlayerInfoLine(BotLeftPane, NSLOCTEXT("AUTGameMode", "InvisibilityPickups", "Invisibility Pickups"), MakeShareable(new TAttributeStat(PlayerState, NAME_InvisibilityCount)), StatList);
+	NewPlayerInfoLine(BotLeftPane, NSLOCTEXT("AUTGameMode", "KegPickups", "Keg Pickups"), MakeShareable(new TAttributeStat(PlayerState, NAME_KegCount)), StatList);
+	BotLeftPane->AddSlot().AutoHeight()[SNew(SBox).HeightOverride(30.0f)];
+	NewPlayerInfoLine(BotLeftPane, NSLOCTEXT("AUTGameMode", "BeltPickups", "Shield Belt Pickups"), MakeShareable(new TAttributeStat(PlayerState, NAME_ShieldBeltCount)), StatList);
+	NewPlayerInfoLine(BotLeftPane, NSLOCTEXT("AUTGameMode", "VestPickups", "Armor Vest Pickups"), MakeShareable(new TAttributeStat(PlayerState, NAME_ArmorVestCount)), StatList);
+	NewPlayerInfoLine(BotLeftPane, NSLOCTEXT("AUTGameMode", "PadPickups", "Thigh Pad Pickups"), MakeShareable(new TAttributeStat(PlayerState, NAME_ArmorPadsCount)), StatList);
+
 	NewPlayerInfoLine(BotRightPane, NSLOCTEXT("AUTGameMode", "UDamage", "UDamage Control"), MakeShareable(new TAttributeStat(PlayerState, NAME_UDamageTime, nullptr, ToTime)), StatList);
 	NewPlayerInfoLine(BotRightPane, NSLOCTEXT("AUTGameMode", "Berserk", "Berserk Control"), MakeShareable(new TAttributeStat(PlayerState, NAME_BerserkTime, nullptr, ToTime)), StatList);
 	NewPlayerInfoLine(BotRightPane, NSLOCTEXT("AUTGameMode", "Invisibility", "Invisibility Control"), MakeShareable(new TAttributeStat(PlayerState, NAME_InvisibilityTime, nullptr, ToTime)), StatList);
+
+	BotRightPane->AddSlot().AutoHeight()[SNew(SBox).HeightOverride(60.0f)];
+	NewPlayerInfoLine(BotRightPane, NSLOCTEXT("AUTGameMode", "HelmetPickups", "Helmet Pickups"), MakeShareable(new TAttributeStat(PlayerState, NAME_HelmetCount)), StatList);
 	NewPlayerInfoLine(BotRightPane, NSLOCTEXT("AUTGameMode", "JumpBootJumps", "JumpBoot Jumps"), MakeShareable(new TAttributeStat(PlayerState, NAME_BootJumps)), StatList);
 
 	NewPlayerInfoLine(TopRightPane, NSLOCTEXT("AUTCTFGameMode", "FlagCaps", "Flag Captures"), MakeShareable(new TAttributeStat(PlayerState, NAME_None, [](const AUTPlayerState* PS, const TAttributeStat* Stat) -> float { return PS->FlagCaptures; })), StatList);

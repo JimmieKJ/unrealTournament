@@ -458,6 +458,11 @@ float FWaveInstance::GetActualVolume() const
 	return Volume * VolumeMultiplier;
 }
 
+float FWaveInstance::GetVolumeWeightedPriority() const
+{
+	return GetActualVolume() * VolumeWeightedPriorityScale;
+}
+
 bool FWaveInstance::IsStreaming() const
 {
 	return FPlatformProperties::SupportsAudioStreaming() && WaveData != nullptr && WaveData->IsStreaming();

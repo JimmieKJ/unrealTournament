@@ -156,16 +156,16 @@ void AUTReplicatedGameRuleset::BuildSlateBadge()
 {
 #if !UE_SERVER
 	BadgeTexture = LoadObject<UTexture2D>(nullptr, *DisplayTexture, nullptr, LOAD_None, nullptr);
-	SlateBadge = MakeShareable( new FSlateDynamicImageBrush(BadgeTexture, FVector2D(256.0f, 256.0f), NAME_None) );
+	SlateBadge = new FSlateDynamicImageBrush(BadgeTexture, FVector2D(256.0f, 256.0f), NAME_None);
 #endif
 }
 
 #if !UE_SERVER
 const FSlateBrush* AUTReplicatedGameRuleset::GetSlateBadge() const
 {
-	if (SlateBadge.IsValid()) 
+	if (SlateBadge != nullptr) 
 	{
-		return SlateBadge.Get();
+		return SlateBadge;
 	}
 	else
 	{

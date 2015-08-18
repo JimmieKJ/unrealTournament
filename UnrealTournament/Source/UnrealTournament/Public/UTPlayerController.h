@@ -87,6 +87,12 @@ public:
 
 	virtual void CheckAutoWeaponSwitch(class AUTWeapon* TestWeapon);
 
+	UPROPERTY(GlobalConfig)
+		bool bHearsTaunts;
+
+	UPROPERTY()
+		float LastSameTeamTime;
+
 	/** check if sound is audible to this player and call ClientHearSound() if so to actually play it
 	 * SoundPlayer may be NULL
 	 */
@@ -142,7 +148,10 @@ public:
 
 	UFUNCTION(client, reliable)
 	virtual void ClientToggleScoreboard(bool bShow);
-		
+	
+	UFUNCTION(reliable, server, WithValidation)
+	void ServerSelectSpawnPoint(APlayerStart* DesiredStart);
+
 	/** Attempts to restart this player, generally called from the client upon respawn request. */
 	UFUNCTION(reliable, server, WithValidation)
 	void ServerRestartPlayerAltFire();
@@ -166,8 +175,14 @@ public:
 	virtual void ClientSetCameraMode_Implementation( FName NewCamMode ) override;
 	virtual void ClientGameEnded_Implementation(AActor* EndGameFocus, bool bIsWinner) override;
 
+	/** Handles bWantsBehindView. */
+	virtual void ResetCameraMode() override;
+
 	/** Timer function to bring up scoreboard after end of game. */
 	virtual void ShowEndGameScoreboard();
+
+	UFUNCTION(reliable, client)
+	virtual void ClientReceiveXP(FXPBreakdown GainedXP);
 
 	/**	Client replicated function that get's called when it's half-time. */
 	UFUNCTION(client, reliable)
@@ -353,6 +368,10 @@ public:
 	/** whether player wants behindview when spectating */
 	UPROPERTY(BlueprintReadWrite, GlobalConfig)
 	bool bSpectateBehindView;
+
+	/** Whether should remaing in freecam on camera resets. */
+	UPROPERTY(BlueprintReadOnly)
+		bool bCurrentlyBehindView;
 
 	UPROPERTY(BlueprintReadOnly)
 		bool bRequestingSlideOut;
@@ -597,6 +616,12 @@ protected:
 	TEnumAsByte<EWeaponHand> WeaponHand;
 public:
 	inline EWeaponHand GetWeaponHand() const
+	{
+		//Spectators always see right handed weapons
+		return IsInState(NAME_Spectating) ? HAND_Right : GetPreferredWeaponHand();
+	}
+
+	inline EWeaponHand GetPreferredWeaponHand() const
 	{
 		return WeaponHand;
 	}
@@ -857,6 +882,10 @@ public:
 	virtual void GhostPlay();
 
 	class AUTCharacter* GhostTrace();
+
+
+	UFUNCTION(exec)
+	virtual void OpenMatchSummary();
 };
 
 

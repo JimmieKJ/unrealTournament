@@ -59,6 +59,9 @@ AUTPlayerController::AUTPlayerController(const class FObjectInitializer& ObjectI
 	bHasUsedSpectatingBind = false;
 	bAutoCam = true;
 
+	bHearsTaunts = true;
+	LastSameTeamTime = 0.f;
+
 	PlayerCameraManagerClass = AUTPlayerCameraManager::StaticClass();
 	CheatClass = UUTCheatManager::StaticClass();
 
@@ -493,6 +496,12 @@ bool AUTPlayerController::InputKey(FKey Key, EInputEvent EventType, float Amount
 {
 	// HACK: Ignore all input that occurred during loading to avoid Slate focus issues and other weird behaviour
 	if (GetWorld()->RealTimeSeconds < 0.5f)
+	{
+		return true;
+	}
+
+	// pass mouse events to HUD if requested
+	if (bShowMouseCursor && MyUTHUD != NULL && Key.IsMouseButton() && MyUTHUD->OverrideMouseClick(Key, EventType))
 	{
 		return true;
 	}
@@ -1732,15 +1741,15 @@ void AUTPlayerController::UpdateHiddenComponents(const FVector& ViewLocation, TS
 		}
 	}
 
-	// hide other local players' first person weapons
-	for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
+	// hide other pawns' first person hands/weapons
+	for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
 	{
-		if (It->PlayerController != this && It->PlayerController != NULL)
+		if (It->IsValid() && It->Get() != GetViewTarget() && It->Get() != GetPawn())
 		{
-			AUTCharacter* OtherP = Cast<AUTCharacter>(It->PlayerController->GetViewTarget());
-			if (OtherP != NULL && OtherP->GetWeapon() != NULL)
+			AUTCharacter* OtherP = Cast<AUTCharacter>(It->Get());
+			if (OtherP != NULL)
 			{
-				HideComponentTree(OtherP->GetWeapon()->Mesh, HiddenComponents);
+				HideComponentTree(OtherP->FirstPersonMesh, HiddenComponents);
 			}
 		}
 	}
@@ -1839,17 +1848,11 @@ bool AUTPlayerController::ServerRestartPlayerAltFire_Validate()
 	return true;
 }
 
-void AUTPlayerController::ServerRestartPlayerAltFire_Implementation()
+void AUTPlayerController::SwitchTeam()
 {
-	if (UTPlayerState != nullptr)
+	if (UTPlayerState && UTPlayerState->Team && (UTPlayerState->Team->TeamIndex < 2))
 	{
-		UTPlayerState->bChosePrimaryRespawnChoice = false;
-		UTPlayerState->ForceNetUpdate();
-	}
-
-	if (!GetWorld()->GetAuthGameMode()->HasMatchStarted())
-	{
-		if (UTPlayerState && UTPlayerState->Team && (UTPlayerState->Team->TeamIndex < 2))
+		if (!GetWorld()->GetAuthGameMode()->HasMatchStarted())
 		{
 			if (UTPlayerState->bPendingTeamSwitch)
 			{
@@ -1863,8 +1866,26 @@ void AUTPlayerController::ServerRestartPlayerAltFire_Implementation()
 					UTPlayerState->bReadyToPlay = false;
 				}
 			}
-			UTPlayerState->ForceNetUpdate();
 		}
+		else
+		{
+			ChangeTeam(1 - UTPlayerState->Team->TeamIndex);
+		}
+		UTPlayerState->ForceNetUpdate();
+	}
+}
+
+void AUTPlayerController::ServerRestartPlayerAltFire_Implementation()
+{
+	if (UTPlayerState != nullptr)
+	{
+		UTPlayerState->bChosePrimaryRespawnChoice = false;
+		UTPlayerState->ForceNetUpdate();
+	}
+
+	if (!GetWorld()->GetAuthGameMode()->HasMatchStarted())
+	{
+		SwitchTeam();
 	}
 	else 
 	{
@@ -1881,9 +1902,36 @@ void AUTPlayerController::ServerRestartPlayerAltFire_Implementation()
 	Super::ServerRestartPlayer_Implementation();
 }
 
+bool AUTPlayerController::ServerSelectSpawnPoint_Validate(APlayerStart* DesiredStart)
+{
+	return true;
+}
+void AUTPlayerController::ServerSelectSpawnPoint_Implementation(APlayerStart* DesiredStart)
+{
+	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+	AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
+	if (GS != NULL && PS != NULL)
+	{
+		PS->RespawnChoiceA = GS->IsAllowedSpawnPoint(PS, DesiredStart) ? DesiredStart : NULL;
+		PS->ForceNetUpdate();
+	}
+}
+
 bool AUTPlayerController::CanRestartPlayer()
 {
 	return Super::CanRestartPlayer() && UTPlayerState->RespawnTime <= 0.0f && (bShortConnectTimeOut || GetWorld()->TimeSeconds - CreationTime > 15.0f ||(GetNetMode() == NM_Standalone));
+}
+
+void AUTPlayerController::ResetCameraMode()
+{
+	if (bCurrentlyBehindView && (bAllowPlayingBehindView || (GetNetMode() == NM_Standalone) || (GetWorld()->WorldType == EWorldType::PIE)))
+	{
+		SetCameraMode(FName(TEXT("FreeCam")));
+	}
+	else
+	{
+		Super::ResetCameraMode();
+	}
 }
 
 void AUTPlayerController::BehindView(bool bWantBehindView)
@@ -1892,6 +1940,7 @@ void AUTPlayerController::BehindView(bool bWantBehindView)
 	{
 		bWantBehindView = false;
 	}
+	bCurrentlyBehindView = bWantBehindView;
 	if (IsInState(NAME_Spectating))
 	{
 		bSpectateBehindView = bWantBehindView;
@@ -2013,6 +2062,50 @@ void AUTPlayerController::ShowEndGameScoreboard()
 	{
 		MyUTHUD->ToggleScoreboard(true);
 	}
+}
+
+void AUTPlayerController::ClientReceiveXP_Implementation(FXPBreakdown GainedXP)
+{
+#if !UE_BUILD_SHIPPING
+	if (!FEngineBuildSettings::IsInternalBuild())
+	{
+		return;
+	}
+	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
+	if (LP != NULL && (LP->IsOnTrustedServer() || LP->GetProfileSettings() != NULL))
+	{
+		// FIXME: temp until there is UI
+		FClientReceiveData ClientData;
+		ClientData.LocalPC = this;
+		ClientData.MessageIndex = 0;
+
+		int32 PrevLevel = 0;
+		int32 NewLevel = 0;
+		if (LP->IsOnTrustedServer())
+		{
+			ClientData.MessageString = FString::Printf(TEXT("YOU GOT %i ONLINE XP FOR THIS MATCH"), GainedXP.Total());
+			PrevLevel = GetLevelForXP(LP->GetOnlineXP());
+			LP->AddOnlineXP(GainedXP.Total());
+			NewLevel = GetLevelForXP(LP->GetOnlineXP());
+		}
+		else
+		{
+			ClientData.MessageString = FString::Printf(TEXT("YOU GOT %i OFFLINE XP FOR THIS MATCH"), GainedXP.Total());
+			PrevLevel = GetLevelForXP(LP->GetProfileSettings()->LocalXP);
+			LP->GetProfileSettings()->LocalXP += GainedXP.Total();
+			NewLevel = GetLevelForXP(LP->GetProfileSettings()->LocalXP);
+		}
+
+		UUTChatMessage::StaticClass()->GetDefaultObject<UUTChatMessage>()->ClientReceiveChat(ClientData, ChatDestinations::System);
+		if (PrevLevel < NewLevel)
+		{
+			ClientData.MessageString = FString::Printf(TEXT("YOU ARE NOW LEVEL %i!"), NewLevel);
+			UUTChatMessage::StaticClass()->GetDefaultObject<UUTChatMessage>()->ClientReceiveChat(ClientData, ChatDestinations::System);
+		}
+
+		LP->SaveProfileSettings();
+	}
+#endif
 }
 
 void AUTPlayerController::ShowMenu()
@@ -2610,14 +2703,6 @@ void AUTPlayerController::K2_ReceiveLocalizedMessage(TSubclassOf<ULocalMessage> 
 	ClientReceiveLocalizedMessage(Message, Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
 }
 
-void AUTPlayerController::SwitchTeam()
-{
-	if (UTPlayerState && UTPlayerState->Team && (UTPlayerState->Team->TeamIndex < 2))
-	{
-		ChangeTeam(1 - UTPlayerState->Team->TeamIndex);
-	}
-}
-
 void AUTPlayerController::ChangeTeam(uint8 NewTeamIndex)
 {
 	AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
@@ -2700,9 +2785,9 @@ bool AUTPlayerController::ServerEmote_Validate(int32 EmoteIndex)
 
 void AUTPlayerController::ServerEmote_Implementation(int32 EmoteIndex)
 {
-	if (UTCharacter != nullptr && UTPlayerState != nullptr)
+	if (UTPlayerState != nullptr)
 	{
-		UTCharacter->PlayTauntByIndex(EmoteIndex);
+		UTPlayerState->PlayTauntByIndex(EmoteIndex);
 	}
 }
 
@@ -2836,25 +2921,25 @@ bool AUTPlayerController::HasDeferredFireInputs()
 
 void AUTPlayerController::SetEmoteSpeed(float NewEmoteSpeed)
 {
-	if (UTCharacter != nullptr)
+	if (UTPlayerState != nullptr)
 	{
-		UTCharacter->ServerSetEmoteSpeed(NewEmoteSpeed);
+		UTPlayerState->ServerSetEmoteSpeed(NewEmoteSpeed);
 	}
 }
 
 void AUTPlayerController::FasterEmote()
 {
-	if (UTCharacter != nullptr && UTCharacter->EmoteCount > 0)
+	if (UTPlayerState != nullptr)
 	{
-		UTCharacter->ServerFasterEmote();
+		UTPlayerState->ServerFasterEmote();
 	}
 }
 
 void AUTPlayerController::SlowerEmote()
 {
-	if (UTCharacter != nullptr && UTCharacter->EmoteCount > 0)
+	if (UTPlayerState != nullptr)
 	{
-		UTCharacter->ServerSlowerEmote();
+		UTPlayerState->ServerSlowerEmote();
 	}
 }
 
@@ -3614,5 +3699,15 @@ void AUTPlayerController::GhostPlay()
 			}
 			UTC->GhostComponent->GhostStartPlaying();
 		}
+	}
+}
+
+void AUTPlayerController::OpenMatchSummary()
+{
+	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(Player);
+	AUTGameState* UTGS = Cast<AUTGameState>(GetWorld()->GameState);
+	if (LocalPlayer != nullptr && UTGS != nullptr)
+	{
+		LocalPlayer->OpenMatchSummary(UTGS);
 	}
 }

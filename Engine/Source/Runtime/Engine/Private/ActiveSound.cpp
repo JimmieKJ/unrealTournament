@@ -44,6 +44,7 @@ FActiveSound::FActiveSound()
 	, PitchMultiplier(1.f)
 	, HighFrequencyGainMultiplier(1.f)
 	, SubtitlePriority(0.f)
+	, VolumeWeightedPriorityScale(1.0f)
 	, OcclusionCheckInterval(0.f)
 	, LastOcclusionCheckTime(0.f)
 	, LastLocation(FVector::ZeroVector)
@@ -174,6 +175,7 @@ void FActiveSound::UpdateWaveInstances( FAudioDevice* AudioDevice, TArray<FWaveI
 	// final value that is correct
 	UpdateAdjustVolumeMultiplier(DeltaTime);
 	ParseParams.VolumeMultiplier = VolumeMultiplier * Sound->GetVolumeMultiplier() * CurrentAdjustVolumeMultiplier * AudioDevice->TransientMasterVolume * (bOccluded ? 0.5f : 1.0f);
+	ParseParams.VolumeWeightedPriorityScale = VolumeWeightedPriorityScale;
 	ParseParams.Pitch *= PitchMultiplier * Sound->GetPitchMultiplier();
 	ParseParams.HighFrequencyGain *= HighFrequencyGainMultiplier;
 

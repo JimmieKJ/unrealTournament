@@ -30,12 +30,13 @@
 #include "UTBotCharacter.h"
 #include "UTReplicatedMapInfo.h"
 #include "StatNames.h"
-#include "UTProfileItemMessage.h"
 #include "UTWeap_ImpactHammer.h"
 #include "UTWeap_Translocator.h"
 #include "UTWeap_Enforcer.h"
 #include "Engine/DemoNetDriver.h"
 #include "EngineBuildSettings.h"
+#include "UTEngineMessage.h"
+#include "UTRemoteRedeemer.h"
 
 UUTResetInterface::UUTResetInterface(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -43,6 +44,7 @@ UUTResetInterface::UUTResetInterface(const FObjectInitializer& ObjectInitializer
 
 namespace MatchState
 {
+	const FName PlayerIntro = FName(TEXT("PlayerIntro"));
 	const FName CountdownToBegin = FName(TEXT("CountdownToBegin"));
 	const FName MatchEnteringOvertime = FName(TEXT("MatchEnteringOvertime"));
 	const FName MatchIsInOvertime = FName(TEXT("MatchIsInOvertime"));
@@ -53,13 +55,7 @@ namespace MatchState
 AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	// set default pawn class to our Blueprinted character
-	static ConstructorHelpers::FObjectFinder<UClass> PlayerPawnObject(TEXT("Class'/Game/RestrictedAssets/Blueprints/DefaultCharacter.DefaultCharacter_C'"));
-	
-	if (PlayerPawnObject.Object != NULL)
-	{
-		DefaultPawnClass = (UClass*)PlayerPawnObject.Object;
-	}
+	PlayerPawnObject = FStringAssetReference(TEXT("/Game/RestrictedAssets/Blueprints/DefaultCharacter.DefaultCharacter_C"));
 
 	// use our custom HUD class
 	HUDClass = AUTHUD::StaticClass();
@@ -67,6 +63,7 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 
 	GameStateClass = AUTGameState::StaticClass();
 	PlayerStateClass = AUTPlayerState::StaticClass();
+	EngineMessageClass = UUTEngineMessage::StaticClass();
 
 	PlayerControllerClass = AUTPlayerController::StaticClass();
 	BotClass = AUTBot::StaticClass();
@@ -97,6 +94,7 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	bAmmoIsLimited = true;
 	bAllowOvertime = true;
 	bForceRespawn = false;
+	XPMultiplier = 1.0f;
 
 	DefaultPlayerName = FText::FromString(TEXT("Player"));
 	MapPrefix = TEXT("DM");
@@ -105,6 +103,7 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	bDedicatedInstance = false;
 
 	MapVoteTime = 30;
+	LastGlobalTauntTime = -1000.f;
 
 	bSpeedHackDetection = false;
 	MaxTimeMargin = 2.0f;
@@ -112,6 +111,7 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	TimeMarginSlack = 0.001f;
 
 	bCasterControl = false;
+	bPlayPlayerIntro = true;
 }
 
 void AUTGameMode::BeginPlayMutatorHack(FFrame& Stack, RESULT_DECL)
@@ -242,6 +242,9 @@ void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FStr
 			DemoFilename = InOpt;
 		}
 	}
+
+	InOpt = ParseOption(Options, TEXT("PlayPlayerIntro"));
+	bPlayPlayerIntro = EvalBoolOptions(InOpt, bPlayPlayerIntro);
 
 	PostInitGame(Options);
 
@@ -383,6 +386,12 @@ void AUTGameMode::InitGameState()
 		// Setup the loadout replication
 		for (int32 i=0; i < AvailableLoadout.Num(); i++)
 		{
+			UUTGameEngine* Engine = Cast<UUTGameEngine>(GEngine);
+			if (Engine && !AvailableLoadout[i].ItemClassStringRef.IsEmpty())
+			{
+				AvailableLoadout[i].ItemClass = Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *AvailableLoadout[i].ItemClassStringRef, NULL, LOAD_NoWarn));
+			}
+
 			if (AvailableLoadout[i].ItemClass)
 			{
 				UTGameState->AddLoadoutItem(AvailableLoadout[i]);
@@ -575,61 +584,53 @@ AUTBot* AUTGameMode::AddBot(uint8 TeamNum)
 		{
 			GetAllAssetData(UUTBotCharacter::StaticClass(), BotAssets);
 		}
-		
-		TArray<const FAssetData*> EligibleBots;
-		for (const FAssetData& Asset : BotAssets)
+
+		if (EligibleBots.Num() == 0)
 		{
-			const FString* SkillText = Asset.TagsAndValues.Find(TEXT("Skill"));
-			if (SkillText != NULL)
+			for (const FAssetData& Asset : BotAssets)
 			{
-				float BaseSkill = FCString::Atof(**SkillText);
-				if (BaseSkill >= GameDifficulty - 0.5f && BaseSkill < GameDifficulty + 1.0f)
+				UUTBotCharacter* EligibleCharacter = Cast<UUTBotCharacter>(Asset.GetAsset());
+				if (EligibleCharacter != NULL)
 				{
-					EligibleBots.Add(&Asset);
+					EligibleBots.Add(EligibleCharacter);
 				}
 			}
+
+			EligibleBots.Sort([](const UUTBotCharacter& A, const UUTBotCharacter& B) -> bool
+			{
+				return A.Skill < B.Skill;
+			});
 		}
-		bool bLoadedBotData = false;
-		while (EligibleBots.Num() > 0 && !bLoadedBotData)
+
+		if (EligibleBots.Num() > 0)
 		{
-			int32 Index = FMath::RandHelper(EligibleBots.Num());
-			const UUTBotCharacter* BotData = Cast<UUTBotCharacter>(EligibleBots[Index]->GetAsset());
-			if (BotData != NULL)
+			int32 BestMatch = 0;
+			for (int32 i = 0; i < EligibleBots.Num(); i++)
 			{
-				NewBot->CharacterData = BotData;
-				NewBot->Personality = BotData->Personality;
-				SetUniqueBotName(NewBot, BotData);
-				NewBot->InitializeSkill(BotData->Skill);
-				AUTPlayerState* PS = Cast<AUTPlayerState>(NewBot->PlayerState);
-				if (PS != NULL)
+				if (EligibleBots[i]->Skill >= GameDifficulty)
 				{
-					PS->SetCharacter(BotData->Character.ToString());
-					PS->ServerReceiveHatClass(BotData->HatType.ToString());
-					PS->ServerReceiveHatVariant(BotData->HatVariantId);
-					PS->ServerReceiveEyewearClass(BotData->EyewearType.ToString());
-					PS->ServerReceiveEyewearVariant(BotData->EyewearVariantId);
+					BestMatch = i;
+					break;
 				}
-				bLoadedBotData = true;
 			}
-			else
-			{
-				EligibleBots.RemoveAt(Index);
-			}
+			int32 Index = FMath::Clamp(BestMatch + FMath::RandHelper(5) - 2, 0, EligibleBots.Num() - 1);
+			EligibleBots[Index]->Skill = FMath::Clamp(EligibleBots[Index]->Skill, GameDifficulty - 1.f, GameDifficulty + 1.5f);
+			NewBot->InitializeCharacter(EligibleBots[Index]);
+			SetUniqueBotName(NewBot, EligibleBots[Index]);
+			EligibleBots.RemoveAt(Index);
 		}
-		// pick bot character
-		if (!bLoadedBotData)
+		else
 		{
 			UE_LOG(UT, Warning, TEXT("AddBot(): No BotCharacters defined that are appropriate for game difficulty %f"), GameDifficulty);
 			static int32 NameCount = 0;
 			NewBot->PlayerState->SetPlayerName(FString(TEXT("TestBot")) + ((NameCount > 0) ? FString::Printf(TEXT("_%i"), NameCount) : TEXT("")));
 			NewBot->InitializeSkill(GameDifficulty);
 			NameCount++;
-		}
-
-		AUTPlayerState* PS = Cast<AUTPlayerState>(NewBot->PlayerState);
-		if (PS != NULL)
-		{
-			PS->bReadyToPlay = true;
+			AUTPlayerState* PS = Cast<AUTPlayerState>(NewBot->PlayerState);
+			if (PS != NULL)
+			{
+				PS->bReadyToPlay = true;
+			}
 		}
 
 		NumBots++;
@@ -638,6 +639,7 @@ AUTBot* AUTGameMode::AddBot(uint8 TeamNum)
 	}
 	return NewBot;
 }
+
 AUTBot* AUTGameMode::AddNamedBot(const FString& BotName, uint8 TeamNum)
 {
 	if (BotAssets.Num() == 0)
@@ -645,7 +647,7 @@ AUTBot* AUTGameMode::AddNamedBot(const FString& BotName, uint8 TeamNum)
 		GetAllAssetData(UUTBotCharacter::StaticClass(), BotAssets);
 	}
 
-	const UUTBotCharacter* BotData = NULL;
+	UUTBotCharacter* BotData = NULL;
 	for (const FAssetData& Asset : BotAssets)
 	{
 		if (Asset.AssetName.ToString() == BotName)
@@ -658,7 +660,6 @@ AUTBot* AUTGameMode::AddNamedBot(const FString& BotName, uint8 TeamNum)
 		}
 	}
 
-
 	if (BotData == NULL)
 	{
 		UE_LOG(UT, Error, TEXT("Character data for bot '%s' not found"), *BotName);
@@ -669,64 +670,33 @@ AUTBot* AUTGameMode::AddNamedBot(const FString& BotName, uint8 TeamNum)
 		AUTBot* NewBot = GetWorld()->SpawnActor<AUTBot>(BotClass);
 		if (NewBot != NULL)
 		{
-			NewBot->CharacterData = BotData;
-			NewBot->Personality = BotData->Personality;
+			NewBot->InitializeCharacter(BotData);
 			SetUniqueBotName(NewBot, BotData);
-
-			AUTPlayerState* PS = Cast<AUTPlayerState>(NewBot->PlayerState);
-			if (PS != NULL)
-			{
-				PS->bReadyToPlay = true;
-				PS->SetCharacter(BotData->Character.ToString());
-				PS->ServerReceiveHatClass(BotData->HatType.ToString());
-				PS->ServerReceiveHatVariant(BotData->HatVariantId);
-				PS->ServerReceiveEyewearClass(BotData->EyewearType.ToString());
-				PS->ServerReceiveEyewearVariant(BotData->EyewearVariantId);
-			}
-
-			NewBot->InitializeSkill(BotData->Skill);
 			NumBots++;
 			ChangeTeam(NewBot, TeamNum);
 			GenericPlayerInitialization(NewBot);
 		}
-
 		return NewBot;
 	}
 }
+
 AUTBot* AUTGameMode::AddAssetBot(const FStringAssetReference& BotAssetPath, uint8 TeamNum)
 {
-	const UUTBotCharacter* BotData = Cast<UUTBotCharacter>(BotAssetPath.TryLoad());
+	UUTBotCharacter* BotData = Cast<UUTBotCharacter>(BotAssetPath.TryLoad());
+	AUTBot* NewBot = NULL;
 	if (BotData != NULL)
 	{
-		AUTBot* NewBot = GetWorld()->SpawnActor<AUTBot>(BotClass);
+		NewBot = GetWorld()->SpawnActor<AUTBot>(BotClass);
 		if (NewBot != NULL)
 		{
-			NewBot->CharacterData = BotData;
-			NewBot->Personality = BotData->Personality;
+			NewBot->InitializeCharacter(BotData);
 			SetUniqueBotName(NewBot, BotData);
-
-			AUTPlayerState* PS = Cast<AUTPlayerState>(NewBot->PlayerState);
-			if (PS != NULL)
-			{
-				PS->bReadyToPlay = true;
-				PS->SetCharacter(BotData->Character.ToString());
-				PS->ServerReceiveHatClass(BotData->HatType.ToString());
-				PS->ServerReceiveHatVariant(BotData->HatVariantId);
-				PS->ServerReceiveEyewearClass(BotData->EyewearType.ToString());
-				PS->ServerReceiveEyewearVariant(BotData->EyewearVariantId);
-			}
-
-			NewBot->InitializeSkill(BotData->Skill);
 			NumBots++;
 			ChangeTeam(NewBot, TeamNum);
 			GenericPlayerInitialization(NewBot);
 		}
-		return NewBot;
 	}
-	else
-	{
-		return NULL;
-	}
+	return NewBot;
 }
 
 void AUTGameMode::SetUniqueBotName(AUTBot* B, const UUTBotCharacter* BotData)
@@ -1149,14 +1119,14 @@ void AUTGameMode::ScoreDamage_Implementation(int32 DamageAmount, AController* Vi
 
 void AUTGameMode::ScoreKill_Implementation(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType)
 {
+	AUTPlayerState* OtherPlayerState = Other ? Cast<AUTPlayerState>(Other->PlayerState) : NULL;
 	if( (Killer == Other) || (Killer == NULL) )
 	{
 		// If it's a suicide, subtract a kill from the player...
-
-		if (Other != NULL && Other->PlayerState != NULL && Cast<AUTPlayerState>(Other->PlayerState) != NULL)
+		if (OtherPlayerState)
 		{
-			Cast<AUTPlayerState>(Other->PlayerState)->AdjustScore(-1);
-			Cast<AUTPlayerState>(Other->PlayerState)->IncrementKills(DamageType, false);
+			OtherPlayerState->AdjustScore(-1);
+			OtherPlayerState->IncrementKills(DamageType, false, OtherPlayerState);
 		}
 	}
 	else 
@@ -1165,8 +1135,7 @@ void AUTGameMode::ScoreKill_Implementation(AController* Killer, AController* Oth
 		if ( KillerPlayerState != NULL )
 		{
 			KillerPlayerState->AdjustScore(+1);
-			KillerPlayerState->IncrementKills(DamageType, true);
-			FindAndMarkHighScorer();
+			KillerPlayerState->IncrementKills(DamageType, true, OtherPlayerState);
 			CheckScore(KillerPlayerState);
 		}
 
@@ -1183,6 +1152,7 @@ void AUTGameMode::ScoreKill_Implementation(AController* Killer, AController* Oth
 	{
 		BaseMutator->ScoreKill(Killer, Other, DamageType);
 	}
+	FindAndMarkHighScorer();
 }
 
 void AUTGameMode::AddKillEventToReplay(AController* Killer, AController* Other, TSubclassOf<UDamageType> DamageType)
@@ -1222,14 +1192,14 @@ void AUTGameMode::AddKillEventToReplay(AController* Killer, AController* Other, 
 	}
 }
 
-void AUTGameMode::AddMultiKillEventToReplay(AController* Killer)
+void AUTGameMode::AddMultiKillEventToReplay(AController* Killer, int32 MultiKillLevel)
 {
 	UDemoNetDriver* DemoNetDriver = GetWorld()->DemoNetDriver;
 	if (Killer && DemoNetDriver != nullptr && DemoNetDriver->ServerConnection == nullptr)
 	{
 		AUTPlayerState* KillerPlayerState = Cast<AUTPlayerState>(Killer->PlayerState);
 		TArray<uint8> Data;
-		FString KillInfo = FString::Printf(TEXT("%s"), KillerPlayerState ? *KillerPlayerState->PlayerName : TEXT("None"));
+		FString KillInfo = FString::Printf(TEXT("%s %d"), KillerPlayerState ? *KillerPlayerState->PlayerName : TEXT("None"), MultiKillLevel);
 
 		FMemoryWriter MemoryWriter(Data);
 		MemoryWriter.Serialize(TCHAR_TO_ANSI(*KillInfo), KillInfo.Len() + 1);
@@ -1367,7 +1337,25 @@ void AUTGameMode::StartMatch()
 	}
 	else
 	{
-		SetMatchState(MatchState::CountdownToBegin);	
+		if (bPlayPlayerIntro)
+		{
+			SetMatchState(MatchState::PlayerIntro);
+		}
+		else
+		{
+			SetMatchState(MatchState::CountdownToBegin);
+		}
+	}
+	
+	// Any player that join pre-StartMatch is given a free pass to quit
+	// Rejoining will not copy this flag to their new playerstate, so if they rejoin the server post-StartMatch and drop, they will get a quit notice
+	for (int32 i = 0; i < InactivePlayerArray.Num(); i++)
+	{
+		AUTPlayerState* PS = Cast<AUTPlayerState>(InactivePlayerArray[i]);
+		if (PS)
+		{
+			PS->bAllowedEarlyLeave = true;
+		}
 	}
 
 	if (FUTAnalytics::IsAvailable())
@@ -1459,6 +1447,9 @@ void AUTGameMode::BeginGame()
 void AUTGameMode::EndMatch()
 {
 	Super::EndMatch();
+
+	UTGameState->UpdateMatchHighlights();
+
 	FTimerHandle TempHandle;
 	GetWorldTimerManager().SetTimer(TempHandle, this, &AUTGameMode::PlayEndOfMatchMessage, 1.0f);
 
@@ -1499,6 +1490,8 @@ void AUTGameMode::SendEndOfGameStats(FName Reason)
 
 	if (!bDisableCloudStats)
 	{
+		AwardXP();
+
 		UpdateSkillRating();
 
 		const double CloudStatsStartTime = FPlatformTime::Seconds();
@@ -1508,7 +1501,10 @@ void AUTGameMode::SendEndOfGameStats(FName Reason)
 
 			PS->SetStatsValue(NAME_MatchesPlayed, 1);
 			PS->SetStatsValue(NAME_TimePlayed, UTGameState->ElapsedTime);
-			PS->SetStatsValue(NAME_PlayerXP, PS->Score);
+			if (PS->CanAwardOnlineXP())
+			{
+				PS->SetStatsValue(NAME_PlayerXP, PS->GetXP().Total());
+			}
 			
 			PS->AddMatchToStats(GetClass()->GetPathName(), nullptr, &GetWorld()->GameState->PlayerArray, &InactivePlayerArray);
 			if (PS != nullptr)
@@ -1522,11 +1518,18 @@ void AUTGameMode::SendEndOfGameStats(FName Reason)
 			AUTPlayerState* PS = Cast<AUTPlayerState>(InactivePlayerArray[i]);
 			if (PS && !PS->HasWrittenStatsToCloud())
 			{
-				PS->SetStatsValue(NAME_MatchesQuit, 1);
+				if (!PS->bAllowedEarlyLeave)
+				{
+					PS->SetStatsValue(NAME_MatchesQuit, 1);
+				}
 
 				PS->SetStatsValue(NAME_MatchesPlayed, 1);
 				PS->SetStatsValue(NAME_TimePlayed, UTGameState->ElapsedTime);
-				PS->SetStatsValue(NAME_PlayerXP, PS->Score);
+				// quitters don't get XP
+				//if (PS->CanAwardOnlineXP())
+				//{
+				//	PS->SetStatsValue(NAME_PlayerXP, PS->GetXP().Total());
+				//}
 
 				PS->AddMatchToStats(GetClass()->GetPathName(), nullptr, &GetWorld()->GameState->PlayerArray, &InactivePlayerArray);
 				if (PS != nullptr)
@@ -1539,46 +1542,37 @@ void AUTGameMode::SendEndOfGameStats(FName Reason)
 		const double CloudStatsTime = FPlatformTime::Seconds() - CloudStatsStartTime;
 		UE_LOG(UT, Verbose, TEXT("Cloud stats write time %.3f"), CloudStatsTime);
 	}
-
-	AwardProfileItems();
 }
 
-void AUTGameMode::AwardProfileItems()
+void AUTGameMode::AwardXP()
 {
 #if !UE_BUILD_SHIPPING
 	if (!FEngineBuildSettings::IsInternalBuild())
 	{
 		return;
 	}
-	// TODO: temporarily profile item giveaway for testing
-	// give item to highest scoring player
-	APlayerState* Best = NULL;
-	float BestScore = 0.0f;
-	for (APlayerState* PS : GetWorld()->GameState->PlayerArray)
+	// TODO: ideally we wouldn't execute this if the server isn't approved for XP, but servers can't easily get their own status...
+	// client does a redundant check anyway so not a huge deal
+	for (APlayerState* PS : GameState->PlayerArray)
 	{
-		if (PS != NULL && PS->Score > BestScore)
+		AUTPlayerState* UTPS = Cast<AUTPlayerState>(PS);
+		if (UTPS != NULL)
 		{
-			Best = PS;
-			BestScore = PS->Score;
-		}
-	}
-	if (Best != NULL && Best->UniqueId.GetUniqueNetId().IsValid())
-	{
-		TArray<FAssetData> AllItems;
-		GetAllAssetData(UUTProfileItem::StaticClass(), AllItems, false);
-		if (AllItems.Num() > 0)
-		{
-			TArray<FProfileItemEntry> Rewards;
-			new(Rewards)FProfileItemEntry(Cast<UUTProfileItem>(AllItems[FMath::RandHelper(AllItems.Num())].GetAsset()), 1);
-
-			if (Rewards[0].Item != NULL)
+			AUTPlayerController* PC = Cast<AUTPlayerController>(UTPS->GetOwner());
+			if (PC != NULL)
 			{
-				AUTPlayerController* PC = Cast<AUTPlayerController>(Best->GetOwner());
-				if (PC != NULL)
+				UTPS->GiveXP(FNewScoreXP(FMath::TruncToInt(UTPS->Score)));
+				if (UTPS->CanAwardOnlineXP()) // if we failed to read their previous values, we can't award them anything
 				{
-					PC->ClientReceiveLocalizedMessage(UUTProfileItemMessage::StaticClass(), 0, Best, NULL, Rewards[0].Item);
+					int32 PrevLevel = GetLevelForXP(UTPS->GetPrevXP());
+					int32 NewLevel = GetLevelForXP(UTPS->GetPrevXP() + UTPS->GetXP().Total());
+					for (int32 CurrentLevel = PrevLevel + 1; CurrentLevel <= NewLevel; CurrentLevel++)
+					{
+						//PC->ClientReceiveLevelReward(CurrentLevel, ItemPath);
+					}
 				}
-				GiveProfileItems(Best->UniqueId.GetUniqueNetId(), Rewards);
+				// still send RPC for offline/untrusted server XP
+				PC->ClientReceiveXP(UTPS->GetXP());
 			}
 		}
 	}
@@ -1625,7 +1619,6 @@ void AUTGameMode::EndGame(AUTPlayerState* Winner, FName Reason )
 	GetWorldTimerManager().SetTimer(TempHandle2, this, &AUTGameMode::ShowFinalScoreboard, EndScoreboardDelay);
 
 	// Setup a timer to continue to the next map.
-
 	EndTime = GetWorld()->TimeSeconds;
 	FTimerHandle TempHandle3;
 	GetWorldTimerManager().SetTimer(TempHandle3, this, &AUTGameMode::TravelToNextMap, EndTimeDelay);
@@ -1635,7 +1628,6 @@ void AUTGameMode::EndGame(AUTPlayerState* Winner, FName Reason )
 	GetWorldTimerManager().SetTimer(TempHandle4, this, &AUTGameMode::StopReplayRecording, EndReplayDelay);
 
 	SendEndOfGameStats(Reason);
-
 	EndMatch();
 }
 
@@ -1748,6 +1740,11 @@ void AUTGameMode::SetEndGameFocus(AUTPlayerState* Winner)
 	if (Winner == NULL) return; // It's possible to call this with Winner == NULL if timelimit is hit with noone on the server
 
 	EndGameFocus = Cast<AController>(Winner->GetOwner())->GetPawn();
+	AUTRemoteRedeemer* Missile = Cast<AUTRemoteRedeemer>(EndGameFocus);
+	if (Missile && Missile->Driver)
+	{
+		EndGameFocus = Missile->Driver;
+	}
 	if ( (EndGameFocus == NULL) && (Cast<AController>(Winner->GetOwner()) != NULL) )
 	{
 		// If the controller of the winner does not have a pawn, give him one.
@@ -1966,7 +1963,7 @@ FString AUTGameMode::InitNewPlayer(APlayerController* NewPlayerController, const
 
 AActor* AUTGameMode::ChoosePlayerStart_Implementation(AController* Player)
 {
-	AUTPlayerState* UTPS = Cast<AUTPlayerState>(Player->PlayerState);
+	AUTPlayerState* UTPS = Player != NULL ? Cast<AUTPlayerState>(Player->PlayerState) : NULL;
 	if (bHasRespawnChoices && UTPS->RespawnChoiceA != nullptr && UTPS->RespawnChoiceB != nullptr)
 	{
 		if (UTPS->bChosePrimaryRespawnChoice)
@@ -2309,6 +2306,10 @@ void AUTGameMode::CallMatchStateChangeNotify()
 	{
 		HandleCountdownToBegin();
 	}
+	else if (MatchState == MatchState::PlayerIntro)
+	{
+		HandlePlayerIntro();
+	}
 	else if (MatchState == MatchState::InProgress)
 	{
 		HandleMatchHasStarted();
@@ -2438,6 +2439,24 @@ void AUTGameMode::HandleMatchInOvertime()
 	BroadcastLocalized( this, UUTGameMessage::StaticClass(), 1, NULL, NULL, NULL);
 }
 
+void AUTGameMode::HandlePlayerIntro()
+{
+	if (UUTGameEngine::StaticClass()->GetDefaultObject<UUTGameEngine>()->bShowMatchSummary)
+	{
+		FTimerHandle TempHandle;
+		GetWorldTimerManager().SetTimer(TempHandle, this, &AUTGameMode::EndPlayerIntro, 7.0f, false);
+	}
+	else
+	{
+		EndPlayerIntro();
+	}
+}
+
+void AUTGameMode::EndPlayerIntro()
+{
+	SetMatchState(MatchState::CountdownToBegin);
+}
+
 void AUTGameMode::HandleCountdownToBegin()
 {
 	// Currently broken by replay streaming
@@ -2557,15 +2576,12 @@ void AUTGameMode::GenericPlayerInitialization(AController* C)
 		if (C && Cast<AUTPlayerController>(C) && C->PlayerState)
 		{
 			AUTPlayerState* PlayerState = Cast<AUTPlayerState>(C->PlayerState);
-			if (PlayerState)
+			if (PlayerState && !PlayerState->bIsDemoRecording)
 			{
-				LobbyBeacon->UpdatePlayer(PlayerState->UniqueId, PlayerState->PlayerName, int32(PlayerState->Score), PlayerState->bOnlySpectator, false, PlayerState->AverageRank);
+				LobbyBeacon->UpdatePlayer(PlayerState->UniqueId, PlayerState->PlayerName, int32(PlayerState->Score), PlayerState->bOnlySpectator, PlayerState->GetTeamNum(), false, PlayerState->AverageRank, PlayerState->Avatar);
 			}
 		}
 	}
-
-
-
 }
 
 void AUTGameMode::PostLogin( APlayerController* NewPlayer )
@@ -2636,6 +2652,7 @@ void AUTGameMode::Logout(AController* Exiting)
 		ParamArray.Add(FAnalyticsEventAttribute(TEXT("Deaths"), PS->Deaths));
 		ParamArray.Add(FAnalyticsEventAttribute(TEXT("Score"), PS->Score));
 		ParamArray.Add(FAnalyticsEventAttribute(TEXT("GameName"), GetNameSafe(GetClass())));
+		ParamArray.Add(FAnalyticsEventAttribute(TEXT("PlayerXP"), PS->GetXP().Total()));
 		FUTAnalytics::GetProvider().RecordEvent( TEXT("PlayerLogoutStat"), ParamArray );
 		PS->RespawnChoiceA = NULL;
 		PS->RespawnChoiceB = NULL;
@@ -2661,9 +2678,9 @@ void AUTGameMode::Logout(AController* Exiting)
 
 	if (IsGameInstanceServer() && LobbyBeacon)
 	{
-		if ( PS->GetOwner() && Cast<AUTPlayerController>(PS->GetOwner()) )
+		if ( PS->GetOwner() && Cast<AUTPlayerController>(PS->GetOwner()) && !PS->bIsDemoRecording )
 		{
-			LobbyBeacon->UpdatePlayer(PS->UniqueId, PS->PlayerName, int32(PS->Score), PS->bOnlySpectator, true, PS->AverageRank);
+			LobbyBeacon->UpdatePlayer(PS->UniqueId, PS->PlayerName, int32(PS->Score), PS->bOnlySpectator, PS->GetTeamNum(), true, PS->AverageRank, PS->Avatar);
 		}
 	}
 
@@ -2755,11 +2772,15 @@ void AUTGameMode::GetSeamlessTravelActorList(bool bToEntry, TArray<AActor*>& Act
 	}
 }
 
-void AUTGameMode::GetGameURLOptions(TArray<FString>& OptionsList, int32& DesiredPlayerCount)
+void AUTGameMode::GetGameURLOptions(const TArray<TSharedPtr<TAttributePropertyBase>>& MenuProps, TArray<FString>& OptionsList, int32& DesiredPlayerCount)
 {
-	OptionsList.Add(FString::Printf(TEXT("TimeLimit=%i"), TimeLimit));
-	OptionsList.Add(FString::Printf(TEXT("GoalScore=%i"), GoalScore));
-	OptionsList.Add(FString::Printf(TEXT("bForceRespawn=%i"), bForceRespawn));
+	for (TSharedPtr<TAttributePropertyBase> Prop : MenuProps)
+	{
+		if (Prop.IsValid())
+		{
+			OptionsList.Add(Prop->GetURLString());
+		}
+	}
 
 	DesiredPlayerCount = BotFillCount;
 }
@@ -3026,17 +3047,17 @@ void AUTGameMode::BroadcastSpectator(AActor* Sender, TSubclassOf<ULocalMessage> 
 	}
 }
 
-void AUTGameMode::BroadcastSpectatorPickup(AUTPlayerState* PS, const AUTInventory* Inventory)
+void AUTGameMode::BroadcastSpectatorPickup(AUTPlayerState* PS, FName StatsName, UClass* PickupClass)
 {
-	if (PS != nullptr && Inventory != nullptr && Inventory->StatsNameCount != NAME_None)
+	if (PS != nullptr && PickupClass != nullptr && StatsName != NAME_None)
 	{
-		int32 PlayerNumPickups = (int32)PS->GetStatsValue(Inventory->StatsNameCount);
-		int32 TotalPickups = (int32)UTGameState->GetStatsValue(Inventory->StatsNameCount);
+		int32 PlayerNumPickups = (int32)PS->GetStatsValue(StatsName);
+		int32 TotalPickups = (int32)UTGameState->GetStatsValue(StatsName);
 
 		//Stats may not have been replicated to the client so pack them in the switch
 		int32 Switch = TotalPickups << 16 | PlayerNumPickups;
 
-		BroadcastSpectator(nullptr, UUTSpectatorPickupMessage::StaticClass(), Switch, PS, nullptr, Inventory->GetClass());
+		BroadcastSpectator(nullptr, UUTSpectatorPickupMessage::StaticClass(), Switch, PS, nullptr, PickupClass);
 	}
 }
 
@@ -3115,9 +3136,9 @@ void AUTGameMode::UpdateLobbyPlayerList()
 		for (int32 i=0;i<UTGameState->PlayerArray.Num();i++)
 		{
 			AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
-			if ( PS->GetOwner() && Cast<AUTPlayerController>(PS->GetOwner()) )
+			if ( PS->GetOwner() && Cast<AUTPlayerController>(PS->GetOwner()) && !PS->bIsDemoRecording )
 			{
-				LobbyBeacon->UpdatePlayer(PS->UniqueId, PS->PlayerName, int32(PS->Score), PS->bOnlySpectator, false, PS->AverageRank);
+				LobbyBeacon->UpdatePlayer(PS->UniqueId, PS->PlayerName, int32(PS->Score), PS->bOnlySpectator, PS->GetTeamNum(), false, PS->AverageRank, PS->Avatar);
 			}
 		}
 	}
@@ -3144,9 +3165,7 @@ void AUTGameMode::UpdateLobbyBadge(FString BadgeText)
 	{
 		LobbyBeacon->Lobby_UpdateBadge(LobbyInstanceID, BadgeText);
 	}
-
 }
-
 
 void AUTGameMode::SendEveryoneBackToLobby()
 {
@@ -3318,8 +3337,13 @@ void AUTGameMode::BuildScoreInfo(AUTPlayerState* PlayerState, TSharedPtr<class S
 	NewPlayerInfoLine(RightPane, NSLOCTEXT("AUTGameMode", "PadPickups", "Thigh Pad Pickups"), MakeShareable(new TAttributeStat(PlayerState, NAME_ArmorPadsCount)), StatList);
 	NewPlayerInfoLine(RightPane, NSLOCTEXT("AUTGameMode", "HelmetPickups", "Helmet Pickups"), MakeShareable(new TAttributeStat(PlayerState, NAME_HelmetCount)), StatList);
 	NewPlayerInfoLine(RightPane, NSLOCTEXT("AUTGameMode", "JumpBootJumps", "JumpBoot Jumps"), MakeShareable(new TAttributeStat(PlayerState, NAME_BootJumps)), StatList);
-	RightPane->AddSlot()[SNew(SSpacer).Size(FVector2D(0.0f, 20.0f))];
 
+	LeftPane->AddSlot().AutoHeight()[SNew(SBox).HeightOverride(40.0f)];
+	NewPlayerInfoLine(LeftPane, NSLOCTEXT("AUTGameMode", "UDamagePickups", "UDamage Pickups"), MakeShareable(new TAttributeStat(PlayerState, NAME_UDamageCount)), StatList);
+	NewPlayerInfoLine(LeftPane, NSLOCTEXT("AUTGameMode", "BerserkPickups", "Berserk Pickups"), MakeShareable(new TAttributeStat(PlayerState, NAME_BerserkCount)), StatList);
+	NewPlayerInfoLine(LeftPane, NSLOCTEXT("AUTGameMode", "InvisibilityPickups", "Invisibility Pickups"), MakeShareable(new TAttributeStat(PlayerState, NAME_InvisibilityCount)), StatList);
+	NewPlayerInfoLine(LeftPane, NSLOCTEXT("AUTGameMode", "KegPickups", "Keg Pickups"), MakeShareable(new TAttributeStat(PlayerState, NAME_KegCount)), StatList);
+	
 	TAttributeStat::StatValueTextFunc ToTime = [](const AUTPlayerState* PS, const TAttributeStat* Stat) -> FText
 	{
 		int32 Seconds = (int32)Stat->GetValue();
@@ -3328,9 +3352,10 @@ void AUTGameMode::BuildScoreInfo(AUTPlayerState* PlayerState, TSharedPtr<class S
 		return FText::FromString(FString::Printf(TEXT("%d:%02d"), Mins, Seconds));
 	};
 
-	NewPlayerInfoLine(RightPane, NSLOCTEXT("AUTGameMode", "UDamage", "UDamage Control"), MakeShareable(new TAttributeStat(PlayerState, NAME_UDamageTime, nullptr, ToTime)), StatList);
-	NewPlayerInfoLine(RightPane, NSLOCTEXT("AUTGameMode", "Berserk", "Berserk Control"), MakeShareable(new TAttributeStat(PlayerState, NAME_BerserkTime, nullptr, ToTime)), StatList);
-	NewPlayerInfoLine(RightPane, NSLOCTEXT("AUTGameMode", "Invisibility", "Invisibility Control"), MakeShareable(new TAttributeStat(PlayerState, NAME_InvisibilityTime, nullptr, ToTime)), StatList);
+	RightPane->AddSlot().AutoHeight()[SNew(SBox).HeightOverride(40.0f)];
+	NewPlayerInfoLine(RightPane, NSLOCTEXT("AUTGameMode", "UDamageControl", "UDamage Control"), MakeShareable(new TAttributeStat(PlayerState, NAME_UDamageTime, nullptr, ToTime)), StatList);
+	NewPlayerInfoLine(RightPane, NSLOCTEXT("AUTGameMode", "BerserkControl", "Berserk Control"), MakeShareable(new TAttributeStat(PlayerState, NAME_BerserkTime, nullptr, ToTime)), StatList);
+	NewPlayerInfoLine(RightPane, NSLOCTEXT("AUTGameMode", "InvisibilityControl", "Invisibility Control"), MakeShareable(new TAttributeStat(PlayerState, NAME_InvisibilityTime, nullptr, ToTime)), StatList);
 }
 
 void AUTGameMode::BuildRewardInfo(AUTPlayerState* PlayerState, TSharedPtr<class SUTTabWidget> TabWidget, TArray<TSharedPtr<TAttributeStat> >& StatList)
@@ -3441,7 +3466,7 @@ void AUTGameMode::BuildMovementInfo(AUTPlayerState* PlayerState, TSharedPtr<clas
 	NewPlayerInfoLine(LeftPane, NSLOCTEXT("AUTGameMode", "FallDistance", "Fall Distance"), MakeShareable(new TAttributeStat(PlayerState, NAME_InAirDist, ConvertToMeters, OneDecimal)), StatList);
 	NewPlayerInfoLine(LeftPane, NSLOCTEXT("AUTGameMode", "SwimDistance", "Swim Distance"), MakeShareable(new TAttributeStat(PlayerState, NAME_SwimDist, ConvertToMeters, OneDecimal)), StatList);
 	NewPlayerInfoLine(LeftPane, NSLOCTEXT("AUTGameMode", "TranslocDistance", "Teleport Distance"), MakeShareable(new TAttributeStat(PlayerState, NAME_TranslocDist, ConvertToMeters, OneDecimal)), StatList);
-	LeftPane->AddSlot()[SNew(SSpacer).Size(FVector2D(0.0f, 20.0f))];
+	LeftPane->AddSlot().AutoHeight()[SNew(SBox).HeightOverride(40.0f)];
 	NewPlayerInfoLine(LeftPane, NSLOCTEXT("AUTGameMode", "Total", "Total"), MakeShareable(new TAttributeStat(PlayerState, NAME_None, [](const AUTPlayerState* PS, const TAttributeStat* Stat) -> float
 	{
 		float Total = 0.0f;
@@ -3486,7 +3511,6 @@ bool AUTGameMode::ValidateHat(AUTPlayerState* HatOwner, const FString& HatClass)
 			return true;
 		}
 	}
-	
 	return false;
 }
 
@@ -3558,7 +3582,6 @@ void AUTGameMode::CullMapVotes()
 		else 
 		{
 			// Remove any maps with 0 votes.
-
 			int32 ZeroIndex = Sorted.Num()-1;
 			while (ZeroIndex > 0)
 			{
@@ -3571,7 +3594,6 @@ void AUTGameMode::CullMapVotes()
 			}
 
 			// If we have more than 6 maps left to vote on, then find the # of votes of map 6 and cull anything with less votes.
-
 			if (Sorted.Num() > 6)
 			{
 				int32 Idx = 5;
@@ -3627,7 +3649,6 @@ void AUTGameMode::TallyMapVotes()
 		}
 	}
 
-
 	TArray<AUTReplicatedMapInfo*> Best;
 	for (int32 i=0; i< UTGameState->MapVoteList.Num(); i++)
 	{
@@ -3649,52 +3670,51 @@ void AUTGameMode::TallyMapVotes()
 	}
 }
 
-//Same as AGameMode except we replicate the new inactive PS
 void AUTGameMode::AddInactivePlayer(APlayerState* PlayerState, APlayerController* PC)
 {
+	AUTPlayerState* UTPS = Cast<AUTPlayerState>(PlayerState);
+	if (UTPS == nullptr)
+	{
+		Super::AddInactivePlayer(PlayerState, PC);
+		return;
+	}
+
 	// don't store if it's an old PlayerState from the previous level or if it's a spectator
 	if (!PlayerState->bFromPreviousLevel && !PlayerState->bOnlySpectator)
 	{
-		APlayerState* NewPlayerState = PlayerState->Duplicate();
-		if (NewPlayerState)
+		GetWorld()->GameState->RemovePlayerState(UTPS);
+
+		//Set bUTIsInactive so the clients can update PRI/InactivePRI arrays
+		UTPS->bUTIsInactive = true;
+		UTPS->bIsInactive = true;
+
+		// delete after some time
+		UTPS->SetLifeSpan(InactivePlayerStateLifeSpan);
+
+		// On console, we have to check the unique net id as network address isn't valid
+		bool bIsConsole = GEngine->IsConsoleBuild();
+
+		// make sure no duplicates
+		for (int32 i = 0; i < InactivePlayerArray.Num(); i++)
 		{
-			GetWorld()->GameState->RemovePlayerState(NewPlayerState);
-
-			//AUTGameMode begin - bIsInactive needs to be set now as we are replicating right away
-			NewPlayerState->bIsInactive = true;
-			//AUTGameMode end
-
-			// delete after some time
-			NewPlayerState->SetLifeSpan(InactivePlayerStateLifeSpan);
-
-			// On console, we have to check the unique net id as network address isn't valid
-			bool bIsConsole = GEngine->IsConsoleBuild();
-
-			// make sure no duplicates
-			for (int32 i = 0; i<InactivePlayerArray.Num(); i++)
+			APlayerState* CurrentPlayerState = InactivePlayerArray[i];
+			if ((CurrentPlayerState == NULL) || CurrentPlayerState->IsPendingKill() ||
+				(!bIsConsole && (CurrentPlayerState->SavedNetworkAddress == UTPS->SavedNetworkAddress)))
 			{
-				APlayerState* CurrentPlayerState = InactivePlayerArray[i];
-				if ((CurrentPlayerState == NULL) || CurrentPlayerState->IsPendingKill() ||
-					(!bIsConsole && (CurrentPlayerState->SavedNetworkAddress == NewPlayerState->SavedNetworkAddress)))
-				{
-					InactivePlayerArray.RemoveAt(i, 1);
-					i--;
-				}
-			}
-			InactivePlayerArray.Add(NewPlayerState);
-
-			// cap at 16 saved PlayerStates
-			if (InactivePlayerArray.Num() > 16)
-			{
-				InactivePlayerArray.RemoveAt(0, InactivePlayerArray.Num() - 16);
+				InactivePlayerArray.RemoveAt(i, 1);
+				i--;
 			}
 		}
-	}
+		InactivePlayerArray.Add(UTPS);
 
-	PlayerState->Destroy();
+		// cap at 16 saved PlayerStates
+		if (InactivePlayerArray.Num() > 16)
+		{
+			InactivePlayerArray.RemoveAt(0, InactivePlayerArray.Num() - 16);
+		}
+	}
 }
 
-//Same as AGameMode except we duplicate the inactive PS
 bool AUTGameMode::FindInactivePlayer(APlayerController* PC)
 {
 	// don't bother for spectators
@@ -3720,22 +3740,35 @@ bool AUTGameMode::FindInactivePlayer(APlayerController* PC)
 			(!bIsConsole && (FCString::Stricmp(*CurrentPlayerState->SavedNetworkAddress, *NewNetworkAddress) == 0) && (FCString::Stricmp(*CurrentPlayerState->PlayerName, *NewName) == 0)))
 		{
 			// found it!
-			APlayerState* OldPlayerState = PC->PlayerState;
+			AUTPlayerState* OldUTPlayerState = Cast<AUTPlayerState>(PC->PlayerState);
+			if (OldUTPlayerState == nullptr)
+			{
+				return Super::FindInactivePlayer(PC);
+			}
 
-			//AUTGameMode begin - Since bIsInactive is COND_InitialOnly we need to create a new PS
-			PC->PlayerState = CurrentPlayerState->Duplicate();
-			CurrentPlayerState->Destroy();
-			//AUTGameMode end
-
+			PC->PlayerState = CurrentPlayerState;
 			PC->PlayerState->SetOwner(PC);
-			OverridePlayerState(PC, OldPlayerState);
+			OverridePlayerState(PC, OldUTPlayerState);
+			PC->PlayerState->SetLifeSpan(0.0f);
+
+			//Set bUTIsInactive so the clients can update PRI/InactivePRI arrays
+			AUTPlayerState* NewUTPlayerState = Cast<AUTPlayerState>(PC->PlayerState);
+			if (NewUTPlayerState != nullptr)
+			{
+				NewUTPlayerState->bUTIsInactive = false;
+				NewUTPlayerState->bIsInactive = false;
+			}
+
 			GetWorld()->GameState->AddPlayerState(PC->PlayerState);
 			InactivePlayerArray.RemoveAt(i, 1);
-			OldPlayerState->bIsInactive = true;
+
+			OldUTPlayerState->bUTIsInactive = true;
+			OldUTPlayerState->bIsInactive = true;
+
 			// Set the uniqueId to NULL so it will not kill the player's registration 
 			// in UnregisterPlayerWithSession()
-			OldPlayerState->SetUniqueId(NULL);
-			OldPlayerState->Destroy();
+			OldUTPlayerState->SetUniqueId(NULL);
+			OldUTPlayerState->Destroy();
 			return true;
 		}
 	}

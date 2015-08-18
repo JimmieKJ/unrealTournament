@@ -6,419 +6,970 @@
 #include "SlateBasics.h"
 #include "Slate/SlateGameResources.h"
 #include "../SUWindowsStyle.h"
+#include "../SUTStyle.h"
+#include "../Widgets/SUTPopOverAnchor.h"
 #include "UTGameEngine.h"
 #include "UTLobbyGameState.h"
 #include "UTLobbyMatchInfo.h"
 #include "SUMatchPanel.h"
 #include "UTLobbyPC.h"
 #include "UTLobbyPlayerState.h"
-
+#include "SUWServerBrowser.h"
 #if !UE_SERVER
 
 void SUMatchPanel::Construct(const FArguments& InArgs)
 {
-	bIsFeatured = InArgs._bIsFeatured;
-	MatchInfo = InArgs._MatchInfo;
-	OnClicked = InArgs._OnClicked;
-
 	PlayerOwner = InArgs._PlayerOwner;
+	bShowingNoMatches = false;
+	OnJoinMatchDelegate = InArgs._OnJoinMatchDelegate;
+	bExpectServerData = InArgs._bExpectServerData;
 
-	ChildSlot
-	.VAlign(VAlign_Fill)
-	.HAlign(HAlign_Fill)
+	TSharedPtr<SVerticalBox> VertBox;
+
+	ChildSlot.VAlign(VAlign_Fill).HAlign(HAlign_Fill)
 	[
-		SNew(SOverlay)
-		+SOverlay::Slot()
+		SNew(SHorizontalBox)
+		+SHorizontalBox::Slot()
+		.AutoWidth()
 		[
-			SNew(SHorizontalBox)
-			+SHorizontalBox::Slot().AutoWidth()
+			SAssignNew(VertBox, SVerticalBox)
+		]
+	];
+
+	if (!bExpectServerData)
+	{
+		VertBox->AddSlot()
+		.VAlign(VAlign_Center)
+		.AutoHeight()
+		[
+			SNew(SBox)												
+			.HeightOverride(75)
+			.WidthOverride(954)
 			[
-				SNew(SVerticalBox)
-				+SVerticalBox::Slot()
-				.AutoHeight()
+				SNew(SOverlay)
+				+SOverlay::Slot()
 				[
-					// This is the outer box that sizes the whole control
-					SNew(SBox)						
-					.HeightOverride(192)
-					.WidthOverride(165)
+					SNew(SImage)
+					.Image(SUTStyle::Get().GetBrush("UT.HeaderBackground.SuperDark"))
+				]
+				+SOverlay::Slot()
+				[
+					SNew(SHorizontalBox)
+					+SHorizontalBox::Slot()
+					.Padding(22.0,0.0,0.0,0.0)
+					.VAlign(VAlign_Center)
 					[
-						// Here is our button
-						SNew(SUTComboButton)
-						.OnClicked(this, &SUMatchPanel::ButtonClicked)
-						.ButtonStyle(SUWindowsStyle::Get(), "UT.ComplexButton")
-						.MenuButtonStyle(SUWindowsStyle::Get(),"UT.ContextMenu.Button")
-						.MenuButtonTextStyle(SUWindowsStyle::Get(),"UT.ContextMenu.TextStyle")
-						.HasDownArrow(false)
-						.OnButtonSubMenuSelect(this, &SUMatchPanel::OnSubMenuSelect)
-						.bRightClickOpensMenu(true)
-						.MenuPlacement(MenuPlacement_MenuRight)
-						.DefaultMenuItems(TEXT("Spectate"))
-						.ButtonContent()
+						SNew(STextBlock)
+						.Text(this, &SUMatchPanel::GetServerNameText)
+						.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small")
+					]
+				]
+
+				+SOverlay::Slot()
+				[
+					SNew(SVerticalBox)
+					+SVerticalBox::Slot()
+					.VAlign(VAlign_Center)
+					.HAlign(HAlign_Right)
+					[
+						SNew(SHorizontalBox)
+						+SHorizontalBox::Slot()
+						.Padding(0.0,0.0,10.0,0.0)
+						.AutoWidth()
+						.HAlign(HAlign_Right)
+						[
+							SNew(SHorizontalBox)
+							+SHorizontalBox::Slot()
+							.AutoWidth()
+							[
+								SNew(SCheckBox)
+								.Style(SUTStyle::Get(), "UT.CheckBox")
+								.IsChecked(ECheckBoxState::Checked)
+							]
+							+SHorizontalBox::Slot()
+							.VAlign(VAlign_Center)
+							.AutoWidth()
+							[
+								SNew(STextBlock)
+								.Text(NSLOCTEXT("SUMatchPanel","UnJoinableTitle","hide unjoinable matches"))
+								.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small")
+							]
+						]
+						+SHorizontalBox::Slot()
+						.AutoWidth()
+						.Padding(10.0,5.0,21.0,5.0)
+
+						.HAlign(HAlign_Right)
 						[
 							SNew(SVerticalBox)
 							+SVerticalBox::Slot()
-							.VAlign(VAlign_Top)
-							.HAlign(HAlign_Fill)
-							.Padding(5.0,5.0,5.0,0.0)
+							.VAlign(VAlign_Center)
+							.AutoHeight()
 							[
+								SNew(SButton)
+								.ButtonStyle(SUTStyle::Get(),"UT.SimpleButton")
+								.OnClicked(this, &SUMatchPanel::StartNewMatch)
+								.ContentPadding(FMargin(32.0,5.0,32.0,5.0))
+								[
+									SNew(STextBlock)
+									.Text(this, &SUMatchPanel::GetMatchButtonText)
+									.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small")
+								]
+							]
+						]
+					]
+				]
+			]
+		];
+	}
 
-								// Build the Badge Background
+	VertBox->AddSlot()
+	.VAlign(VAlign_Top)
+	.AutoHeight()
+	.Padding(0,12,0,0)
+	[
+		SNew(SBox)												
+		.WidthOverride(954).HeightOverride(893)
+		[
+			SNew(SOverlay)
+			+SOverlay::Slot()
+			[
+				SNew(SImage)
+				.Image(SUTStyle::Get().GetBrush("UT.HeaderBackground.Medium"))
+			]
 
-								SNew(SOverlay)
-								+SOverlay::Slot()
+			+SOverlay::Slot()
+			[
+				SAssignNew( NoMatchesBox, SVerticalBox)
+			]
+
+			+SOverlay::Slot()
+			[
+				SAssignNew( MatchList, SListView< TSharedPtr<FTrackedMatch> > )
+				// List view items are this tall
+				.ItemHeight(80)
+				// Tell the list view where to get its source data
+				.ListItemsSource( &TrackedMatches)
+				// When the list view needs to generate a widget for some data item, use this method
+				.OnGenerateRow( this, &SUMatchPanel::OnGenerateWidgetForMatchList )
+				.SelectionMode(ESelectionMode::Single)
+				.OnMouseButtonDoubleClick(this, &SUMatchPanel::OnListMouseButtonDoubleClick)
+			]
+		]
+	];
+}
+
+TSharedRef<ITableRow> SUMatchPanel::OnGenerateWidgetForMatchList( TSharedPtr<FTrackedMatch> InItem, const TSharedRef<STableViewBase>& OwnerTable )
+{
+	int32 Index = TrackedMatches.Find(InItem) + 1;
+
+	return SNew(STableRow<TSharedPtr<FSimpleListData>>, OwnerTable)
+		.Style(SUTStyle::Get(),"UT.MatchList.Row")
+		.Padding(FMargin(1.0,1.0,1.0,1.0))
+		[
+			SNew(SVerticalBox)
+			+SVerticalBox::Slot()
+			.HAlign(HAlign_Center)
+			.AutoHeight()
+			[
+				SNew(SUTPopOverAnchor)
+				.OnGetPopoverWidget(this, &SUMatchPanel::OnGetPopup)
+				.AssociatedActor(InItem->MatchInfo)
+				.AssociatedString(InItem->MatchId.ToString())
+				[
+					SNew(SHorizontalBox)
+					+SHorizontalBox::Slot()
+					.VAlign(VAlign_Center)
+					.AutoWidth()
+					[
+						SNew(SBox).WidthOverride(78).HeightOverride(78)
+						[
+							SNew(SOverlay)
+							+SOverlay::Slot()
+							[
+								SNew(SImage)
+								.Image(SUTStyle::Get().GetBrush("UT.MatchBadge.Circle.Thin"))
+							]
+							+SOverlay::Slot()
+							[
+								SNew(SVerticalBox)
+								+SVerticalBox::Slot()
+								.FillHeight(1.0)
+								.VAlign(VAlign_Center)
 								[
 									SNew(SHorizontalBox)
 									+SHorizontalBox::Slot()
-									.AutoWidth()
-									[
-										SNew(SVerticalBox)
-										+SVerticalBox::Slot()
-										.HAlign(HAlign_Center)
-										.AutoHeight()
-										[
-											SNew(SBox)
-											.HeightOverride(155)
-											.WidthOverride(155)
-											[
-												SNew(SImage)
-												.Image(this, &SUMatchPanel::GetMatchSlateBadge)
-											]
-										]
-									]
-
-								]
-								+SOverlay::Slot()
-								[
-									SNew(SVerticalBox)
-									+SVerticalBox::Slot()
-									.HAlign(HAlign_Right)
-									.FillHeight(1.0)
-									[
-										SNew(SHorizontalBox)
-										+SHorizontalBox::Slot()
-										.VAlign(VAlign_Bottom)
-										.Padding(0.0,0.0,5.0,3.0)
-										.AutoWidth()
-										[
-											SNew(STextBlock)
-											.Text(this, &SUMatchPanel::GetTimeRemaining)
-											.TextStyle(SUWindowsStyle::Get(),"UT.Hub.MapsText")
-										]
-									]
-								]
-
-								+SOverlay::Slot()
-								[
-									SNew(SVerticalBox)
-									+SVerticalBox::Slot()
+									.FillWidth(1.0)
 									.HAlign(HAlign_Center)
-									.FillHeight(1.0)
 									[
-										SNew(SHorizontalBox)
-										+SHorizontalBox::Slot()
-										.VAlign(VAlign_Top)
-										.Padding(0.0,5.0,0.0,0.0)
-										.AutoWidth()
-										[
-											SNew(STextBlock)
-											.Text(this, &SUMatchPanel::GetRuleName)
-											.TextStyle(SUWindowsStyle::Get(),"UT.Hub.MapsText")
-										]
+										SNew(STextBlock)
+										.Text(FText::AsNumber(Index))
+										.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small")
 									]
 								]
-
-								+SOverlay::Slot()
+							]
+						]
+					]
+					+SHorizontalBox::Slot()
+					.VAlign(VAlign_Center)
+					.AutoWidth()
+					[
+						SNew(SBox).HeightOverride(78).WidthOverride(348).Padding(FMargin(5.0f,0.0f,5.0f,0.0f))
+						[
+							SNew(SVerticalBox)
+							+SVerticalBox::Slot()
+							.AutoHeight()
+							[
+								SNew(STextBlock)
+								.Text(TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateSP(InItem.Get(), &FTrackedMatch::GetRuleTitle)))
+								.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium.Bold")
+								.ColorAndOpacity(FSlateColor(FLinearColor(0.8f,0.8f,0.8f,1.0f)))
+							]
+							+SVerticalBox::Slot()
+							.AutoHeight()
+							[
+								SNew(STextBlock)
+								.Text(TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateSP(InItem.Get(), &FTrackedMatch::GetMap)))
+								.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small")
+								.ColorAndOpacity(FSlateColor(FLinearColor(0.6f,0.6f,0.6f,1.0f)))
+							]
+						]
+					]
+					+SHorizontalBox::Slot()
+					.VAlign(VAlign_Center)
+					.AutoWidth()
+					[
+						SNew(SBox).WidthOverride(185).HeightOverride(78)
+						[
+							SNew(SVerticalBox)
+							+SVerticalBox::Slot()
+							.FillHeight(1.0)
+							.VAlign(VAlign_Bottom)
+							[
+								SNew(SRichTextBlock)
+								.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Tiny")
+								.Justification(ETextJustify::Left)
+								.DecoratorStyleSet( &SUTStyle::Get() )
+								.AutoWrapText( true )
+								.Text(TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateSP(InItem.Get(), &FTrackedMatch::GetFlags)))
+								+ SRichTextBlock::ImageDecorator()
+							]
+						]
+					]
+					+SHorizontalBox::Slot()
+					.VAlign(VAlign_Center)
+					.AutoWidth()
+					[
+						SNew(SBox).WidthOverride(128).HeightOverride(78)
+						[
+							SNew(SVerticalBox)
+							+SVerticalBox::Slot()
+							.FillHeight(1.0)
+							.VAlign(VAlign_Center)
+							[
+								SNew(SVerticalBox)
+								+SVerticalBox::Slot()
+								.HAlign(HAlign_Right)
+								.AutoHeight()
 								[
-									SNew(SVerticalBox)
-									+SVerticalBox::Slot()
-									.HAlign(HAlign_Center)
-									.FillHeight(1.0)
-									[
-										SNew(SHorizontalBox)
-										+SHorizontalBox::Slot()
-										.VAlign(VAlign_Center)
-										.Padding(0.0,5.0,0.0,0.0)
-										.AutoWidth()
-										[
-											SNew(SRichTextBlock)
-											.Text(this, &SUMatchPanel::GetMatchBadgeText)
-											.TextStyle(SUWindowsStyle::Get(),"UWindows.Chat.Text.Global")
-											.Justification(ETextJustify::Center)
-											.DecoratorStyleSet( &SUWindowsStyle::Get() )
-											.AutoWrapText( true )
-										]
-									]
+									SNew(STextBlock)
+									.Text(TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateSP(InItem.Get(), &FTrackedMatch::GetCurrentPlayerCount)))
+									.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium.Bold")
+									.ColorAndOpacity(FSlateColor(FLinearColor(0.8f,0.8f,0.8f,1.0f)))
 								]
-
-
-								+SOverlay::Slot()
+								+SVerticalBox::Slot()
+								.AutoHeight()
+								.HAlign(HAlign_Right)
 								[
-									SNew(SVerticalBox)
-									+SVerticalBox::Slot()
-									.HAlign(HAlign_Center)
-									.AutoHeight()
+									SNew(STextBlock)
+									.Text(TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateSP(InItem.Get(), &FTrackedMatch::GetMaxPlayers)))
+									.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small")
+									.ColorAndOpacity(FSlateColor(FLinearColor(0.5f,0.5f,0.5f,1.0f)))
+								]
+							]
+						]
+					]
+					+SHorizontalBox::Slot()
+					.VAlign(VAlign_Center)
+					.AutoWidth()
+					[
+						SNew(SBox).WidthOverride(92).HeightOverride(78)
+						[
+							SNew(SHorizontalBox)
+							+SHorizontalBox::Slot()
+							.AutoWidth()
+							[
+								SNew(SVerticalBox)
+								+SVerticalBox::Slot()
+								.AutoHeight()
+								[
+									SNew(SBox).WidthOverride(78).HeightOverride(78)
 									[
-										SNew(SHorizontalBox)
-										+SHorizontalBox::Slot()
-										.AutoWidth()
+
+										SNew(SOverlay)
+										+SOverlay::Slot()
 										[
-											SNew(SBox)
-											.WidthOverride(155)
-											.HeightOverride(155)
+											SNew(SImage)
+											.Image(SUTStyle::Get().GetBrush("UT.MatchBadge.Circle"))
+											.ColorAndOpacity(TAttribute<FSlateColor>::Create(TAttribute<FSlateColor>::FGetter::CreateSP(InItem.Get(), &FTrackedMatch::GetBadgeColor)))
+										]
+										+SOverlay::Slot()
+										[
+											SNew(SVerticalBox)
+											+SVerticalBox::Slot()
+											.FillHeight(1.0)
+											.VAlign(VAlign_Center)
 											[
 												SNew(SHorizontalBox)
 												+SHorizontalBox::Slot()
-												.VAlign(VAlign_Bottom)
-												.AutoWidth()
+												.FillWidth(1.0)
+												.HAlign(HAlign_Center)
 												[
-													SNew(SVerticalBox)
-													+SVerticalBox::Slot()
-													.HAlign(HAlign_Center)
-													[
-														SNew(SBox)
-														.WidthOverride(32)
-														.HeightOverride(32)
-														[
-															SNew(SOverlay)
-															+SOverlay::Slot()
-															[
-																SNew(SImage)
-																.Image(this, &SUMatchPanel::GetELOBadgeImage)
-															]
-															+SOverlay::Slot()
-															.HAlign(HAlign_Center)
-															.VAlign(VAlign_Top)
-															[
-																SNew(SImage)
-																.Image(this, &SUMatchPanel::GetELOBadgeNumberImage)
-															]
-														]
-													]
+													SNew(STextBlock)
+													.Text(TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateSP(InItem.Get(), &FTrackedMatch::GetRank)))
+													.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium.Bold")
+													.ColorAndOpacity(FSlateColor(FLinearColor(0.8f,0.8f,0.8f,1.0f)))
 												]
 											]
 										]
 									]
 								]
 							]
+						]
+					]
+					+SHorizontalBox::Slot()
+					.VAlign(VAlign_Center)
+					.AutoWidth()
+					.Padding(0.0,0.0,5.0,0.0)
+					[
+						SNew(SBox).WidthOverride(115).HeightOverride(78)
+						[
+							SNew(SVerticalBox)
 							+SVerticalBox::Slot()
-							.VAlign(VAlign_Bottom)
-							.HAlign(HAlign_Fill)
+							.Padding(0.0,8.0,0.0,0.0)
 							.AutoHeight()
-							.Padding(20.0f,0.0f,20.0f,5.0f)
 							[
-								SNew(SBox)
-								.HeightOverride(24)
+								SNew(SButton)
+								.ButtonStyle(SUTStyle::Get(),"UT.SimpleButton.Medium")
+								.OnClicked(this, &SUMatchPanel::JoinMatchButtonClicked, InItem)
 								[
 									SNew(SVerticalBox)
-									+SVerticalBox::Slot()
-									.HAlign(HAlign_Center)
+									+SVerticalBox::Slot().HAlign(HAlign_Center).AutoHeight()
 									[
 										SNew(STextBlock)
-										.Text( this, &SUMatchPanel::GetButtonText)
-										.TextStyle(SUWindowsStyle::Get(),"UT.Hub.MapsText")
-										.ColorAndOpacity(FLinearColor::Black)
+										.Text(NSLOCTEXT("SUMatchPanel","JoinText","JOIN"))
+										.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small")
 									]
 								]
+							]
+							+SVerticalBox::Slot()
+							.Padding(0.0,10.0,0.0,0.0)
+							.AutoHeight()
+							[
+								SNew(SButton)
+								.ButtonStyle(SUTStyle::Get(),"UT.SimpleButton.Medium")
+								.OnClicked(this, &SUMatchPanel::SpectateMatchButtonClicked, InItem)
+								.IsEnabled(this, &SUMatchPanel::CanSpectateGame, InItem)
+								[
+									SNew(SVerticalBox)
+									+SVerticalBox::Slot().HAlign(HAlign_Center).AutoHeight()
+									[
+										SNew(STextBlock)
+										.Text(NSLOCTEXT("SUMatchPanel","SpectateText","SPECTATE"))
+										.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small")
+									]
+								]
+							
 							]
 						]
 					]
 				]
 
 			]
-		
-		]
-	];
+		]; 
 }
 
-FText SUMatchPanel::GetRuleName() const
-{
-	if (MatchInfo.IsValid() && MatchInfo->CurrentRuleset.IsValid())
-	{
-		return FText::FromString(MatchInfo->CurrentRuleset->Title);
-	}
-	return FText::GetEmpty(); 
-}
 
-FText SUMatchPanel::GetTimeRemaining() const
+FText SUMatchPanel::GetServerNameText() const
 {
-	if (MatchInfo.IsValid() && MatchInfo->CurrentState == ELobbyMatchState::InProgress)
+	AUTLobbyGameState* LobbyGameState = GWorld->GetGameState<AUTLobbyGameState>();
+	if (LobbyGameState)
 	{
-		return UUTGameEngine::ConvertTime(FText::GetEmpty(), FText::GetEmpty(), MatchInfo->MatchGameTime, true, true, true); 
+		return FText::FromString(LobbyGameState->ServerName);
 	}
 
 	return FText::GetEmpty();
 }
 
-
-const FSlateBrush* SUMatchPanel::GetELOBadgeImage() const
+FText SUMatchPanel::GetMatchButtonText() const
 {
-	int32 Badge = 0;
-	int32 Level = 0;
-
-	if (PlayerOwner.IsValid() && MatchInfo.IsValid())
-	{
-		AUTLobbyGameState* GS = PlayerOwner->GetWorld()->GetGameState<AUTLobbyGameState>();
-		if (GS)
-		{
-			for (int32 i=0; i<GS->PlayerArray.Num();i++)
-			{
-				if (GS->PlayerArray[i] && GS->PlayerArray[i]->UniqueId == MatchInfo->OwnerId)
-				{
-					AUTLobbyPlayerState* PS = Cast<AUTLobbyPlayerState>(GS->PlayerArray[i]);
-					if (PS)
-					{
-						UUTLocalPlayer::GetBadgeFromELO(PS->AverageRank, Badge, Level);
-						break;
-					}
-				}
-			}
-		}
-	}
-	FString BadgeStr = FString::Printf(TEXT("UT.Badge.%i"), Badge);
-	return SUWindowsStyle::Get().GetBrush(*BadgeStr);
+	return NSLOCTEXT("Gerneric","NewMatch","START NEW MATCH");
 }
 
-const FSlateBrush* SUMatchPanel::GetELOBadgeNumberImage() const
+int32 SUMatchPanel::IsTrackingMatch(AUTLobbyMatchInfo* Match)
 {
-	int32 Badge = 0;
-	int32 Level = 0;
-
-	if (PlayerOwner.IsValid() && MatchInfo.IsValid())
+	for (int32 i = 0; i < TrackedMatches.Num(); i++)
 	{
-		AUTLobbyGameState* GS = PlayerOwner->GetWorld()->GetGameState<AUTLobbyGameState>();
-		if (GS)
+		if (TrackedMatches[i]->MatchInfo.IsValid() && TrackedMatches[i]->MatchInfo.Get() == Match)
 		{
-			for (int32 i=0; i<GS->PlayerArray.Num();i++)
-			{
-				if (GS->PlayerArray[i] && GS->PlayerArray[i]->UniqueId == MatchInfo->OwnerId)
-				{
-					AUTLobbyPlayerState* PS = Cast<AUTLobbyPlayerState>(GS->PlayerArray[i]);
-					if (PS)
-					{
-						UUTLocalPlayer::GetBadgeFromELO(PS->AverageRank, Badge, Level);
-						break;
-					}
-				}
-			}
+			return i;
 		}
 	}
 
-	FString BadgeNumberStr = FString::Printf(TEXT("UT.Badge.Numbers.%i"), FMath::Clamp<int32>(Level+1,1,9));
-	return SUWindowsStyle::Get().GetBrush(*BadgeNumberStr);
+	return INDEX_NONE;
 }
-
-FText SUMatchPanel::GetButtonText() const
-{
-	if (MatchInfo.IsValid())
-	{
-		if (MatchInfo->bDedicatedMatch)
-		{
-			return NSLOCTEXT("SUMatchPanel","Dedicated","Dedicated");
-		}
-		else if (!MatchInfo->SkillTest(PlayerOwner->GetBaseELORank()))
-		{
-			return NSLOCTEXT("SUMatchPanel","TooSkilled","SKILL LOCKED");
-		}
-
-
-		return MatchInfo->GetActionText();
-	}
-
-	return NSLOCTEXT("SUMatchPanel","Setup","Initializing...");
-}
-
-
 
 void SUMatchPanel::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
 {
-	UpdateMatchInfo();
+	if (bExpectServerData) return;	
+
+	for (int32 i = 0; i < TrackedMatches.Num(); i++)
+	{
+		TrackedMatches[i]->bPendingKill = true;
+	}
+
+	bool bListNeedsUpdate = false;
+
+	AUTLobbyGameState* GameState = PlayerOwner->GetWorld()->GetGameState<AUTLobbyGameState>();
+	if (GameState)
+	{
+		// Look at the available matches
+		for (int32 i = 0; i < GameState->AvailableMatches.Num(); i++)
+		{
+			AUTLobbyMatchInfo* Match = GameState->AvailableMatches[i];
+			if (Match && GameState->IsMatchStillValid(Match) && Match->ShouldShowInDock())
+			{
+				int32 Idx = IsTrackingMatch(Match);
+				if (Idx != INDEX_NONE)
+				{
+					TrackedMatches[Idx]->bPendingKill = false;
+				}
+				else
+				{
+					// We need to add this match
+					TrackedMatches.Add(FTrackedMatch::Make(Match));
+					bListNeedsUpdate = true;
+				}
+			}
+		}
+
+		// Look at running instances
+		for (int32 i = 0; i < GameState->GameInstances.Num(); i++)
+		{
+			AUTLobbyMatchInfo* Match = GameState->GameInstances[i].MatchInfo;
+			if (Match && GameState->IsMatchStillValid(Match) && Match->ShouldShowInDock())
+			{
+				int32 Idx = IsTrackingMatch(Match);
+				if (Idx != INDEX_NONE)
+				{
+					TrackedMatches[Idx]->bPendingKill = false;
+				}
+				else
+				{
+					// We need to add this match
+					TrackedMatches.Add(FTrackedMatch::Make(Match));
+					bListNeedsUpdate = true;
+				}
+			}
+		}
+	
+	}
+
+	// Remove any entries that are pending kill
+	for (int32 i = TrackedMatches.Num() - 1; i >= 0; i--)
+	{
+		if (TrackedMatches[i]->bPendingKill) 
+		{
+			bListNeedsUpdate = true;
+			TrackedMatches.RemoveAt(i);
+		}
+	}
+
+	// Update the friends.
+	TArray<FUTFriend> FriendsList;
+	PlayerOwner->GetFriendsList(FriendsList);
+
+	for (int32 i=0; i < TrackedMatches.Num(); i++)
+	{
+		if (TrackedMatches[i]->MatchInfo.IsValid())
+		{
+			TrackedMatches[i]->NumFriends = TrackedMatches[i]->MatchInfo->CountFriendsInMatch(FriendsList);
+		}
+	}
+
+
+	if (bShowingNoMatches && TrackedMatches.Num() > 0)
+	{
+		bShowingNoMatches = false;
+		NoMatchesBox->ClearChildren();
+	}
+	else if (TrackedMatches.Num() == 0 && !bShowingNoMatches)
+	{
+		bShowingNoMatches = true;
+		NoMatchesBox->AddSlot().AutoHeight().Padding(10.0f,10.0f,0.0f,0.0f)
+		[
+			SNew(STextBlock)
+			.Text(NSLOCTEXT("SUMatchPanel","NoMatches","There are no active matches.  Start one!"))
+			.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
+		];
+	}
+
+	if (bListNeedsUpdate)
+	{
+		MatchList->RequestListRefresh();	
+	}
 }
  
-void SUMatchPanel::UpdateMatchInfo()
+
+FReply SUMatchPanel::StartNewMatch()
 {
-	if (MatchInfo.IsValid())
+	AUTLobbyGameState* GameState = PlayerOwner->GetWorld()->GetGameState<AUTLobbyGameState>();
+	if (GameState && PlayerOwner->PlayerController && PlayerOwner->PlayerController->PlayerState)
 	{
-		SetVisibility(EVisibility::All);
+		AUTLobbyPlayerState* LobbyPlayerState = Cast<AUTLobbyPlayerState>(PlayerOwner->PlayerController->PlayerState);
+		if (LobbyPlayerState)
+		{
+			LobbyPlayerState->ServerCreateMatch();
+		}
+	}
+	return FReply::Handled();
+}	
+
+TSharedRef<SWidget> SUMatchPanel::OnGetPopupContent(TSharedPtr<SUTPopOverAnchor> Anchor)
+{
+
+	// Create the player list..
+
+	TSharedPtr<SVerticalBox> VertBox;
+	SAssignNew(VertBox,SVerticalBox);
+
+	TArray<FMatchPlayerListStruct> ColumnA;
+	TArray<FMatchPlayerListStruct> ColumnB;
+	FString Spectators;
+
+	bool bTeamGame = false;
+
+	if (bExpectServerData)
+	{
+		TSharedPtr<FServerInstanceData> Instance;
+		// Find the instance data
+		for (int32 i=0; i < ServerData->HUBInstances.Num(); i++)
+		{
+			if (ServerData->HUBInstances[i]->InstanceId.ToString() == Anchor->AssociatedString)
+			{
+				Instance = ServerData->HUBInstances[i];
+				break;
+			}
+		}
+	
+		if (!Instance.IsValid())
+		{
+			return SNew(SVerticalBox)
+			+SVerticalBox::Slot()
+			.Padding(0.0,0.0,0.0,5.0)
+			[
+				SNew(SHorizontalBox)
+				+SHorizontalBox::Slot()
+				.Padding(0.0,0.0,5.0,0.0)
+				.AutoWidth()
+				[
+					SNew(SBox).WidthOverride(200)
+					[
+						SNew(SVerticalBox)
+						+SVerticalBox::Slot().HAlign(HAlign_Left).AutoHeight().Padding(5.0f,5.0f,5.0f,5.0f)
+						[
+							SNew(STextBlock)
+							.Text(NSLOCTEXT("SUMatchPanel","NoData","Loading...."))
+							.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Tiny.Bold")
+						]
+					]
+				]
+			];
+		}
+		else
+		{
+			for (int32 i = 0; i < Instance->Players.Num(); i++)
+			{
+				if (Instance->bTeamGame)
+				{
+					if (Instance->Players[i].TeamNum == 0) ColumnA.Add(Instance->Players[i]);
+					else if (Instance->Players[i].TeamNum == 1) ColumnB.Add(Instance->Players[i]);
+				}
+				else
+				{
+					if (i%2==0)
+					{
+						ColumnA.Add(Instance->Players[i]);
+					}
+					else
+					{
+						ColumnB.Add(Instance->Players[i]);
+					}
+				}
+			}
+			bTeamGame = Instance->bTeamGame;
+		}
 	}
 	else
 	{
-		SetVisibility(EVisibility::Hidden);
+		if (Anchor->AssociatedActor.IsValid())
+		{
+			AUTLobbyMatchInfo* MatchInfo = Cast<AUTLobbyMatchInfo>(Anchor->AssociatedActor.Get());
+			if (MatchInfo)
+			{
+				if (MatchInfo->CurrentRuleset.IsValid())
+				{
+					MatchInfo->FillPlayerColumnsForDisplay(ColumnA, ColumnB, Spectators);
+					bTeamGame = MatchInfo->CurrentRuleset->bTeamGame;
+				}
+			}
+		}
+	}
+
+	// Generate a info widget from the UTLobbyMatchInfo
+
+
+	int32 Max = FMath::Max<int32>(ColumnA.Num(), ColumnB.Num());
+
+	// First we add the player list...
+
+	if (Max > 0)
+	{
+		if (bTeamGame)
+		{
+			VertBox->AddSlot()
+			.Padding(0.0,0.0,0.0,5.0)
+			[
+				SNew(SHorizontalBox)
+				+SHorizontalBox::Slot()
+				.Padding(0.0,0.0,5.0,0.0)
+				.AutoWidth()
+				[
+					SNew(SBox).WidthOverride(200)
+					[
+						SNew(SVerticalBox)
+						+SVerticalBox::Slot().HAlign(HAlign_Left).AutoHeight().Padding(5.0f,0.0f,0.0f,0.0f)
+						[
+							SNew(STextBlock)
+							.Text(NSLOCTEXT("SUMatchPanel","RedTeam","Red Team"))
+							.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Tiny.Bold")
+						]
+					]
+				]
+				+SHorizontalBox::Slot()
+				.Padding(5.0,0.0,0.0,0.0)
+				.AutoWidth()
+				.HAlign(HAlign_Right)
+				[
+					SNew(SBox).WidthOverride(200)
+					[
+						SNew(SVerticalBox)
+						+SVerticalBox::Slot().HAlign(HAlign_Right).AutoHeight().Padding(0.0f,0.0f,5.0f,0.0f)
+						[
+							SNew(STextBlock)
+							.Text(NSLOCTEXT("SUMatchPanel","BlueTeam","Blue Team"))
+							.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Tiny.Bold")
+						]
+					]
+				]
+			];
+		}
+		else
+		{
+			VertBox->AddSlot()
+			.Padding(0.0,0.0,0.0,5.0)
+			.HAlign(HAlign_Center)
+			[
+				SNew(STextBlock)
+				.Text(NSLOCTEXT("SUMatchPanel","Players","Players in Match"))
+				.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Tiny.Bold")
+			];
+		}
+
+		TSharedPtr<SBox> ListBox;
+		TSharedPtr<SVerticalBox> ListVBox;
+		SAssignNew(ListBox, SBox).MinDesiredHeight(150)
+		[
+			SAssignNew(ListVBox, SVerticalBox)				
+		];
+
+		for (int32 i = 0; i < Max; i++)
+		{
+			ListVBox->AddSlot()
+			.AutoHeight()
+			.Padding(0.0,0.0,0.0,2.0)
+			[
+				SNew(SHorizontalBox)
+				+SHorizontalBox::Slot()
+				.Padding(0.0,0.0,5.0,0.0)
+				.AutoWidth()
+				[
+					SNew(SBox).WidthOverride(200)
+					[
+						SNew(SOverlay)
+						+SOverlay::Slot()
+						[
+							SNew(SImage)
+							.Image(SUTStyle::Get().GetBrush( (i%2==0 ? FName(TEXT("UT.ListBackground.Even")) : FName(TEXT("UT.ListBackground.Odd")))  ))
+						]
+						+SOverlay::Slot()
+						[
+							SNew(SOverlay)
+							+SOverlay::Slot()
+							[
+								SNew(SVerticalBox)
+								+SVerticalBox::Slot().HAlign(HAlign_Left).AutoHeight()
+								.Padding(5.0,0.0,0.0,0.0)
+								[
+									SNew(STextBlock)
+									.Text(FText::FromString( (i < ColumnA.Num() ? ColumnA[i].PlayerName : TEXT(""))  ))
+									.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small")
+								]
+
+							]
+							+SOverlay::Slot()
+							[
+								SNew(SVerticalBox)
+								+SVerticalBox::Slot().HAlign(HAlign_Right).AutoHeight()
+								.Padding(0.0,0.0,5.0,0.0)
+								[
+									SNew(STextBlock)
+									.Text(FText::FromString( (i < ColumnA.Num() ? ColumnA[i].PlayerScore : TEXT(""))  ))
+									.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small")
+								]
+
+							]
+						]
+					]
+				]
+				+SHorizontalBox::Slot()
+				.Padding(5.0,0.0,0.0,0.0)
+				.AutoWidth()
+				[
+					SNew(SBox).WidthOverride(200)
+					[
+						SNew(SOverlay)
+						+SOverlay::Slot()
+						[
+							SNew(SImage)
+							.Image(SUTStyle::Get().GetBrush( (i%2==0 ? FName(TEXT("UT.ListBackground.Even")) : FName(TEXT("UT.ListBackground.Odd")))  ))
+						]
+						+SOverlay::Slot()
+						[
+							SNew(SOverlay)
+							+SOverlay::Slot()
+							[
+								SNew(SVerticalBox)
+								+SVerticalBox::Slot().HAlign(HAlign_Left).AutoHeight()
+								.Padding(5.0,0.0,0.0,0.0)
+								[
+									SNew(STextBlock)
+									.Text(FText::FromString( (i < ColumnB.Num() ? ColumnB[i].PlayerName : TEXT(""))  ))
+									.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small")
+								]
+
+							]
+							+SOverlay::Slot()
+							[
+								SNew(SVerticalBox)
+								+SVerticalBox::Slot().HAlign(HAlign_Right).AutoHeight()
+								.Padding(0.0,0.0,5.0,0.0)
+								[
+									SNew(STextBlock)
+									.Text(FText::FromString( (i < ColumnB.Num() ? ColumnB[i].PlayerScore : TEXT(""))  ))
+									.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small")
+								]
+							]
+						]
+					]
+				]
+			];
+		}
+
+		VertBox->AddSlot().AutoHeight()
+		[
+			ListBox.ToSharedRef()
+		];
+
+		if (!Spectators.IsEmpty())
+		{
+			// Add Spectators
+
+			VertBox->AddSlot()
+			.HAlign(HAlign_Center)
+			.Padding(0.0f,10.0f,0.0f,5.0)
+			[
+				SNew(STextBlock)
+				.Text(NSLOCTEXT("SUMatchPanel","Spectators","Spectators"))
+				.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Tiny.Bold")
+			];
+
+			VertBox->AddSlot()
+			.HAlign(HAlign_Center)
+			.Padding(5.0f,0.0f,5.0f,5.0)
+			[
+				SNew(SHorizontalBox)
+				+SHorizontalBox::Slot()
+				.FillWidth(1.0)
+				[
+					SNew(STextBlock)
+					.Text(FText::FromString(Spectators))
+					.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Tiny")
+					.AutoWrapText(true)
+				]
+			];
+				
+		}
+
+	}
+	return VertBox.ToSharedRef();
+
+}
+
+TSharedRef<SWidget> SUMatchPanel::OnGetPopup(TSharedPtr<SUTPopOverAnchor> Anchor)
+{
+	return SNew(SBox).WidthOverride(420)
+		[
+			SNew(SVerticalBox)
+			+SVerticalBox::Slot()
+			.AutoHeight()
+			.Padding(5.0,5.0,5.0,5.0)
+			[
+				SNew(SOverlay)
+				+SOverlay::Slot()
+				[
+					SNew(SImage)
+					.Image(SUTStyle::Get().GetBrush("UT.HeaderBackground.Medium"))
+				]
+				+SOverlay::Slot()
+				[
+					OnGetPopupContent(Anchor)
+				]
+			]
+		];
+}
+
+void SUMatchPanel::OnListMouseButtonDoubleClick(TSharedPtr<FTrackedMatch> SelectedMatch)
+{
+	if (bExpectServerData)
+	{
+		if (OnJoinMatchDelegate.IsBound())
+		{
+			OnJoinMatchDelegate.Execute(SelectedMatch->MatchId.ToString(), false);
+		}
+	}
+	else
+	{
+		AUTLobbyGameState* GameState = PlayerOwner->GetWorld()->GetGameState<AUTLobbyGameState>();
+		if (SelectedMatch.IsValid() && GameState && PlayerOwner->PlayerController && PlayerOwner->PlayerController->PlayerState)
+		{
+			AUTLobbyPlayerState* LobbyPlayerState = Cast<AUTLobbyPlayerState>(PlayerOwner->PlayerController->PlayerState);
+			if (LobbyPlayerState)
+			{
+				LobbyPlayerState->ServerJoinMatch(SelectedMatch->MatchInfo.Get(), false);
+			}
+		}
 	}
 }
 
-FReply SUMatchPanel::ButtonClicked()
+
+
+FReply SUMatchPanel::JoinMatchButtonClicked(TSharedPtr<FTrackedMatch> InItem)
 {
-	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(GEngine->GetLocalPlayerFromControllerId(GWorld, 0));
-	if (LocalPlayer)
+	if (InItem.IsValid())
 	{
-		AUTLobbyPC* PC = Cast<AUTLobbyPC>(LocalPlayer->PlayerController);
-		if (PC)
+		if (bExpectServerData)
 		{
-			AUTLobbyPlayerState* PS = Cast<AUTLobbyPlayerState>(PC->PlayerState);
+			if (OnJoinMatchDelegate.IsBound())
 			{
-				if(PS)
+				OnJoinMatchDelegate.Execute(InItem->MatchId.ToString(), false);
+			}
+		}
+		else if (InItem.IsValid() && InItem->MatchInfo.IsValid())
+		{
+			if (PlayerOwner.IsValid() && PlayerOwner->PlayerController && PlayerOwner->PlayerController->PlayerState)
+			{
+				AUTLobbyPlayerState* LobbyPlayerState = Cast<AUTLobbyPlayerState>(PlayerOwner->PlayerController->PlayerState);
+				if (LobbyPlayerState)
 				{
-					PS->ServerJoinMatch(MatchInfo.Get(),false);
+					LobbyPlayerState->ServerJoinMatch(InItem->MatchInfo.Get(),false);
 				}
 			}
 		}
 	}
 	return FReply::Handled();
 }
-
-void SUMatchPanel::OnSubMenuSelect(int32 MenuCmdId, TSharedPtr<SUTComboButton> Sender)
+FReply SUMatchPanel::SpectateMatchButtonClicked(TSharedPtr<FTrackedMatch> InItem)
 {
-	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(GEngine->GetLocalPlayerFromControllerId(GWorld, 0));
-	if (LocalPlayer)
+	if (InItem.IsValid())
 	{
-		AUTLobbyPC* PC = Cast<AUTLobbyPC>(LocalPlayer->PlayerController);
-		if (PC)
+		if (bExpectServerData)
 		{
-			AUTLobbyPlayerState* PS = Cast<AUTLobbyPlayerState>(PC->PlayerState);
+			if (OnJoinMatchDelegate.IsBound())
 			{
-				if(PS)
-				{
-					PS->ServerJoinMatch(MatchInfo.Get(),true);
-				}
+				OnJoinMatchDelegate.Execute(InItem->MatchId.ToString(), true);
 			}
 		}
+		else if (InItem.IsValid() && InItem->MatchInfo.IsValid())
+		{
+			if (PlayerOwner.IsValid() && PlayerOwner->PlayerController && PlayerOwner->PlayerController->PlayerState)
+			{
+				AUTLobbyPlayerState* LobbyPlayerState = Cast<AUTLobbyPlayerState>(PlayerOwner->PlayerController->PlayerState);
+				if (LobbyPlayerState)
+				{
+					LobbyPlayerState->ServerJoinMatch(InItem->MatchInfo.Get(),true);
+				}
+			}
+		}	
 	}
+
+	return FReply::Handled();
 }
 
-
-FText SUMatchPanel::GetMatchBadgeText() const
+bool SUMatchPanel::CanSpectateGame(TSharedPtr<FTrackedMatch> InItem) const
 {
-	if (MatchInfo.IsValid() && MatchInfo->bDedicatedMatch)
+	if (InItem.IsValid() && InItem->MatchInfo.IsValid())
 	{
-		return FText::FromString(MatchInfo->DedicatedServerName);
+		return (InItem->MatchInfo->bSpectatable);
 	}
-	if (MatchInfo.IsValid() && MatchInfo->CurrentState == ELobbyMatchState::InProgress)
-	{
-		return FText::FromString(MatchInfo->MatchBadge);
-	}
-	else if ( MatchInfo.IsValid() && MatchInfo->CurrentRuleset.IsValid() )
-	{
-		FString Text = FString::Printf(TEXT("<UWindows.Standard.MatchBadge>%i of %i</>\n<UWindows.Standard.MatchBadge>Players</>"), MatchInfo->Players.Num(), MatchInfo->CurrentRuleset->MaxPlayers);
-		return FText::FromString(Text);
-	}
-	else
-	{
-		return FText::GetEmpty();
-	}
-
-	return FText::GetEmpty();
+	return true;
 }
 
-const FSlateBrush* SUMatchPanel::GetMatchSlateBadge() const
+void SUMatchPanel::SetServerData(TSharedPtr<FServerData> inServerData)
 {
-	if (MatchInfo.IsValid() && MatchInfo->CurrentRuleset.IsValid() && MatchInfo->CurrentRuleset->SlateBadge.IsValid())
+	TrackedMatches.Empty();
+
+	// Update the friends.
+	TArray<FUTFriend> FriendsList;
+	PlayerOwner->GetFriendsList(FriendsList);
+
+	ServerData = inServerData;
+	for (int32 i=0; i < ServerData->HUBInstances.Num(); i++)
 	{
-		return MatchInfo->CurrentRuleset->GetSlateBadge();
-	
+		TSharedPtr<FServerInstanceData> Instance = ServerData->HUBInstances[i];
+		if (Instance.IsValid())
+		{
+			int32 Index = TrackedMatches.Add(FTrackedMatch::Make(Instance->InstanceId, Instance->RulesTitle, Instance->MapName, Instance->NumPlayers, Instance->MaxPlayers, Instance->NumFriends, Instance->Flags, Instance->Rank));
+
+			// Count the # of friends....
+			int32 NumFriends = 0;
+			for (int32 j=0; j < Instance->Players.Num(); j++)
+			{
+				for (int32 k=0; k < FriendsList.Num(); k++)
+				{
+					if (FriendsList[k].UserId == Instance->Players[j].PlayerId)
+					{
+						NumFriends++;
+						break;
+					}
+				}
+			}
+
+			TrackedMatches[Index]->NumFriends = NumFriends;
+		}
 	}
-
-	return SUWindowsStyle::Get().GetBrush("UWindows.Lobby.MatchBadge");
-
+	MatchList->RequestListRefresh();
 }
+
 
 #endif

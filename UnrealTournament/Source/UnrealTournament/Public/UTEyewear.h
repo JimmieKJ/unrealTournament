@@ -10,4 +10,5 @@ class UNREALTOURNAMENT_API AUTEyewear : public AUTCosmetic
 {
 	GENERATED_UCLASS_BODY()
 
+	void OnWearerDeath_Implementation(TSubclassOf<UDamageType> DamageType) override;
 };

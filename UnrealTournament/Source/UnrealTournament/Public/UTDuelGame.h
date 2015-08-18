@@ -16,7 +16,14 @@ class UNREALTOURNAMENT_API AUTDuelGame : public AUTTeamDMGameMode
 	virtual void PlayEndOfMatchMessage() override;
 	virtual void UpdateSkillRating() override;
 	virtual bool ChangeTeam(AController* Player, uint8 NewTeam, bool bBroadcast) override;
+	virtual bool ShouldBalanceTeams(bool bInitialTeam) const
+	{
+		// always, since 1v1 is the only option
+		return true;
+	}
 	virtual void SetPlayerDefaults(APawn* PlayerPawn) override;
+
+	virtual void FindAndMarkHighScorer() override;
 
 	/** How long powerups last in Duel */
 	UPROPERTY()
@@ -27,7 +34,5 @@ class UNREALTOURNAMENT_API AUTDuelGame : public AUTTeamDMGameMode
 #endif
 
 public:
-	virtual void GetGameURLOptions(TArray<FString>& OptionsList, int32& DesiredPlayerCount);
-
-
+	virtual void GetGameURLOptions(const TArray<TSharedPtr<TAttributePropertyBase>>& MenuProps, TArray<FString>& OptionsList, int32& DesiredPlayerCount) override;
 };

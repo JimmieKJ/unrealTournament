@@ -23,7 +23,7 @@ UUTCTFGameMessage::UUTCTFGameMessage(const FObjectInitializer& ObjectInitializer
 	bIsPartiallyUnique = true;
 }
 
-FLinearColor UUTCTFGameMessage::GetMessageColor(int32 MessageIndex) const
+FLinearColor UUTCTFGameMessage::GetMessageColor_Implementation(int32 MessageIndex) const
 {
 	return FLinearColor::Yellow;
 }
@@ -58,7 +58,7 @@ float UUTCTFGameMessage::GetAnnouncementPriority(int32 Switch) const
 	return ((Switch == 2) || (Switch == 8) || (Switch == 9) || (Switch == 10)) ? 1.f : 0.5f;
 }
 
-float UUTCTFGameMessage::GetScaleInSize(int32 MessageIndex) const
+float UUTCTFGameMessage::GetScaleInSize_Implementation(int32 MessageIndex) const
 {
 	return ((MessageIndex == 11) || (MessageIndex == 12)) ? 3.f : 1.f;
 }

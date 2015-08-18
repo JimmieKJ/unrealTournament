@@ -14,6 +14,7 @@
 #include "UTSquadAI.h"
 #include "UTReachSpec_HighJump.h"
 #include "UTAvoidMarker.h"
+#include "UTBotCharacter.h"
 
 void FBotEnemyInfo::Update(EAIEnemyUpdateType UpdateType, const FVector& ViewerLoc)
 {
@@ -131,6 +132,31 @@ AUTBot::AUTBot(const FObjectInitializer& ObjectInitializer)
 	ChargeAction = ObjectInitializer.CreateDefaultSubobject<UUTAIAction_Charge>(this, FName(TEXT("Charge")));
 }
 
+void AUTBot::InitializeCharacter(UUTBotCharacter* NewCharacterData)
+{
+	CharacterData = NewCharacterData;
+	Personality = CharacterData->Personality;
+
+	AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
+	if (PS != NULL)
+	{
+		PS->bReadyToPlay = true;
+		PS->SetCharacter(CharacterData->Character.ToString());
+		if (!CharacterData->HatType.ToString().IsEmpty())
+		{
+			PS->ServerReceiveHatClass(CharacterData->HatType.ToString());
+			PS->ServerReceiveHatVariant(CharacterData->HatVariantId);
+		}
+		if (!CharacterData->EyewearType.ToString().IsEmpty())
+		{
+			PS->ServerReceiveEyewearClass(CharacterData->EyewearType.ToString());
+			PS->ServerReceiveEyewearVariant(CharacterData->EyewearVariantId);
+		}
+	}
+
+	InitializeSkill(CharacterData->Skill);
+}
+
 float FBestInventoryEval::Eval(APawn* Asker, const FNavAgentProperties& AgentProps, const UUTPathNode* Node, const FVector& EntryLoc, int32 TotalDistance)
 {
 	float BestNodeWeight = 0.0f;
@@ -243,6 +269,12 @@ float FHideLocEval::Eval(APawn* Asker, const FNavAgentProperties& AgentProps, co
 void AUTBot::InitializeSkill(float NewBaseSkill)
 {
 	Skill = FMath::Clamp<float>(NewBaseSkill, 0.0f, 8.0f);
+	
+	AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
+	if (PS)
+	{
+		PS->AverageRank = Skill;
+	}
 
 	float AimingSkill = Skill + Personality.Accuracy;
 
@@ -373,6 +405,7 @@ void AUTBot::Possess(APawn* InPawn)
 
 void AUTBot::PawnPendingDestroy(APawn* InPawn)
 {
+	LastDeathTime = GetWorld()->TimeSeconds;
 	Enemy = NULL;
 	StartNewAction(NULL);
 	MoveTarget.Clear();
@@ -457,7 +490,8 @@ void AUTBot::Tick(float DeltaTime)
 	if (MyPawn == NULL)
 	{
 		AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
-		if (PS == NULL || PS->RespawnTime <= 0.0f)
+		// add some additional delay for low skill bots
+		if ((PS == NULL || PS->RespawnTime <= 0.0f) && GetWorld()->TimeSeconds - LastDeathTime > 3.9f - (Skill * 1.3f))
 		{
 			GetWorld()->GetAuthGameMode()->RestartPlayer(this);
 		}
@@ -2314,6 +2348,38 @@ void AUTBot::ExecuteWhatToDoNext()
 				}
 			}
 		}
+		else
+		{
+			FName Orders = Squad->GetCurrentOrders(this);
+			if (Orders != AnnouncedOrders && FMath::FRand() < 0.1f)
+			{
+				if (Orders == NAME_Attack)
+				{
+					SendVoiceMessage(StatusMessage::ImOnOffense);
+				}
+				else if (Orders == NAME_Defend)
+				{
+					SendVoiceMessage(StatusMessage::ImOnDefense);
+				}
+				AnnouncedOrders = Orders;
+			}
+		}
+	}
+}
+
+void AUTBot::SendVoiceMessage(FName MessageName)
+{
+	float MinInterval = (MessageName == StatusMessage::NeedBackup) ? 45.0f : 20.0f;
+	float* LastTime = LastVoiceMessageTime.Find(MessageName);
+	if (LastTime == NULL || GetWorld()->TimeSeconds - *LastTime > MinInterval)
+	{
+		LastVoiceMessageTime.Add(MessageName, GetWorld()->TimeSeconds);
+
+		AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
+		if (PS != NULL)
+		{
+			PS->AnnounceStatus(MessageName);
+		}
 	}
 }
 
@@ -2322,13 +2388,11 @@ void AUTBot::ChooseAttackMode()
 	float EnemyStrength = RelativeStrength(Enemy);
 	AUTWeapon* MyWeap = (GetUTChar() != NULL) ? GetUTChar()->GetWeapon() : NULL;
 
-	/* send under attack voice message if under duress
-	if ( EnemyStrength > 0.0f && (PlayerReplicationInfo.Team != None) && (FRand() < 0.25) &&
-	(WorldInfo.TimeSeconds - LastInjuredVoiceMessageTime > 45.0) )
+	// send under attack voice message if under duress
+	if (EnemyStrength > 0.0f && FMath::FRand() < 0.25f)
 	{
-		LastInjuredVoiceMessageTime = WorldInfo.TimeSeconds;
-		SendMessage(None, 'INJURED', 25);
-	}*/
+		SendVoiceMessage((GetUTChar() != NULL && GetUTChar()->GetCarriedObject() != NULL) ? StatusMessage::DefendFC : StatusMessage::NeedBackup);
+	}
 	/*if (Vehicle(Pawn) != None)
 	{
 		VehicleFightEnemy(true, EnemyStrength);
@@ -2347,13 +2411,11 @@ void AUTBot::ChooseAttackMode()
 			if (EnemyStrength > RetreatThreshold)
 			{
 				GoalString = "Retreat";
-				/* send retreating voice message
-				if ((PlayerReplicationInfo.Team != None) && (FRand() < 0.05)
-				&& (WorldInfo.TimeSeconds - LastInjuredVoiceMessageTime > 45.0))
+				// send retreating voice message
+				if (FMath::FRand() < 0.05f)
 				{
-				LastInjuredVoiceMessageTime = WorldInfo.TimeSeconds;
-				SendMessage(None, 'INJURED', 25);
-				}*/
+					SendVoiceMessage(StatusMessage::NeedBackup);
+				}
 				DoRetreat();
 				return;
 			}
@@ -3466,6 +3528,45 @@ bool AUTBot::TryEvasiveAction(FVector DuckDir)
 	}
 }
 
+int32 AUTBot::GetRouteDist() const
+{
+	if (NavData == NULL || GetPawn() == NULL)
+	{
+		return -1.0f;
+	}
+	else if (RouteCache.Num() == 0)
+	{
+		return 0.0f;
+	}
+	else
+	{
+		NavNodeRef AnchorPoly = NavData->FindAnchorPoly(GetPawn()->GetNavAgentLocation(), GetPawn(), GetPawn()->GetNavAgentPropertiesRef());
+		const UUTPathNode* Anchor = NavData->GetNodeFromPoly(AnchorPoly);
+		int32 RouteStartIdx = 0;
+		int32 Dist = 0;
+		if (Anchor == NULL)
+		{
+			Anchor = RouteCache[0].Node.Get();
+			AnchorPoly = RouteCache[0].TargetPoly;
+			Dist = FMath::TruncToInt((RouteCache[0].GetLocation(GetPawn()) - GetPawn()->GetActorLocation()).Size());
+		}
+		for (int32 i = RouteStartIdx; i < RouteCache.Num() && Anchor != NULL; i++)
+		{
+			int32 LinkIndex = Anchor->GetBestLinkTo(AnchorPoly, RouteCache[i], GetPawn(), GetPawn()->GetNavAgentPropertiesRef(), NavData);
+			if (LinkIndex == INDEX_NONE)
+			{
+				// hmmm... not sure if distance so far is correct here, maybe should be BLOCKED_PATH_COST?
+				return Dist;
+			}
+			const FUTPathLink& Link = Anchor->Paths[LinkIndex];
+			Dist += Link.CostFor(GetPawn(), GetPawn()->GetNavAgentPropertiesRef(), AnchorPoly, NavData);
+			Anchor = Link.End.Get();
+			AnchorPoly = Link.EndPoly;
+		}
+		return Dist;
+	}
+}
+
 void AUTBot::PickNewEnemy()
 {
 	if (GetPawn() != NULL && (Enemy == NULL || Enemy->Controller == NULL || !Squad->MustKeepEnemy(Enemy) || !CanAttack(Enemy, GetEnemyLocation(Enemy, true), false)))
@@ -3664,6 +3765,15 @@ void AUTBot::UpdateEnemyInfo(APawn* NewEnemy, EAIEnemyUpdateType UpdateType)
 		if (bImportant)
 		{
 			PickNewEnemy();
+			// maybe send voice message
+			if (Enemy == NewEnemy && (UpdateType == EUT_Seen || UpdateType == EUT_DealtDamage))
+			{
+				AUTCharacter* C = Cast<AUTCharacter>(NewEnemy);
+				if (C != NULL && C->GetCarriedObject() != NULL)
+				{
+					SendVoiceMessage(StatusMessage::EnemyFCHere);
+				}
+			}
 		}
 	}
 }

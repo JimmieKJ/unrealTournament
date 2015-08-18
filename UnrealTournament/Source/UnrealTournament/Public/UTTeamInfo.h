@@ -89,10 +89,24 @@ class UNREALTOURNAMENT_API AUTTeamInfo : public AInfo, public IUTTeamInterface
 	virtual void RemoveFromTeam(AController* C);
 
 	/** returns current number of players on the team; server only */
-	inline uint32 GetSize()
+	inline uint32 GetSize() const
 	{
 		checkSlow(Role == ROLE_Authority);
 		return TeamMembers.Num();
+	}
+	/** returns number of human (not bot) players on the team; server only */
+	inline uint32 GetNumHumans() const
+	{
+		checkSlow(Role == ROLE_Authority);
+		uint32 Count = 0;
+		for (AController* Member : TeamMembers)
+		{
+			if (Cast<APlayerController>(Member) != NULL)
+			{
+				Count++;
+			}
+		}
+		return Count;
 	}
 
 	virtual uint8 GetTeamNum() const override

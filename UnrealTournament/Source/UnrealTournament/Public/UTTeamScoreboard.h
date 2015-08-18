@@ -19,6 +19,9 @@ protected:
 	virtual void DrawTeamPanel(float RenderDelta, float& YOffset);
 	virtual void DrawPlayerScores(float RenderDelta, float& DrawY);
 
+	UPROPERTY()
+		FText TeamScoringHeader;
+
 	/** 5coring breakdown for Teams. */
 	virtual void DrawTeamScoreBreakdown(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom);
 

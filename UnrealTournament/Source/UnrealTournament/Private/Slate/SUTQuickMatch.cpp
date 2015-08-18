@@ -381,14 +381,17 @@ void SUTQuickMatch::FindBestMatch()
 			{
 				BestPing = FinalList[i];
 			}
+		}
 
-			if (FinalList[i]->NoPlayers > BestPlayers->NoPlayers)
+		for (int32 i=1;i<FinalList.Num();i++)
+		{
+			if (FinalList[i]->Ping <= BestPing->Ping + PING_ALLOWANCE && FinalList[i]->NoPlayers > BestPlayers->NoPlayers)
 			{
 				BestPlayers = FinalList[i];
 			}
 		}
 
-		BestServer = (BestPing->NoPlayers == 0 || BestPlayers->Ping < BestPing->Ping + PING_ALLOWANCE) ? BestPlayers : BestPing;
+		BestServer = BestPlayers->NoPlayers > (BestPing->NoPlayers + PLAYER_ALLOWANCE) ? BestPlayers : BestPing;
 		AttemptQuickMatch();
 
 	}

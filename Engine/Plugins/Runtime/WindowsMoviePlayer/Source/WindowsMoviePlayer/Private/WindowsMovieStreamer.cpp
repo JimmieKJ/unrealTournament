@@ -37,7 +37,6 @@ FMediaFoundationMovieStreamer::~FMediaFoundationMovieStreamer()
 	CloseMovie();
 	CleanupRenderingResources();
 
-	FlushRenderingCommands();
 	TextureFreeList.Empty();
 }
 

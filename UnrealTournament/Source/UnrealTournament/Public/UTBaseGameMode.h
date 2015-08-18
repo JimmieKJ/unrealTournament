@@ -26,6 +26,8 @@ public:
 
 	uint32 bRequirePassword:1;
 
+	TAssetSubclassOf<APawn> PlayerPawnObject;
+
 #if !UE_SERVER
 
 	/**
@@ -68,7 +70,7 @@ public:
 	virtual FName GetNextChatDestination(AUTPlayerState* PlayerState, FName CurrentChatDestination);
 
 	// Returns the # of instances controlled by this game mode and fills out the HostNames and Descriptions arrays.  
-	virtual int32 GetInstanceData(TArray<FGuid>& InstanceIDs);
+	virtual void GetInstanceData(TArray<TSharedPtr<FServerInstanceData>>& InstanceData);
 
 	// Returns the # of players in this game.  By Default returns NumPlayers but can be overrride in children (like the HUBs)
 	virtual int32 GetNumPlayers();
@@ -89,20 +91,20 @@ public:
 	/**
 	 * Converts a string to a bool.  If the string is empty, it will return the default.
 	 **/
-	inline bool EvalBoolOptions(FString InOpt, bool Default)
+	static inline bool EvalBoolOptions(const FString& InOpt, bool Default)
 	{
 		if (!InOpt.IsEmpty())
 		{
-			if (FCString::Stricmp(*InOpt,TEXT("True") )==0 
-				||	FCString::Stricmp(*InOpt,*GTrue.ToString())==0
-				||	FCString::Stricmp(*InOpt,*GYes.ToString())==0)
+			if (FCString::Stricmp(*InOpt, TEXT("True")) == 0
+				|| FCString::Stricmp(*InOpt, *GTrue.ToString()) == 0
+				|| FCString::Stricmp(*InOpt, *GYes.ToString()) == 0)
 			{
 				return true;
 			}
-			else if(FCString::Stricmp(*InOpt,TEXT("False"))==0
-				||	FCString::Stricmp(*InOpt,*GFalse.ToString())==0
-				||	FCString::Stricmp(*InOpt,TEXT("No"))==0
-				||	FCString::Stricmp(*InOpt,*GNo.ToString())==0)
+			else if (FCString::Stricmp(*InOpt, TEXT("False")) == 0
+				|| FCString::Stricmp(*InOpt, *GFalse.ToString()) == 0
+				|| FCString::Stricmp(*InOpt, TEXT("No")) == 0
+				|| FCString::Stricmp(*InOpt, *GNo.ToString()) == 0)
 			{
 				return false;
 			}
@@ -124,4 +126,11 @@ public:
 	virtual FString GetRedirectURL(const FString& PackageName) const;
 private:
 	FString GetCloudID() const;
+
+public:
+	virtual void BuildPlayerInfo(AUTPlayerState* PlayerState, TSharedPtr<class SUTTabWidget> TabWidget, TArray<TSharedPtr<struct TAttributeStat> >& StatList){};
+	virtual void BuildScoreInfo(AUTPlayerState* PlayerState, TSharedPtr<class SUTTabWidget> TabWidget, TArray<TSharedPtr<struct TAttributeStat> >& StatList){};
+	virtual void BuildRewardInfo(AUTPlayerState* PlayerState, TSharedPtr<class SUTTabWidget> TabWidget, TArray<TSharedPtr<struct TAttributeStat> >& StatList){};
+	virtual void BuildWeaponInfo(AUTPlayerState* PlayerState, TSharedPtr<class SUTTabWidget> TabWidget, TArray<TSharedPtr<struct TAttributeStat> >& StatList){};
+	virtual void BuildMovementInfo(AUTPlayerState* PlayerState, TSharedPtr<class SUTTabWidget> TabWidget, TArray<TSharedPtr<struct TAttributeStat> >& StatList){};
 };

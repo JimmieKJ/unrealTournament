@@ -16,7 +16,7 @@ UUTVictimMessage::UUTVictimMessage(const class FObjectInitializer& ObjectInitial
 }
 
 
-FLinearColor UUTVictimMessage::GetMessageColor(int32 MessageIndex) const
+FLinearColor UUTVictimMessage::GetMessageColor_Implementation(int32 MessageIndex) const
 {
 	return FLinearColor::White;
 }

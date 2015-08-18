@@ -137,6 +137,18 @@ void FWebBrowserHandler::OnPaint(CefRefPtr<CefBrowser> Browser,
 	}
 }
 
+#if PLATFORM_MAC
+void FWebBrowserHandler::OnCursorChange(CefRefPtr<CefBrowser> Browser, CefCursorHandle Cursor, CefRenderHandler::CursorType Type, const CefCursorInfo& CustomCursorInfo)
+{
+    TSharedPtr<FWebBrowserWindow> BrowserWindow = BrowserWindowPtr.Pin();
+    
+    if (BrowserWindow.IsValid())
+    {
+        BrowserWindow->OnCursorChange(Cursor, Type, CustomCursorInfo);
+    }
+    
+}
+#else
 void FWebBrowserHandler::OnCursorChange(CefRefPtr<CefBrowser> Browser, CefCursorHandle Cursor)
 {
 	TSharedPtr<FWebBrowserWindow> BrowserWindow = BrowserWindowPtr.Pin();
@@ -146,6 +158,7 @@ void FWebBrowserHandler::OnCursorChange(CefRefPtr<CefBrowser> Browser, CefCursor
 		BrowserWindow->OnCursorChange(Cursor);
 	}
 }
+#endif
 
 bool FWebBrowserHandler::OnBeforeResourceLoad(CefRefPtr<CefBrowser> Browser, CefRefPtr<CefFrame> Frame, CefRefPtr<CefRequest> Request)
 {

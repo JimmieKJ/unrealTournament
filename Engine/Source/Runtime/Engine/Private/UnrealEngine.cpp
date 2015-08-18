@@ -1537,7 +1537,10 @@ void UEngine::Serialize(FArchive& Ar)
 	{
 		// Only use the main audio device when counting memory
 		FAudioDevice* AudioDevice = GetMainAudioDevice();
-		AudioDevice->CountBytes(Ar);
+		if (AudioDevice)
+		{
+			AudioDevice->CountBytes(Ar);
+		}
 	}
 }
 

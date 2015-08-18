@@ -158,4 +158,19 @@ public:
 	virtual void Tick(float DeltaTime) override;
 
 	virtual void FiringExtraUpdated_Implementation(uint8 NewFlashExtra, uint8 InFireMode) override;
+
+	virtual void StateChanged() override;
+
+	/** check if bot should use pulse while firing beam */
+	UFUNCTION()
+	virtual void CheckBotPulseFire();
+
+	virtual float SuggestAttackStyle_Implementation() override
+	{
+		return 0.8;
+	}
+	virtual float SuggestDefenseStyle_Implementation() override
+	{
+		return -0.4;
+	}
 };

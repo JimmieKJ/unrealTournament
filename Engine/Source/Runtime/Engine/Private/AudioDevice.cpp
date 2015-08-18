@@ -1709,7 +1709,7 @@ int32 FAudioDevice::GetSortedActiveWaveInstances(TArray<FWaveInstance*>& WaveIns
 	{
 		FORCEINLINE bool operator()( const FWaveInstance& A, const FWaveInstance& B) const
 		{
-			return A.PlayPriority < B.PlayPriority;
+			return A.GetVolumeWeightedPriority() < B.GetVolumeWeightedPriority();
 		}
 	};
 
@@ -1720,7 +1720,7 @@ int32 FAudioDevice::GetSortedActiveWaveInstances(TArray<FWaveInstance*>& WaveIns
 	int32 FirstActiveIndex = FMath::Max( WaveInstances.Num() - MaxChannels, 0 );
 	for( ; FirstActiveIndex < WaveInstances.Num(); FirstActiveIndex++ )
 	{
-		if( WaveInstances[ FirstActiveIndex ]->PlayPriority > KINDA_SMALL_NUMBER )
+		if (WaveInstances[FirstActiveIndex]->GetVolumeWeightedPriority() > KINDA_SMALL_NUMBER)
 		{
 			break;
 		}
@@ -1741,7 +1741,7 @@ void FAudioDevice::StopSources( TArray<FWaveInstance*>& WaveInstances, int32 Fir
 			Source->LastUpdate = CurrentTick;
 
 			// If they are still audible, mark them as such
-			if( WaveInstance->PlayPriority > KINDA_SMALL_NUMBER )
+			if( WaveInstance->GetVolumeWeightedPriority() > KINDA_SMALL_NUMBER )
 			{
 				Source->LastHeardUpdate = CurrentTick;
 			}
@@ -1763,14 +1763,20 @@ void FAudioDevice::StopSources( TArray<FWaveInstance*>& WaveInstances, int32 Fir
 			}
 #endif
 			// Source was not high enough priority to play this tick
-			if( Source->LastUpdate != CurrentTick )
+			if (Source->LastUpdate != CurrentTick)
 			{
 				Source->Stop();
 			}
 			// Source has been inaudible for several ticks
-			else if( Source->LastHeardUpdate + AUDIOSOURCE_TICK_LONGEVITY < CurrentTick )
+			else if (Source->LastHeardUpdate + AUDIOSOURCE_TICK_LONGEVITY < CurrentTick)
 			{
 				Source->Stop();
+			}
+			// Need to update the source still so that it gets any volume settings applied to
+			// otherwise the source may play at a very quiet volume and not actually set to 0.0
+			else
+			{
+				Source->Update();
 			}
 		}
 	}

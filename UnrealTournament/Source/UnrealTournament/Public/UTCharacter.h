@@ -135,18 +135,6 @@ struct FStoredAmmo
 	int32 Amount;
 };
 
-USTRUCT()
-struct FEmoteRepInfo
-{
-	GENERATED_USTRUCT_BODY()
-
-	UPROPERTY()
-	uint8 EmoteCount;
-
-	UPROPERTY()
-	int32 EmoteIndex;
-};
-
 USTRUCT(BlueprintType)
 struct FSavedPosition
 {
@@ -349,35 +337,13 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	UFUNCTION()
 	virtual void OnRepCosmeticSpreeCount();
 
-	UPROPERTY(replicatedUsing=OnRepTaunt)
-	FEmoteRepInfo EmoteReplicationInfo;
-	
-	UFUNCTION()
-	virtual void OnRepTaunt();
+	UFUNCTION(BlueprintCallable, Category=Weapon)
+	virtual float GetWeaponBobScaling();
 
-	UPROPERTY(replicatedUsing=OnRepEmoteSpeed)
-	float EmoteSpeed;
-	
-	UFUNCTION()
-	virtual void OnRepEmoteSpeed();
-
-	UFUNCTION(Server, Reliable, WithValidation)
-	virtual void ServerSetEmoteSpeed(float NewEmoteSpeed);
-
-	UFUNCTION(Server, Reliable, WithValidation)
-	virtual void ServerFasterEmote();
-
-	UFUNCTION(Server, Reliable, WithValidation)
-	virtual void ServerSlowerEmote();
-
-	UFUNCTION(BlueprintCallable, Category = Taunt, meta = (DisplayName = "Play Taunt"))
-	void PlayTaunt();
+	virtual void SetEmoteSpeed(float NewEmoteSpeed);
 
 	UFUNCTION(BlueprintCallable, Category = Taunt)
-	void PlayTauntByIndex(int32 TauntIndex);
-
-	UFUNCTION(BlueprintCallable, Category = Taunt)
-	void PlayTauntByClass(TSubclassOf<AUTTaunt> TauntToPlay);
+	void PlayTauntByClass(TSubclassOf<AUTTaunt> TauntToPlay, float EmoteSpeed = 1.0f);
 
 	UFUNCTION()
 	void OnEmoteEnded(UAnimMontage* Montage, bool bInterrupted);
@@ -698,6 +664,8 @@ public:
 	UFUNCTION(BlueprintNativeEvent, BlueprintCosmetic)
 	void OnRep_Invisible();
 
+	virtual void HideCharacter(bool bHideCharacter);
+
 	UFUNCTION(BlueprintCallable, Category = Pawn)
 	void SetInvisible(bool bNowInvisible);
 
@@ -772,6 +740,7 @@ public:
 		}
 	}
 
+	UFUNCTION(BlueprintCallable, Category = Pawn)
 	virtual void TurnOff() override;
 
 	virtual bool IsFeigningDeath();
@@ -915,7 +884,8 @@ public:
 	 *  SERVER ONLY - do not do visual effects here!
 	 * return true if we can die, false if immortal (gametype effect, powerup, mutator, etc)
 	 */
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = Pawn)
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Meta = (DisplayName = "Died"), Category = Pawn)
+	bool K2_Died(AController* EventInstigator, TSubclassOf<UDamageType> DamageType);
 	virtual bool Died(AController* EventInstigator, const FDamageEvent& DamageEvent);
 
 	/** blueprint override for FellOutOfWorld()
@@ -1145,10 +1115,17 @@ public:
 	//================================
 	// Swimming
 
+	/** Played for character pushing off underwater. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
 	USoundBase* SwimPushSound;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
 	USoundBase* WaterEntrySound;
+
+	/** Played for character entering water fast. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
+		USoundBase* FastWaterEntrySound;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
 	USoundBase* WaterExitSound;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
@@ -1185,6 +1162,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = Pawn)
 	virtual void PlayWaterSound(USoundBase* WaterSound);
 
+	/** Called when character enters water volume. */
+	virtual void EnteredWater(class AUTWaterVolume* WaterVolume);
+
 	/** Returns true if core is in water. */
 	virtual bool IsInWater() const;
 
@@ -1194,7 +1174,8 @@ public:
 	/** Returns true if bottom of capsule is in water */
 	virtual bool FeetAreInWater() const;
 
-	virtual bool PositionIsInWater(const FVector& Position) const;
+	/** Return the water volume character is in, if currently in water.  Return null if not in water. */
+	virtual APhysicsVolume* PositionIsInWater(const FVector& Position) const;
 
 	/** Take drowning damage, play drowning sound */
 	virtual void TakeDrowningDamage();
@@ -1346,6 +1327,10 @@ public:
 	/** repnotify handler for MovementEvent. */
 	UFUNCTION()
 		virtual void MovementEventReplicated();
+
+	/** Effective target height when sliding. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Movement)
+		float SlideTargetHeight;
 
 	//--------------------------
 	// Weapon bob and eye offset

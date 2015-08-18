@@ -452,10 +452,10 @@ void FTexAlignTools::Init()
 {
 	// Create the list of aligners.
 	Aligners.Empty();
-	Aligners.Add(NewObject<UTexAligner>(GetTransientPackage(), NAME_None, RF_Public | RF_RootSet | RF_Standalone));
-	Aligners.Add(NewObject<UTexAligner>(GetTransientPackage(), NAME_None, RF_Public | RF_RootSet | RF_Standalone));
-	Aligners.Add(NewObject<UTexAligner>(GetTransientPackage(), NAME_None, RF_Public | RF_RootSet | RF_Standalone));
-	Aligners.Add(NewObject<UTexAligner>(GetTransientPackage(), NAME_None, RF_Public | RF_RootSet | RF_Standalone));
+	Aligners.Add(NewObject<UTexAlignerDefault>(GetTransientPackage(), NAME_None, RF_Public | RF_RootSet | RF_Standalone));
+	Aligners.Add(NewObject<UTexAlignerPlanar>(GetTransientPackage(), NAME_None, RF_Public | RF_RootSet | RF_Standalone));
+	Aligners.Add(NewObject<UTexAlignerBox>(GetTransientPackage(), NAME_None, RF_Public | RF_RootSet | RF_Standalone));
+	Aligners.Add(NewObject<UTexAlignerFit>(GetTransientPackage(), NAME_None, RF_Public | RF_RootSet | RF_Standalone));
 	
 	FEditorDelegates::FitTextureToSurface.AddRaw(this, &FTexAlignTools::OnEditorFitTextureToSurface);
 }

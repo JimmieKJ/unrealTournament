@@ -35,7 +35,7 @@ class UNREALTOURNAMENT_API UUTFirstBloodMessage : public UUTLocalMessage
 		AnnouncementDelay = 0.5f;
 	}
 
-	virtual FLinearColor GetMessageColor(int32 MessageIndex) const
+	virtual FLinearColor GetMessageColor_Implementation(int32 MessageIndex) const override
 	{
 		return FLinearColor::Red;
 	}

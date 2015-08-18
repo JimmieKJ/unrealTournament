@@ -120,11 +120,13 @@ protected:
 	AActor* PreviewEnvironment;
 	UAnimationAsset* PoseAnimation;
 
+	int32 OldSSRQuality;
+
 
 	virtual TSharedRef<class SWidget> BuildCustomButtonBar();
 	virtual FReply OnButtonClick(uint16 ButtonID);
 
-	virtual void DragPlayerPreview(FVector2D MouseDelta);
+	virtual void DragPlayerPreview(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent);
 	virtual void ZoomPlayerPreview(float WheelDelta);
 	virtual void RecreatePlayerPreview();
 	virtual void UpdatePlayerRender(UCanvas* C, int32 Width, int32 Height);

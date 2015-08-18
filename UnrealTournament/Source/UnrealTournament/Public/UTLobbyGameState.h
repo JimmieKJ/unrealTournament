@@ -140,7 +140,7 @@ class UNREALTOURNAMENT_API AUTLobbyGameState : public AUTGameState
 	/**
 	 *	Called when an instance needs to update a player in a match's info
 	 **/
-	void GameInstance_PlayerUpdate(uint32 GameInstanceID, FUniqueNetIdRepl PlayerID, const FString& PlayerName, int32 PlayerScore, bool bSpectator, bool bLastUpdate, int32 PlayerRank);
+	void GameInstance_PlayerUpdate(uint32 GameInstanceID, FUniqueNetIdRepl PlayerID, const FString& PlayerName, int32 PlayerScore, bool bSpectator, uint8 TeamNum, bool bLastUpdate, int32 PlayerRank, FName Avatar);
 
 	/**
 	 *	Called when an instance's game is over.  It this called via GameEnded and doesn't mean any of the
@@ -234,7 +234,6 @@ public:
 
 protected:
 	virtual bool AddDedicatedInstance(FGuid InstanceGUID, const FString& AccessKey, const FString& ServerName);
-
 public:
 	virtual void HandleQuickplayRequest(AUTServerBeaconClient* Beacon, const FString& MatchType, int32 ELORank);
 
@@ -243,6 +242,9 @@ public:
 	int32 MaxSpectatorsInInstance;
 
 	virtual AUTReplicatedMapInfo* CreateMapInfo(const FAssetData& MapAsset) override;
+
+	// An external client wants to join to an instance.. see if they can
+	virtual void RequestInstanceJoin(AUTServerBeaconClient* Beacon, const FString& InstanceId, bool bSpectator, int32 Rank);
 
 };
 

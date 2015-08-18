@@ -39,6 +39,8 @@ AUTWeap_Minigun::AUTWeap_Minigun(const FObjectInitializer& ObjectInitializer)
 	AltKillStatsName = NAME_MinigunShardKills;
 	DeathStatsName = NAME_MinigunDeaths;
 	AltDeathStatsName = NAME_MinigunShardDeaths;
+	HitsStatsName = NAME_MinigunHits;
+	ShotsStatsName = NAME_MinigunShots;
 }
 
 float AUTWeap_Minigun::GetAISelectRating_Implementation()

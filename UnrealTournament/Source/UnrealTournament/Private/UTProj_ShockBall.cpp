@@ -9,7 +9,8 @@
 AUTProj_ShockBall::AUTProj_ShockBall(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
-	ComboDamageParams = FRadialDamageParams(215.0f, 520.0f);
+	ComboDamageParams = FRadialDamageParams(200.0f, 520.0f);   
+	ComboDamageParams.MinimumDamage = 25.f;
 	ComboAmmoCost = 3;
 	bComboExplosion = false;
 	ComboMomentum = 330000.0f;
@@ -203,8 +204,7 @@ void AUTProj_ShockBall::RateShockCombo(AUTPlayerController *PC, AUTPlayerState* 
 		}
 	}
 
-	ComboScore *= 100.f; // multiply since stats stored as int32
-	int32 CurrentComboRating = PS->GetStatsValue(NAME_BestShockCombo);
+	float CurrentComboRating = PS->GetStatsValue(NAME_BestShockCombo);
 	if (ComboScore > CurrentComboRating)
 	{
 		PS->SetStatsValue(NAME_BestShockCombo, ComboScore);

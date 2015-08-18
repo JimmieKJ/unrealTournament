@@ -5,6 +5,44 @@
 // Dependencies.
 #include "ModuleManager.h"
 #include "Core.h"
+#include "OnlineJsonSerializer.h"
+
+class FReplayEventListItem : public FOnlineJsonSerializable
+{
+public:
+	FReplayEventListItem() {}
+	virtual ~FReplayEventListItem() {}
+
+	FString		ID;
+	FString		Group;
+	FString		Metadata;
+	uint32		Time1;
+	uint32		Time2;
+
+	// FOnlineJsonSerializable
+	BEGIN_ONLINE_JSON_SERIALIZER
+	ONLINE_JSON_SERIALIZE("id", ID);
+	ONLINE_JSON_SERIALIZE("group", Group);
+	ONLINE_JSON_SERIALIZE("meta", Metadata);
+	ONLINE_JSON_SERIALIZE("time1", Time1);
+	ONLINE_JSON_SERIALIZE("time2", Time2);
+	END_ONLINE_JSON_SERIALIZER
+};
+
+class FReplayEventList : public FOnlineJsonSerializable
+{
+public:
+	FReplayEventList()
+	{}
+	virtual ~FReplayEventList() {}
+
+	TArray< FReplayEventListItem > ReplayEvents;
+
+	// FOnlineJsonSerializable
+	BEGIN_ONLINE_JSON_SERIALIZER
+		ONLINE_JSON_SERIALIZE_ARRAY_SERIALIZABLE("events", ReplayEvents, FReplayEventListItem);
+	END_ONLINE_JSON_SERIALIZER
+};
 
 /** Struct to store information about a stream, returned from search results. */
 struct FNetworkReplayStreamInfo
@@ -89,7 +127,21 @@ DECLARE_DELEGATE_OneParam( FOnDeleteFinishedStreamComplete, const bool );
  */
 DECLARE_DELEGATE_OneParam( FOnEnumerateStreamsComplete, const TArray<FNetworkReplayStreamInfo>& );
 
-DECLARE_DELEGATE_TwoParams(FEnumerateEventsCompleteDelegate, const FString&, bool);
+/**
+* Delegate called when EnumerateEvents() completes.
+*
+* @param ReplayEventList A list of events that were found
+# @param bWasSuccessful Whether enumerating events was successful
+*/
+DECLARE_DELEGATE_TwoParams(FEnumerateEventsCompleteDelegate, const FReplayEventList&, bool);
+
+/**
+* Delegate called when RequestEventData() completes.
+*
+* @param ReplayEventListItem A replay event with its data parameter filled in
+# @param bWasSuccessful Whether enumerating events was successful
+*/
+DECLARE_DELEGATE_TwoParams(FOnRequestEventDataComplete, const TArray<uint8>&, bool)
 
 class FNetworkReplayVersion
 {
@@ -124,8 +176,9 @@ public:
 	virtual bool IsDataAvailableForTimeRange( const uint32 StartTimeInMS, const uint32 EndTimeInMS ) = 0;
 	virtual bool IsLoadingCheckpoint() const = 0;
 	virtual void AddEvent( const uint32 TimeInMS, const FString& Group, const FString& Meta, const TArray<uint8>& Data ) = 0;
-	virtual void EnumerateEvents( const FString& Group, FEnumerateEventsCompleteDelegate& EnumerationCompleteDelegate ) = 0;
-
+	virtual void EnumerateEvents( const FString& Group, const FEnumerateEventsCompleteDelegate& EnumerationCompleteDelegate ) = 0;
+	virtual void RequestEventData(const FString& EventID, const FOnRequestEventDataComplete& RequestEventDataComplete) = 0;
+	virtual void SearchEvents(const FString& EventGroup, const FOnEnumerateStreamsComplete& Delegate) = 0;
 	/** Returns true if the playing stream is currently in progress */
 	virtual bool IsLive() const = 0;
 

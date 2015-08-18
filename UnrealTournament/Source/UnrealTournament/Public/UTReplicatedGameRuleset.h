@@ -88,7 +88,7 @@ public:
 	UTexture2D*  BadgeTexture;
 
 #if !UE_SERVER
-	TSharedPtr<FSlateDynamicImageBrush> SlateBadge;
+	FSlateDynamicImageBrush* SlateBadge;
 	const FSlateBrush* GetSlateBadge() const;
 #endif
 

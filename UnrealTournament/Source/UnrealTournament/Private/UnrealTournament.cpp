@@ -9,6 +9,7 @@
 #include "UTCharacterContent.h"
 #include "UTTaunt.h"
 #include "UTBotCharacter.h"
+#include "StatNames.h"
 
 class FUTModule : public FDefaultGameModuleImpl
 {
@@ -229,6 +230,24 @@ bool LocallyOwnsItemFor(const FString& Path)
 	return false;
 }
 
+bool LocallyHasAchievement(FName Achievement)
+{
+	const TIndirectArray<FWorldContext>& AllWorlds = GEngine->GetWorldContexts();
+	for (const FWorldContext& Context : AllWorlds)
+	{
+		for (FLocalPlayerIterator It(GEngine, Context.World()); It; ++It)
+		{
+			UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(*It);
+			if (LP != NULL && LP->GetProfileSettings() != NULL && LP->GetProfileSettings()->Achievements.Contains(Achievement))
+			{
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
 void GetAllAssetData(UClass* BaseClass, TArray<FAssetData>& AssetList, bool bRequireEntitlements)
 {
 	// calling this with UBlueprint::StaticClass() is probably a bug where the user intended to call GetAllBlueprintAssetData()
@@ -293,10 +312,18 @@ void GetAllAssetData(UClass* BaseClass, TArray<FAssetData>& AssetList, bool bReq
 			}
 			else
 			{
-				const FString* NeedsItem = AssetList[i].TagsAndValues.Find(FName(TEXT("bRequiresItem")));
-				if (NeedsItem != NULL && NeedsItem->ToBool() && !LocallyOwnsItemFor(AssetList[i].ObjectPath.ToString()))
+				const FString* ReqAchievement = AssetList[i].TagsAndValues.Find(FName(TEXT("RequiredAchievement")));
+				if (ReqAchievement != NULL && !LocallyHasAchievement(**ReqAchievement))
 				{
 					AssetList.RemoveAt(i);
+				}
+				else
+				{
+					const FString* NeedsItem = AssetList[i].TagsAndValues.Find(FName(TEXT("bRequiresItem")));
+					if (NeedsItem != NULL && NeedsItem->ToBool() && !LocallyOwnsItemFor(AssetList[i].ObjectPath.ToString()))
+					{
+						AssetList.RemoveAt(i);
+					}
 				}
 			}
 		}
@@ -325,7 +352,9 @@ void GetAllBlueprintAssetData(UClass* BaseClass, TArray<FAssetData>& AssetList, 
 	RootPaths.Add(TEXT("/Game/RestrictedAssets/Pickups/"));
 	RootPaths.Add(TEXT("/Game/RestrictedAssets/Weapons/"));
 	RootPaths.Add(TEXT("/Game/RestrictedAssets/Character/"));
+	RootPaths.Add(TEXT("/Game/RestrictedAssets/UI/Crosshairs/"));
 	RootPaths.Add(TEXT("/Game/EpicInternal/PK/"));
+	RootPaths.Add(TEXT("/Game/EpicInternal/Teams/"));
 	// Cooked data has the asset data already set up
 	AssetRegistry.ScanPathsSynchronous(RootPaths);
 #endif
@@ -569,7 +598,7 @@ FHttpRequestPtr ReadBackendStats(const FHttpRequestCompleteDelegate& ResultDeleg
 	return StatsReadRequest;
 }
 
-void ParseProfileItemJson(const FString& Data, TArray<FProfileItemEntry>& ItemList)
+void ParseProfileItemJson(const FString& Data, TArray<FProfileItemEntry>& ItemList, int32& XP)
 {
 	TArray< TSharedPtr<FJsonValue> > StatsJson;
 	TSharedRef<TJsonReader<>> JsonReader = TJsonReaderFactory<>::Create(Data);
@@ -591,6 +620,8 @@ void ParseProfileItemJson(const FString& Data, TArray<FProfileItemEntry>& ItemLi
 			}
 		}
 
+		XP = int32(StatValueMap.FindRef(NAME_PlayerXP));
+
 		ItemList.Reset();
 
 		TArray<FAssetData> AllItems;
@@ -604,7 +635,7 @@ void ParseProfileItemJson(const FString& Data, TArray<FProfileItemEntry>& ItemLi
 				UUTProfileItem* Obj = Cast<UUTProfileItem>(TestItem.GetAsset());
 				if (Obj != NULL)
 				{
-					new(ItemList) FProfileItemEntry(Obj, Value);
+					new(ItemList)FProfileItemEntry(Obj, Value);
 				}
 			}
 		}
@@ -686,4 +717,39 @@ void GiveProfileItems(TSharedPtr<FUniqueNetId> UniqueId, const TArray<FProfileIt
 			StatsWriteRequest->ProcessRequest();
 		}
 	}
+}
+
+int32 GetLevelForXP(int32 XPValue)
+{
+	const int32 MAX_LEVEL = 50;
+	const int32 STARTING_INCREMENT = 50;
+	const int32 TENTH_LEVEL_INCREMENT_BOOST[] = { 0, 5, 5, 10, 10, 10 };
+	checkSlow(MAX_LEVEL < ARRAY_COUNT(TENTH_LEVEL_INCREMENT_BOOST) * 10 - 1);
+
+	// note: req to next level, so element 0 is XP required for level 1
+	static TArray<int32> LevelReqs = [&]()
+	{
+		TArray<int32> Result;
+		Result.Add(0);
+		int32 Increment = STARTING_INCREMENT;
+		int32 Step = STARTING_INCREMENT;
+		Result.Add(Step);
+		for (int32 i = 2; i < MAX_LEVEL; i++)
+		{
+			Increment += TENTH_LEVEL_INCREMENT_BOOST[i / 10];
+			Step += Increment;
+			Result.Add(Result.Last() + Step);
+		}
+		return Result;
+	}();
+
+	for (int32 i = 0; i < MAX_LEVEL; i++)
+	{
+		if (XPValue < LevelReqs[i])
+		{
+			return i;
+		}
+	}
+
+	return LevelReqs.Num();
 }

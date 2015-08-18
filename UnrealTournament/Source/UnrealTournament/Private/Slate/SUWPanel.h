@@ -31,6 +31,7 @@ public:
 		return ParentWindow;
 	}
 
+	AUTPlayerState* GetOwnerPlayerState();
 
 	void ConsoleCommand(FString Command);
 

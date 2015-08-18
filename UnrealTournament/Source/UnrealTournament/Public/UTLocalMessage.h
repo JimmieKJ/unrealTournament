@@ -45,6 +45,10 @@ class UNREALTOURNAMENT_API UUTLocalMessage : public ULocalMessage
 	UPROPERTY(EditDefaultsOnly, Category = Message)
 	uint32 bOptionalSpoken : 1;
 
+	// for announcements - will request a bot reaction after playing this announcement. 
+	UPROPERTY(EditDefaultsOnly, Category = Message)
+		uint32 bWantsBotReaction : 1;
+
 	// # of seconds to stay in HUD message queue.
 	UPROPERTY(EditDefaultsOnly, Category = Message)
 	float Lifetime;    
@@ -69,6 +73,10 @@ class UNREALTOURNAMENT_API UUTLocalMessage : public ULocalMessage
 	UFUNCTION(BlueprintNativeEvent)
 	FName GetAnnouncementName(int32 Switch, const UObject* OptionalObject) const;
 
+	/** return the sound to play for the announcement, if GetAnnouncementName() returned NAME_Custom. */
+	UFUNCTION(BlueprintNativeEvent)
+	USoundBase* GetAnnouncementSound(int32 Switch, const UObject* OptionalObject) const;
+
 	/** Return true if message should be displayed with large font. */
 	virtual bool UseLargeFont(int32 MessageIndex) const;
 
@@ -79,13 +87,16 @@ class UNREALTOURNAMENT_API UUTLocalMessage : public ULocalMessage
 	};
 
 	/** Return color of displayed message. */
-	virtual FLinearColor GetMessageColor(int32 MessageIndex) const;
+	UFUNCTION(BlueprintNativeEvent)
+	FLinearColor GetMessageColor(int32 MessageIndex) const;
 
 	/** How long to scale to 1 from initial message scale. */
-	virtual float GetScaleInTime(int32 MessageIndex) const;
+	UFUNCTION(BlueprintNativeEvent)
+	float GetScaleInTime(int32 MessageIndex) const;
 
 	/** Initial Message scale */
-	virtual float GetScaleInSize(int32 MessageIndex) const;
+	UFUNCTION(BlueprintNativeEvent)
+	float GetScaleInSize(int32 MessageIndex) const;
 
 	/** return whether this announcement should interrupt/cancel the passed in announcement */
 	UFUNCTION(BlueprintNativeEvent)
@@ -93,7 +104,7 @@ class UNREALTOURNAMENT_API UUTLocalMessage : public ULocalMessage
 
 	/** return whether this announcement should be cancelled by the passed in announcement */
 	UFUNCTION(BlueprintNativeEvent)
-		bool CancelByAnnouncement(int32 Switch, const UObject* OptionalObject, TSubclassOf<UUTLocalMessage> OtherMessageClass, int32 OtherSwitch, const UObject* OtherOptionalObject) const;
+	bool CancelByAnnouncement(int32 Switch, const UObject* OptionalObject, TSubclassOf<UUTLocalMessage> OtherMessageClass, int32 OtherSwitch, const UObject* OtherOptionalObject) const;
 
 	/** called when the UTAnnouncer plays the announcement sound - can be used to e.g. display HUD text at the same time */
 	UFUNCTION(BlueprintNativeEvent)

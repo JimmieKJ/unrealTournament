@@ -53,6 +53,9 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 	SetWalkableFloorZ(0.695f); 
 	MaxAcceleration = 6000.f; 
 	MaxFallingAcceleration = 4200.f;
+	MaxSwimmingAcceleration = 6000.f;
+	MaxRelativeSwimmingAccelNumerator = 0.f;
+	MaxRelativeSwimmingAccelDenominator = 1000.f;
 	BrakingDecelerationWalking = 500.f;
 	DefaultBrakingDecelerationWalking = BrakingDecelerationWalking;
 	BrakingDecelerationFalling = 0.f;
@@ -63,7 +66,7 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 	GravityScale = 1.f;
 	MaxStepHeight = 51.0f;
 	NavAgentProps.AgentStepHeight = MaxStepHeight; // warning: must be manually mirrored, won't be set automatically
-	CrouchedHalfHeight = 55.0f;
+	CrouchedHalfHeight = 64.0f;
 	SlopeDodgeScaling = 0.93f;
 
 	FloorSlideAcceleration = 1500.f;
@@ -291,6 +294,7 @@ void UUTCharacterMovement::OnMovementModeChanged(EMovementMode PreviousMovementM
 			if (UTCharOwner)
 			{
 				UTCharOwner->bApplyWallSlide = false;
+				UTCharOwner->InventoryEvent(InventoryEventName::LandedWater);
 			}
 			bExplicitJump = false;
 			ClearRestrictedJump();
@@ -977,6 +981,10 @@ float UUTCharacterMovement::GetMaxAcceleration() const
 	{
 		Result = MaxFallingAcceleration;
 	}
+	else if (MovementMode == MOVE_Swimming)
+	{
+		Result = MaxSwimmingAcceleration + MaxRelativeSwimmingAccelNumerator / (Velocity.Size() + MaxRelativeSwimmingAccelDenominator);
+	}
 	else
 	{
 		Result = Super::GetMaxAcceleration();
@@ -1223,8 +1231,7 @@ bool UUTCharacterMovement::DoJump(bool bReplayingMoves)
 		if (Cast<AUTCharacter>(CharacterOwner) != NULL)
 		{
 			((AUTCharacter*)CharacterOwner)->MovementEventUpdated(EME_Jump, Velocity.GetSafeNormal());
-			static FName NAME_Jump(TEXT("Jump"));
-			((AUTCharacter*)CharacterOwner)->InventoryEvent(NAME_Jump);
+			((AUTCharacter*)CharacterOwner)->InventoryEvent(InventoryEventName::Jump);
 		}
 		bNotifyApex = true;
 		bExplicitJump = true;
@@ -1251,8 +1258,7 @@ bool UUTCharacterMovement::DoMultiJump()
 		CurrentMultiJumpCount++;
 		if (CharacterOwner->IsA(AUTCharacter::StaticClass()))
 		{
-			static FName NAME_MultiJump(TEXT("MultiJump"));
-			((AUTCharacter*)CharacterOwner)->InventoryEvent(NAME_MultiJump);
+			((AUTCharacter*)CharacterOwner)->InventoryEvent(InventoryEventName::MultiJump);
 		}
 		return true;
 	}

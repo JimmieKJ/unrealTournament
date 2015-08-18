@@ -25,6 +25,8 @@ protected:
 	FString QueryWindow;
 
 	double LastStatsDownloadTime;
+	FString LastStatsIDDownload;
+	FString LastQueryWindowDownload;
 
 	virtual void DownloadStats();
 
@@ -32,16 +34,30 @@ protected:
 	TSharedPtr<SWebBrowser> StatsWebBrowser;
 	IOnlineSubsystem* OnlineSubsystem;
 	IOnlineIdentityPtr OnlineIdentityInterface;
-	IOnlineUserCloudPtr OnlineUserCloudInterface;
-	FOnReadUserFileCompleteDelegate OnReadUserFileCompleteDelegate;
-	FDelegateHandle OnReadUserFileCompleteDelegateHandle;
-	virtual void OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNetId& InUserId, const FString& FileName);
 	virtual FString GetStatsFilename();
 
+	void ReadCloudStats();
+	void ReadCloudStatsComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded);
 	void ReadBackendStatsComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded);
 	void ShowErrorPage();
+
+	TSharedPtr< SComboBox< TSharedPtr<FString> > > FriendListComboBox;
+	TArray<TSharedPtr<FString>> FriendList;
+	TArray<FString> FriendStatIDList;
+	TSharedPtr<STextBlock> SelectedFriend;
+	void OnFriendSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
+
+	TSharedPtr< SComboBox< TSharedPtr<FString> > > QueryWindowComboBox;
+	TArray<TSharedPtr<FString>> QueryWindowList;
+	TSharedPtr<STextBlock> SelectedQueryWindow;
+	void OnQueryWindowSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
+
+	TSharedRef<SWidget> GenerateStringListWidget(TSharedPtr<FString> InItem);
+
 public:
 	virtual void SetQueryWindow(const FString& InQueryWindow);
+	virtual void SetStatsID(const FString& InStatsID);
+	virtual void ClearStatsID() { StatsID.Empty(); }
 	virtual ~SUWStatsViewer();
 };
 

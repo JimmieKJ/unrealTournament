@@ -245,12 +245,52 @@ class ENGINE_API UKismetMathLibrary : public UBlueprintFunctionLibrary
 	static float Multiply_IntFloat(int32 A, float B);
 
 	/* Division (A / B) */
-	UFUNCTION(BlueprintPure, meta=(DisplayName = "float / float", CompactNodeTitle = "/", Keywords = "/ divide division"), Category="Math|Float")
+	UFUNCTION(BlueprintPure, CustomThunk, meta=(DisplayName = "float / float", CompactNodeTitle = "/", Keywords = "/ divide division"), Category="Math|Float")
 	static float Divide_FloatFloat(float A, float B = 1.f);
+	
+	static float GenericDivide_FloatFloat(float A, float B);
+
+	/* Custom thunk to allow script stack trace in case of divide by zero */
+	DECLARE_FUNCTION(execDivide_FloatFloat)
+	{
+		P_GET_PROPERTY(UFloatProperty, A);
+		P_GET_PROPERTY(UFloatProperty, B);
+
+		P_FINISH;
+
+		if (B == 0.f)
+		{
+			FFrame::KismetExecutionMessage(*FString::Printf(TEXT("Divide by zero\n%s"), *Stack.GetStackTrace()), ELogVerbosity::Warning);
+			*(float*)RESULT_PARAM = 0;
+			return;
+		}
+
+		*(float*)RESULT_PARAM = GenericDivide_FloatFloat(A, B);
+	}
 
 	/* Modulo (A % B) */
-	UFUNCTION(BlueprintPure, meta=(DisplayName = "% (float)", CompactNodeTitle = "%", Keywords = "% modulus"), Category="Math|Float")
+	UFUNCTION(BlueprintPure, CustomThunk, meta = (DisplayName = "% (float)", CompactNodeTitle = "%", Keywords = "% modulus"), Category = "Math|Float")
 	static float Percent_FloatFloat(float A, float B = 1.f);
+
+	static float GenericPercent_FloatFloat(float A, float B);
+
+	/* Custom thunk to allow script stack trace in case of modulo by zero */
+	DECLARE_FUNCTION(execPercent_FloatFloat)
+	{
+		P_GET_PROPERTY(UFloatProperty, A);
+		P_GET_PROPERTY(UFloatProperty, B);
+
+		P_FINISH;
+
+		if (B == 0.f)
+		{
+			FFrame::KismetExecutionMessage(*FString::Printf(TEXT("Modulo by zero\n%s"), *Stack.GetStackTrace()), ELogVerbosity::Warning);
+			*(float*)RESULT_PARAM = 0;
+			return;
+		}
+
+		*(float*)RESULT_PARAM = GenericPercent_FloatFloat(A, B);
+	}
 
 	/** Returns the fractional part of a float. */
 	UFUNCTION(BlueprintPure, Category="Math|Float")

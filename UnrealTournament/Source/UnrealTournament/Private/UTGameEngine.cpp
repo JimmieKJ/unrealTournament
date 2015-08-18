@@ -4,7 +4,7 @@
 #include "UTAnalytics.h"
 #include "Runtime/Analytics/Analytics/Public/Analytics.h"
 #include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
-
+#include "Runtime/Core/Public/Features/IModularFeatures.h"
 #include "AssetRegistryModule.h"
 #include "UTLevelSummary.h"
 #include "Engine/Console.h"
@@ -12,6 +12,7 @@
 #include "Net/UnrealNetwork.h"
 #include "UTConsole.h"
 #include "UTFlagInfo.h"
+#include "UTLobbyGameMode.h"
 #if !UE_SERVER
 #include "SlateBasics.h"
 #include "MoviePlayer.h"
@@ -21,19 +22,26 @@
 UUTGameEngine::UUTGameEngine(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
-	if (IsTemplate(RF_ClassDefaultObject) && GetClass() == UUTGameEngine::StaticClass())
-	{
-		ConstructorHelpers::FObjectFinder<UClass> WeaponClasses[] = { TEXT("/Game/RestrictedAssets/Weapons/BioRifle/BP_BioRifle.BP_BioRifle_C"), TEXT("/Game/RestrictedAssets/Weapons/Enforcer/Enforcer.Enforcer_C"),
-																		TEXT("/Game/RestrictedAssets/Weapons/Flak/BP_FlakCannon.BP_FlakCannon_C"), TEXT("/Game/RestrictedAssets/Weapons/ImpactHammer/BP_ImpactHammer.BP_ImpactHammer_C"),
-																		TEXT("/Game/RestrictedAssets/Weapons/LinkGun/BP_LinkGun.BP_LinkGun_C"), TEXT("/Game/RestrictedAssets/Weapons/Minigun/BP_Minigun.BP_Minigun_C"),
-																		TEXT("/Game/RestrictedAssets/Weapons/RocketLauncher/BP_RocketLauncher.BP_RocketLauncher_C"), TEXT("/Game/RestrictedAssets/Weapons/ShockRifle/ShockRifle.ShockRifle_C"),
-																		TEXT("/Game/RestrictedAssets/Weapons/Sniper/BP_Sniper.BP_Sniper_C")
-																	};
-		for (int32 i = 0; i < ARRAY_COUNT(WeaponClasses); i++)
-		{
-			AlwaysLoadedWeapons.Add(WeaponClasses[i].Object);
-		}
-	}
+	TAssetSubclassOf<AUTWeapon> WeaponRef;
+	WeaponRef = FStringAssetReference(TEXT("/Game/RestrictedAssets/Weapons/BioRifle/BP_BioRifle.BP_BioRifle_C"));
+	AlwaysLoadedWeaponsStringRefs.Add(WeaponRef);
+
+	WeaponRef = FStringAssetReference(TEXT("/Game/RestrictedAssets/Weapons/Enforcer/Enforcer.Enforcer_C"));
+	AlwaysLoadedWeaponsStringRefs.Add(WeaponRef);
+	WeaponRef = FStringAssetReference(TEXT("/Game/RestrictedAssets/Weapons/Flak/BP_FlakCannon.BP_FlakCannon_C"));
+	AlwaysLoadedWeaponsStringRefs.Add(WeaponRef);
+	WeaponRef = FStringAssetReference(TEXT("/Game/RestrictedAssets/Weapons/ImpactHammer/BP_ImpactHammer.BP_ImpactHammer_C"));
+	AlwaysLoadedWeaponsStringRefs.Add(WeaponRef);
+	WeaponRef = FStringAssetReference(TEXT("/Game/RestrictedAssets/Weapons/LinkGun/BP_LinkGun.BP_LinkGun_C"));
+	AlwaysLoadedWeaponsStringRefs.Add(WeaponRef);
+	WeaponRef = FStringAssetReference(TEXT("/Game/RestrictedAssets/Weapons/Minigun/BP_Minigun.BP_Minigun_C"));
+	AlwaysLoadedWeaponsStringRefs.Add(WeaponRef);
+	WeaponRef = FStringAssetReference(TEXT("/Game/RestrictedAssets/Weapons/RocketLauncher/BP_RocketLauncher.BP_RocketLauncher_C"));
+	AlwaysLoadedWeaponsStringRefs.Add(WeaponRef);
+	WeaponRef = FStringAssetReference(TEXT("/Game/RestrictedAssets/Weapons/ShockRifle/ShockRifle.ShockRifle_C"));
+	AlwaysLoadedWeaponsStringRefs.Add(WeaponRef);
+	WeaponRef = FStringAssetReference(TEXT("/Game/RestrictedAssets/Weapons/Sniper/BP_Sniper.BP_Sniper_C"));
+	AlwaysLoadedWeaponsStringRefs.Add(WeaponRef);
 
 	static ConstructorHelpers::FObjectFinder<UTexture2D> DefaultLevelScreenshotObj(TEXT("Texture2D'/Game/RestrictedAssets/Textures/_T_NSA_2_D._T_NSA_2_D'"));
 	DefaultLevelScreenshot = DefaultLevelScreenshotObj.Object;
@@ -52,6 +60,8 @@ UUTGameEngine::UUTGameEngine(const FObjectInitializer& ObjectInitializer)
 	MaximumSmoothedTime = 0.04f;
 
 	ServerMaxPredictionPing = 160.f;
+	VideoRecorder = nullptr;
+	bShowMatchSummary = false;
 
 #if !UE_SERVER
 	ConstructorHelpers::FObjectFinder<UClass> TutorialMenuFinder(TEXT("/Game/RestrictedAssets/Tutorials/Blueprints/TutMainMenuWidget.TutMainMenuWidget_C"));
@@ -61,8 +71,17 @@ UUTGameEngine::UUTGameEngine(const FObjectInitializer& ObjectInitializer)
 
 void UUTGameEngine::Init(IEngineLoop* InEngineLoop)
 {
+	FString Commandline = FCommandLine::Get();
+	if (!Commandline.Contains(TEXT("?game=lobby")))
+	{
+		for (auto WeaponClassRef : AlwaysLoadedWeaponsStringRefs)
+		{
+			AlwaysLoadedWeapons.Add(Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *WeaponClassRef.ToStringReference().AssetLongPathname, NULL, LOAD_NoWarn)));
+		}
+	}
+
 	// workaround for engine bugs when loading classes that reference UMG on a dedicated server (i.e. mutators)
-	FModuleManager::Get().LoadModule("UMGEditor");
+	FModuleManager::Get().LoadModule("Foliage");
 
 	if(bFirstRun)
 	{
@@ -118,6 +137,15 @@ void UUTGameEngine::Init(IEngineLoop* InEngineLoop)
 	}
 
 	FParse::Value(FCommandLine::Get(), TEXT("ClientProcID="), OwningProcessID);
+
+	if (!IsRunningDedicatedServer())
+	{
+		static const FName VideoRecordingFeatureName("VideoRecording");
+		if (IModularFeatures::Get().IsModularFeatureAvailable(VideoRecordingFeatureName))
+		{
+			VideoRecorder = &IModularFeatures::Get().GetModularFeature<UTVideoRecordingFeature>(VideoRecordingFeatureName);
+		}
+	}
 }
 
 void UUTGameEngine::PreExit()
@@ -388,9 +416,25 @@ float UUTGameEngine::GetMaxTickRate(float DeltaTime, bool bAllowFrameRateSmoothi
 			{
 				// We're a dedicated server, use the LAN or Net tick rate.
 				MaxTickRate = FMath::Clamp(NetDriver->NetServerMaxTickRate, 10, 120);
+
+				// Allow hubs to override the tick rate
+				AUTLobbyGameMode* LobbyGame = Cast<AUTLobbyGameMode>(World->GetAuthGameMode());
+				if (LobbyGame)
+				{
+					MaxTickRate = LobbyGame->LobbyMaxTickRate;
+				}
 			}
 		}
 		return MaxTickRate;
+	}
+
+	if (VideoRecorder)
+	{
+		uint32 VideoRecorderTickRate = 0;
+		if (VideoRecorder->IsRecording(VideoRecorderTickRate))
+		{
+			return VideoRecorderTickRate;
+		}
 	}
 
 	if (CVarUnsteadyFPS.GetValueOnGameThread())
@@ -476,6 +520,48 @@ void UUTGameEngine::UpdateRunningAverageDeltaTime(float DeltaTime, bool bAllowFr
 	//UE_LOG(UT, Warning, TEXT("SMOOTHED TO %f"), SmoothedDeltaTime);
 }
 
+bool UUTGameEngine::CheckVersionOfPakFile(const FString& PakFilename) const
+{
+	bool bValidPak = false;
+
+	if (!PakFilename.StartsWith(TEXT("UnrealTournament-"), ESearchCase::IgnoreCase))
+	{
+		int32 DashPosition = PakFilename.Find(TEXT("-"), ESearchCase::CaseSensitive, ESearchDir::FromEnd);
+		if (DashPosition != -1)
+		{
+			FString DashlessPakFilename = PakFilename.Left(DashPosition);
+
+			FString VersionFilename = DashlessPakFilename + TEXT("-version.txt");
+			FString VersionString;
+			if (FFileHelper::LoadFileToString(VersionString, *(FPaths::GameDir() / VersionFilename)))
+			{
+				VersionString = VersionString.LeftChop(2);
+				FString CompiledVersionString = FString::FromInt(FNetworkVersion::GetLocalNetworkVersion());
+
+				if (VersionString == CompiledVersionString)
+				{
+					bValidPak = true;
+				}
+				else
+				{
+					UE_LOG(UT, Warning, TEXT("%s is version %s, but needs to be version %s"), *DashlessPakFilename, *VersionString, *CompiledVersionString);
+				}
+			}
+			else
+			{
+				UE_LOG(UT, Warning, TEXT("%s had no version file"), *DashlessPakFilename);
+			}
+		}
+	}
+	else
+	{
+		// Assume the stock pak is good
+		bValidPak = true;
+	}
+
+	return bValidPak;
+}
+
 void UUTGameEngine::IndexExpansionContent()
 {
 	// Plugin manager should handle this instead of us, but we're not using plugin-based dlc just yet
@@ -511,16 +597,42 @@ void UUTGameEngine::IndexExpansionContent()
 		IPlatformFile& PlatformFile = FPlatformFileManager::Get().GetPlatformFile();
 
 		FoundPaks.Empty();
-		PlatformFile.IterateDirectoryRecursively(*FPaths::Combine(*FPaths::GameSavedDir(), TEXT("DownloadedPaks")), PakVisitor);
+		PlatformFile.IterateDirectoryRecursively(*FPaths::Combine(*FPaths::GameSavedDir(), TEXT("Paks"), TEXT("DownloadedPaks")), PakVisitor);
 		for (const auto& PakPath : FoundPaks)
 		{
 			FString PakFilename = FPaths::GetBaseFilename(PakPath);
 
-			TArray<uint8> Data;
-			if (FFileHelper::LoadFileToArray(Data, *PakPath))
+			bool bValidPak = CheckVersionOfPakFile(PakFilename);
+
+			if (bValidPak)
 			{
-				FString MD5 = MD5Sum(Data);
-				DownloadedContentChecksums.Add(PakFilename, MD5);
+				TArray<uint8> Data;
+				if (FFileHelper::LoadFileToArray(Data, *PakPath))
+				{
+					FString MD5 = MD5Sum(Data);
+					DownloadedContentChecksums.Add(PakFilename, MD5);
+				}
+
+				FString AssetRegistryName = PakFilename + TEXT("-AssetRegistry.bin");
+				FArrayReader SerializedAssetData;
+				if (FFileHelper::LoadFileToArray(SerializedAssetData, *(FPaths::GameDir() / AssetRegistryName)))
+				{
+					// serialize the data with the memory reader (will convert FStrings to FNames, etc)
+					AssetRegistryModule.Get().Serialize(SerializedAssetData);
+				}
+				else
+				{
+					UE_LOG(UT, Warning, TEXT("%s could not be found"), *AssetRegistryName);
+				}
+			}
+			else
+			{
+				// Unmount the pak
+				if (FCoreDelegates::OnUnmountPak.IsBound())
+				{
+					FCoreDelegates::OnUnmountPak.Execute(PakPath);
+					UE_LOG(UT, Warning, TEXT("Unmounted %s"), *PakPath);
+				}
 			}
 		}
 
@@ -529,67 +641,32 @@ void UUTGameEngine::IndexExpansionContent()
 		PlatformFile.IterateDirectoryRecursively(*FPaths::Combine(*FPaths::GameSavedDir(), TEXT("Paks"), TEXT("MyContent")), PakVisitor);		
 		for (const auto& PakPath : FoundPaks)
 		{
-			bool bValidPak = false;
-
 			FString PakFilename = FPaths::GetBaseFilename(PakPath);
-			if (!PakFilename.StartsWith(TEXT("UnrealTournament-"), ESearchCase::IgnoreCase))
+
+			bool bValidPak = CheckVersionOfPakFile(PakFilename);
+
+			if (bValidPak)
 			{
-				int32 DashPosition = PakFilename.Find(TEXT("-"), ESearchCase::CaseSensitive, ESearchDir::FromEnd);								
-				if (DashPosition != -1)
+				TArray<uint8> Data;
+				if (FFileHelper::LoadFileToArray(Data, *PakPath))
 				{
-					PakFilename = PakFilename.Left(DashPosition);
+					FString MD5 = MD5Sum(Data);
+					LocalContentChecksums.Add(PakFilename, MD5);
+				}
 
-					FString VersionFilename = PakFilename + TEXT("-version.txt");
-					FString VersionString;
-					if (FFileHelper::LoadFileToString(VersionString, *(FPaths::GameDir() / VersionFilename)))
-					{
-						VersionString = VersionString.LeftChop(2);
-						FString CompiledVersionString = FString::FromInt(FNetworkVersion::GetLocalNetworkVersion());
-
-						if (VersionString == CompiledVersionString)
-						{
-							bValidPak = true;
-						}
-						else
-						{
-							UE_LOG(UT, Warning, TEXT("%s is version %s, but needs to be version %s"), *PakFilename, *VersionString, *CompiledVersionString);
-						}
-					}
-					else
-					{
-						UE_LOG(UT, Warning, TEXT("%s had no version file"), *PakFilename);
-					}
-
-					if (bValidPak)
-					{
-						TArray<uint8> Data;
-						if (FFileHelper::LoadFileToArray(Data, *PakPath))
-						{
-							FString MD5 = MD5Sum(Data);
-							LocalContentChecksums.Add(PakFilename, MD5);
-						}
-
-						FString AssetRegistryName = PakFilename + TEXT("-AssetRegistry.bin");
-						FArrayReader SerializedAssetData;
-						if (FFileHelper::LoadFileToArray(SerializedAssetData, *(FPaths::GameDir() / AssetRegistryName)))
-						{
-							// serialize the data with the memory reader (will convert FStrings to FNames, etc)
-							AssetRegistryModule.Get().Serialize(SerializedAssetData);
-						}
-						else
-						{
-							UE_LOG(UT, Warning, TEXT("%s could not be found"), *AssetRegistryName);
-						}
-					}
+				FString AssetRegistryName = PakFilename + TEXT("-AssetRegistry.bin");
+				FArrayReader SerializedAssetData;
+				if (FFileHelper::LoadFileToArray(SerializedAssetData, *(FPaths::GameDir() / AssetRegistryName)))
+				{
+					// serialize the data with the memory reader (will convert FStrings to FNames, etc)
+					AssetRegistryModule.Get().Serialize(SerializedAssetData);
+				}
+				else
+				{
+					UE_LOG(UT, Warning, TEXT("%s could not be found"), *AssetRegistryName);
 				}
 			}
 			else
-			{
-				// Assume the stock pak is good
-				bValidPak = true;
-			}
-
-			if (!bValidPak)
 			{
 				// Unmount the pak
 				if (FCoreDelegates::OnUnmountPak.IsBound())
@@ -610,47 +687,7 @@ void UUTGameEngine::IndexExpansionContent()
 			FString PakFilename = FPaths::GetBaseFilename(PakPath);
 			if (!PakFilename.StartsWith(TEXT("UnrealTournament-"), ESearchCase::IgnoreCase))
 			{
-				int32 DashPosition = PakFilename.Find(TEXT("-"), ESearchCase::CaseSensitive, ESearchDir::FromEnd);
-				if (DashPosition != -1)
-				{
-					PakFilename = PakFilename.Left(DashPosition);
-
-					FString VersionFilename = PakFilename + TEXT("-version.txt");
-					FString VersionString;
-					if (FFileHelper::LoadFileToString(VersionString, *(FPaths::GameDir() / VersionFilename)))
-					{
-						VersionString = VersionString.LeftChop(2);
-						FString CompiledVersionString = FString::FromInt(FNetworkVersion::GetLocalNetworkVersion());
-
-						if (VersionString == CompiledVersionString)
-						{
-							bValidPak = true;
-						}
-						else
-						{
-							UE_LOG(UT, Warning, TEXT("%s is version %s, but needs to be version %s"), *PakFilename, *VersionString, *CompiledVersionString);
-						}
-					}
-					else
-					{
-						UE_LOG(UT, Warning, TEXT("%s had no version file"), *PakFilename);
-					}
-
-					if (bValidPak)
-					{
-						FString AssetRegistryName = PakFilename + TEXT("-AssetRegistry.bin");
-						FArrayReader SerializedAssetData;
-						if (FFileHelper::LoadFileToArray(SerializedAssetData, *(FPaths::GameDir() / AssetRegistryName)))
-						{
-							// serialize the data with the memory reader (will convert FStrings to FNames, etc)
-							AssetRegistryModule.Get().Serialize(SerializedAssetData);
-						}
-						else
-						{
-							UE_LOG(UT, Warning, TEXT("%s could not be found"), *AssetRegistryName);
-						}
-					}
-				}
+				bValidPak = CheckVersionOfPakFile(PakFilename);
 			}
 			else
 			{
@@ -658,7 +695,21 @@ void UUTGameEngine::IndexExpansionContent()
 				bValidPak = true;
 			}
 
-			if (!bValidPak)
+			if (bValidPak)
+			{
+				FString AssetRegistryName = PakFilename + TEXT("-AssetRegistry.bin");
+				FArrayReader SerializedAssetData;
+				if (FFileHelper::LoadFileToArray(SerializedAssetData, *(FPaths::GameDir() / AssetRegistryName)))
+				{
+					// serialize the data with the memory reader (will convert FStrings to FNames, etc)
+					AssetRegistryModule.Get().Serialize(SerializedAssetData);
+				}
+				else
+				{
+					UE_LOG(UT, Warning, TEXT("%s could not be found"), *AssetRegistryName);
+				}
+			}
+			else
 			{
 				// Unmount the pak
 				if (FCoreDelegates::OnUnmountPak.IsBound())

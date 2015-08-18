@@ -4,6 +4,7 @@
 #include "Slate/SlateGameResources.h"
 #include "../SUWindowsStyle.h"
 #include "../SUWPanel.h"
+#include "SUMatchPanel.h"
 #include "UTLocalPlayer.h"
 #include "UTOnlineGameSearchBase.h"
 #include "UTOnlineGameSettingsBase.h"
@@ -383,6 +384,50 @@ public:
 		return FText::Format(NSLOCTEXT("HUBBrowser", "NumFriendsFormat", "{0} Friends"), FText::AsNumber(NumFriends));
 	}
 
+	void UpdateFriends(TWeakObjectPtr<UUTLocalPlayer> PlayerOwner)
+	{
+		NumFriends = 0;
+		if (PlayerOwner.IsValid())
+		{
+			TArray<FUTFriend> FriendsList;
+			PlayerOwner->GetFriendsList(FriendsList);
+			{
+				for (int32 i = 0; i < Players.Num(); i++)
+				{
+					for (int32 j = 0; j < FriendsList.Num(); j++)
+					{
+						if (Players[i]->Id == FriendsList[j].UserId)
+						{
+							NumFriends++;
+							FriendsList.RemoveAt(j,1);
+							break;
+						}
+					}
+				}
+
+				for (int32 i = 0; i < HUBInstances.Num(); i++)
+				{
+					if (HUBInstances[i].IsValid())
+					{
+						TSharedPtr<FServerInstanceData> Instance = HUBInstances[i];
+						for (int32 j=0; j < Instance->Players.Num(); j++)
+						{
+							for (int32 k=0; k < FriendsList.Num(); k++)
+							{
+								if (Instance->Players[j].PlayerId == FriendsList[k].UserId)
+								{
+									NumFriends++;
+									FriendsList.RemoveAt(k,1);
+									break;
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
 };
 
 
@@ -666,13 +711,14 @@ protected:
 
 	TSharedPtr<class SEditableTextBox> QuickFilterText;
 	TSharedPtr<class SBox> InternetServerBrowser;
-	TSharedPtr<class SBox> LobbyBrowser;
+	TSharedPtr<class SVerticalBox> LobbyBrowser;
 
 	TSharedPtr<class SSplitter> VertSplitter;
 	TSharedPtr<class SSplitter> HorzSplitter;
 
-	TSharedPtr<class SSplitter> LobbySplitter;
 	TSharedPtr<class SVerticalBox> LobbyInfoBox;
+	TSharedPtr<class SRichTextBlock> LobbyInfoText;
+	TSharedPtr<class SUMatchPanel> LobbyMatchPanel;
 
 	bool bRequireSave;
 	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime );
@@ -717,7 +763,7 @@ protected:
 
 	virtual TSharedRef<SWidget> AddHUBBadge(TSharedPtr<FServerData> HUB);
 	virtual TSharedRef<SWidget> AddStars(TSharedPtr<FServerData> HUB);
-	virtual TSharedRef<SWidget> AddHUBInstances(TSharedPtr<FServerData> HUB);
+
 	virtual void AddHUBInfo(TSharedPtr<FServerData> HUB);
 	virtual void BuildServerListControlBox();
 
@@ -743,9 +789,6 @@ private:
 	TSharedPtr<SHorizontalBox> ServerListControlBox;
 
 	float GetReverseScale() const;
-	
-	void OnReadFriendsListComplete(int32 LocalUserNum, bool bWasSuccessful, const FString& ListName, const FString& ErrorStr);
-
 	virtual FText GetStatusText() const;
 
 protected:
@@ -761,6 +804,7 @@ protected:
 	int32 TotalPlayersPlaying;
 
 	void FoundServer(FOnlineSessionSearchResult& Result);
+	void JoinQuickInstance(const FString& InstanceGuid, bool bAsSpectator);
 };
 
 #endif

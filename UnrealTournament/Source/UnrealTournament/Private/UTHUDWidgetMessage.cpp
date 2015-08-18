@@ -2,6 +2,8 @@
 
 #include "UnrealTournament.h"
 #include "UTHUDWidgetMessage.h"
+#include "UTEngineMessage.h"
+#include "UTCharacterVoice.h"
 
 UUTHUDWidgetMessage::UUTHUDWidgetMessage(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
@@ -178,8 +180,14 @@ void UUTHUDWidgetMessage::ClearMessage(FLocalizedMessageData& Message)
 
 void UUTHUDWidgetMessage::ReceiveLocalMessage(TSubclassOf<class UUTLocalMessage> MessageClass, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, uint32 MessageIndex, FText LocalMessageText, UObject* OptionalObject)
 {
-	if (MessageClass == NULL || LocalMessageText.IsEmpty()) return;
-
+	if (MessageClass && (MessageClass->IsChildOf(UUTEngineMessage::StaticClass()) || MessageClass->IsChildOf(UUTCharacterVoice::StaticClass())))
+	{
+		LocalMessageText = GetDefault<UUTLocalMessage>(MessageClass)->ResolveMessage(MessageIndex, true, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
+	}
+	if (MessageClass == NULL || LocalMessageText.IsEmpty())
+	{
+		return;
+	}
 	int32 QueueIndex = MessageQueue.Num();
 	int32 MessageCount = 0;
 	if (GetDefault<UUTLocalMessage>(MessageClass)->bIsUnique)

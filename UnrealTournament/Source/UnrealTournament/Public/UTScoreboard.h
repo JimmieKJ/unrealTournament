@@ -163,6 +163,9 @@ protected:
 
 	virtual void DrawServerPanel(float RenderDelta, float YOffset);
 
+public:
+	virtual bool IsInteractive() { return bIsInteractive; };
+
 protected:
 
 	// Will be true when the scoreboard is interactive.  This will cause the
@@ -186,6 +189,18 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
 		float ScoreColumn;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
+		float KillsColumn;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
+		float DeathsColumn;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
+		float ShotsColumn;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
+		float AccuracyColumn;
+
 	UPROPERTY()
 		bool bHighlightStatsLineTopValue;
 
@@ -203,7 +218,7 @@ protected:
 	/** Draw one line of scoring breakdown where values are string instead of int32. */
 	virtual void DrawTextStatsLine(FText StatsName, FString StatValue, FString ScoreValue, float DeltaTime, float XOffset, float& YPos, const FStatsFontInfo& StatsFontInfo, float ScoreWidth, int32 HighlightIndex);
 
-	virtual void DrawWeaponStatsLine(FText StatsName, int32 StatValue, int32 ScoreValue, float DeltaTime, float XOffset, float& YPos, const FStatsFontInfo& StatsFontInfo, float ScoreWidth, bool bIsBestWeapon=false);
+	virtual void DrawWeaponStatsLine(FText StatsName, int32 StatValue, int32 ScoreValue, int32 Shots, float Accuracy, float DeltaTime, float XOffset, float& YPos, const FStatsFontInfo& StatsFontInfo, float ScoreWidth, bool bIsBestWeapon = false);
 
 	/** Draw individual weapon stats for player. */
 	virtual void DrawWeaponStats(AUTPlayerState* PS, float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom, const FStatsFontInfo& StatsFontInfo);

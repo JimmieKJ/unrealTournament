@@ -25,6 +25,7 @@
 #include "UTMultiKillMessage.h"
 #include "UTGameMode.h"
 #include "UTWeap_Translocator.h"
+#include "UTWeap_Enforcer.h"
 #include "UTCTFGameMode.h"
 #include "UTCarriedObject.h"
 #include "UTCharacterContent.h"
@@ -74,6 +75,16 @@ void UUTCheatManager::Ann(int32 Switch)
 //	GetOuterAPlayerController()->ClientReceiveLocalizedMessage(UUTDeathMessage::StaticClass(), Switch, GetOuterAPlayerController()->PlayerState, GetOuterAPlayerController()->PlayerState, NULL);
 //	GetOuterAPlayerController()->ClientReceiveLocalizedMessage(UUTPickupMessage::StaticClass(), Switch, GetOuterAPlayerController()->PlayerState, GetOuterAPlayerController()->PlayerState, NULL);
 //	GetOuterAPlayerController()->ClientReceiveLocalizedMessage(UUTMultiKillMessage::StaticClass(), Switch, GetOuterAPlayerController()->PlayerState, GetOuterAPlayerController()->PlayerState, NULL);
+}
+
+void UUTCheatManager::Sum()
+{
+	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(GetOuterAPlayerController()->Player);
+	AUTGameState* GS = GetOuterAPlayerController()->GetWorld()->GetGameState<AUTGameState>();
+	if (LP && GS)
+	{
+		LP->OpenMatchSummary(GS);
+	}
 }
 
 void UUTCheatManager::AllAmmo()
@@ -128,6 +139,11 @@ void UUTCheatManager::Loaded()
 					MyPawn->AddInventory(MyPawn->GetWorld()->SpawnActor<AUTInventory>(*It, FVector(0.0f), FRotator(0, 0, 0)), true);
 				}
 			}
+		}
+		AUTWeap_Enforcer* Enforcer = Cast<AUTWeap_Enforcer>(MyPawn->FindInventoryType(TSubclassOf<AUTInventory>(AUTWeap_Enforcer::StaticClass()), false));
+		if (Enforcer)
+		{
+			Enforcer->BecomeDual();
 		}
 		MyPawn->AllAmmo();
 	}

@@ -180,11 +180,12 @@ void UUTCTFScoreboard::DrawScoringPlays(float DeltaTime, float& YPos, float XOff
 	int32 TotalPlays = CTFState->GetScoringPlays().Num();
 
 	Canvas->DrawText(UTHUDOwner->MediumFont, ScoringPlaysHeader, XOffset + (ScoreWidth - XL) * 0.5f, YPos, RenderScale, RenderScale, TextRenderInfo);
-	YPos += 1.2f * MedYL;
+	YPos += 1.f * MedYL;
 	if (CTFState->GetScoringPlays().Num() == 0)
 	{
 		float YL;
 		Canvas->TextSize(UTHUDOwner->MediumFont, NoScoringText.ToString(), XL, YL, RenderScale, RenderScale);
+		YPos += 0.2f * MedYL;
 		DrawText(NoScoringText, XOffset + (ScoreWidth - XL) * 0.5f, YPos, UTHUDOwner->MediumFont, true, FVector2D(1.f, 1.f), FLinearColor::Black, false, FLinearColor::Black, RenderScale, 1.f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Top, TextRenderInfo);
 	}
 
@@ -196,7 +197,7 @@ void UUTCTFScoreboard::DrawScoringPlays(float DeltaTime, float& YPos, float XOff
 		UTPlayerOwner->ClientPlaySound(ScoreUpdateSound);
 	}
 	int32 NumPlays = FMath::Min(TotalPlays, int32(TimeFloor) + 1);
-	int32 SmallPlays = FMath::Clamp(2*(NumPlays - 7), 0, NumPlays-1);
+	int32 SmallPlays = FMath::Clamp(2 * (NumPlays - 7), 0, NumPlays - 1);
 	int32 SkippedPlays = FMath::Max(SmallPlays - 10, 0);
 	int32 DrawnPlays = 0;
 	float PctOffset = 1.f + TimeFloor - TimeLineOffset;
@@ -214,8 +215,9 @@ void UUTCTFScoreboard::DrawScoringPlays(float DeltaTime, float& YPos, float XOff
 				CurrentPeriod++;
 				if (CurrentPeriod < 3)
 				{
+					YPos += 0.3f*SmallYL;
 					DrawText(PeriodText[CurrentPeriod], XOffset + 0.2f*ScoreWidth, YPos, UTHUDOwner->SmallFont, true, FVector2D(1.f, 1.f), FLinearColor::Black, false, FLinearColor::Black, RenderScale, 1.f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center, TextRenderInfo);
-					YPos += SmallYL;
+					YPos += 0.7f * SmallYL;
 				}
 			}
 			if (SkippedPlays > 0)
@@ -251,7 +253,7 @@ void UUTCTFScoreboard::DrawScoringPlays(float DeltaTime, float& YPos, float XOff
 			// time of game
 			FString TimeStampLine = UTHUDOwner->ConvertTime(FText::GetEmpty(), FText::GetEmpty(), Play.RemainingTime, false, true, false).ToString();
 			Canvas->SetLinearDrawColor(FLinearColor::White);
-			Canvas->DrawText(UTHUDOwner->SmallFont, TimeStampLine, XOffset + 0.05f*ScoreWidth, YPos + 0.5f*CurrentScoreHeight - 0.5f*SmallYL, RenderScale, RenderScale, TextRenderInfo);
+			Canvas->DrawText(UTHUDOwner->SmallFont, TimeStampLine, XOffset + 0.04f*ScoreWidth, YPos + 0.5f*CurrentScoreHeight - 0.5f*SmallYL, RenderScale, RenderScale, TextRenderInfo);
 
 			// scored by
 			Canvas->SetLinearDrawColor(Play.Team->TeamColor);
@@ -371,6 +373,31 @@ void UUTCTFScoreboard::DrawTeamStats(float DeltaTime, float& YPos, float XOffset
 	DrawStatsLine(NSLOCTEXT("UTScoreboard", "VestPickups", "Armor Vest Pickups"), UTGameState->Teams[0]->GetStatsValue(NAME_ArmorVestCount), UTGameState->Teams[1]->GetStatsValue(NAME_ArmorVestCount), DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth );
 	DrawStatsLine(NSLOCTEXT("UTScoreboard", "PadPickups", "Thigh Pad Pickups"), UTGameState->Teams[0]->GetStatsValue(NAME_ArmorPadsCount), UTGameState->Teams[1]->GetStatsValue(NAME_ArmorPadsCount), DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth );
 	DrawStatsLine(NSLOCTEXT("UTScoreboard", "HelmetPickups", "Helmet Pickups"), UTGameState->Teams[0]->GetStatsValue(NAME_HelmetCount), UTGameState->Teams[1]->GetStatsValue(NAME_HelmetCount), DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth );
+
+	int32 TeamStat0 = UTGameState->Teams[0]->GetStatsValue(NAME_UDamageCount);
+	int32 TeamStat1 = UTGameState->Teams[1]->GetStatsValue(NAME_UDamageCount);
+	if (TeamStat0 > 0 || TeamStat1 > 0)
+	{
+		DrawStatsLine(NSLOCTEXT("UTScoreboard", "UDamagePickups", "UDamage Pickups"), TeamStat0, TeamStat1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
+	}
+	TeamStat0 = UTGameState->Teams[0]->GetStatsValue(NAME_BerserkCount);
+	TeamStat1 = UTGameState->Teams[1]->GetStatsValue(NAME_BerserkCount);
+	if (TeamStat0 > 0 || TeamStat1 > 0)
+	{
+		DrawStatsLine(NSLOCTEXT("UTScoreboard", "BerserkPickups", "Berserk Pickups"), TeamStat0, TeamStat1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
+	}
+	TeamStat0 = UTGameState->Teams[0]->GetStatsValue(NAME_InvisibilityCount);
+	TeamStat1 = UTGameState->Teams[1]->GetStatsValue(NAME_InvisibilityCount);
+	if (TeamStat0 > 0 || TeamStat1 > 0)
+	{
+		DrawStatsLine(NSLOCTEXT("UTScoreboard", "InvisibilityPickups", "Invisibility Pickups"), TeamStat0, TeamStat1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
+	}
+	TeamStat0 = UTGameState->Teams[0]->GetStatsValue(NAME_KegCount);
+	TeamStat1 = UTGameState->Teams[1]->GetStatsValue(NAME_KegCount);
+	if (TeamStat0 > 0 || TeamStat1 > 0)
+	{
+		DrawStatsLine(NSLOCTEXT("UTScoreboard", "KegPickups", "Keg Pickups"), TeamStat0, TeamStat1, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth);
+	}
 
 	DrawClockTeamStatsLine(NSLOCTEXT("UTScoreboard", "UDamage", "UDamage Control"), NAME_UDamageTime, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth , true);
 	DrawClockTeamStatsLine(NSLOCTEXT("UTScoreboard", "Berserk", "Berserk Control"), NAME_BerserkTime, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth , true);

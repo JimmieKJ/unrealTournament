@@ -55,6 +55,8 @@ AUTWeap_RocketLauncher::AUTWeap_RocketLauncher(const class FObjectInitializer& O
 
 	KillStatsName = NAME_RocketKills;
 	DeathStatsName = NAME_RocketDeaths;
+	HitsStatsName = NAME_RocketHits;
+	ShotsStatsName = NAME_RocketShots;
 }
 
 void AUTWeap_RocketLauncher::Destroyed()
@@ -238,9 +240,9 @@ void AUTWeap_RocketLauncher::FireShot()
 
 	if (GetUTOwner() != NULL)
 	{
-		static FName NAME_FiredWeapon(TEXT("FiredWeapon"));
-		GetUTOwner()->InventoryEvent(NAME_FiredWeapon);
+		GetUTOwner()->InventoryEvent(InventoryEventName::FiredWeapon);
 	}
+	FireZOffsetTime = 0.f;
 }
 
 AUTProjectile* AUTWeap_RocketLauncher::FireProjectile()
@@ -252,6 +254,7 @@ AUTProjectile* AUTWeap_RocketLauncher::FireProjectile()
 	}
 
 	UTOwner->SetFlashExtra(0, CurrentFireMode);
+	AUTPlayerState* PS = UTOwner->Controller ? Cast<AUTPlayerState>(UTOwner->Controller->PlayerState) : NULL;
 
 	//For the alternate fire, the number of flashes are replicated by the FireMode. 
 	if (CurrentFireMode == 1)
@@ -282,6 +285,10 @@ AUTProjectile* AUTWeap_RocketLauncher::FireProjectile()
 		if ((Role == ROLE_Authority)/* && RocketFireModes.IsValidIndex(CurrentRocketFireMode) && RocketFireModes[CurrentRocketFireMode].bCauseMuzzleFlash*/)
 		{
 			UTOwner->IncrementFlashCount(NumLoadedRockets);
+			if (PS && (ShotsStatsName != NAME_None))
+			{
+				PS->ModifyStatsValue(ShotsStatsName, NumLoadedRockets);
+			}
 		}
 			
 		return FireRocketProjectile();
@@ -292,12 +299,18 @@ AUTProjectile* AUTWeap_RocketLauncher::FireProjectile()
 		if (Role == ROLE_Authority)
 		{
 			UTOwner->IncrementFlashCount(CurrentFireMode);
+			if (PS && (ShotsStatsName != NAME_None))
+			{
+				PS->ModifyStatsValue(ShotsStatsName, 1);
+			}
 		}
 
 		FVector SpawnLocation = GetFireStartLoc();
 		FRotator SpawnRotation = GetAdjustedAim(SpawnLocation);
 
 		//Adjust from the center of the gun to the barrel
+		EWeaponHand Hand = GetWeaponHand();
+		if (Hand != HAND_Hidden && Hand != HAND_Center)
 		{
 			FVector AdjustedSpawnLoc = SpawnLocation + FRotationMatrix(SpawnRotation).GetUnitAxis(EAxis::Z) * BarrelRadius; //Adjust rocket based on barrel size
 			FHitResult Hit;
@@ -396,7 +409,7 @@ AUTProjectile* AUTWeap_RocketLauncher::FireRocketProjectile()
 	{
 		case 0://rockets
 		{
-			float RotDegree = 360.0f / NumLoadedRockets;
+			float RotDegree = 360.0f / FMath::Max(1,NumLoadedRockets);
 			FVector SpreadLoc = SpawnLocation;
 			SpawnRotation.Roll = RotDegree * NumLoadedRockets;
 			if (ShouldFireLoad())
@@ -493,10 +506,11 @@ bool AUTWeap_RocketLauncher::WithinLockAim(AActor *Target)
 {
 	if (CanLockTarget(Target))
 	{
-		const FVector Dir = GetAdjustedAim(GetFireStartLoc()).Vector();
+		const FVector FireLoc = GetFireStartLoc();
+		const FVector Dir = GetAdjustedAim(FireLoc).Vector();
 		const FVector TargetDir = (Target->GetActorLocation() - UTOwner->GetActorLocation()).GetSafeNormal();
 		// note that we're not tracing to retain existing target; allows locking through walls to a limited extent
-		return (FVector::DotProduct(Dir, TargetDir) > LockAim || UUTGameplayStatics::PickBestAimTarget(UTOwner->Controller, GetFireStartLoc(), Dir, LockAim, LockRange, AUTCharacter::StaticClass()) == Target);
+		return (FVector::DotProduct(Dir, TargetDir) > LockAim || UUTGameplayStatics::PickBestAimTarget(UTOwner->Controller, FireLoc, Dir, LockAim, LockRange, AUTCharacter::StaticClass()) == Target);
 	}
 	else
 	{
@@ -578,7 +592,8 @@ void AUTWeap_RocketLauncher::UpdateLock()
 	//Trace to see if we are looking at a new target
 	else
 	{
-		AActor* NewTarget = UUTGameplayStatics::PickBestAimTarget(UTOwner->Controller, GetFireStartLoc(), GetAdjustedAim(GetFireStartLoc()).Vector(), LockAim, LockRange, AUTCharacter::StaticClass());
+		const FVector FireLoc = GetFireStartLoc();
+		AActor* NewTarget = UUTGameplayStatics::PickBestAimTarget(UTOwner->Controller, FireLoc, GetAdjustedAim(FireLoc).Vector(), LockAim, LockRange, AUTCharacter::StaticClass());
 		if (NewTarget != NULL)
 		{
 			PendingLockedTarget = NewTarget;
@@ -599,7 +614,9 @@ void AUTWeap_RocketLauncher::DrawWeaponCrosshair_Implementation(UUTHUDWidget* We
 	}
 	
 	//Draw the crosshair
-	if (LoadCrosshairTextures.IsValidIndex(NumLoadedRockets) && LoadCrosshairTextures[NumLoadedRockets] != NULL)
+	//TODO TIM: Move this over to a custom UTCrosshair
+	Super::DrawWeaponCrosshair_Implementation(WeaponHudWidget, RenderDelta);
+	/*if (LoadCrosshairTextures.IsValidIndex(NumLoadedRockets) && LoadCrosshairTextures[NumLoadedRockets] != NULL)
 	{
 		UTexture2D* Tex = LoadCrosshairTextures[NumLoadedRockets];
 		float W = Tex->GetSurfaceWidth();
@@ -626,7 +643,7 @@ void AUTWeap_RocketLauncher::DrawWeaponCrosshair_Implementation(UUTHUDWidget* We
 		{
 			UpdateCrosshairTarget(PS, WeaponHudWidget, RenderDelta);
 		}
-	}
+	}*/
 
 	//Draw the locked on crosshair
 	if (HasLockedTarget())
@@ -828,7 +845,7 @@ bool AUTWeap_RocketLauncher::IsPreparingAttack_Implementation()
 
 void AUTWeap_RocketLauncher::FiringExtraUpdated_Implementation(uint8 NewFlashExtra, uint8 InFireMode)
 {
-	if (InFireMode > 0 && NewFlashExtra > 0)
+	if (InFireMode == 1)
 	{
 		int32 NewNumLoadedRockets;
 		GetRocketFlashExtra(NewFlashExtra, InFireMode, NewNumLoadedRockets, CurrentRocketFireMode, bDrawRocketModeString);
@@ -838,10 +855,13 @@ void AUTWeap_RocketLauncher::FiringExtraUpdated_Implementation(uint8 NewFlashExt
 		{
 			NumLoadedRockets = NewNumLoadedRockets;
 
-			UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
-			if (AnimInstance != NULL && LoadingAnimation.IsValidIndex(NumLoadedRockets - 1) && LoadingAnimation[NumLoadedRockets-1] != NULL)
+			if (NumLoadedRockets > 0)
 			{
-				AnimInstance->Montage_Play(LoadingAnimation[NumLoadedRockets - 1], LoadingAnimation[NumLoadedRockets - 1]->SequenceLength / GetLoadTime(NumLoadedRockets-1));
+				UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+				if (AnimInstance != NULL && LoadingAnimation.IsValidIndex(NumLoadedRockets - 1) && LoadingAnimation[NumLoadedRockets - 1] != NULL)
+				{
+					AnimInstance->Montage_Play(LoadingAnimation[NumLoadedRockets - 1], LoadingAnimation[NumLoadedRockets - 1]->SequenceLength / GetLoadTime(NumLoadedRockets - 1));
+				}
 			}
 		}
 	}

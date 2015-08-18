@@ -16,6 +16,8 @@
 #include "Engine/UserInterfaceSettings.h"
 #include "UTGameEngine.h"
 #include "UTFlagInfo.h"
+#include "SUTStyle.h"
+#include "Widgets/SUTButton.h"
 
 #if !UE_SERVER
 #include "Runtime/AppFramework/Public/Widgets/Colors/SColorPicker.h"
@@ -23,10 +25,10 @@
 
 #include "AssetData.h"
 
-// scale factor for weapon/view bob sliders (i.e. configurable value between 0 and this)
-static const float BOB_SCALING_FACTOR = 1.f;
-
 #if !UE_SERVER
+
+// scale factor for weapon/view bob sliders (i.e. configurable value between 0 and this)
+const float SUWPlayerSettingsDialog::BOB_SCALING_FACTOR = 1.f;
 
 #include "SScaleBox.h"
 #include "Widgets/SDragImage.h"
@@ -55,6 +57,12 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 	bSpinPlayer = true;
 	ZoomOffset = 0;
 
+	AvatarList.Add(FName("UT.Avatar.0"));
+	AvatarList.Add(FName("UT.Avatar.1"));
+	AvatarList.Add(FName("UT.Avatar.2"));
+	AvatarList.Add(FName("UT.Avatar.3"));
+	AvatarList.Add(FName("UT.Avatar.4"));
+
 	WeaponConfigDelayFrames = 0;
 
 	UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
@@ -78,6 +86,7 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 	// allocate a preview scene for rendering
 	PlayerPreviewWorld = UWorld::CreateWorld(EWorldType::Preview, true);
 	PlayerPreviewWorld->bHack_Force_UsesGameHiddenFlags_True = true;
+	PlayerPreviewWorld->bShouldSimulatePhysics = true;
 	GEngine->CreateNewWorldContext(EWorldType::Preview).SetCurrentWorld(PlayerPreviewWorld);
 	PlayerPreviewWorld->InitializeActorsForPlay(FURL(), true);
 	ViewState.Allocate();
@@ -634,6 +643,32 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 						]
 					]
 
+
+					// ------------------------ Avatar
+
+					+SVerticalBox::Slot()
+					.AutoHeight()
+					.Padding(0.0,20.0)
+					[
+						SNew(STextBlock)
+						.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+						.Text(LOCTEXT("Avatar", "Select your avatar"))
+					]
+
+					+SVerticalBox::Slot()
+					.AutoHeight().HAlign(HAlign_Fill)
+					.Padding(0.0,5.0,0,0)
+					[
+						SNew(SBox).HeightOverride(148)
+						[
+							SNew(SScrollBox).Orientation(EOrientation::Orient_Vertical)
+							+SScrollBox::Slot()
+							[
+								SAssignNew(AvatarGrid, SGridPanel)
+							]
+						]
+					]
+
 					//+ SVerticalBox::Slot()
 					//.AutoHeight()
 					//[
@@ -654,6 +689,16 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 				]
 			]
 		];
+
+		SelectedAvatar = GetPlayerOwner()->GetAvatar();
+		for (int32 i = 0 ; i <AvatarList.Num(); i++)
+		{
+			TSharedPtr<SUTButton> Button = AddAvatar(AvatarList[i], i);
+			if (AvatarList[i] == SelectedAvatar)
+			{
+				Button->BePressed();
+			}
+		}
 
 		bool bFoundSelectedHat = false;
 		for (int32 i = 0; i < HatPathList.Num(); i++)
@@ -746,10 +791,22 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 			OnFlagSelected(SelectedFlag, ESelectInfo::Direct);
 		}
 	}
+
+	// Turn on Screen Space Reflection max quality
+	auto SSRQualityCVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.SSR.Quality"));
+	OldSSRQuality = SSRQualityCVar->GetInt();
+	SSRQualityCVar->Set(4, ECVF_SetByCode);
 }
 
 SUWPlayerSettingsDialog::~SUWPlayerSettingsDialog()
 {
+	// Reset Screen Space Reflection max quality, wish there was a cleaner way to reset the flags
+	auto SSRQualityCVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.SSR.Quality"));
+	EConsoleVariableFlags Flags = SSRQualityCVar->GetFlags();
+	Flags = (EConsoleVariableFlags)(((uint32)Flags & ~ECVF_SetByMask) | ECVF_SetByScalability);
+	SSRQualityCVar->Set(OldSSRQuality, ECVF_SetByCode);
+	SSRQualityCVar->SetFlags(Flags);
+
 	if (PlayerPreviewTexture != NULL)
 	{
 		PlayerPreviewTexture->OnNonUObjectRenderTargetUpdate.Unbind();
@@ -822,6 +879,8 @@ FReply SUWPlayerSettingsDialog::OKClick()
 	{
 		GetPlayerOwner()->SetCountryFlag(SelectedFlag->GetFName(), false);
 	}
+
+	GetPlayerOwner()->SetAvatar(SelectedAvatar);
 
 	// FOV
 	float NewFOV = FMath::TruncToFloat(FOV->GetValue() * (FOV_CONFIG_MAX - FOV_CONFIG_MIN) + FOV_CONFIG_MIN);
@@ -1108,9 +1167,14 @@ void SUWPlayerSettingsDialog::RecreatePlayerPreview()
 		PreviewWeapon->Destroy();
 	}
 
-	PlayerPreviewMesh = PlayerPreviewWorld->SpawnActor<AUTCharacter>(GetDefault<AUTGameMode>()->DefaultPawnClass, FVector(300.0f, 0.f, 4.f), ActorRotation);
-	PlayerPreviewMesh->GetMesh()->SetAnimInstanceClass(PlayerPreviewAnimBlueprint);
-	
+	UUTGameEngine* Engine = Cast<UUTGameEngine>(GEngine);
+	if (Engine)
+	{
+		TSubclassOf<class APawn> DefaultPawnClass = Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *GetDefault<AUTGameMode>()->PlayerPawnObject.ToStringReference().AssetLongPathname, NULL, LOAD_NoWarn));
+		PlayerPreviewMesh = PlayerPreviewWorld->SpawnActor<AUTCharacter>(DefaultPawnClass, FVector(300.0f, 0.f, 4.f), ActorRotation);
+		PlayerPreviewMesh->GetMesh()->SetAnimInstanceClass(PlayerPreviewAnimBlueprint);
+	}
+
 	// set character mesh
 	// NOTE: important this is first since it may affect the following items (socket locations, etc)
 	int32 Index = CharacterList.Find(CharacterComboBox->GetSelectedItem());
@@ -1318,12 +1382,12 @@ void SUWPlayerSettingsDialog::UpdatePlayerRender(UCanvas* C, int32 Width, int32 
 	GetRendererModule().BeginRenderingViewFamily(C->Canvas, &ViewFamily);
 }
 
-void SUWPlayerSettingsDialog::DragPlayerPreview(const FVector2D MouseDelta)
+void SUWPlayerSettingsDialog::DragPlayerPreview(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
 {
 	if (PlayerPreviewMesh != nullptr)
 	{
 		bSpinPlayer = false;
-		PlayerPreviewMesh->SetActorRotation(PlayerPreviewMesh->GetActorRotation() + FRotator(0, 0.2f * -MouseDelta.X, 0.0f));
+		PlayerPreviewMesh->SetActorRotation(PlayerPreviewMesh->GetActorRotation() + FRotator(0, 0.2f * -MouseEvent.GetCursorDelta().X, 0.0f));
 	}
 }
 
@@ -1406,6 +1470,59 @@ TSharedRef<SWidget> SUWPlayerSettingsDialog::GenerateSelectedFlagWidget()
 				.Text(FText::FromString(SelectedFlag->GetFriendlyName()))
 				.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.Black")
 			];
+}
+
+
+TSharedPtr<SUTButton> SUWPlayerSettingsDialog::AddAvatar(FName Avatar, int32 Index)
+{
+	int32 Col = Index % 8;
+	int32 Row = Index / 8;
+
+	TSharedPtr<SUTButton> Button;
+	AvatarGrid->AddSlot(Col, Row)
+	.Padding(5.0,0.0,0.0,5.0)
+	[
+		SNew(SVerticalBox)
+		+SVerticalBox::Slot().AutoHeight()
+		[
+			SNew(SHorizontalBox)
+			+SHorizontalBox::Slot().AutoWidth()
+			[
+				SNew(SBox).WidthOverride(64).HeightOverride(64)
+				[
+					SAssignNew(Button, SUTButton)
+					.IsToggleButton(true)
+					.ButtonStyle(SUTStyle::Get(),"UT.SimpleButton.Dark")
+					.OnClicked(this, &SUWPlayerSettingsDialog::SelectAvatar, Index, Avatar)
+					[
+						SNew(SImage)
+						.Image(SUTStyle::Get().GetBrush(Avatar))
+					]
+				]
+			]
+		]
+	];
+
+	AvatarButtons.Add(Button);
+	return Button;
+}
+
+FReply SUWPlayerSettingsDialog::SelectAvatar(int32 Index, FName Avatar)
+{
+	SelectedAvatar = Avatar;
+	for (int32 i = 0; i < AvatarButtons.Num(); i++ )
+	{
+		if (i == Index)
+		{
+			AvatarButtons[i]->BePressed();
+		}
+		else
+		{
+			AvatarButtons[i]->UnPressed();
+		}
+	}
+
+	return FReply::Handled();
 }
 
 

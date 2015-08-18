@@ -26,6 +26,8 @@ struct FSoundParseParameters
 	float Volume;
 	float VolumeMultiplier;
 
+	float VolumeWeightedPriorityScale;
+
 	float Pitch;
 	float HighFrequencyGain;
 
@@ -147,6 +149,7 @@ public:
 	float HighFrequencyGainMultiplier;
 
 	float SubtitlePriority;
+	float VolumeWeightedPriorityScale;
 
 	/** frequency with which to check for occlusion from its closest listener */
 	float OcclusionCheckInterval;

@@ -22,7 +22,7 @@ AUTPainVolume::AUTPainVolume(const FObjectInitializer& ObjectInitializer)
 {
 	bWaterVolume = true;
 	FluidFriction = 0.5f;
-	PawnEntryVelZScaling = 0.4f;
+	PawnEntryVelZScaling = 0.8f;
 	BrakingDecelerationSwimming = 2000.f;
 	TerminalVelocity = 3000.f;
 	bEntryPain = false;
@@ -35,12 +35,7 @@ void AUTWaterVolume::ActorEnteredVolume(class AActor* Other)
 		AUTCharacter* P = Cast<AUTCharacter>(Other);
 		if (P)
 		{
-			P->PlayWaterSound(EntrySound ? EntrySound : P->WaterEntrySound);
-			if (P->GetCharacterMovement())
-			{
-				P->GetCharacterMovement()->Velocity.Z *= PawnEntryVelZScaling;
-				P->GetCharacterMovement()->BrakingDecelerationSwimming = BrakingDecelerationSwimming;
-			}
+			P->EnteredWater(this);
 		}
 		else if (EntrySound)
 		{
@@ -85,11 +80,11 @@ void AUTPainVolume::ActorEnteredVolume(class AActor* Other)
 		else if (EntrySound)
 		{
 			UUTGameplayStatics::UTPlaySound(GetWorld(), EntrySound, Other, SRT_None);
-			AUTCarriedObject* Flag = Cast<AUTCarriedObject>(Other);
-			if (Flag)
-			{
-				Flag->EnteredPainVolume(this);
-			}
+		}
+		AUTCarriedObject* Flag = Cast<AUTCarriedObject>(Other);
+		if (bPainCausing && Flag)
+		{
+			Flag->EnteredPainVolume(this);
 		}
 		if (bPainCausing && bEntryPain && Other->bCanBeDamaged)
 		{

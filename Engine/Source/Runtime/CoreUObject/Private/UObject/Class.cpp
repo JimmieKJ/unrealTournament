@@ -3086,7 +3086,7 @@ void UClass::Link(FArchive& Ar, bool bRelinkExistingProperties)
 		}
 
 		#if DO_CHECK
-			Validate();
+			//Validate();
 		#endif
 	}
 
@@ -3134,7 +3134,7 @@ void UClass::Link(FArchive& Ar, bool bRelinkExistingProperties)
 		State.Classes.RemoveAt(ClassIndex, NumRemoved, false);
 
 		#if DO_CHECK
-			Validate();
+			//Validate();
 		#endif
 	}
 

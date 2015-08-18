@@ -24,7 +24,7 @@ bool UUTDeathMessage::UseLargeFont(int32 MessageIndex) const
 	return false;
 }
 
-FLinearColor UUTDeathMessage::GetMessageColor(int32 MessageIndex) const
+FLinearColor UUTDeathMessage::GetMessageColor_Implementation(int32 MessageIndex) const
 {
 	return FLinearColor(1.f, 0.2f, 0.2f);
 }
@@ -38,19 +38,16 @@ void UUTDeathMessage::ClientReceive(const FClientReceiveData& ClientData) const
 	APlayerState* LocalPlayerState = ClientData.LocalPC->PlayerState;
 
 	AUTHUD* UTHUD = Cast<AUTHUD>(ClientData.LocalPC->MyHUD);
-	if (UTHUD != nullptr && UTHUD->KillMsgStyle != EHudKillMsgStyle::KMS_None)
+	if (UTHUD != nullptr)
 	{
-		//Add msg to the UUTHUDWidgetMessage_KillIconMessages if the player wants
-		if (UTHUD->KillMsgStyle == EHudKillMsgStyle::KMS_Icon || UTHUD->KillMsgStyle == EHudKillMsgStyle::KMS_Both)
-		{
-			UTHUD->ReceiveLocalMessage(
-				UUTKillIconMessage::StaticClass(),
-				ClientData.RelatedPlayerState_1,
-				ClientData.RelatedPlayerState_2,
-				0,
-				FText::FromString(TEXT("Hax")), //need some text to route the msg
-				ClientData.OptionalObject);
-		}
+		//Add msg to the UUTHUDWidgetMessage_KillIconMessages
+		UTHUD->ReceiveLocalMessage(
+			UUTKillIconMessage::StaticClass(),
+			ClientData.RelatedPlayerState_1,
+			ClientData.RelatedPlayerState_2,
+			0,
+			FText::FromString(TEXT("Hax")), //need some text to route the msg
+			ClientData.OptionalObject);
 
 		//Draw the big white kill text if the player wants
 		if (UTHUD->bDrawPopupKillMsg)
@@ -123,7 +120,7 @@ void UUTDeathMessage::ClientReceive(const FClientReceiveData& ClientData) const
 	}
 
 	// Also receive the console message side of this if the user wants.
-	if (UTHUD->KillMsgStyle == EHudKillMsgStyle::KMS_Text || UTHUD->KillMsgStyle == EHudKillMsgStyle::KMS_Both)
+	if (UTHUD->bDrawChatKillMsg)
 	{
 		Super::ClientReceive(ClientData);
 	}

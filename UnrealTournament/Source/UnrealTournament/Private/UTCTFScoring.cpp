@@ -8,9 +8,9 @@
 AUTCTFScoring::AUTCTFScoring(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
-	FlagRunScorePool = 23;
-	FlagFirstPickupPoints = 2;
-	FlagCapPoints = 15;
+	FlagRunScorePool = 17;
+	FlagFirstPickupPoints = 1;
+	FlagCapPoints = 12;
 	FlagCombatKillBonus = 1;
 	FlagCarrierKillBonus = 2;
 	FlagReturnPoints = 2;
@@ -107,9 +107,8 @@ void AUTCTFScoring::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Scor
 		NewScoringPlay.TeamScores[0] = CTFGameState->Teams[0] ? CTFGameState->Teams[0]->Score : 0;
 		NewScoringPlay.TeamScores[1] = CTFGameState->Teams[1] ? CTFGameState->Teams[1]->Score : 1;
 		NewScoringPlay.TeamScores[ScorerPS->Team->TeamIndex] += 1;
+		NewScoringPlay.RemainingTime = CTFGameState->bPlayingAdvantage ? 0.f : CTFGameState->GetClockTime();
 
-		// TODO: need to handle no timelimit
-		NewScoringPlay.RemainingTime = CTFGameState->bPlayingAdvantage ? 0.f : CTFGameState->RemainingTime;
 		if (CTFGameState->IsMatchInOvertime())
 		{
 			NewScoringPlay.Period = 2;
@@ -143,11 +142,13 @@ void AUTCTFScoring::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Scor
 					NewScoringPlay.Assists.AddUnique(NewAssist);
 					FlagRunner->ModifyStatsValue(NAME_CarryAssist, 1);
 					FlagRunner->ModifyStatsValue(NAME_CarryAssistPoints, Points);
+					// gets XP via stat system
 				}
 				else
 				{
 					Points += FlagCapPoints;
 					FlagRunner->ModifyStatsValue(NAME_FlagCapPoints, Points);
+					FlagRunner->GiveXP(FNewOffenseXP(5));
 				}
 				FlagRunner->AdjustScore(Points);
 				FlagRunner->ModifyStatsValue(NAME_AttackerScore, Points);

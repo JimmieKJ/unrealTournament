@@ -20,9 +20,10 @@ UUTCTFRewardMessage::UUTCTFRewardMessage(const class FObjectInitializer& ObjectI
 	HatTrickMessage = NSLOCTEXT("CTFRewardMessage", "HatTrick", "Hat Trick!");
 	OtherHatTrickMessage = NSLOCTEXT("CTFRewardMessage", "OtherHatTrick", "{Player1Name} got a Hat Trick!");
 	bIsStatusAnnouncement = false;
+	bWantsBotReaction = true;
 }
 
-FLinearColor UUTCTFRewardMessage::GetMessageColor(int32 MessageIndex) const
+FLinearColor UUTCTFRewardMessage::GetMessageColor_Implementation(int32 MessageIndex) const
 {
 	if (MessageIndex == 3)
 	{
@@ -43,7 +44,7 @@ void UUTCTFRewardMessage::PrecacheAnnouncements_Implementation(UUTAnnouncer* Ann
 	}
 }
 
-float UUTCTFRewardMessage::GetScaleInSize(int32 MessageIndex) const
+float UUTCTFRewardMessage::GetScaleInSize_Implementation(int32 MessageIndex) const
 {
 	return 3.f;
 }

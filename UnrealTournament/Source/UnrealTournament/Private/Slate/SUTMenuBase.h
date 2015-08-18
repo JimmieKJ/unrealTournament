@@ -22,6 +22,8 @@ public:
 	virtual FReply OpenProfileItems();
 	virtual FReply ClearCloud(TSharedPtr<SComboButton> MenuButton);
 
+	virtual FReply OnShowServerBrowserPanel();
+
 protected:
 	TSharedPtr<class SHorizontalBox> LeftMenuBar;
 	TSharedPtr<class SHorizontalBox> RightMenuBar;
@@ -57,7 +59,6 @@ protected:
 
 	// The player has clicked on
 	virtual FReply OnCloseClicked();
-	virtual FReply OnShowServerBrowserPanel();
 	virtual FReply ToggleFriendsAndChat();
 	virtual FReply OnShowStatsViewer();
 
