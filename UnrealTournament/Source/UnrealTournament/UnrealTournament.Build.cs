@@ -32,8 +32,7 @@ public class UnrealTournament : ModuleRules
                                                     "HTTP", 
                                                     "UMG", 
                                                     "EngineSettings", 
-			                                        "Landscape",                                                 
-				                                    "SourceControl",
+			                                        "Landscape",
                                                     "Foliage", });
 
         PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore", "FriendsAndChat", "Sockets" });
@@ -43,7 +42,7 @@ public class UnrealTournament : ModuleRules
         }
         if (Target.Type == TargetRules.TargetType.Editor)
         {
-            PublicDependencyModuleNames.AddRange(new string[] { "UnrealEd", "PropertyEditor", "ShaderCore" });
+            PublicDependencyModuleNames.AddRange(new string[] { "UnrealEd", "SourceControl", "PropertyEditor", "ShaderCore" });
         }
 
         if (UEBuildConfiguration.bCompileMcpOSS == true)
