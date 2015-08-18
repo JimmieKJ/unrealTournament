@@ -1314,6 +1314,23 @@ void SUWMatchSummary::ViewCharacter(AUTCharacter* NewChar)
 
 	ViewedTeamNum = ViewedChar->GetTeamNum() != 255 ? ViewedChar->GetTeamNum() : 0;
 
+	// hide everyone else, show this player
+	if (TeamPreviewMeshs.Num() > 1)
+	{
+		for (int32 i = 0; i< TeamPreviewMeshs.Num(); i++)
+		{
+			TArray<AUTCharacter*> &TeamCharacters = TeamPreviewMeshs[i];
+			for (int32 j = 0; j < TeamCharacters.Num(); j++)
+			{
+				TeamCharacters[j]->HideCharacter(TeamCharacters[j] != ViewedChar);
+			}
+		}
+		for (auto Weapon : PreviewWeapons)
+		{
+			AUTCharacter* Holder = Cast<AUTCharacter>(Weapon->GetAttachParentActor());
+			Weapon->SetActorHiddenInGame(Holder != ViewedChar);
+		}
+	}
 	FRotator Dir = ViewedChar->GetActorRotation();
 	FVector Location = ViewedChar->GetActorLocation() + (Dir.Vector() * 300.0f);
 	Location += Dir.Quaternion().GetAxisY() * -60.0f + FVector(0.0f, 0.0f, 45.0f);
