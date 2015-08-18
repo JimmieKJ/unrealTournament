@@ -17,7 +17,7 @@ public:
 	int32 NoPlayers;
 
 	int32 ServerTrustLevel;
-	int32 bServerIsTrainingGround;
+	bool bServerIsTrainingGround;
 
 	TWeakObjectPtr<AUTServerBeaconClient> Beacon;
 

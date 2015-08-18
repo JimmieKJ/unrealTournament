@@ -39,6 +39,11 @@ void AUTBaseGameMode::InitGame( const FString& MapName, const FString& Options, 
 	bRequirePassword = !ServerPassword.IsEmpty() || !SpectatePassword.IsEmpty();
 	bTrainingGround = EvalBoolOptions(ParseOption(Options, TEXT("TG")), bTrainingGround);
 
+	if (bTrainingGround)
+	{
+		UE_LOG(UT,Log,TEXT("=== This is a Training Ground Server.  It will only be visibly to beginners ==="));
+	}
+
 	
 	UE_LOG(UT,Log,TEXT("Password: %i %s"), bRequirePassword, ServerPassword.IsEmpty() ? TEXT("NONE") : *ServerPassword)
 }

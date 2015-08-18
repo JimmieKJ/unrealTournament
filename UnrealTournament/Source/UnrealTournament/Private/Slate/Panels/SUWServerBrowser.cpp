@@ -1416,7 +1416,7 @@ void SUWServerBrowser::AddHub(TSharedPtr<FServerData> Hub)
 
 	Hub->UpdateFriends(PlayerOwner);
 
-	int32 ServerIsTrainingGround;
+	bool ServerIsTrainingGround;
 	Hub->SearchResult.Session.SessionSettings.Get(SETTING_TRAININGGROUND, ServerIsTrainingGround);
 
 	int32 ServerTrustLevel; 
