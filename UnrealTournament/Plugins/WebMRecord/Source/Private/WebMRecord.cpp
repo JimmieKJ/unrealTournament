@@ -890,6 +890,10 @@ void FWebMRecord::EncodeVideoAndAudio(const FString& Filename)
 	UE_LOG(LogUTWebM, Display, TEXT("Selfie video complete! %s"), *WebMPath);
 
 	vpx_img_free(&raw);
+
+	// Heap corruption has been detected on my machine when running under the debugger
+	// Have not caught it when running app verifier or any other serious bounds checking
+	// Might be a good idea to try updating libvpx
 	if (vpx_codec_destroy(&codec))
 	{
 		// failed to destroy
