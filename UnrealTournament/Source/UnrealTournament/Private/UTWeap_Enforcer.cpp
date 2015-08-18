@@ -180,7 +180,7 @@ void AUTWeap_Enforcer::PlayFiringEffects()
 	if (UTOwner != NULL)
 	{
 		// Fire on right side by default, unless dual and bFireLeftSide
-		if (!bDualEnforcerMode || !bFireLeftSide)
+		if (!bDualEnforcerMode || (BurstFireMode ? (FireCount / BurstFireMode->BurstSize == 0) : !bFireLeftSide))
 		{
 			if (!BurstFireMode || BurstFireMode->CurrentShot == 0)
 			{
@@ -233,7 +233,10 @@ void AUTWeap_Enforcer::PlayFiringEffects()
 				}
 			}
 		}
-		bFireLeftSide = !bFireLeftSide;
+		if (!BurstFireMode)
+		{
+			bFireLeftSide = !bFireLeftSide;
+		}
 	}
 }
 
@@ -243,7 +246,7 @@ void AUTWeap_Enforcer::PlayImpactEffects(const FVector& TargetLoc, uint8 FireMod
 	UUTWeaponStateFiringBurst* BurstFireMode = Cast<UUTWeaponStateFiringBurst>(FiringState[GetCurrentFireMode()]);
 	if (GetNetMode() != NM_DedicatedServer)
 	{
-		if (bDualEnforcerMode && ((!BurstFireMode && ImpactCount % 2 != 0) || (BurstFireMode && ImpactCount / BurstFireMode->BurstSize != 0)))
+		if (bDualEnforcerMode && (BurstFireMode ? (FireCount / BurstFireMode->BurstSize != 0) : bFireLeftSide))
 		{
 			// fire effects
 			static FName NAME_HitLocation(TEXT("HitLocation"));
