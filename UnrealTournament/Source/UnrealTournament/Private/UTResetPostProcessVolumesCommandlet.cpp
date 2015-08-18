@@ -1,11 +1,11 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealTournament.h"
+
+#if UE_EDITOR
 #include "EngineUtils.h"
 #include "ISourceControlModule.h"
 #include "UTResetPostProcessVolumesCommandlet.h"
-
-#if UE_EDITOR
 #include "UnrealEd.h"
 #endif
 
