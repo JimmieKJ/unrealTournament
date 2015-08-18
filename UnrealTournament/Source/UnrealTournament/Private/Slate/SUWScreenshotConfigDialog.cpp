@@ -305,7 +305,39 @@ FReply SUWScreenshotConfigDialog::OnButtonClick(uint16 ButtonID)
 
 void SUWScreenshotConfigDialog::OnResolutionSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)
 {
-	SelectedResolution->SetText(*NewSelection.Get());
+	TempSelectedRes = *NewSelection.Get();
+	int32 XLoc;
+	TempSelectedRes.FindChar(TEXT('x'), XLoc);
+	int32 SpaceLoc;
+	TempSelectedRes.FindChar(TEXT(' '), SpaceLoc);
+	FString ResXText = TempSelectedRes.Left(XLoc);
+	FString ResYText = TempSelectedRes.Left(SpaceLoc).RightChop(XLoc + 1);
+
+	int32 ResX = FCString::Atoi(*ResXText);
+	if (ResX >= 15360)
+	{
+		// Show warning dialog
+
+		GetPlayerOwner()->ShowMessage(LOCTEXT("ScreenshotWarningTitle", "Are You Sure?"), 
+								      LOCTEXT("ScreenshotWarning", "Screenshots this big are only recommended for video cards with 4 gigs of video ram or above.\nAre you sure you want to continue?"), 
+								      UTDIALOG_BUTTON_YES + UTDIALOG_BUTTON_NO, FDialogResultDelegate::CreateSP(this, &SUWScreenshotConfigDialog::ScreenshotConfirm));
+	}
+	else
+	{
+		SelectedResolution->SetText(*NewSelection.Get());
+	}
+}
+
+void SUWScreenshotConfigDialog::ScreenshotConfirm(TSharedPtr<SCompoundWidget> Dialog, uint16 ButtonID)
+{
+	if (ButtonID == UTDIALOG_BUTTON_YES)
+	{
+		SelectedResolution->SetText(TempSelectedRes);
+	}
+	else
+	{
+		ResolutionComboBox->SetSelectedItem(ResolutionList[0]);
+	}
 }
 
 #undef LOCTEXT_NAMESPACE

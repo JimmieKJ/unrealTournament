@@ -49,6 +49,9 @@ class UNREALTOURNAMENT_API SUWScreenshotConfigDialog : public SUWDialog
 	TSharedPtr< SSlider > DOFAmountSlider;
 	TSharedPtr< SSlider > DOFNearBlurSlider;
 	TSharedPtr< SSlider > DOFFarBlurSlider;
+	
+	FString TempSelectedRes;
+	void ScreenshotConfirm(TSharedPtr<SCompoundWidget> Dialog, uint16 ButtonID);
 };
 
 #endif
