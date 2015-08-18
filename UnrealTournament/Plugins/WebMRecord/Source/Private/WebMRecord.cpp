@@ -136,6 +136,7 @@ void FWebMRecord::StartRecording(float RecordTime)
 	VideoRecordStart = FApp::GetLastTime();
 	VideoRecordFirstFrame = -1;
 	VideoRecordLagTime = 0;
+	VideoRecordPreviousFrame = 0;
 
 	OpenTempFrameFile();
 
