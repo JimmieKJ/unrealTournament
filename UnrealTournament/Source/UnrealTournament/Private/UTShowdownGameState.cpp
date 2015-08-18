@@ -6,7 +6,7 @@
 AUTShowdownGameState::AUTShowdownGameState(const FObjectInitializer& OI)
 : Super(OI)
 {
-	MinSpawnDistance = 3500.0f;
+	MinSpawnDistance = 2000.0f;
 }
 
 void AUTShowdownGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
