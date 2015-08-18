@@ -102,7 +102,7 @@ void SUWStatsViewer::ConstructPanel(FVector2D ViewportSize)
 				.HAlign(HAlign_Fill)
 				[
 					SNew(SImage)
-					.Image(SUWindowsStyle::Get().GetBrush("UWindows.Standard.ServerBrowser.Backdrop"))
+					.Image(SUWindowsStyle::Get().GetBrush("UT.Background.Black"))
 				]
 			]
 		]
