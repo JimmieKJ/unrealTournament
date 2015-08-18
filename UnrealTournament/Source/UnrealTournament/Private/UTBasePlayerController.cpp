@@ -684,7 +684,6 @@ void AUTBasePlayerController::UpdateInputMode()
 bool AUTBasePlayerController::ServerSetAvatar_Validate(FName NewAvatar) { return true; }
 void AUTBasePlayerController::ServerSetAvatar_Implementation(FName NewAvatar)
 {
-	AUTPlayerState* UTPlayerState = Cast<AUTPlayerState>(PlayerState);
 	if (UTPlayerState)
 	{
 		UTPlayerState->Avatar = NewAvatar;

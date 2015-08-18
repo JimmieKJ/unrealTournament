@@ -2,10 +2,11 @@
 
 #include "UnrealTournament.h"
 
+#include "UTResetPostProcessVolumesCommandlet.h"
+
 #if UE_EDITOR
 #include "EngineUtils.h"
 #include "ISourceControlModule.h"
-#include "UTResetPostProcessVolumesCommandlet.h"
 #include "UnrealEd.h"
 #endif
 
