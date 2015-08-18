@@ -352,8 +352,7 @@ void AUTHUD::NotifyMatchStateChange()
 	// FIXMESTEVE - in playerintro mode, open match summary if not open (option for UTLP openmatchsummary)
 	UUTLocalPlayer* UTLP = UTPlayerOwner ? Cast<UUTLocalPlayer>(UTPlayerOwner->Player) : NULL;
 	AUTGameState* GS = Cast<AUTGameState>(GetWorld()->GetGameState());
-	if (UTLP && GS && !GS->IsPendingKillPending() && (GS->GetMatchState() != MatchState::CountdownToBegin)
-		&& (GS->GetMatchState() != MatchState::PlayerIntro))
+	if (UTLP && GS && !GS->IsPendingKillPending())
 	{
 		if (GS->GetMatchState() == MatchState::WaitingPostMatch)
 		{
@@ -380,10 +379,14 @@ void AUTHUD::OpenMatchSummary()
 	AUTGameState* GS = Cast<AUTGameState>(GetWorld()->GetGameState());
 	if (UTLP && GS && !GS->IsPendingKillPending())
 	{
-		UTLP->OpenMatchSummary(GS);
-		if (GS->GetMatchState() == MatchState::WaitingToStart)
+		// temp check for testing, until match summary is ready.  Make sure same setting for client and server
+		if (UUTGameEngine::StaticClass()->GetDefaultObject<UUTGameEngine>()->bShowMatchSummary)
 		{
-			UTLP->ShowMenu();
+			UTLP->OpenMatchSummary(GS);
+			if (GS->GetMatchState() == MatchState::WaitingToStart)
+			{
+				UTLP->ShowMenu();
+			}
 		}
 	}
 }

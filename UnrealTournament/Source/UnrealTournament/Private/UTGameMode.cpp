@@ -1619,7 +1619,6 @@ void AUTGameMode::EndGame(AUTPlayerState* Winner, FName Reason )
 	GetWorldTimerManager().SetTimer(TempHandle2, this, &AUTGameMode::ShowFinalScoreboard, EndScoreboardDelay);
 
 	// Setup a timer to continue to the next map.
-
 	EndTime = GetWorld()->TimeSeconds;
 	FTimerHandle TempHandle3;
 	GetWorldTimerManager().SetTimer(TempHandle3, this, &AUTGameMode::TravelToNextMap, EndTimeDelay);
@@ -1629,7 +1628,6 @@ void AUTGameMode::EndGame(AUTPlayerState* Winner, FName Reason )
 	GetWorldTimerManager().SetTimer(TempHandle4, this, &AUTGameMode::StopReplayRecording, EndReplayDelay);
 
 	SendEndOfGameStats(Reason);
-
 	EndMatch();
 }
 
@@ -2443,8 +2441,15 @@ void AUTGameMode::HandleMatchInOvertime()
 
 void AUTGameMode::HandlePlayerIntro()
 {
-	FTimerHandle TempHandle;
-	GetWorldTimerManager().SetTimer(TempHandle, this, &AUTGameMode::EndPlayerIntro, 7.0f, false);
+	if (UUTGameEngine::StaticClass()->GetDefaultObject<UUTGameEngine>()->bShowMatchSummary)
+	{
+		FTimerHandle TempHandle;
+		GetWorldTimerManager().SetTimer(TempHandle, this, &AUTGameMode::EndPlayerIntro, 7.0f, false);
+	}
+	else
+	{
+		EndPlayerIntro();
+	}
 }
 
 void AUTGameMode::EndPlayerIntro()
@@ -3160,9 +3165,7 @@ void AUTGameMode::UpdateLobbyBadge(FString BadgeText)
 	{
 		LobbyBeacon->Lobby_UpdateBadge(LobbyInstanceID, BadgeText);
 	}
-
 }
-
 
 void AUTGameMode::SendEveryoneBackToLobby()
 {
@@ -3508,7 +3511,6 @@ bool AUTGameMode::ValidateHat(AUTPlayerState* HatOwner, const FString& HatClass)
 			return true;
 		}
 	}
-	
 	return false;
 }
 
@@ -3580,7 +3582,6 @@ void AUTGameMode::CullMapVotes()
 		else 
 		{
 			// Remove any maps with 0 votes.
-
 			int32 ZeroIndex = Sorted.Num()-1;
 			while (ZeroIndex > 0)
 			{
@@ -3593,7 +3594,6 @@ void AUTGameMode::CullMapVotes()
 			}
 
 			// If we have more than 6 maps left to vote on, then find the # of votes of map 6 and cull anything with less votes.
-
 			if (Sorted.Num() > 6)
 			{
 				int32 Idx = 5;
@@ -3648,7 +3648,6 @@ void AUTGameMode::TallyMapVotes()
 			PC->ClientHideMapVote();
 		}
 	}
-
 
 	TArray<AUTReplicatedMapInfo*> Best;
 	for (int32 i=0; i< UTGameState->MapVoteList.Num(); i++)
