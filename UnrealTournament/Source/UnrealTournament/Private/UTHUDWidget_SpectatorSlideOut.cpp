@@ -587,7 +587,7 @@ void UUTHUDWidget_SpectatorSlideOut::DrawPlayer(int32 Index, AUTPlayerState* Pla
 
 	FTextureUVs FlagUV;
 
-	UTexture2D* NewFlagAtlas = UTHUDOwner->ResolveFlag(PlayerState->CountryFlag, FlagUV);
+	UTexture2D* NewFlagAtlas = UTHUDOwner->ResolveFlag(PlayerState, FlagUV);
 	DrawTexture(NewFlagAtlas, XOffset + (Width * FlagX), YOffset + 18, FlagUV.UL, FlagUV.VL, FlagUV.U, FlagUV.V, 36, 26, 1.0, FLinearColor::White, FVector2D(0.0f, 0.5f));
 
 	// Draw the Text

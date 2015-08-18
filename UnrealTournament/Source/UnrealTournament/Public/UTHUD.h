@@ -325,7 +325,7 @@ private:
 
 public:
 
-	UTexture2D* ResolveFlag(FName Flag, FTextureUVs& UV);
+	UTexture2D* ResolveFlag(AUTPlayerState* PS, FTextureUVs& UV);
 
 	/**Returns the necessary input mode for the hud this tick*/
 	UFUNCTION(BlueprintNativeEvent)

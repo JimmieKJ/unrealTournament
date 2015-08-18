@@ -20,6 +20,7 @@
 #include "UTGameEngine.h"
 #include "UTFlagInfo.h"
 #include "UTCrosshair.h"
+#include "UTATypes.h"
 
 AUTHUD::AUTHUD(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
@@ -791,12 +792,25 @@ FText AUTHUD::GetPlaceSuffix(int32 Value)
 	return FText::GetEmpty();
 }
 
-UTexture2D* AUTHUD::ResolveFlag(FName Flag, FTextureUVs& UV)
+UTexture2D* AUTHUD::ResolveFlag(AUTPlayerState* PS, FTextureUVs& UV)
 {
 	UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
-	if (UTEngine != nullptr)
+	if (PS && UTEngine)
 	{
-		UUTFlagInfo* FlagInfo = UTEngine->GetFlag(Flag);
+		FName FlagName = PS->CountryFlag;
+		if (PS->bIsABot && PS->CountryFlag == NAME_None && PS->Team)
+		{
+			if (PS->Team)
+			{
+				// use team flag
+				FlagName = (PS->Team->TeamIndex == 0) ? NAME_RedCountryFlag : NAME_BlueCountryFlag;
+			}
+			else
+			{
+				return nullptr;
+			}
+		}
+		UUTFlagInfo* FlagInfo = UTEngine->GetFlag(FlagName);
 		if (FlagInfo != nullptr)
 		{
 			UV = FlagInfo->UV;
