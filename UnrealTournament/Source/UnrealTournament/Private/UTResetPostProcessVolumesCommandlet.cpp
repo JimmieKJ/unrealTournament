@@ -19,6 +19,25 @@ UUTResetPostProcessVolumesCommandlet::UUTResetPostProcessVolumesCommandlet(const
 int32 UUTResetPostProcessVolumesCommandlet::Main(const FString& Params)
 {
 #if UE_EDITOR
+	TArray<FString> Tokens;
+	TArray<FString> Switches;
+	TMap<FString, FString> SwitchParams;
+	ParseCommandLine(*Params, Tokens, Switches, SwitchParams);
+
+	bool bRestrictedOnly = false;
+	bool bBloomOnly = false;
+	for (auto It = Switches.CreateConstIterator(); It; ++It)
+	{
+		if (*It == TEXT("RestrictedOnly"))
+		{
+			bRestrictedOnly = true;
+		}
+		if (*It == TEXT("BloomOnly"))
+		{
+			bBloomOnly = true;
+		}
+	}
+
 	TArray<FString> Maps;
 	TArray<FString> AllPackageFilenames;
 	FEditorFileUtils::FindAllPackageFiles(AllPackageFilenames);
@@ -27,6 +46,11 @@ int32 UUTResetPostProcessVolumesCommandlet::Main(const FString& Params)
 		const FString& Filename = AllPackageFilenames[PackageIndex];
 		if (FPaths::GetExtension(Filename, true) == FPackageName::GetMapPackageExtension())
 		{
+			if (bRestrictedOnly && !Filename.Contains(TEXT("RestrictedAssets")))
+			{
+				continue;
+			}
+
 			Maps.Add(Filename);
 		}
 	}
@@ -78,7 +102,58 @@ int32 UUTResetPostProcessVolumesCommandlet::Main(const FString& Params)
 			// iterate through all the post process volumes
 			for (TActorIterator<APostProcessVolume> It(World, APostProcessVolume::StaticClass()); It; ++It)
 			{
-				It->Settings = FPostProcessSettings();
+				if (bBloomOnly)
+				{
+					UE_LOG(LogResetPostProcessVolumesCommandlet, Warning, TEXT("Bloom only reset"));
+
+					FPostProcessSettings DefaultSettings;
+
+					It->Settings.bOverride_BloomIntensity = DefaultSettings.bOverride_BloomIntensity;
+					It->Settings.bOverride_BloomThreshold = DefaultSettings.bOverride_BloomThreshold;
+					It->Settings.bOverride_Bloom1Tint = DefaultSettings.bOverride_Bloom1Tint;
+					It->Settings.bOverride_Bloom1Size = DefaultSettings.bOverride_Bloom1Size;
+					It->Settings.bOverride_Bloom2Tint = DefaultSettings.bOverride_Bloom2Tint;
+					It->Settings.bOverride_Bloom3Tint = DefaultSettings.bOverride_Bloom3Tint;
+					It->Settings.bOverride_Bloom4Tint = DefaultSettings.bOverride_Bloom4Tint;
+					It->Settings.bOverride_Bloom4Size = DefaultSettings.bOverride_Bloom4Size;
+					It->Settings.bOverride_Bloom5Tint = DefaultSettings.bOverride_Bloom5Tint;
+					It->Settings.bOverride_Bloom5Size = DefaultSettings.bOverride_Bloom5Size;
+					It->Settings.bOverride_Bloom6Tint = DefaultSettings.bOverride_Bloom6Tint;
+					It->Settings.bOverride_Bloom6Size = DefaultSettings.bOverride_Bloom6Size;
+
+					It->Settings.bOverride_BloomSizeScale = DefaultSettings.bOverride_BloomSizeScale;
+					It->Settings.bOverride_BloomDirtMaskIntensity = DefaultSettings.bOverride_BloomDirtMaskIntensity;
+					It->Settings.bOverride_BloomDirtMaskTint = DefaultSettings.bOverride_BloomDirtMaskTint;
+					It->Settings.bOverride_BloomDirtMask = DefaultSettings.bOverride_BloomDirtMask;
+
+
+					It->Settings.BloomIntensity = DefaultSettings.BloomIntensity;
+					It->Settings.BloomThreshold = DefaultSettings.BloomThreshold;
+					It->Settings.BloomSizeScale = DefaultSettings.BloomSizeScale;
+
+					It->Settings.Bloom1Size = DefaultSettings.Bloom1Size;
+					It->Settings.Bloom2Size = DefaultSettings.Bloom2Size;
+					It->Settings.Bloom3Size = DefaultSettings.Bloom3Size;
+					It->Settings.Bloom4Size = DefaultSettings.Bloom4Size;
+					It->Settings.Bloom5Size = DefaultSettings.Bloom5Size;
+					It->Settings.Bloom6Size = DefaultSettings.Bloom6Size;
+
+					It->Settings.Bloom1Tint = DefaultSettings.Bloom1Tint;
+					It->Settings.Bloom2Tint = DefaultSettings.Bloom2Tint;
+					It->Settings.Bloom3Tint = DefaultSettings.Bloom3Tint;
+					It->Settings.Bloom4Tint = DefaultSettings.Bloom4Tint;
+					It->Settings.Bloom5Tint = DefaultSettings.Bloom5Tint;
+					It->Settings.Bloom6Tint = DefaultSettings.Bloom6Tint;
+
+					It->Settings.BloomDirtMaskIntensity = DefaultSettings.BloomDirtMaskIntensity;
+					It->Settings.BloomDirtMaskTint = DefaultSettings.BloomDirtMaskTint;
+					It->Settings.BloomDirtMask = DefaultSettings.BloomDirtMask;
+				}
+				else
+				{
+					It->Settings = FPostProcessSettings();
+				}
+
 				Package->MarkPackageDirty();
 				bIsDirty = true;
 			}
