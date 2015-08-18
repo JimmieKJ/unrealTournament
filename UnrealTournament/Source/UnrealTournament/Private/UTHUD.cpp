@@ -352,7 +352,7 @@ void AUTHUD::NotifyMatchStateChange()
 	// FIXMESTEVE - in playerintro mode, open match summary if not open (option for UTLP openmatchsummary)
 	UUTLocalPlayer* UTLP = UTPlayerOwner ? Cast<UUTLocalPlayer>(UTPlayerOwner->Player) : NULL;
 	AUTGameState* GS = Cast<AUTGameState>(GetWorld()->GetGameState());
-	if (UTLP && GS && !GS->IsPendingKillPending())
+	if (UTLP && GS && !GS->IsPendingKillPending() && (GS->GetMatchState() != MatchState::CountdownToBegin))
 	{
 		if (GS->GetMatchState() == MatchState::WaitingPostMatch)
 		{
@@ -362,7 +362,7 @@ void AUTHUD::NotifyMatchStateChange()
 		{
 			// GetWorldTimerManager().SetTimer(MatchSummaryHandle, this, &AUTHUD::OpenMatchSummary, 0.5f, false);
 		}
-		else if ((GS->GetMatchState() == MatchState::PlayerIntro) || (GS->GetMatchState() == MatchState::CountdownToBegin))
+		else if (GS->GetMatchState() == MatchState::PlayerIntro)
 		{
 			GetWorldTimerManager().SetTimer(MatchSummaryHandle, this, &AUTHUD::OpenMatchSummary, 0.2f, false);
 		}
