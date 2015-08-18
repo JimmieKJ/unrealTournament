@@ -1,10 +1,13 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealTournament.h"
-#include "UnrealEd.h"
 #include "EngineUtils.h"
 #include "ISourceControlModule.h"
 #include "UTResetPostProcessVolumesCommandlet.h"
+
+#if UE_EDITOR
+#include "UnrealEd.h"
+#endif
 
 DEFINE_LOG_CATEGORY_STATIC(LogResetPostProcessVolumesCommandlet, Log, All);
 
@@ -15,6 +18,7 @@ UUTResetPostProcessVolumesCommandlet::UUTResetPostProcessVolumesCommandlet(const
 
 int32 UUTResetPostProcessVolumesCommandlet::Main(const FString& Params)
 {
+#if UE_EDITOR
 	TArray<FString> Maps;
 	TArray<FString> AllPackageFilenames;
 	FEditorFileUtils::FindAllPackageFiles(AllPackageFilenames);
@@ -111,6 +115,6 @@ int32 UUTResetPostProcessVolumesCommandlet::Main(const FString& Params)
 		GWorld->DestroyWorld(false);
 	}
 	GWorld = UWorld::CreateWorld(EWorldType::Editor, false);
-
+#endif
 	return 0;
 }
