@@ -1001,7 +1001,7 @@ struct FPostProcessSettings
 		LensFlareTints[6] = FLinearColor(1.0f, 0.8f, 0.4f, 0.22f);
 		LensFlareTints[7] = FLinearColor(0.9f, 0.7f, 0.7f, 0.15f);
 		// next value might get overwritten by r.DefaultFeature.MotionBlur
-		MotionBlurAmount = 0.5f;
+		MotionBlurAmount = 0.0f;
 		MotionBlurMax = 5.0f;
 		MotionBlurPerObjectSize = 0.5f;
 		ScreenPercentage = 100.0f;
