@@ -1077,6 +1077,7 @@ void AUTPlayerState::WriteStatsToCloud()
 			}
 
 			UE_LOG(LogGameStats, Log, TEXT("Writing stats for %s, previously read stats: %d"), *PlayerName, bSuccessfullyReadStatsFromCloud ? 1 : 0);
+			UE_LOG(LogGameStats, VeryVerbose, TEXT("JSON: %s"), *OutputJsonString);
 
 			OnlineUserCloudInterface->WriteUserFile(FUniqueNetIdString(*StatsID), GetStatsFilename(), FileContents);
 			bWroteStatsToCloud = true;

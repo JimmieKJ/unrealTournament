@@ -1331,6 +1331,8 @@ void UUTLocalPlayer::UpdateBaseELOFromCloudData()
 
 		FString JsonString = ANSI_TO_TCHAR((char*)FileContents.GetData());
 
+		UE_LOG(LogGameStats,VeryVerbose,TEXT("Stats JSON: %s"),*JsonString);
+
 		TSharedPtr<FJsonObject> StatsJson;
 		TSharedRef<TJsonReader<>> JsonReader = TJsonReaderFactory<>::Create(JsonString);
 		if (FJsonSerializer::Deserialize(JsonReader, StatsJson) && StatsJson.IsValid())
@@ -1369,6 +1371,13 @@ void UUTLocalPlayer::UpdateBaseELOFromCloudData()
 	{
 		CTF_ELO = StartingELO;
 	}
+
+	if (MatchesPlayed <= 0)		MatchesPlayed = 0;
+	if (DuelMatchesPlayed <= 0) DuelMatchesPlayed = 0;
+	if (TDMMatchesPlayed <= 0)	TDMMatchesPlayed = 0;
+	if (FFAMatchesPlayed <= 0)	FFAMatchesPlayed = 0;
+	if (CTFMatchesPlayed <= 0)	CTFMatchesPlayed = 0;
+
 }
 
 int32 UUTLocalPlayer::GetBaseELORank()
@@ -1475,7 +1484,7 @@ bool UUTLocalPlayer::IsConsideredABeginnner()
 {
 	float BaseELO = GetBaseELORank();
 
-	return (BaseELO < 1400);
+	return (BaseELO < 1400) && (DuelMatchesPlayed + TDMMatchesPlayed + FFAMatchesPlayed + CTFMatchesPlayed) < 20;
 }
 
 
