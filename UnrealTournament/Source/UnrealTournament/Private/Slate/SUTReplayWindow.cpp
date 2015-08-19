@@ -158,73 +158,19 @@ void SUTReplayWindow::Construct(const FArguments& InArgs)
 									.HAlign(HAlign_Left)
 									.AutoWidth()
 									[
-										SNew(SVerticalBox)
-										+ SVerticalBox::Slot()
-										.HAlign(HAlign_Fill)
-										.AutoHeight()
-										[
-											SNew(SBox)
-											.HeightOverride(32)
-											.WidthOverride(32)
-											[
-												SAssignNew(RecordButton, SButton)
-												.ButtonStyle(SUWindowsStyle::Get(), "UT.BottomMenu.Button")
-												.OnClicked(this, &SUTReplayWindow::OnMarkRecordStartClicked)
-												.Content()
-												[
-													SNew(SImage)
-													.Image(SUWindowsStyle::Get().GetBrush("UT.Replay.Button.MarkStart"))
-												]
-											]
-										]
+										MakeMarkRecordStartButton()
 									]
 									+ SHorizontalBox::Slot()
 									.HAlign(HAlign_Left)
 									.AutoWidth()
-									[											
-										SNew(SVerticalBox)
-										+ SVerticalBox::Slot()
-										.HAlign(HAlign_Fill)
-										.AutoHeight()
-										[
-											SNew(SBox)
-											.HeightOverride(32)
-											.WidthOverride(32)
-											[
-												SAssignNew(MarkStartButton, SButton)
-												.ButtonStyle(SUWindowsStyle::Get(), "UT.BottomMenu.Button")
-												.OnClicked(this, &SUTReplayWindow::OnMarkRecordStopClicked)
-												.Content()
-												[
-													SNew(SImage)
-													.Image(SUWindowsStyle::Get().GetBrush("UT.Replay.Button.MarkEnd"))
-												]
-											]
-										]
+									[		
+										MakeMarkRecordStopButton()
 									]
 									+ SHorizontalBox::Slot()
 									.HAlign(HAlign_Left)
 									.AutoWidth()
-									[											
-										SNew(SVerticalBox)
-										+ SVerticalBox::Slot()
-										.HAlign(HAlign_Fill)
-										.AutoHeight()
-										[
-											SNew(SBox)
-											.HeightOverride(32)
-											.WidthOverride(32)
-											[
-												SAssignNew(MarkEndButton, SButton)
-												.ButtonStyle(SUWindowsStyle::Get(), "UT.BottomMenu.Button")
-												.OnClicked(this, &SUTReplayWindow::OnRecordButtonClicked)
-												.Content()
-												[
-													SNew(SImage)
-													.Image(SUWindowsStyle::Get().GetBrush("UT.Replay.Button.Record"))
-												]
-											]
-										]
+									[
+										MakeRecordButton()
 									]
 									+ SHorizontalBox::Slot()
 									.HAlign(HAlign_Left)
@@ -1247,6 +1193,90 @@ void SUTReplayWindow::BookmarkDataReady(const TArray<uint8>& Data, bool bSucceed
 			EventDataInfo.Add(EventID, EmptyStringData);
 		}
 	}
+}
+
+TSharedRef<SWidget> SUTReplayWindow::MakeMarkRecordStartButton()
+{
+	if (DemoNetDriver.IsValid() && DemoNetDriver->ReplayStreamer.IsValid() && DemoNetDriver->ReplayStreamer->IsLive())
+	{
+		return SNew(SVerticalBox);
+	}
+
+	return SNew(SVerticalBox)
+			+ SVerticalBox::Slot()
+			.HAlign(HAlign_Fill)
+			.AutoHeight()
+			[
+				SNew(SBox)
+				.HeightOverride(32)
+				.WidthOverride(32)
+				[
+					SAssignNew(RecordButton, SButton)
+					.ButtonStyle(SUWindowsStyle::Get(), "UT.BottomMenu.Button")
+					.OnClicked(this, &SUTReplayWindow::OnMarkRecordStartClicked)
+					.Content()
+					[
+						SNew(SImage)
+						.Image(SUWindowsStyle::Get().GetBrush("UT.Replay.Button.MarkStart"))
+					]
+				]
+			];
+}
+
+TSharedRef<SWidget> SUTReplayWindow::MakeMarkRecordStopButton()
+{
+	if (DemoNetDriver.IsValid() && DemoNetDriver->ReplayStreamer.IsValid() && DemoNetDriver->ReplayStreamer->IsLive())
+	{
+		return SNew(SVerticalBox);
+	}
+
+	return SNew(SVerticalBox)
+			+ SVerticalBox::Slot()
+			.HAlign(HAlign_Fill)
+			.AutoHeight()
+			[
+				SNew(SBox)
+				.HeightOverride(32)
+				.WidthOverride(32)
+				[
+					SAssignNew(MarkStartButton, SButton)
+					.ButtonStyle(SUWindowsStyle::Get(), "UT.BottomMenu.Button")
+					.OnClicked(this, &SUTReplayWindow::OnMarkRecordStopClicked)
+					.Content()
+					[
+						SNew(SImage)
+						.Image(SUWindowsStyle::Get().GetBrush("UT.Replay.Button.MarkEnd"))
+					]
+				]
+			];
+}
+
+TSharedRef<SWidget> SUTReplayWindow::MakeRecordButton()
+{
+	if (DemoNetDriver.IsValid() && DemoNetDriver->ReplayStreamer.IsValid() && DemoNetDriver->ReplayStreamer->IsLive())
+	{
+		return SNew(SVerticalBox);
+	}
+	
+	return SNew(SVerticalBox)
+			+ SVerticalBox::Slot()
+			.HAlign(HAlign_Fill)
+			.AutoHeight()
+			[
+				SNew(SBox)
+				.HeightOverride(32)
+				.WidthOverride(32)
+				[
+					SAssignNew(MarkEndButton, SButton)
+					.ButtonStyle(SUWindowsStyle::Get(), "UT.BottomMenu.Button")
+					.OnClicked(this, &SUTReplayWindow::OnRecordButtonClicked)
+					.Content()
+					[
+						SNew(SImage)
+						.Image(SUWindowsStyle::Get().GetBrush("UT.Replay.Button.Record"))
+					]
+				]
+			];
 }
 
 #endif

@@ -128,6 +128,10 @@ protected:
 
 	void BookmarkDataReady(const TArray<uint8>& Data, bool bSucceeded, FString EventID, FString EventType);
 	void CommentDialogResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
+
+	TSharedRef<SWidget> MakeMarkRecordStartButton();
+	TSharedRef<SWidget> MakeMarkRecordStopButton();
+	TSharedRef<SWidget> MakeRecordButton();
 private:
 	TWeakObjectPtr<class UUTLocalPlayer> PlayerOwner;
 	TWeakObjectPtr<class UDemoNetDriver> DemoNetDriver;
