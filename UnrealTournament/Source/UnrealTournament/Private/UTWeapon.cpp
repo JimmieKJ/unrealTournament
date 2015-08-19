@@ -537,6 +537,7 @@ void AUTWeapon::AttachToOwner_Implementation()
 				OverlayMesh->LastRenderTime = GetWorld()->TimeSeconds;
 				OverlayMesh->bRecentlyRendered = true;
 			}
+			UpdateViewBob(0.0f);
 		}
 	}
 	// register components now
@@ -1611,7 +1612,7 @@ void AUTWeapon::Tick(float DeltaTime)
 void AUTWeapon::UpdateViewBob(float DeltaTime)
 {
 	AUTPlayerController* MyPC = UTOwner ? UTOwner->GetLocalViewer() : NULL;
-	if (MyPC && Mesh && (UTOwner->GetWeapon() == this) && ShouldPlay1PVisuals())
+	if (MyPC != NULL && Mesh != NULL && UTOwner->GetWeapon() == this && ShouldPlay1PVisuals())
 	{
 		// if weapon is up in first person, view bob with movement
 		if (GetWeaponHand() != HAND_Hidden)
