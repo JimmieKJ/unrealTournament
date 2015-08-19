@@ -522,16 +522,11 @@ void AUTBasePlayerController::ServerRconAuth_Implementation(const FString& Passw
 		{
 			ClientSay(UTPlayerState, TEXT("Rcon authenticated!"), ChatDestinations::System);
 			UTPlayerState->bIsRconAdmin = true;
-		}
-		else
-		{
-			ClientSay(UTPlayerState, TEXT("Rcon password incorrect"), ChatDestinations::System);
+			return;
 		}
 	}
-	else
-	{
-		ClientSay(UTPlayerState, TEXT("Rcon password unset"), ChatDestinations::System);
-	}
+
+	ClientSay(UTPlayerState, TEXT("Rcon password incorrect or unset"), ChatDestinations::System);
 }
 
 
