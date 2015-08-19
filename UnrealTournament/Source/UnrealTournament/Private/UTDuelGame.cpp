@@ -108,14 +108,20 @@ void AUTDuelGame::GetGameURLOptions(const TArray<TSharedPtr<TAttributePropertyBa
 	DesiredPlayerCount = 2;
 }
 
+void AUTDuelGame::CreateGameURLOptions(TArray<TSharedPtr<TAttributePropertyBase>>& MenuProps)
+{
+	MenuProps.Add(MakeShareable(new TAttributeProperty<int32>(this, &TimeLimit, TEXT("TimeLimit"))));
+	MenuProps.Add(MakeShareable(new TAttributeProperty<int32>(this, &GoalScore, TEXT("GoalScore"))));
+}
 
 #if !UE_SERVER
 void AUTDuelGame::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, bool bCreateReadOnly, TArray< TSharedPtr<TAttributePropertyBase> >& ConfigProps)
 {
-	TSharedPtr< TAttributeProperty<int32> > TimeLimitAttr = MakeShareable(new TAttributeProperty<int32>(this, &TimeLimit, TEXT("TimeLimit")));
-	ConfigProps.Add(TimeLimitAttr);
-	TSharedPtr< TAttributeProperty<int32> > GoalScoreAttr = MakeShareable(new TAttributeProperty<int32>(this, &GoalScore, TEXT("GoalScore")));
-	ConfigProps.Add(GoalScoreAttr);
+	CreateGameURLOptions(ConfigProps);
+
+	TSharedPtr< TAttributeProperty<int32> > TimeLimitAttr = StaticCastSharedPtr<TAttributeProperty<int32>>(FindGameURLOption(ConfigProps,TEXT("TimeLimit")));
+	TSharedPtr< TAttributeProperty<int32> > GoalScoreAttr = StaticCastSharedPtr<TAttributeProperty<int32>>(FindGameURLOption(ConfigProps,TEXT("GoalScore")));
+
 
 	MenuSpace->AddSlot()
 	.Padding(0.0f,0.0f,0.0f,5.0f)

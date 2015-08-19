@@ -497,6 +497,11 @@ public:
 
 	virtual void GetSeamlessTravelActorList(bool bToEntry, TArray<AActor*>& ActorList) override;
 
+	// Creates the URL options for custom games
+	virtual void CreateGameURLOptions(TArray<TSharedPtr<TAttributePropertyBase>>& MenuProps);
+
+	virtual TSharedPtr<TAttributePropertyBase> FindGameURLOption(TArray<TSharedPtr<TAttributePropertyBase>>& MenuProps, const FString& SearchKey);
+
 #if !UE_SERVER
 	/** called on the default object of this class by the UI to create widgets to manipulate this game type's settings
 	 * you can use TAttributeProperty<> to easily implement get/set delegates that map directly to the config property address
