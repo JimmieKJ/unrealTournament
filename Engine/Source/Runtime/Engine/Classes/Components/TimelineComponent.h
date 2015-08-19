@@ -446,6 +446,8 @@ public:
 
 	// Begin ActorComponent interface.
 	virtual void TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction) override;
+	virtual void Activate(bool bReset=false) override;
+	virtual void Deactivate() override;
 	// End ActorComponent interface.
 
 	/** Get the signature function for Timeline event functions */

@@ -563,6 +563,7 @@ UTimelineComponent::UTimelineComponent(const FObjectInitializer& ObjectInitializ
 	: Super(ObjectInitializer)
 {
 	PrimaryComponentTick.bCanEverTick = true;
+	PrimaryComponentTick.bStartWithTickEnabled = false;
 	PrimaryComponentTick.TickGroup = TG_PrePhysics;
 }
 
@@ -572,20 +573,33 @@ void UTimelineComponent::TickComponent(float DeltaTime, enum ELevelTick TickType
 
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
-	if (bIsActive)
-	{
-		TheTimeline.TickTimeline(DeltaTime);
+	TheTimeline.TickTimeline(DeltaTime);
 
-		if (!IsNetSimulating())
+	if (!IsNetSimulating())
+	{
+		// Do not deactivate if we are done, since bActive is a replicated property and we shouldn't have simulating
+		// clients touch replicated variables.
+		if (!TheTimeline.IsPlaying())
 		{
-			// Do not deactivate if we are done, since bActive is a replicated property and we shouldn't have simulating
-			// clients touch replicated variables.
-			if (!TheTimeline.IsPlaying())
-			{
-				Deactivate();
-			}
+			Deactivate();
 		}
 	}
+}
+
+void UTimelineComponent::Activate(bool bReset)
+{
+	Super::Activate(bReset);
+
+	PrimaryComponentTick.bStartWithTickEnabled = true;
+	PrimaryComponentTick.SetTickFunctionEnable(true);
+}
+
+void UTimelineComponent::Deactivate()
+{
+	Super::Deactivate();
+
+	PrimaryComponentTick.bStartWithTickEnabled = false;
+	PrimaryComponentTick.SetTickFunctionEnable(false);
 }
 
 void UTimelineComponent::Play()
