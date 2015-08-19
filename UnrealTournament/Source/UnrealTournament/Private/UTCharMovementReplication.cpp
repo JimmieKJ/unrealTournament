@@ -65,7 +65,8 @@ const FVector& NewAccel
 	PerformMovement(DeltaTime);
 
 	// If not playing root motion, tick animations after physics. We do this here to keep events, notifies, states and transitions in sync with client updates.
-	if (!CharacterOwner->bClientUpdating && !CharacterOwner->IsPlayingRootMotion() && CharacterOwner->GetMesh() && CharacterOwner->GetMesh()->IsRegistered() && CharacterOwner->GetMesh()->ShouldTickPose())
+	if ( !CharacterOwner->bClientUpdating && !CharacterOwner->IsPlayingRootMotion() && CharacterOwner->GetMesh() && CharacterOwner->GetMesh()->IsRegistered() &&
+		(CharacterOwner->GetMesh()->MeshComponentUpdateFlag < EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered || CharacterOwner->GetMesh()->bRecentlyRendered) )
 	{
 		TickCharacterPose(DeltaTime);
 		// TODO: SaveBaseLocation() in case tick moves us?
