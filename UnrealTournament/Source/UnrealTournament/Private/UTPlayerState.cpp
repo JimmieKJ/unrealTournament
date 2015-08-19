@@ -21,6 +21,7 @@
 #include "UTFlagInfo.h"
 #include "UTEngineMessage.h"
 #include "UTGameState.h"
+#include "UTDemoRecSpectator.h"
 
 AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -1737,6 +1738,12 @@ void AUTPlayerState::UpdateOldName()
 
 void AUTPlayerState::OnRep_PlayerName()
 {
+	if (PlayerName.IsEmpty())
+	{
+		// Demo rec spectator is allowed empty name
+		return;
+	}
+
 	if (GetWorld()->TimeSeconds < 2.f)
 	{
 		OldName = PlayerName;

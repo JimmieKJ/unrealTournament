@@ -264,6 +264,7 @@ void AUTDemoRecSpectator::InitPlayerState()
 {
 	Super::InitPlayerState();
 	PlayerState->bOnlySpectator = true;
+	PlayerState->PlayerName.Empty();
 
 	AUTPlayerState* UTPS = Cast<AUTPlayerState>(PlayerState);
 	if (UTPS != nullptr)
