@@ -2023,7 +2023,7 @@ bool AUTPlayerState::ServerSlowerEmote_Validate()
 
 void AUTPlayerState::ServerSlowerEmote_Implementation()
 {
-	EmoteSpeed = FMath::Max(EmoteSpeed - 0.25f, 0.0f);
+	EmoteSpeed = FMath::Max(EmoteSpeed - 0.25f, GetWorld()->GetGameState()->IsMatchInProgress() ? 0.25f : 0.0f);
 	OnRepEmoteSpeed();
 }
 
@@ -2034,7 +2034,7 @@ bool AUTPlayerState::ServerSetEmoteSpeed_Validate(float NewEmoteSpeed)
 
 void AUTPlayerState::ServerSetEmoteSpeed_Implementation(float NewEmoteSpeed)
 {
-	EmoteSpeed = FMath::Clamp(NewEmoteSpeed, 0.0f, 3.0f);
+	EmoteSpeed = FMath::Clamp(NewEmoteSpeed, GetWorld()->GetGameState()->IsMatchInProgress() ? 0.25f : 0.0f, 3.0f);
 	OnRepEmoteSpeed();
 }
 
