@@ -1875,6 +1875,16 @@ void AUTPlayerController::SwitchTeam()
 	}
 }
 
+bool AUTPlayerController::ServerSwitchTeam_Validate()
+{
+	return true;
+}
+
+void AUTPlayerController::ServerSwitchTeam_Implementation()
+{
+	SwitchTeam();
+}
+
 void AUTPlayerController::ServerRestartPlayerAltFire_Implementation()
 {
 	if (UTPlayerState != nullptr)
@@ -2796,7 +2806,6 @@ void AUTPlayerController::ReceivedPlayer()
 	Super::ReceivedPlayer();
 
 	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
-	
 	if (LP != NULL)
 	{
 		if (GetNetMode() != NM_Standalone)
@@ -2838,7 +2847,6 @@ void AUTPlayerController::ReceivedPlayer()
 					CountryFlag = NAME_None;
 				}
 			}
-
 			ServerReceiveCountryFlag(CountryFlag);
 		}
 	}

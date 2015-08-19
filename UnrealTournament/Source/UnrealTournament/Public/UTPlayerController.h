@@ -611,6 +611,9 @@ public:
 	UFUNCTION(exec)
 	virtual void SwitchTeam();
 
+	UFUNCTION(Reliable, Server, WithValidation)
+	virtual void ServerSwitchTeam();
+
 protected:
 	UPROPERTY(globalconfig, BlueprintReadOnly, Category = Weapon)
 	TEnumAsByte<EWeaponHand> WeaponHand;

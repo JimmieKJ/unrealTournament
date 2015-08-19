@@ -246,7 +246,7 @@ FReply SUTInGameMenu::OnTeamChangeClick()
 	AUTPlayerController* PC = Cast<AUTPlayerController>(PlayerOwner->PlayerController);
 	if (PC)
 	{
-		PC->SwitchTeam();
+		PC->ServerSwitchTeam();
 	}
 	return FReply::Handled();
 }
