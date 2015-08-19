@@ -48,6 +48,8 @@ struct FPlayerCompare
 			AValue = (A->bIsInMatch ? 10 : 150) + (A->bInInstance ? 2000 : 0) + (A->bIsHost ? -5 : 0);
 		}
 
+		AValue += (A->TeamNum==0) ? 0 : ( A->TeamNum==1 ? 1 : 2);
+
 		int32 BValue = 0;
 		if (B->EntryType == ETrackedPlayerType::EveryoneHeader) 
 		{
@@ -65,6 +67,9 @@ struct FPlayerCompare
 		{
 			BValue = (B->bIsInMatch ? 10 : 150) + (B->bInInstance ? 2000 : 0) + (B->bIsHost ? -5 : 0);
 		}
+
+		BValue += (B->TeamNum==0) ? 0 : ( B->TeamNum==1 ? 1 : 2);
+
 		//UE_LOG(UT,Log,TEXT("Sort:  %s vs %s - %i < %i???"), *A->PlayerName, *B->PlayerName, AValue, BValue);			
 		return AValue < BValue;
 	}

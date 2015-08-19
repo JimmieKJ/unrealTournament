@@ -161,13 +161,14 @@ TSharedRef<SWidget> SUHomePanel::BuildHomePanel()
 								[
 									SNew(SVerticalBox)
 									+SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Fill)
-									.Padding(0.0,210.0)
+									.Padding(0.0,206.0)
 									[
 										SNew(SBorder)
 										.BorderImage(SUTStyle::Get().GetBrush("UT.HeaderBackground.Shaded"))
 										[
 											SNew(SVerticalBox)
 											+SVerticalBox::Slot()
+											.AutoHeight()
 											.HAlign(HAlign_Center)
 											[
 												SNew(STextBlock)
@@ -175,6 +176,7 @@ TSharedRef<SWidget> SUHomePanel::BuildHomePanel()
 												.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
 											]
 											+SVerticalBox::Slot()
+											.AutoHeight()
 											.HAlign(HAlign_Center)
 											[
 												SNew(STextBlock)
@@ -214,13 +216,14 @@ TSharedRef<SWidget> SUHomePanel::BuildHomePanel()
 								[
 									SNew(SVerticalBox)
 									+SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Fill)
-									.Padding(0.0,210.0)
+									.Padding(0.0,206.0)
 									[
 										SNew(SBorder)
 										.BorderImage(SUTStyle::Get().GetBrush("UT.HeaderBackground.Shaded"))
 										[
 											SNew(SVerticalBox)
 											+SVerticalBox::Slot()
+											.AutoHeight()
 											.HAlign(HAlign_Center)
 											[
 												SNew(STextBlock)
@@ -229,6 +232,7 @@ TSharedRef<SWidget> SUHomePanel::BuildHomePanel()
 											]
 											+SVerticalBox::Slot()
 											.HAlign(HAlign_Center)
+											.AutoHeight()
 											[
 												SNew(STextBlock)
 												.Text(FText::FromString(TEXT("CAPTURE THE FLAG")))
