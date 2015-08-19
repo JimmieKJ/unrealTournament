@@ -253,6 +253,12 @@ void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTi
 				FVector Cross = UTCharacter->GetActorRotation().Vector() ^ FVector(0.f, 0.f, 1.f);
 				DesiredRoll = -1.f * (Cross.GetSafeNormal() | UTCharacter->UTCharacterMovement->WallSlideNormal) * WallSlideCameraRoll;
 			}
+			else if (UTCharacter->UTCharacterMovement->bIsFloorSliding)
+			{
+				FVector Cross = UTCharacter->GetVelocity().GetSafeNormal() ^ FVector(0.f, 0.f, 1.f);
+				DesiredRoll = -1.f * (Cross.GetSafeNormal() | UTCharacter->GetActorRotation().Vector()) * WallSlideCameraRoll;
+
+			}
 			float AdjustRate = FMath::Min(1.f, 10.f*DeltaTime);
 			CurrentCameraRoll = (1.f - AdjustRate) * CurrentCameraRoll + AdjustRate*DesiredRoll;
 			OutVT.POV.Rotation.Roll = CurrentCameraRoll;
