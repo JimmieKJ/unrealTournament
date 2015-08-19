@@ -290,7 +290,7 @@ void UStatManager::PopulateJsonObjectForNonBackendStats(TSharedPtr<FJsonObject> 
 
 	for (auto Stat = Stats.CreateConstIterator(); Stat; ++Stat)
 	{
-		if (Stat.Value()->bBackendStat)
+		if (!Stat.Value()->bBackendStat)
 		{
 			JsonObject->SetNumberField(Stat.Key().ToString(), GetStatValue(Stat.Value()));
 		}
@@ -379,6 +379,12 @@ void UStatManager::InsertDataFromNonBackendJsonObject(TSharedPtr<FJsonObject> Js
 			int32 StatInput = 0;
 			if (JsonObject->TryGetNumberField(Stat.Key().ToString(), StatInput))
 			{
+				// Sanitize the stat data in case it get's corrupted.
+				if (StatInput < 0)
+				{
+					UE_LOG(LogGameStats,Verbose,TEXT("Detected an out of bounds stat [%s] %i"), *Stat.Key().ToString(), StatInput);
+					StatInput = 0;
+				}
 				Stat.Value()->ModifyStat(StatInput, EStatMod::Set);
 			}
 		}
