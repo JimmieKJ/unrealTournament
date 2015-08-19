@@ -742,7 +742,7 @@ TSharedRef<SWidget> SUTMenuBase::BuildOnlinePresence()
 				SNew(SButton)
 				.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button")
 				.OnClicked(this, &SUTMenuBase::OnShowStatsViewer)
-				.ToolTipText(NSLOCTEXT("ToolTips","TPMyStats","Show stats for this player."))
+				.ToolTipText(NSLOCTEXT("ToolTips","TPMyStats","Show stats for this player, friends, and recent opponents."))
 				[
 					SNew(SHorizontalBox)
 					+SHorizontalBox::Slot()

@@ -486,23 +486,29 @@ void AUTShowdownGame::DefaultTimer()
 	}
 }
 
+void AUTShowdownGame::CreateGameURLOptions(TArray<TSharedPtr<TAttributePropertyBase>>& MenuProps)
+{
+	MenuProps.Add(MakeShareable(new TAttributeProperty<int32>(this, &TimeLimit, TEXT("TimeLimit"))));
+	MenuProps.Add(MakeShareable(new TAttributeProperty<int32>(this, &GoalScore, TEXT("GoalScore"))));
+	MenuProps.Add(MakeShareable(new TAttributePropertyBool(this, &bLowHealthRegen, TEXT("LowHealthRegen"))));
+	MenuProps.Add(MakeShareable(new TAttributePropertyBool(this, &bAlternateScoring, TEXT("AlternateScoring"))));
+	MenuProps.Add(MakeShareable(new TAttributePropertyBool(this, &bPowerupBreaker, TEXT("PowerupBreaker"))));
+	MenuProps.Add(MakeShareable(new TAttributePropertyBool(this, &bBroadcastPlayerHealth, TEXT("BroadcastPlayerHealth"))));
+	MenuProps.Add(MakeShareable(new TAttributePropertyBool(this, &bXRayBreaker, TEXT("XRayBreaker"))));
+}
+
 #if !UE_SERVER
 void AUTShowdownGame::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, bool bCreateReadOnly, TArray< TSharedPtr<TAttributePropertyBase> >& ConfigProps)
 {
-	TSharedPtr< TAttributeProperty<int32> > TimeLimitAttr = MakeShareable(new TAttributeProperty<int32>(this, &TimeLimit, TEXT("TimeLimit")));
-	ConfigProps.Add(TimeLimitAttr);
-	TSharedPtr< TAttributeProperty<int32> > GoalScoreAttr = MakeShareable(new TAttributeProperty<int32>(this, &GoalScore, TEXT("GoalScore")));
-	ConfigProps.Add(GoalScoreAttr);
-	TSharedPtr< TAttributePropertyBool > HealthRegenAttr = MakeShareable(new TAttributePropertyBool(this, &bLowHealthRegen, TEXT("LowHealthRegen")));
-	ConfigProps.Add(HealthRegenAttr);
-	TSharedPtr< TAttributePropertyBool > AlternateScoringAttr = MakeShareable(new TAttributePropertyBool(this, &bAlternateScoring, TEXT("AlternateScoring")));
-	ConfigProps.Add(AlternateScoringAttr);
-	TSharedPtr< TAttributePropertyBool > PowerupBreakerAttr = MakeShareable(new TAttributePropertyBool(this, &bPowerupBreaker, TEXT("PowerupBreaker")));
-	ConfigProps.Add(PowerupBreakerAttr);
-	TSharedPtr< TAttributePropertyBool > BroadcastHealthAttr = MakeShareable(new TAttributePropertyBool(this, &bBroadcastPlayerHealth, TEXT("BroadcastPlayerHealth")));
-	ConfigProps.Add(BroadcastHealthAttr);
-	TSharedPtr< TAttributePropertyBool > XRayBreakerAttr = MakeShareable(new TAttributePropertyBool(this, &bXRayBreaker, TEXT("XRayBreaker")));
-	ConfigProps.Add(XRayBreakerAttr);
+	CreateGameURLOptions(ConfigProps);
+
+	TSharedPtr< TAttributeProperty<int32> > TimeLimitAttr = StaticCastSharedPtr<TAttributeProperty<int32>>(FindGameURLOption(ConfigProps, TEXT("TimeLimit")));
+	TSharedPtr< TAttributeProperty<int32> > GoalScoreAttr = StaticCastSharedPtr<TAttributeProperty<int32>>(FindGameURLOption(ConfigProps, TEXT("GoalScore")));
+	TSharedPtr< TAttributePropertyBool > HealthRegenAttr = StaticCastSharedPtr<TAttributePropertyBool>(FindGameURLOption(ConfigProps, TEXT("LowHealthRegen")));
+	TSharedPtr< TAttributePropertyBool > AlternateScoringAttr = StaticCastSharedPtr<TAttributePropertyBool>(FindGameURLOption(ConfigProps, TEXT("AlternateScoring")));
+	TSharedPtr< TAttributePropertyBool > PowerupBreakerAttr = StaticCastSharedPtr<TAttributePropertyBool>(FindGameURLOption(ConfigProps, TEXT("PowerupBreaker")));
+	TSharedPtr< TAttributePropertyBool > BroadcastHealthAttr = StaticCastSharedPtr<TAttributePropertyBool>(FindGameURLOption(ConfigProps, TEXT("BroadcastPlayerHealth")));
+	TSharedPtr< TAttributePropertyBool > XRayBreakerAttr = StaticCastSharedPtr<TAttributePropertyBool>(FindGameURLOption(ConfigProps, TEXT("XRayBreaker")));
 
 	MenuSpace->AddSlot()
 	.Padding(0.0f, 0.0f, 0.0f, 5.0f)

@@ -86,6 +86,9 @@ class UNREALTOURNAMENT_API AUTTeamGameMode : public AUTGameMode
 	 */
 	virtual uint8 PickBalancedTeam(AUTPlayerState* PS, uint8 RequestedTeam);
 
+	// Creates the URL options for custom games
+	virtual void CreateGameURLOptions(TArray<TSharedPtr<TAttributePropertyBase>>& MenuProps);
+
 #if !UE_SERVER
 	virtual void CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, bool bCreateReadOnly, TArray< TSharedPtr<TAttributePropertyBase> >& ConfigProps) override;
 #endif

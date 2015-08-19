@@ -2785,17 +2785,37 @@ void AUTGameMode::GetGameURLOptions(const TArray<TSharedPtr<TAttributePropertyBa
 	DesiredPlayerCount = BotFillCount;
 }
 
+void AUTGameMode::CreateGameURLOptions(TArray<TSharedPtr<TAttributePropertyBase>>& MenuProps)
+{
+	MenuProps.Add(MakeShareable(new TAttributeProperty<int32>(this, &TimeLimit, TEXT("TimeLimit"))));
+	MenuProps.Add(MakeShareable(new TAttributeProperty<int32>(this, &GoalScore, TEXT("GoalScore"))));
+	MenuProps.Add(MakeShareable(new TAttributePropertyBool(this, &bForceRespawn, TEXT("ForceRespawn"))));
+	MenuProps.Add(MakeShareable(new TAttributeProperty<int32>(this, &BotFillCount, TEXT("BotFill"))));
+}
+
+TSharedPtr<TAttributePropertyBase> AUTGameMode::FindGameURLOption(TArray<TSharedPtr<TAttributePropertyBase>>& MenuProps, const FString& SearchKey)
+{
+	for (int32 i = 0; i < MenuProps.Num(); i++)
+	{
+		if (MenuProps[i].IsValid() && MenuProps[i]->GetURLKey().Equals(SearchKey,ESearchCase::IgnoreCase))
+		{
+			return MenuProps[i];
+		}
+	}
+
+	return nullptr;
+}
+
+
 #if !UE_SERVER
 void AUTGameMode::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, bool bCreateReadOnly, TArray< TSharedPtr<TAttributePropertyBase> >& ConfigProps)
 {
-	TSharedPtr< TAttributeProperty<int32> > TimeLimitAttr = MakeShareable(new TAttributeProperty<int32>(this, &TimeLimit, TEXT("TimeLimit")));
-	ConfigProps.Add(TimeLimitAttr);
-	TSharedPtr< TAttributeProperty<int32> > GoalScoreAttr = MakeShareable(new TAttributeProperty<int32>(this, &GoalScore, TEXT("GoalScore")));
-	ConfigProps.Add(GoalScoreAttr);
-	TSharedPtr< TAttributePropertyBool > ForceRespawnAttr = MakeShareable(new TAttributePropertyBool(this, &bForceRespawn, TEXT("ForceRespawn")));
-	ConfigProps.Add(ForceRespawnAttr);
-	TSharedPtr< TAttributeProperty<int32> > CombatantsAttr = MakeShareable(new TAttributeProperty<int32>(this, &BotFillCount, TEXT("BotFill")));
-	ConfigProps.Add(CombatantsAttr);
+	CreateGameURLOptions(ConfigProps);
+
+	TSharedPtr< TAttributeProperty<int32> > TimeLimitAttr = StaticCastSharedPtr<TAttributeProperty<int32>>(FindGameURLOption(ConfigProps,TEXT("TimeLimit")));
+	TSharedPtr< TAttributeProperty<int32> > GoalScoreAttr = StaticCastSharedPtr<TAttributeProperty<int32>>(FindGameURLOption(ConfigProps, TEXT("GoalScore")));
+	TSharedPtr< TAttributePropertyBool > ForceRespawnAttr = StaticCastSharedPtr<TAttributePropertyBool>(FindGameURLOption(ConfigProps, TEXT("ForceRespawn")));
+	TSharedPtr< TAttributeProperty<int32> > CombatantsAttr = StaticCastSharedPtr<TAttributeProperty<int32>>(FindGameURLOption(ConfigProps, TEXT("BotFill")));
 
 	// FIXME: temp 'ReadOnly' handling by creating new widgets; ideally there would just be a 'disabled' or 'read only' state in Slate...
 	MenuSpace->AddSlot()

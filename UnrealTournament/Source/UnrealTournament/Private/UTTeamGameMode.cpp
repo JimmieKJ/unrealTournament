@@ -463,13 +463,18 @@ bool AUTTeamGameMode::CheckScore_Implementation(AUTPlayerState* Scorer)
 	}
 }
 
+void AUTTeamGameMode::CreateGameURLOptions(TArray<TSharedPtr<TAttributePropertyBase>>& MenuProps)
+{
+	Super::CreateGameURLOptions(MenuProps);
+	MenuProps.Add(MakeShareable(new TAttributePropertyBool(this, &bBalanceTeams, TEXT("BalanceTeams"))));
+}
+
 #if !UE_SERVER
 void AUTTeamGameMode::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, bool bCreateReadOnly, TArray< TSharedPtr<TAttributePropertyBase> >& ConfigProps)
 {
 	Super::CreateConfigWidgets(MenuSpace, bCreateReadOnly, ConfigProps);
 
-	TSharedPtr< TAttributePropertyBool > BalanceTeamsAttr = MakeShareable(new TAttributePropertyBool(this, &bBalanceTeams, TEXT("BalanceTeams")));
-	ConfigProps.Add(BalanceTeamsAttr);
+	TSharedPtr< TAttributePropertyBool > BalanceTeamsAttr = StaticCastSharedPtr<TAttributePropertyBool>(FindGameURLOption(ConfigProps, TEXT("BalanceTeams")));
 
 	MenuSpace->AddSlot()
 	.Padding(0.0f,0.0f,0.0f,5.0f)

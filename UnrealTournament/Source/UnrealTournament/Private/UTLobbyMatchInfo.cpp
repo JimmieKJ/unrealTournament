@@ -677,9 +677,36 @@ void AUTLobbyMatchInfo::ServerCreateCustomRule_Implementation(const FString& Gam
 		NewReplicatedRuleset->GameMode = GameMode;
 
 		FString FinalGameOptions = TEXT("");
-		for (int32 i=0; i<GameOptions.Num();i++)
+
+		AUTGameMode* CustomGameModeDefaultObject = NewReplicatedRuleset->GetDefaultGameModeObject();
+		if (CustomGameModeDefaultObject)
 		{
-			FinalGameOptions += TEXT("?") + GameOptions[i];
+			TArray< TSharedPtr<TAttributePropertyBase> > AllowedProps;
+			CustomGameModeDefaultObject->CreateGameURLOptions(AllowedProps);
+
+			for (int32 i=0; i<GameOptions.Num();i++)
+			{
+				if (!GameOptions[i].IsEmpty())
+				{
+					FString Sanitized = GameOptions[i].Replace(TEXT(" "), TEXT(""));
+					Sanitized = Sanitized.Replace(TEXT("?"),TEXT(""));
+					Sanitized = Sanitized.Replace(TEXT("?"),TEXT(""));
+					Sanitized = Sanitized.Replace(TEXT("|"),TEXT(""));
+					Sanitized = Sanitized.Replace(TEXT(";"),TEXT(""));
+					Sanitized = Sanitized.Replace(TEXT("<"),TEXT(""));
+					Sanitized = Sanitized.Replace(TEXT(">"),TEXT(""));
+					TArray<FString> Split;
+					Sanitized.ParseIntoArray(Split, TEXT("="),true);
+					if (Split.Num() == 2)
+					{
+						TSharedPtr<TAttributePropertyBase> Prop = CustomGameModeDefaultObject->FindGameURLOption(AllowedProps, Split[0]);
+						if (Prop.IsValid())
+						{
+							FinalGameOptions += TEXT("?") + Sanitized;
+						}
+					}
+				}
+			}
 		}
 
 		int32 OptimalPlayerCount = 4;
@@ -689,7 +716,7 @@ void AUTLobbyMatchInfo::ServerCreateCustomRule_Implementation(const FString& Gam
 
 		if (InitialMapInfo.IsValid())
 		{
-			OptimalPlayerCount = (NewReplicatedRuleset->GetDefaultGameModeObject() && NewReplicatedRuleset->GetDefaultGameModeObject()->bTeamGame) ? InitialMapInfo->OptimalTeamPlayerCount : InitialMapInfo->OptimalPlayerCount;
+			OptimalPlayerCount = ( CustomGameModeDefaultObject && CustomGameModeDefaultObject->bTeamGame) ? InitialMapInfo->OptimalTeamPlayerCount : InitialMapInfo->OptimalPlayerCount;
 		}
 
 		NewReplicatedRuleset->MaxPlayers = DesiredPlayerCount > 0 ? DesiredPlayerCount : OptimalPlayerCount;
