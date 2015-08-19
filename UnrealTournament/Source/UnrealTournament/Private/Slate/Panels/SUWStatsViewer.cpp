@@ -132,7 +132,7 @@ void SUWStatsViewer::ConstructPanel(FVector2D ViewportSize)
 						.Padding(10.0f, 0.0f, 10.0f, 0.0f)
 						[
 							SAssignNew(SelectedFriend, STextBlock)
-							.Text(FText::FromString(TEXT("Friends")))
+							.Text(FText::FromString(TEXT("Player to View")))
 							.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.Black")
 						]
 					]
@@ -400,7 +400,7 @@ void SUWStatsViewer::OnFriendSelected(TSharedPtr<FString> NewSelection, ESelectI
 	int32 Index = INDEX_NONE;
 	if (FriendList.Find(NewSelection, Index))
 	{
-		SelectedFriend->SetText(FText::FromString(*NewSelection));
+		//SelectedFriend->SetText(FText::FromString(*NewSelection));
 		StatsID = FriendStatIDList[Index];
 		DownloadStats();
 	}
