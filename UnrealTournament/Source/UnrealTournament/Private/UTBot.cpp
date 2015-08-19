@@ -551,18 +551,28 @@ void AUTBot::Tick(float DeltaTime)
 						bool bRemovedPoints = false;
 						for (int32 i = MoveTargetPoints.Num() - 2; i >= 0; i--)
 						{
-							if (MyBox.IsInside(MoveTargetPoints[i].Get()))
-							{
-								LastReachedMovePoint = MoveTargetPoints[i].Get();
-								MoveTargetPoints.RemoveAt(0, i + 1);
-								bRemovedPoints = true;
-								break;
-							}
 							// if path requires complex movement (jumps, etc) then require touching second to last point
 							// since the final part of the path may require more precision
-							if (i < MoveTargetPoints.Num() - 2 || CurrentPath.ReachFlags == 0)
+							if (i >= MoveTargetPoints.Num() - 2 && CurrentPath.ReachFlags != 0)
 							{
-								if (DistFromTarget < (MoveTarget.GetLocation(MyPawn) - MoveTargetPoints[i].Get()).Size() && !NavData->RaycastWithZCheck(GetNavAgentLocation(), MoveTargetPoints[i + 1].Get() - FVector(0.0f, 0.0f, Extent.Z)))
+								if (MyBox.ExpandBy(MyBox.GetSize() * FVector(-0.25f, -0.25f, 0.0f)).IsInside(MoveTargetPoints[i].Get()))
+								{
+									LastReachedMovePoint = MoveTargetPoints[i].Get();
+									MoveTargetPoints.RemoveAt(0, i + 1);
+									bRemovedPoints = true;
+									break;
+								}
+							}
+							else
+							{
+								if (MyBox.IsInside(MoveTargetPoints[i].Get()))
+								{
+									LastReachedMovePoint = MoveTargetPoints[i].Get();
+									MoveTargetPoints.RemoveAt(0, i + 1);
+									bRemovedPoints = true;
+									break;
+								}
+								else if (DistFromTarget < (MoveTarget.GetLocation(MyPawn) - MoveTargetPoints[i].Get()).Size() && !NavData->RaycastWithZCheck(GetNavAgentLocation(), MoveTargetPoints[i + 1].Get() - FVector(0.0f, 0.0f, Extent.Z)))
 								{
 									LastReachedMovePoint = MoveTargetPoints[i].Get();
 									MoveTargetPoints.RemoveAt(0, i + 1);
@@ -1657,6 +1667,30 @@ void AUTBot::NotifyMoveBlocked(const FHitResult& Impact)
 		else if (GetCharacter()->GetCharacterMovement()->MovementMode == MOVE_Falling)
 		{
 			FVector WallNormal2D = Impact.Normal.GetSafeNormal2D();
+			if (GetCurrentPath().ReachFlags & R_JUMP)
+			{
+				float GravityZ = GetCharacter()->GetCharacterMovement()->GetGravityZ();
+				if (GravityZ == 0.0f)
+				{
+					GravityZ = 1.0f;
+				}
+				const float TimeToApex = GetCharacter()->GetCharacterMovement()->Velocity.Z / GravityZ;
+				if (GetMovePoint().Z > GetPawn()->GetActorLocation().Z + GetCharacter()->GetCharacterMovement()->Velocity.Z * TimeToApex + (0.5f * GravityZ * FMath::Square<float>(TimeToApex)) && (WallNormal2D | (GetPawn()->GetActorLocation() - GetMovePoint()).GetSafeNormal2D()) > 0.5f)
+				{
+					// missed jump, hit ledge we were expecting to get over
+					FHitResult GroundHit;
+					if (GetWorld()->SweepSingleByChannel(GroundHit, GetPawn()->GetActorLocation(), GetPawn()->GetActorLocation() - FVector(0.0f, 0.0f, 500.0f), FQuat::Identity, ECC_Pawn, GetCharacter()->GetCapsuleComponent()->GetCollisionShape(-2.0f), FCollisionQueryParams(), WorldResponseParams))
+					{
+						// safety underneath us, just fall
+						// we don't clear MoveTimer here because if the ground is close enough it may be possible to start a new jump and reach the target, so it's reasonable to try again
+						SetAdjustLoc(GroundHit.Location);
+					}
+					else
+					{
+						MoveTimer = -1.0f;
+					}
+				}
+			}
 			if (UTChar != NULL && UTChar->CanDodge() && !WallNormal2D.IsNearlyZero())
 			{
 				bool bDodged = false;
@@ -2329,9 +2363,10 @@ void AUTBot::ExecuteWhatToDoNext()
 			// FALLBACK: just wander randomly
 			if (CurrentAction == NULL)
 			{
+				GoalString = TEXT("Lost, wander randomly...");
 				FRandomDestEval NodeEval;
 				float Weight = 0.0f;
-				if (NavData->FindBestPath(GetPawn(), GetPawn()->GetNavAgentPropertiesRef(), NodeEval, GetPawn()->GetNavAgentLocation(), Weight, true, RouteCache))
+				if (NavData->FindBestPath(GetPawn(), GetPawn()->GetNavAgentPropertiesRef(), NodeEval, GetPawn()->GetNavAgentLocation(), Weight, true, RouteCache) && RouteCache.Num() > 1)
 				{
 					SetMoveTarget(RouteCache[0]);
 					StartNewAction(WaitForMoveAction);
@@ -2343,6 +2378,10 @@ void AUTBot::ExecuteWhatToDoNext()
 					if (GetCharacter() == NULL || GetCharacter()->GetMovementBase() == NULL || GetCharacter()->GetMovementBase()->GetComponentVelocity().IsZero())
 					{
 						SetMoveTargetDirect(FRouteCacheItem(GetPawn()->GetActorLocation() + FMath::VRand() * FVector(500.0f, 500.0f, 0.0f)));
+					}
+					else
+					{
+						GoalString = TEXT("Wait for lift to stop moving");
 					}
 					StartNewAction(WaitForMoveAction);
 				}
