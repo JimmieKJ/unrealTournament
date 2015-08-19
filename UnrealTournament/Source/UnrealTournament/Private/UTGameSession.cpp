@@ -123,14 +123,14 @@ FString AUTGameSession::ApproveLogin(const FString& Options)
 		bool bSpectator = FCString::Stricmp(*UTGameMode->ParseOption(Options, TEXT("SpectatorOnly")), TEXT("1")) == 0;
 		if (!bSpectator && !UTGameMode->ServerPassword.IsEmpty())
 		{
-			if (Password.IsEmpty() || Password != UTGameMode->ServerPassword)
+			if (Password.IsEmpty() || !UTGameMode->ServerPassword.Equals(Password, ESearchCase::CaseSensitive))
 			{
 				return TEXT("NEEDPASS");
 			}
 		}
 		else if (bSpectator && !UTGameMode->SpectatePassword.IsEmpty())
 		{
-			if (Password.IsEmpty() || Password != UTGameMode->SpectatePassword)
+			if (Password.IsEmpty() || !UTGameMode->SpectatePassword.Equals(Password, ESearchCase::CaseSensitive))
 			{
 				return TEXT("NEEDPASS");
 			}
