@@ -351,8 +351,8 @@ void AUTLobbyMatchInfo::ServerStartMatch_Implementation()
 	{
 		if (Players.Num() < CurrentRuleset->MinPlayersToStart)
 		{
-			GetOwnerPlayerState()->ClientMatchError(NSLOCTEXT("LobbyMessage", "NotEnoughPlayers","There are not enough players in the match to start."));
-			return;
+			//GetOwnerPlayerState()->ClientMatchError(NSLOCTEXT("LobbyMessage", "NotEnoughPlayers","There are not enough players in the match to start."));
+			//return;
 		}
 
 		if (NumPlayersInMatch() > CurrentRuleset->MaxPlayers)
@@ -699,8 +699,9 @@ void AUTLobbyMatchInfo::ServerCreateCustomRule_Implementation(const FString& Gam
 					Sanitized.ParseIntoArray(Split, TEXT("="),true);
 					if (Split.Num() == 2)
 					{
-						TSharedPtr<TAttributePropertyBase> Prop = CustomGameModeDefaultObject->FindGameURLOption(AllowedProps, Split[0]);
-						if (Prop.IsValid())
+						// TODO: this doesn't handle mutators, etc
+						//TSharedPtr<TAttributePropertyBase> Prop = CustomGameModeDefaultObject->FindGameURLOption(AllowedProps, Split[0]);
+						//if (Prop.IsValid())
 						{
 							FinalGameOptions += TEXT("?") + Sanitized;
 						}
