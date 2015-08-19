@@ -57,6 +57,7 @@ namespace ETextVertPos
 const FName NAME_Custom = FName(TEXT("Custom"));
 const FName NAME_RedCountryFlag = FName(TEXT("Red.Team"));
 const FName NAME_BlueCountryFlag = FName(TEXT("Blue.Team"));
+const FName NAME_Epic = FName(TEXT("Epic"));
 
 namespace CarriedObjectState
 {

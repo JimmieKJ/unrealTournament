@@ -1875,6 +1875,16 @@ void AUTPlayerController::SwitchTeam()
 	}
 }
 
+bool AUTPlayerController::ServerSwitchTeam_Validate()
+{
+	return true;
+}
+
+void AUTPlayerController::ServerSwitchTeam_Implementation()
+{
+	SwitchTeam();
+}
+
 void AUTPlayerController::ServerRestartPlayerAltFire_Implementation()
 {
 	if (UTPlayerState != nullptr)
@@ -2796,7 +2806,6 @@ void AUTPlayerController::ReceivedPlayer()
 	Super::ReceivedPlayer();
 
 	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
-	
 	if (LP != NULL)
 	{
 		if (GetNetMode() != NM_Standalone)
@@ -2832,13 +2841,17 @@ void AUTPlayerController::ReceivedPlayer()
 			UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
 			if (UTEngine != nullptr)
 			{
+				if (CountryFlag == NAME_None)
+				{
+					// see if I am entitled to Epic flag, if so use it as default
+					CountryFlag = NAME_Epic;
+				}
 				UUTFlagInfo* Flag = UTEngine->GetFlag(CountryFlag);
 				if (Flag == nullptr || !Flag->IsEntitled(LP->CommunityRole))
 				{
 					CountryFlag = NAME_None;
 				}
 			}
-
 			ServerReceiveCountryFlag(CountryFlag);
 		}
 	}
