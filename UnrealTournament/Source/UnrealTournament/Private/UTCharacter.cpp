@@ -2680,7 +2680,7 @@ void AUTCharacter::PostNetReceive()
 			SavedWeapon->DetachFromOwner();
 		}
 	}
-	if (Weapon != NULL && !Weapon->Mesh->IsAttachedTo(CharacterCameraComponent) && Weapon->ShouldPlay1PVisuals())
+	if (Weapon != NULL && Weapon->GetUTOwner() == this && !Weapon->Mesh->IsAttachedTo(CharacterCameraComponent) && Weapon->ShouldPlay1PVisuals())
 	{
 		Weapon->AttachToOwner();
 	}
