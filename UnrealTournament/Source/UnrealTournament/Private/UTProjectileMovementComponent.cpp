@@ -254,7 +254,7 @@ void UUTProjectileMovementComponent::HandleImpact(const FHitResult& Hit, float T
 		if (UpdatedComponent != NULL)
 		{
 			float OldVelZ = Velocity.Z;
-			Velocity = (UpdatedComponent->GetComponentLocation() - OldLocation + MoveDelta * Hit.Time) / TimeSlice;
+			Velocity = ((UpdatedComponent->GetComponentLocation() - OldLocation + MoveDelta * Hit.Time) / TimeSlice).GetClampedToMaxSize2D(Velocity.Size2D());
 			Velocity.Z = OldVelZ;
 		}
 	}

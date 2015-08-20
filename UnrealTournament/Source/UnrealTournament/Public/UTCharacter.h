@@ -483,7 +483,7 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	 * (the inventory must have a pickup defined)
 	 * ExtraVelocity is in the reference frame of the character (X is forward)
 	 */
-	UFUNCTION(BlueprintCallable, Category = "Pawn")
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Pawn")
 	virtual void TossInventory(AUTInventory* InvToToss, FVector ExtraVelocity = FVector::ZeroVector);
 
 	/** discards (generally destroys) all inventory items */

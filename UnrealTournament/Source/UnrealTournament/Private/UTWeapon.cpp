@@ -283,18 +283,21 @@ void AUTWeapon::ClientGivenTo_Internal(bool bAutoActivate)
 
 void AUTWeapon::DropFrom(const FVector& StartLocation, const FVector& TossVelocity)
 {
-	if (UTOwner && bMustBeHolstered)
+	if (Role == ROLE_Authority)
 	{
-		DetachFromHolster();
-	}
+		if (UTOwner != NULL && bMustBeHolstered)
+		{
+			DetachFromHolster();
+		}
 
-	if (!HasAnyAmmo())
-	{
-		Destroy();
-	}
-	else
-	{
-		Super::DropFrom(StartLocation, TossVelocity);
+		if (!HasAnyAmmo())
+		{
+			Destroy();
+		}
+		else
+		{
+			Super::DropFrom(StartLocation, TossVelocity);
+		}
 	}
 }
 

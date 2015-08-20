@@ -2332,17 +2332,20 @@ bool AUTCharacter::IsInInventory(const AUTInventory* TestInv) const
 
 void AUTCharacter::TossInventory(AUTInventory* InvToToss, FVector ExtraVelocity)
 {
-	if (InvToToss == NULL)
+	if (Role == ROLE_Authority)
 	{
-		UE_LOG(UT, Warning, TEXT("TossInventory(): InvToToss == NULL"));
-	}
-	else if (!IsInInventory(InvToToss))
-	{
-		UE_LOG(UT, Warning, TEXT("Attempt to remove %s which is not in %s's inventory!"), *InvToToss->GetName(), *GetName());
-	}
-	else
-	{
-		InvToToss->DropFrom(GetActorLocation() + GetActorRotation().Vector() * GetSimpleCollisionCylinderExtent().X, GetVelocity() + GetActorRotation().RotateVector(ExtraVelocity + FVector(300.0f, 0.0f, 150.0f)));
+		if (InvToToss == NULL)
+		{
+			UE_LOG(UT, Warning, TEXT("TossInventory(): InvToToss == NULL"));
+		}
+		else if (!IsInInventory(InvToToss))
+		{
+			UE_LOG(UT, Warning, TEXT("Attempt to remove %s which is not in %s's inventory!"), *InvToToss->GetName(), *GetName());
+		}
+		else
+		{
+			InvToToss->DropFrom(GetActorLocation() + GetActorRotation().Vector() * GetSimpleCollisionCylinderExtent().X, GetVelocity() + GetActorRotation().RotateVector(ExtraVelocity + FVector(300.0f, 0.0f, 150.0f)));
+		}
 	}
 }
 
