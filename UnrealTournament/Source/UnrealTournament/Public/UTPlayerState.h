@@ -632,14 +632,6 @@ public:
 	UFUNCTION(server, reliable, withvalidation)
 	virtual void RegisterVote(AUTReplicatedMapInfo* VoteInfo);
 
-	/** Used to get around bIsInactive = COND_InitialOnly 
-	Setting this will move the Playerstate to the appropriate active/inactive player list*/
-	UPROPERTY(replicatedUsing = OnRep_UTIsInactive)
-	uint32 bUTIsInactive : 1;
-
-	UFUNCTION()
-	virtual void OnRep_UTIsInactive();
-
 	virtual void OnRep_bIsInactive() override;
 
 	UPROPERTY(replicatedUsing = OnRepTaunt)

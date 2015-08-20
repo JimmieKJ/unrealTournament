@@ -107,7 +107,6 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	DOREPLIFETIME(AUTPlayerState, SpectatingIDTeam);
 	DOREPLIFETIME(AUTPlayerState, bCaster);
 	DOREPLIFETIME_CONDITION(AUTPlayerState, bIsDemoRecording, COND_InitialOnly);
-	DOREPLIFETIME(AUTPlayerState, bUTIsInactive);
 	DOREPLIFETIME(AUTPlayerState, MatchHighlights);
 	DOREPLIFETIME(AUTPlayerState, MatchHighlightData);
 	DOREPLIFETIME(AUTPlayerState, EmoteReplicationInfo);
@@ -1981,12 +1980,6 @@ void AUTPlayerState::RegisterVote_Implementation(AUTReplicatedMapInfo* VoteInfo)
 
 		VoteInfo->RegisterVoter(this);
 	}
-}
-
-void AUTPlayerState::OnRep_UTIsInactive()
-{
-	bIsInactive = bUTIsInactive;
-	OnRep_bIsInactive();
 }
 
 void AUTPlayerState::OnRep_bIsInactive()
