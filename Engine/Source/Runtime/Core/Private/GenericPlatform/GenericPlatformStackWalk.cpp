@@ -28,7 +28,7 @@ bool FGenericPlatformStackWalk::ProgramCounterToHumanReadableString( int32 Curre
 
 bool FGenericPlatformStackWalk::SymbolInfoToHumanReadableString( const FProgramCounterSymbolInfo& SymbolInfo, ANSICHAR* HumanReadableString, SIZE_T HumanReadableStringSize )
 {
-	const int32 MAX_TEMP_SPRINTF = 64;
+	const int32 MAX_TEMP_SPRINTF = 512;
 	// Valid callstack line 
 	// ModuleName!FunctionName {ProgramCounter} + offset bytes [Filename:LineNumber]
 	// 
