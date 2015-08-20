@@ -465,7 +465,7 @@ void AUTCTFGameMode::PlacePlayersAroundFlagBase(int32 TeamNum)
 
 void AUTCTFGameMode::HandleEnteringHalftime()
 {
-	UTGameState->UpdateMatchHighlights();
+	//UTGameState->UpdateMatchHighlights();
 	CTFGameState->ResetFlags();
 
 	// Figure out who we should look at

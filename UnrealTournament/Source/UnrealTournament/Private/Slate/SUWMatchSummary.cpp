@@ -372,11 +372,14 @@ void SUWMatchSummary::Construct(const FArguments& InArgs)
 			SetupIntroCam();
 		}
 		//View the winning team at the end of game
-		else if(GameState->GetMatchState() == MatchState::WaitingPostMatch 
-			|| GameState->GetMatchState() == MatchState::MatchEnteringHalftime
-			|| GameState->GetMatchState() == MatchState::MatchIsAtHalftime)
+		else if(GameState->GetMatchState() == MatchState::WaitingPostMatch)
 		{
 			SetupMatchCam();
+		}
+		else if (GameState->GetMatchState() == MatchState::MatchEnteringHalftime
+			|| GameState->GetMatchState() == MatchState::MatchIsAtHalftime)
+		{
+			ViewAll();
 		}
 		else
 		{
