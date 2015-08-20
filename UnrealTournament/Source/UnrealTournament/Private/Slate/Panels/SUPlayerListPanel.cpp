@@ -71,7 +71,7 @@ struct FPlayerCompare
 		BValue += (B->TeamNum==0) ? 0 : ( B->TeamNum==1 ? 1 : 2);
 
 		//UE_LOG(UT,Log,TEXT("Sort:  %s vs %s - %i < %i???"), *A->PlayerName, *B->PlayerName, AValue, BValue);			
-		return AValue < BValue;
+		return (AValue != BValue) ? AValue < BValue : (A->PlayerName < B->PlayerName);
 	}
 };
 
