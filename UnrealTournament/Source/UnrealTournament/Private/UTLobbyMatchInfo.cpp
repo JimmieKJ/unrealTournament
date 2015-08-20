@@ -349,10 +349,16 @@ void AUTLobbyMatchInfo::ServerStartMatch_Implementation()
 {
 	if (CheckLobbyGameState() && LobbyGameState->CanLaunch())
 	{
+#if !UE_BUILD_SHIPPING
+		if (FParse::Param(FCommandLine::Get(), TEXT("NoMinPlayers")))
+		{
+			CurrentRuleset->MinPlayersToStart = 1;
+		}
+#endif
 		if (Players.Num() < CurrentRuleset->MinPlayersToStart)
 		{
-			//GetOwnerPlayerState()->ClientMatchError(NSLOCTEXT("LobbyMessage", "NotEnoughPlayers","There are not enough players in the match to start."));
-			//return;
+			GetOwnerPlayerState()->ClientMatchError(NSLOCTEXT("LobbyMessage", "NotEnoughPlayers","There are not enough players in the match to start."));
+			return;
 		}
 
 		if (NumPlayersInMatch() > CurrentRuleset->MaxPlayers)
