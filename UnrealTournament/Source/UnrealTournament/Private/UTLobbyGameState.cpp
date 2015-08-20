@@ -929,35 +929,62 @@ void AUTLobbyGameState::HandleQuickplayRequest(AUTServerBeaconClient* Beacon, co
 {
 	// Look through all available matches and see if there is 
 
+	int32 BestInstanceIndex = -1;
+
+	UE_LOG(UT,Verbose,TEXT("===================================================="));
+	UE_LOG(UT,Verbose,TEXT("HandleQuickplayRequest: %s %i"), *MatchType, ELORank);
+	UE_LOG(UT,Verbose,TEXT("===================================================="));
+
 	for(int32 i=0; i < GameInstances.Num(); i++)
 	{
-
 		UE_LOG(UT,Verbose,TEXT("Checking Instance for joinability: %i %i %i vs %i [%s]"), GameInstances[i].MatchInfo->bQuickPlayMatch, GameInstances[i].MatchInfo->IsMatchofType(MatchType), GameInstances[i].MatchInfo->AverageRank, ELORank, ( GameInstances[i].MatchInfo->CurrentState == ELobbyMatchState::InProgress ? TEXT("InProgress") : TEXT("Not in Progress")));
 
-		if (GameInstances[i].MatchInfo && GameInstances[i].MatchInfo->bQuickPlayMatch && 
-				GameInstances[i].MatchInfo->IsMatchofType(MatchType) && 
+		if (GameInstances[i].MatchInfo && GameInstances[i].MatchInfo->IsMatchofType(MatchType) && 
 				(GameInstances[i].MatchInfo->CurrentState == ELobbyMatchState::Launching || GameInstances[i].MatchInfo->CurrentState == ELobbyMatchState::InProgress))
 		{
 			// We have found a potential quick play match.  See if this player could be added to it.
 			if (GameInstances[i].MatchInfo->CanAddPlayer(ELORank, true))
 			{
-				if (GameInstances[i].MatchInfo->CurrentState == ELobbyMatchState::Launching)
+				// If we have already found a possibly good match, look to see if this one is better.
+
+				if (BestInstanceIndex >= 0)
 				{
-					// We have to defer until it's done launching.
-					Beacon->ClientWaitForQuickplay(0);
-					GameInstances[i].MatchInfo->NotifyBeacons.Add(Beacon);
+					if ( (GameInstances[i].MatchInfo->CurrentState == ELobbyMatchState::InProgress && GameInstances[BestInstanceIndex].MatchInfo->CurrentState == ELobbyMatchState::Launching) ||
+						 (GameInstances[i].MatchInfo->NumPlayersInMatch() > GameInstances[BestInstanceIndex].MatchInfo->NumPlayersInMatch() ) )
+					{
+						UE_LOG(UT,Log,TEXT("Assigning new Best Instance"));
+						BestInstanceIndex = i;
+					}
+				
 				}
 				else
 				{
-					// We can add the player to this match so do so.
-					Beacon->ClientJoinQuickplay(GameInstances[i].MatchInfo->GameInstanceGUID);
+					UE_LOG(UT,Log,TEXT("Assigning new Best Instance"));
+					BestInstanceIndex = i;
 				}
-
-				return;			
 			}
 		}
-	}
 
+		UE_LOG(UT,Verbose,TEXT("----------> BEST INSTANCE = %i"), BestInstanceIndex);
+
+		// If we have found an instance to join, join it....
+		if ( BestInstanceIndex >= 0 && BestInstanceIndex <= GameInstances.Num() )
+		{
+			if (GameInstances[i].MatchInfo->CurrentState == ELobbyMatchState::Launching)
+			{
+				// We have to defer until it's done launching.
+				Beacon->ClientWaitForQuickplay(0);
+				GameInstances[i].MatchInfo->NotifyBeacons.Add(Beacon);
+			}
+			else
+			{
+				// We can add the player to this match so do so.
+				Beacon->ClientJoinQuickplay(GameInstances[i].MatchInfo->GameInstanceGUID);
+			}
+
+			return;			
+		}
+	}
 
 	// We didn't have an existing instance to place this player in so see if we have room to add them.
 
