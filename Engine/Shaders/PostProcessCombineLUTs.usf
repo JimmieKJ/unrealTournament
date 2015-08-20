@@ -169,7 +169,8 @@ void MainPS(float4 InUV : TEXCOORD0, out float4 OutColor : SV_Target0)
 	{ 
 		float2 UV = InUV.xy;
 
-		UV -= float2(0.5f / (LUTSize * LUTSize), 0.5f / LUTSize);
+		// 0.49999f instead of 0.5f to avoid getting into negative values
+		UV -= float2(0.49999f / (LUTSize * LUTSize), 0.49999f / LUTSize);
 
 		float Scale = LUTSize / (LUTSize - 1);
 
