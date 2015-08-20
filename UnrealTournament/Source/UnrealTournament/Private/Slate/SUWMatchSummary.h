@@ -22,11 +22,7 @@ struct FMatchCamera
 {
 public:
 	FMatchCamera() : Time(0.0f), VInterpSpeed(5.0f), RInterpSpeed(5.0f), CamFlags(0){}
-	float Time;
-	FTransform CameraTransform;
-	float VInterpSpeed;
-	float RInterpSpeed;
-	uint32 CamFlags;
+	virtual ~FMatchCamera() {};
 
 	/**Called when the cam is first viewed*/
 	virtual void InitCam(class SUWMatchSummary* MatchWidget) {}
@@ -38,6 +34,12 @@ public:
 		InOutCamera.SetRotation(FMath::RInterpTo(InOutCamera.Rotator(), CameraTransform.Rotator(), DeltaTime, RInterpSpeed).Quaternion());
 		return ElapsedTime > Time && Time != 0.0f;
 	}
+
+	float Time;
+	FTransform CameraTransform;
+	float VInterpSpeed;
+	float RInterpSpeed;
+	uint32 CamFlags;
 };
 
 struct FTeamCamera : FMatchCamera

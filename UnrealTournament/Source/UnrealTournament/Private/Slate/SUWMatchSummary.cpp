@@ -659,7 +659,10 @@ void SUWMatchSummary::Tick(const FGeometry& AllottedGeometry, const double InCur
 	if (!bPlayersAreValid)
 	{
 		RecreateAllPlayers();
-		ViewAll();
+		if (HasCamFlag(CF_All))
+		{
+			ViewAll();
+		}
 	}
 	if (PlayerPreviewWorld != nullptr)
 	{
@@ -1334,10 +1337,8 @@ void SUWMatchSummary::ViewTeam(int32 NewTeam)
 		FTeamCameraPan(int32 InTeamNum) : FTeamCamera(InTeamNum) {}
 		virtual bool TickCamera(class SUWMatchSummary* MatchWidget, float ElapsedTime, float DeltaTime, FTransform& InOutCamera) override
 		{
-			FTransform CameraTransform;
 			CameraTransform.Blend(CamStart, CamEnd, FMath::Clamp(MatchWidget->TeamCamAlpha, 0.0f, 1.0f));
-			InOutCamera.SetLocation(FMath::VInterpTo(InOutCamera.GetLocation(), CameraTransform.GetLocation(), DeltaTime, VInterpSpeed));
-			InOutCamera.SetRotation(FMath::RInterpTo(InOutCamera.Rotator(), CameraTransform.Rotator(), DeltaTime, RInterpSpeed).Quaternion());
+			FMatchCamera::TickCamera(MatchWidget, ElapsedTime, DeltaTime, InOutCamera);
 			return false;
 		}
 	};
