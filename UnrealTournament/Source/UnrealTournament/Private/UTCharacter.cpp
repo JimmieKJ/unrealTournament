@@ -504,9 +504,11 @@ static TAutoConsoleVariable<int32> CVarDebugHeadshots(
 FVector AUTCharacter::GetHeadLocation(float PredictionTime)
 {
 	// force mesh update if necessary
-	if (!GetMesh()->ShouldTickPose())
+	if (GetMesh()->IsRegistered() && !GetMesh()->ShouldTickPose())
 	{
-		GetMesh()->TickAnimation(0.0f);
+		GetMesh()->TickAnimation(1.0f); // important to have significant time here so any transitions complete
+		GetMesh()->AnimUpdateRateParams->bSkipEvaluation = false;
+		GetMesh()->AnimUpdateRateParams->bInterpolateSkippedFrames = false;
 		GetMesh()->RefreshBoneTransforms();
 		GetMesh()->UpdateComponentToWorld();
 	}
