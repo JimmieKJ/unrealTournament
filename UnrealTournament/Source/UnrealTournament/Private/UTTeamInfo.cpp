@@ -112,9 +112,6 @@ void AUTTeamInfo::AddToTeam(AController* C)
 			}
 			// allocate team specific spectating ID
 			TArray<AController*> MembersCopy = TeamMembers;
-
-			MembersCopy.Remove(NULL);
-
 			MembersCopy.Sort([](const AController& A, const AController& B) -> bool
 			{
 				if (Cast<AUTPlayerState>(A.PlayerState) == NULL)
