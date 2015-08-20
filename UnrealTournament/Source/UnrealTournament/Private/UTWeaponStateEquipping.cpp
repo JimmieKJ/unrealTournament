@@ -6,6 +6,22 @@
 #include "UTWeaponStateUnequipping.h"
 #include "ComponentRecreateRenderStateContext.h"
 
+static float GetAnimLengthForScaling(UAnimMontage* WeaponAnim, UAnimMontage* HandsAnim)
+{
+	if (HandsAnim != NULL)
+	{
+		return HandsAnim->SequenceLength / HandsAnim->RateScale;
+	}
+	else if (WeaponAnim != NULL)
+	{
+		return WeaponAnim->SequenceLength / WeaponAnim->RateScale;
+	}
+	else
+	{
+		return 0.0f;
+	}
+}
+
 void UUTWeaponStateUnequipping::BeginState(const UUTWeaponState* PrevState)
 {
 	const UUTWeaponStateEquipping* PrevEquip = Cast<UUTWeaponStateEquipping>(PrevState);
@@ -20,7 +36,7 @@ void UUTWeaponStateUnequipping::BeginState(const UUTWeaponState* PrevState)
 	else
 	{
 		GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(PutDownFinishedHandle, this, &UUTWeaponStateUnequipping::PutDownFinished, UnequipTime);
-		GetOuterAUTWeapon()->PlayWeaponAnim(GetOuterAUTWeapon()->PutDownAnim, GetOuterAUTWeapon()->PutDownAnimHands, GetOuterAUTWeapon()->PutDownAnim->SequenceLength / UnequipTime);
+		GetOuterAUTWeapon()->PlayWeaponAnim(GetOuterAUTWeapon()->PutDownAnim, GetOuterAUTWeapon()->PutDownAnimHands, GetAnimLengthForScaling(GetOuterAUTWeapon()->PutDownAnim, GetOuterAUTWeapon()->PutDownAnimHands) / UnequipTime);
 	}
 }
 
@@ -61,7 +77,7 @@ void UUTWeaponStateEquipping::StartEquip(float OverflowTime)
 	else
 	{
 		GetOuterAUTWeapon()->GetWorldTimerManager().SetTimer(BringUpFinishedHandle, this, &UUTWeaponStateEquipping::BringUpFinished, EquipTime);
-		GetOuterAUTWeapon()->PlayWeaponAnim(GetOuterAUTWeapon()->BringUpAnim, GetOuterAUTWeapon()->BringUpAnimHands, GetOuterAUTWeapon()->BringUpAnim->SequenceLength / EquipTime);
+		GetOuterAUTWeapon()->PlayWeaponAnim(GetOuterAUTWeapon()->BringUpAnim, GetOuterAUTWeapon()->BringUpAnimHands, GetAnimLengthForScaling(GetOuterAUTWeapon()->BringUpAnim, GetOuterAUTWeapon()->BringUpAnimHands) / EquipTime);
 		if (GetOuterAUTWeapon()->GetNetMode() != NM_DedicatedServer)
 		{
 			// now that the anim is playing, force update first person meshes
