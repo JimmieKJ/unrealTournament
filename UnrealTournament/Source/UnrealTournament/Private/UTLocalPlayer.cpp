@@ -1372,6 +1372,26 @@ void UUTLocalPlayer::UpdateBaseELOFromCloudData()
 		CTF_ELO = StartingELO;
 	}
 
+	// 3000 should be fairly difficult to achieve
+	// Have some possible bugged profiles with overlarge ELOs
+	const int32 MaximumELO = 3000;
+	if (DUEL_ELO > MaximumELO)
+	{
+		DUEL_ELO = MaximumELO;
+	}
+	if (TDM_ELO > MaximumELO)
+	{
+		TDM_ELO = MaximumELO;
+	}
+	if (FFA_ELO > MaximumELO)
+	{
+		FFA_ELO = MaximumELO;
+	}
+	if (CTF_ELO > MaximumELO)
+	{
+		CTF_ELO = MaximumELO;
+	}
+
 	if (MatchesPlayed <= 0)		MatchesPlayed = 0;
 	if (DuelMatchesPlayed <= 0) DuelMatchesPlayed = 0;
 	if (TDMMatchesPlayed <= 0)	TDMMatchesPlayed = 0;
