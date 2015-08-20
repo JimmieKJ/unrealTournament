@@ -107,7 +107,10 @@ void AUTReplicatedGameRuleset::SetRules(UUTGameRuleset* NewRules, const TArray<F
 		FString MapPackageName = NewRules->CustomMapList[i];
 		if ( FPackageName::IsShortPackageName(MapPackageName) )
 		{
-			FPackageName::SearchForPackageOnDisk(MapPackageName, &MapPackageName); 
+			if (!FPackageName::SearchForPackageOnDisk(MapPackageName, &MapPackageName))
+			{
+				UE_LOG(UT,Log,TEXT("Failed to find package for shortname '%s'"), *MapPackageName);
+			}
 		}
 
 		// Look for the map in the asset registry...
