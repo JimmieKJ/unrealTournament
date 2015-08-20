@@ -5,24 +5,80 @@
 #include "SUWDialog.h"
 #include "UTFlagInfo.h"
 
-enum EViewMode
+enum ECamFlags
 {
-	VM_Team,
-	VM_Player,
-	VM_All,
+	CF_CanInteract = 0x0001,
+	CF_ShowScoreboard = 0x0002,
+	CF_ShowPlayerNames = 0x0004,
+	CF_ShowInfoWidget = 0x0008,
+	CF_ShowSwitcher = 0x0010,
+	CF_Intro = 0x0020,
+	CF_Team = 0x0040,
+	CF_Player = 0x0080,
+	CF_All = 0x0100,
 };
 
-enum ECameraState
+struct FMatchCamera
 {
-	CS_FreeCam,
-	CS_CamIntro,
-	CS_CamAuto,
+public:
+	FMatchCamera() : Time(0.0f), VInterpSpeed(5.0f), RInterpSpeed(5.0f), CamFlags(0){}
+	float Time;
+	FTransform CameraTransform;
+	float VInterpSpeed;
+	float RInterpSpeed;
+	uint32 CamFlags;
+
+	/**Called when the cam is first viewed*/
+	virtual void InitCam(class SUWMatchSummary* MatchWidget) {}
+
+	/**Return true if finished. 0 time plays forever*/
+	virtual bool TickCamera(class SUWMatchSummary* MatchWidget, float ElapsedTime, float DeltaTime, FTransform& InOutCamera)
+	{
+		InOutCamera.SetLocation(FMath::VInterpTo(InOutCamera.GetLocation(), CameraTransform.GetLocation(), DeltaTime, VInterpSpeed));
+		InOutCamera.SetRotation(FMath::RInterpTo(InOutCamera.Rotator(), CameraTransform.Rotator(), DeltaTime, RInterpSpeed).Quaternion());
+		return ElapsedTime > Time && Time != 0.0f;
+	}
+};
+
+struct FTeamCamera : FMatchCamera
+{
+public:
+	FTeamCamera(int32 InTeamNum) : TeamNum(InTeamNum) {}
+
+	virtual void InitCam(class SUWMatchSummary* MatchWidget) override;
+	virtual bool TickCamera(class SUWMatchSummary* MatchWidget, float ElapsedTime, float DeltaTime, FTransform& InOutCamera)
+	{
+		CameraTransform.Blend(CamStart, CamEnd, FMath::Clamp(ElapsedTime / Time, 0.0f, 1.0f));
+		return FMatchCamera::TickCamera(MatchWidget, ElapsedTime, DeltaTime, InOutCamera);
+	}
+
+	int32 TeamNum;
+	FTransform CamStart;
+	FTransform CamEnd;
+};
+
+struct FCharacterCamera : FMatchCamera
+{
+public:
+	FCharacterCamera(TWeakObjectPtr<class AUTCharacter> InChar) : Character(InChar) {}
+	virtual void InitCam(class SUWMatchSummary* MatchWidget) override;
+
+	TWeakObjectPtr<class AUTCharacter> Character;
+};
+
+struct FAllCamera : FMatchCamera
+{
+public:
+	virtual void InitCam(class SUWMatchSummary* MatchWidget) override;
 };
 
 #if !UE_SERVER
 class UNREALTOURNAMENT_API SUWMatchSummary : public SCompoundWidget, public FGCObject
 {
 public:
+	friend struct FTeamCamera;
+	friend struct FCharacterCamera;
+	friend struct FAllCamera;
 
 	SLATE_BEGIN_ARGS(SUWMatchSummary)
 	: _DialogSize(FVector2D(1000,900))
@@ -89,30 +145,31 @@ protected:
 
 	int32 OldSSRQuality;
 
-	virtual void SetViewMode(EViewMode NewViewMode);
 	virtual void ViewCharacter(AUTCharacter* NewChar);
 	virtual void ViewTeam(int32 NewTeam);
 	virtual void ViewAll();
 
+	/**Shows the team and hides the rest*/
+	virtual void ShowTeam(int32 TeamNum);
+	/**Shows a character and hides the rest*/
+	virtual void ShowCharacter(AUTCharacter* UTC);
+	/**Unhides all character and weapons*/
+	virtual void ShowAllCharacters();
+
 	// Camera offset when viewing all players
 	virtual float GetAllCameraOffset();
 	
-	EViewMode ViewMode;
 	FVector2D MousePos;
 	int32 ViewedTeamNum;
 	TWeakObjectPtr<class AUTCharacter> HighlightedChar;
 	TWeakObjectPtr<class AUTCharacter> ViewedChar;
 
-	ECameraState CameraState;
 	FTransform CameraTransform;
-	FTransform DesiredCameraTransform;
 	FTransform TeamStartCamera;
 	FTransform TeamEndCamera;
 	float TeamCamAlpha;
 	bool bAutoScrollTeam;
 	float AutoScrollTeamDirection;
-
-	double IntroTime;
 
 	virtual FReply OnSwitcherNext();
 	virtual FReply OnSwitcherPrevious();
@@ -146,14 +203,10 @@ protected:
 	virtual AUTCharacter* RecreatePlayerPreview(AUTPlayerState* NewPS, FVector Location, FRotator Rotation);
 	virtual void RecreateAllPlayers();
 	virtual void UpdatePlayerRender(UCanvas* C, int32 Width, int32 Height);
-	virtual void UpdateIntroCam();
-	virtual void UpdateAutoCam();
 	virtual class AUTCharacter* FindCharacter(class AUTPlayerState* PS);
 
 	class UUTScoreboard* GetScoreboard();
-	virtual bool ShouldShowScoreboard();
-	virtual bool CanClickScoreboard();
-
+	
 	virtual void AddReferencedObjects(FReferenceCollector& Collector) override;
 
 	virtual FReply OnClose();
@@ -166,6 +219,25 @@ protected:
 	FText GetFunnyText();
 	virtual void BuildFriendPanel();
 	virtual FReply OnSendFriendRequest();
+
+	TArray<TSharedPtr<FMatchCamera> > CameraShots;
+	float ShotStartTime;
+	int32 CurrentShot;
+	virtual void SetCamShot(int32 ShotIndex);
+	virtual TSharedPtr<FMatchCamera> GetCurrentShot() const
+	{
+		if (CameraShots.IsValidIndex(CurrentShot))
+		{
+			return CameraShots[CurrentShot];
+		}
+		return nullptr;
+	}
+	virtual bool HasCamFlag(ECamFlags CamFlag) const;
+
+	virtual void GetTeamCamTransforms(int32 TeamNum, FTransform& Start, FTransform& End);
+
+	virtual void SetupIntroCam();
+	virtual void SetupMatchCam();
 
 private:
 	TWeakObjectPtr<class UUTLocalPlayer> PlayerOwner;
