@@ -260,6 +260,8 @@ void AUTPickupInventory::InventoryTypeUpdated_Implementation()
 			GhostMesh = DuplicateObject<UMeshComponent>(Mesh, this);
 			GhostMesh->AttachParent = NULL;
 			GhostMesh->AttachChildren.Empty();
+			GhostMesh->bRenderCustomDepth = false;
+			GhostMesh->bRenderInMainPass = true;
 			GhostMesh->CastShadow = false;
 			for (int32 i = 0; i < GhostMesh->GetNumMaterials(); i++)
 			{
