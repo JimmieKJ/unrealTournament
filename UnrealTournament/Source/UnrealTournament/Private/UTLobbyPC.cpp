@@ -152,3 +152,57 @@ void AUTLobbyPC::HandleNetworkFailureMessage(enum ENetworkFailure::Type FailureT
 	// If we are in a match and we get a network failure, leave that match.
 	UTLobbyPlayerState->ServerDestroyOrLeaveMatch();	
 }
+
+void AUTLobbyPC::Say(FString Message)
+{
+	if ( Message.Equals(TEXT("@match"),ESearchCase::IgnoreCase) )
+	{
+		if (UTLobbyPlayerState->CurrentMatch)
+		{
+			UE_LOG(UT,Log,TEXT("======================================="));
+			UE_LOG(UT,Log,TEXT("Current Match [%s]"), *UTLobbyPlayerState->CurrentMatch->CurrentState.ToString());
+			UE_LOG(UT,Log,TEXT("======================================="));
+			if (UTLobbyPlayerState->CurrentMatch->CurrentRuleset.IsValid())
+			{
+				UE_LOG(UT,Log,TEXT("--- Ruleset [%s]"), *UTLobbyPlayerState->CurrentMatch->CurrentRuleset->Title);
+			}
+			else
+			{
+				UE_LOG(UT,Log,TEXT("--- Ruleset is invalid"));
+			}
+
+			for (int32 i=0; i < UTLobbyPlayerState->CurrentMatch->Players.Num();i++)
+			{
+				if (UTLobbyPlayerState->CurrentMatch->Players[i].IsValid())
+				{
+					UE_LOG(UT,Log,TEXT("--- Player %i = %s (%i)"), i, *UTLobbyPlayerState->CurrentMatch->Players[i]->PlayerName , UTLobbyPlayerState->CurrentMatch->Players[i]->AverageRank);
+				}
+			}
+
+		}
+		return;
+	}
+	if (Message.Equals(TEXT("@maps"),ESearchCase::IgnoreCase) )
+	{
+		UE_LOG(UT,Log,TEXT("======================================="));
+		UE_LOG(UT,Log,TEXT("Maps on Server"));
+		UE_LOG(UT,Log,TEXT("======================================="));
+
+		AUTLobbyGameState* GameState = GetWorld()->GetGameState<AUTLobbyGameState>();
+		if (GameState)
+		{
+			for (int32 i = 0; i < GameState->AllMapsOnServer.Num(); i++)
+			{
+				FString Title = GameState->AllMapsOnServer[i]->Title;  if (Title.IsEmpty()) Title = TEXT("none");
+				FString Package = GameState->AllMapsOnServer[i]->Redirect.PackageName; if (Package.IsEmpty()) Package = TEXT("none");
+				FString Url = GameState->AllMapsOnServer[i]->Redirect.PackageURL; if (Url.IsEmpty()) Url = TEXT("none");
+				FString MD5 = GameState->AllMapsOnServer[i]->Redirect.PackageChecksum; if (MD5.IsEmpty()) MD5 = TEXT("none");
+				UE_LOG(UT,Log,TEXT("  Map Title: %s  Redirect: %s / %s / %s"), *Title, *Package, *Url,*MD5);
+			}
+		}
+		return;
+	}
+
+	Super::Say(Message);
+
+}
