@@ -553,6 +553,29 @@ bool UUTGameEngine::CheckVersionOfPakFile(const FString& PakFilename) const
 	return bValidPak;
 }
 
+void UUTGameEngine::AddAssetRegistry(const FString& PakFilename)
+{
+	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
+
+	int32 DashPosition = PakFilename.Find(TEXT("-"), ESearchCase::CaseSensitive, ESearchDir::FromEnd);
+	if (DashPosition != -1)
+	{
+		FString DashlessPakFilename = PakFilename.Left(DashPosition);
+		FString AssetRegistryName = DashlessPakFilename + TEXT("-AssetRegistry.bin");
+		FArrayReader SerializedAssetData;
+		if (FFileHelper::LoadFileToArray(SerializedAssetData, *(FPaths::GameDir() / AssetRegistryName)))
+		{
+			// serialize the data with the memory reader (will convert FStrings to FNames, etc)
+			AssetRegistryModule.Get().Serialize(SerializedAssetData);
+			UE_LOG(UT, Log, TEXT("%s merged into the asset registry"), *AssetRegistryName);
+		}
+		else
+		{
+			UE_LOG(UT, Warning, TEXT("%s could not be found"), *AssetRegistryName);
+		}
+	}
+}
+
 void UUTGameEngine::IndexExpansionContent()
 {
 	// Plugin manager should handle this instead of us, but we're not using plugin-based dlc just yet
@@ -579,9 +602,7 @@ void UUTGameEngine::IndexExpansionContent()
 				return true;
 			}
 		};
-
-		FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
-
+		
 		// Search for pak files that were downloaded through redirects
 		TArray<FString>	FoundPaks;
 		FPakFileSearchVisitor PakVisitor(FoundPaks);
@@ -604,17 +625,7 @@ void UUTGameEngine::IndexExpansionContent()
 					DownloadedContentChecksums.Add(PakFilename, MD5);
 				}
 
-				FString AssetRegistryName = PakFilename + TEXT("-AssetRegistry.bin");
-				FArrayReader SerializedAssetData;
-				if (FFileHelper::LoadFileToArray(SerializedAssetData, *(FPaths::GameDir() / AssetRegistryName)))
-				{
-					// serialize the data with the memory reader (will convert FStrings to FNames, etc)
-					AssetRegistryModule.Get().Serialize(SerializedAssetData);
-				}
-				else
-				{
-					UE_LOG(UT, Warning, TEXT("%s could not be found"), *AssetRegistryName);
-				}
+				AddAssetRegistry(PakFilename);
 			}
 			else
 			{
@@ -645,17 +656,7 @@ void UUTGameEngine::IndexExpansionContent()
 					LocalContentChecksums.Add(PakFilename, MD5);
 				}
 
-				FString AssetRegistryName = PakFilename + TEXT("-AssetRegistry.bin");
-				FArrayReader SerializedAssetData;
-				if (FFileHelper::LoadFileToArray(SerializedAssetData, *(FPaths::GameDir() / AssetRegistryName)))
-				{
-					// serialize the data with the memory reader (will convert FStrings to FNames, etc)
-					AssetRegistryModule.Get().Serialize(SerializedAssetData);
-				}
-				else
-				{
-					UE_LOG(UT, Warning, TEXT("%s could not be found"), *AssetRegistryName);
-				}
+				AddAssetRegistry(PakFilename);
 			}
 			else
 			{
@@ -688,17 +689,7 @@ void UUTGameEngine::IndexExpansionContent()
 
 			if (bValidPak)
 			{
-				FString AssetRegistryName = PakFilename + TEXT("-AssetRegistry.bin");
-				FArrayReader SerializedAssetData;
-				if (FFileHelper::LoadFileToArray(SerializedAssetData, *(FPaths::GameDir() / AssetRegistryName)))
-				{
-					// serialize the data with the memory reader (will convert FStrings to FNames, etc)
-					AssetRegistryModule.Get().Serialize(SerializedAssetData);
-				}
-				else
-				{
-					UE_LOG(UT, Warning, TEXT("%s could not be found"), *AssetRegistryName);
-				}
+				AddAssetRegistry(PakFilename);
 			}
 			else
 			{
