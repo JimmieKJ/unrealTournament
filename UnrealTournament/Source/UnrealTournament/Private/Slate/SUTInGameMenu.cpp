@@ -198,7 +198,7 @@ FReply SUTInGameMenu::OnReturnToLobby(TSharedPtr<SComboButton> MenuButton)
 		{
 			WriteQuitMidGameAnalytics();
 			PlayerOwner->CloseMapVote();
-			PC->ConnectToServerViaGUID(GameState->HubGuid.ToString(), false, true);
+			PC->ConnectToServerViaGUID(GameState->HubGuid.ToString(),-1, false, false);
 		}
 	}
 
