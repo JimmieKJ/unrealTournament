@@ -54,7 +54,11 @@ TSharedRef<FSlateStyleSet> SUTStyle::Create()
 	StyleRef->SetContentRoot(FPaths::GameContentDir() / TEXT("RestrictedAssets/Slate"));
 	StyleRef->SetCoreContentRoot(FPaths::EngineContentDir() / TEXT("Slate"));
 
+
 	FSlateStyleSet& Style = StyleRef.Get();
+
+	ButtonHoverSound = FSlateSound::FromName_DEPRECATED(FName("SoundCue'/Game/RestrictedAssets/UI/UT99UI_LittleSelect_Cue.UT99UI_LittleSelect_Cue'"));
+	ButtonPressSound = FSlateSound::FromName_DEPRECATED(FName("SoundCue'/Game/RestrictedAssets/UI/UT99UI_BigSelect_Cue.UT99UI_BigSelect_Cue'"));
 
 	SetFonts(StyleRef);
 	SetCommonStyle(StyleRef);
