@@ -85,8 +85,7 @@ void AUTHUD_Showdown::UpdateMinimapTexture(UCanvas* C, int32 Width, int32 Height
 
 void AUTHUD_Showdown::DrawHUD()
 {
-	Super::DrawHUD();
-
+	Canvas->DrawColor = FColor::White;
 	AUTShowdownGameState* GS = GetWorld()->GetGameState<AUTShowdownGameState>();
 	if (GS != NULL && GS->GetMatchState() == MatchState::MatchIntermission && (GS->SpawnSelector != NULL || GS->bFinalIntermissionDelay))
 	{
@@ -170,7 +169,7 @@ void AUTHUD_Showdown::DrawHUD()
 		{
 			for (int32 i = 0; i < 2; i++)
 			{
-				float YPos = Canvas->ClipY * 0.1f;
+				float YPos = Canvas->ClipY * 0.05f;
 				for (APlayerState* PS : GS->PlayerArray)
 				{
 					AUTPlayerState* UTPS = Cast<AUTPlayerState>(PS);
@@ -216,6 +215,8 @@ void AUTHUD_Showdown::DrawHUD()
 			}
 		}
 	}
+
+	Super::DrawHUD();
 }
 
 EInputMode::Type AUTHUD_Showdown::GetInputMode_Implementation()
