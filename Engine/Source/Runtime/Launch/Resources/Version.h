@@ -6,12 +6,12 @@
 #define ENGINE_MINOR_VERSION	8
 #define ENGINE_PATCH_VERSION	0
 
-#define ENGINE_VERSION 2564697
+#define ENGINE_VERSION 2564698
 
 #define ENGINE_IS_LICENSEE_VERSION 0
 
-#define BUILT_FROM_CHANGELIST 2564697
-#define BRANCH_NAME "++depot+UE4-Releases+4.8"
+#define BUILT_FROM_CHANGELIST 2564698
+#define BRANCH_NAME "++depot+UE4-UT"
 
 #define EPIC_COMPANY_NAME  "Epic Games, Inc."
 #define EPIC_COPYRIGHT_STRING "Copyright 1998-2015 Epic Games, Inc. All Rights Reserved."
