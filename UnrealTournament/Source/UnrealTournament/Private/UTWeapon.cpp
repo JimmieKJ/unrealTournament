@@ -1472,7 +1472,12 @@ AUTProjectile* AUTWeapon::SpawnNetPredictedProjectile(TSubclassOf<AUTProjectile>
 			if ((CatchupTickDelta > 0.f) && NewProjectile->ProjectileMovement)
 			{
 				// server ticks projectile to match with when client actually fired
-				NewProjectile->ProjectileMovement->TickComponent(CatchupTickDelta, LEVELTICK_All, NULL);
+				// TODO: account for CustomTimeDilation?
+				if (NewProjectile->PrimaryActorTick.IsTickFunctionEnabled())
+				{
+					NewProjectile->TickActor(CatchupTickDelta * NewProjectile->CustomTimeDilation, LEVELTICK_All, NewProjectile->PrimaryActorTick);
+				}
+				NewProjectile->ProjectileMovement->TickComponent(CatchupTickDelta * NewProjectile->CustomTimeDilation, LEVELTICK_All, NULL);
 				NewProjectile->SetForwardTicked(true);
 				if (NewProjectile->GetLifeSpan() > 0.f)
 				{
