@@ -1820,9 +1820,8 @@ void AUTWeapon::UpdateCrosshairTarget(AUTPlayerState* NewCrosshairTarget, UUTHUD
 			float Alpha = (TimeSinceSeen < MAXNAMEFULLALPHA) ? 1.f : (1.f - ((TimeSinceSeen - MAXNAMEFULLALPHA) / (MAXNAMEDRAWTIME - MAXNAMEFULLALPHA)));
 
 			float H = WeaponHudWidget->UTHUDOwner->DefaultCrosshairTex->GetSurfaceHeight();
-			UFont* Font = WeaponHudWidget->UTHUDOwner->MediumFont;
 			FText PlayerName = FText::FromString(TargetPlayerState->PlayerName);
-			WeaponHudWidget->DrawText(PlayerName, 0, H * 2, Font, false, FVector2D(0,0), FLinearColor::Black, true, FLinearColor::Black,1.0, Alpha, FLinearColor::Red, ETextHorzPos::Center);
+			WeaponHudWidget->DrawText(PlayerName, 0.f, H * 2.f, WeaponHudWidget->UTHUDOwner->SmallFont, false, FVector2D(0.f, 0.f), FLinearColor::Black, true, FLinearColor::Black, 1.0f, Alpha, FLinearColor::Red, ETextHorzPos::Center);
 		}
 		else
 		{
