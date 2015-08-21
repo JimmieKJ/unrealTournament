@@ -61,6 +61,8 @@ AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer
 	PrevXP = -1;
 
 	EmoteSpeed = 1.0f;
+	
+	BotELOLimit = 1575;
 }
 
 void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
@@ -1225,6 +1227,12 @@ void AUTPlayerState::UpdateTeamSkillRating(FName SkillStatName, bool bWonMatch, 
 		AUTPlayerState* Opponent = Cast<AUTPlayerState>((*ActivePlayerStates)[OuterPlayerIdx]);
 		if (Opponent->Team != Team && !Opponent->bOnlySpectator)
 		{
+			if (SkillRating > BotELOLimit && Opponent->bIsABot)
+			{
+				UE_LOG(LogGameStats, Verbose, TEXT("UpdateTeamSkillRating skipping bot consideration as player has over %d ELO"), BotELOLimit);
+				continue;
+			}
+
 			OpponentCount++;
 			int32 OpponentSkillRating = Opponent->GetSkillRating(SkillStatName);
 			ExpectedWinPercentage += 1.0f / (1.0f + pow(10.0f, (float(OpponentSkillRating - SkillRating) / 400.0f)));
@@ -1235,6 +1243,12 @@ void AUTPlayerState::UpdateTeamSkillRating(FName SkillStatName, bool bWonMatch, 
 		AUTPlayerState* Opponent = Cast<AUTPlayerState>((*InactivePlayerStates)[OuterPlayerIdx]);
 		if (Opponent && Opponent->Team != Team && !Opponent->bOnlySpectator)
 		{
+			if (SkillRating > BotELOLimit && Opponent->bIsABot)
+			{
+				UE_LOG(LogGameStats, Verbose, TEXT("UpdateTeamSkillRating skipping bot consideration as player has over %d ELO"), BotELOLimit);
+				continue;
+			}
+
 			OpponentCount++;
 			int32 OpponentSkillRating = Opponent->GetSkillRating(SkillStatName);
 			ExpectedWinPercentage += 1.0f / (1.0f + pow(10.0f, (float(OpponentSkillRating - SkillRating) / 400.0f)));
@@ -1293,6 +1307,12 @@ void AUTPlayerState::UpdateIndividualSkillRating(FName SkillStatName, const TArr
 		AUTPlayerState* Opponent = Cast<AUTPlayerState>((*ActivePlayerStates)[OuterPlayerIdx]);
 		if (Opponent != this && !Opponent->bOnlySpectator)
 		{
+			if (SkillRating > BotELOLimit && Opponent->bIsABot)
+			{
+				UE_LOG(LogGameStats, Verbose, TEXT("UpdateIndividualSkillRating skipping bot consideration as player has over %d ELO"), BotELOLimit);
+				continue;
+			}
+
 			OpponentCount++;
 			int32 OpponentSkillRating = Opponent->GetSkillRating(SkillStatName);
 			ExpectedWinPercentage += 1.0f / (1.0f + pow(10.0f, (float(OpponentSkillRating - SkillRating) / 400.0f)));
@@ -1312,6 +1332,12 @@ void AUTPlayerState::UpdateIndividualSkillRating(FName SkillStatName, const TArr
 		AUTPlayerState* Opponent = Cast<AUTPlayerState>((*InactivePlayerStates)[OuterPlayerIdx]);
 		if (Opponent && Opponent != this && !Opponent->bOnlySpectator)
 		{
+			if (SkillRating > BotELOLimit && Opponent->bIsABot)
+			{
+				UE_LOG(LogGameStats, Verbose, TEXT("UpdateIndividualSkillRating skipping bot consideration as player has over %d ELO"), BotELOLimit);
+				continue;
+			}
+
 			OpponentCount++;
 			int32 OpponentSkillRating = Opponent->GetSkillRating(SkillStatName);
 			ExpectedWinPercentage += 1.0f / (1.0f + pow(10.0f, (float(OpponentSkillRating - SkillRating) / 400.0f)));
