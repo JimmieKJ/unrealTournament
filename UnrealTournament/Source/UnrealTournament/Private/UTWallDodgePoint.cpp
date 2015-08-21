@@ -138,7 +138,6 @@ void AUTWallDodgePoint::AddSpecialPaths(class UUTPathNode* MyNode, class AUTReca
 							MaxFallSpeed = UTScout->GetCharacterMovement()->JumpZVelocity * 0.9f;
 						}
 						new(StartPoints)FDodgeStartPoint(SrcPoly, TestPt, MaxFallSpeed);
-						DrawDebugSphere(GetWorld(), TestPt, 16, 8, FColor::Red, true);
 						break;
 					}
 				}
@@ -167,7 +166,6 @@ void AUTWallDodgePoint::AddSpecialPaths(class UUTPathNode* MyNode, class AUTReca
 							// make sure can't make via normal jump
 							!NavData->JumpTraceTest(WallPoint, EndPt, INVALID_NAVNODEREF, DestPoly, ScoutShape, UTScout->UTCharacterMovement->MaxWalkSpeed, GravityZ, FMath::Max<float>(0.0f, DodgePt.DodgeTimeZSpeed), FMath::Max<float>(0.0f, DodgePt.DodgeTimeZSpeed)))
 						{
-							DrawDebugSphere(GetWorld(), PolyCenter, 16, 8, FColor::Blue, true);
 							// create ReachSpecs for this point and all easier jumps
 							for (int32 j = i; j < StartPoints.Num(); j++)
 							{
