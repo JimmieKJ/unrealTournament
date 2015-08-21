@@ -2024,6 +2024,17 @@ void AUTPlayerState::OnRep_bIsInactive()
 	}
 }
 
+bool AUTPlayerState::AllowFreezingTaunts() const
+{
+	bool bResult = GetWorld()->GetGameState()->IsMatchInProgress();
+	if (!bResult)
+	{
+		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+		bResult = (GS != NULL && GS->IsMatchAtHalftime());
+	}
+	return bResult;
+}
+
 bool AUTPlayerState::ServerFasterEmote_Validate()
 {
 	return true;
@@ -2042,7 +2053,7 @@ bool AUTPlayerState::ServerSlowerEmote_Validate()
 
 void AUTPlayerState::ServerSlowerEmote_Implementation()
 {
-	EmoteSpeed = FMath::Max(EmoteSpeed - 0.25f, GetWorld()->GetGameState()->IsMatchInProgress() ? 0.25f : 0.0f);
+	EmoteSpeed = FMath::Max(EmoteSpeed - 0.25f, AllowFreezingTaunts() ? 0.0f : 0.25f);
 	OnRepEmoteSpeed();
 }
 
@@ -2053,7 +2064,7 @@ bool AUTPlayerState::ServerSetEmoteSpeed_Validate(float NewEmoteSpeed)
 
 void AUTPlayerState::ServerSetEmoteSpeed_Implementation(float NewEmoteSpeed)
 {
-	EmoteSpeed = FMath::Clamp(NewEmoteSpeed, GetWorld()->GetGameState()->IsMatchInProgress() ? 0.25f : 0.0f, 3.0f);
+	EmoteSpeed = FMath::Clamp(NewEmoteSpeed, AllowFreezingTaunts() ? 0.0f : 0.25f, 3.0f);
 	OnRepEmoteSpeed();
 }
 

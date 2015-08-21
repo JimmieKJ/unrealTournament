@@ -653,6 +653,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = Taunt)
 	void PlayTauntByClass(TSubclassOf<AUTTaunt> TauntToPlay);
 
+	/** whether the player is allowed to freeze a taunt anim; i.e. set its playrate to zero */
+	virtual bool AllowFreezingTaunts() const;
+
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerSetEmoteSpeed(float NewEmoteSpeed);
 

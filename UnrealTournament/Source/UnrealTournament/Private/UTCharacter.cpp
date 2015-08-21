@@ -4494,6 +4494,9 @@ void AUTCharacter::PlayTauntByClass(TSubclassOf<AUTTaunt> TauntToPlay, float Emo
 				CurrentEmote = TauntToPlay->GetDefaultObject<AUTTaunt>()->TauntMontage;
 				EmoteCount++;
 
+				// need to make sure server plays the anim and re-enables movement
+				GetMesh()->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones;
+
 				FOnMontageEnded EndDelegate;
 				EndDelegate.BindUObject(this, &AUTCharacter::OnEmoteEnded);
 				AnimInstance->Montage_SetEndDelegate(EndDelegate);
@@ -4514,6 +4517,11 @@ void AUTCharacter::OnEmoteEnded(UAnimMontage* Montage, bool bInterrupted)
 
 		CurrentEmote = nullptr;
 		UTCharacterMovement->bIsEmoting = false;
+
+		if (!GetMesh()->bRenderCustomDepth)
+		{
+			GetMesh()->MeshComponentUpdateFlag = GetClass()->GetDefaultObject<AUTCharacter>()->GetMesh()->MeshComponentUpdateFlag;
+		}
 	}
 }
 

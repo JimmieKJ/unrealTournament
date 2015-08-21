@@ -2942,7 +2942,7 @@ void AUTPlayerController::SetEmoteSpeed(float NewEmoteSpeed)
 
 void AUTPlayerController::FasterEmote()
 {
-	if (UTPlayerState != nullptr)
+	if (UTPlayerState != nullptr && UTCharacter != nullptr && UTCharacter->UTCharacterMovement->bIsEmoting)
 	{
 		UTPlayerState->ServerFasterEmote();
 	}
@@ -2950,7 +2950,7 @@ void AUTPlayerController::FasterEmote()
 
 void AUTPlayerController::SlowerEmote()
 {
-	if (UTPlayerState != nullptr)
+	if (UTPlayerState != nullptr && UTCharacter != nullptr && UTCharacter->UTCharacterMovement->bIsEmoting)
 	{
 		UTPlayerState->ServerSlowerEmote();
 	}
