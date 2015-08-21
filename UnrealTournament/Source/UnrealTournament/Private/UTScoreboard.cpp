@@ -448,6 +448,10 @@ void UUTScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float R
 	if (UTGameState && UTGameState->HasMatchStarted())
 	{
 		DrawPlayerScore(PlayerState, XOffset, YOffset, Width, DrawColor);
+		if (PlayerState->bPendingTeamSwitch)
+		{
+			DrawText(NSLOCTEXT("UTScoreboard", "TEAMSWITCH", "TEAM SWAP"), XOffset + (Width * ColumnHeaderScoreX), YOffset + ColumnY, UTHUDOwner->MediumFont, PlayerState->ReadyScale, 1.0f, PlayerState->ReadyColor, ETextHorzPos::Center, ETextVertPos::Center);
+		}
 	}
 	else
 	{
