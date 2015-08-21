@@ -680,6 +680,10 @@ void UUTGameEngine::IndexExpansionContent()
 			if (!PakFilename.StartsWith(TEXT("UnrealTournament-"), ESearchCase::IgnoreCase))
 			{
 				bValidPak = CheckVersionOfPakFile(PakFilename);
+				if (bValidPak)
+				{
+					AddAssetRegistry(PakFilename);
+				}
 			}
 			else
 			{
@@ -687,11 +691,7 @@ void UUTGameEngine::IndexExpansionContent()
 				bValidPak = true;
 			}
 
-			if (bValidPak)
-			{
-				AddAssetRegistry(PakFilename);
-			}
-			else
+			if (!bValidPak)
 			{
 				// Unmount the pak
 				if (FCoreDelegates::OnUnmountPak.IsBound())
