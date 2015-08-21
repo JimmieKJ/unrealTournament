@@ -85,7 +85,6 @@ void AUTHUD_Showdown::UpdateMinimapTexture(UCanvas* C, int32 Width, int32 Height
 
 void AUTHUD_Showdown::DrawHUD()
 {
-	Canvas->DrawColor = FColor::White;
 	AUTShowdownGameState* GS = GetWorld()->GetGameState<AUTShowdownGameState>();
 	if (GS != NULL && GS->GetMatchState() == MatchState::MatchIntermission && (GS->SpawnSelector != NULL || GS->bFinalIntermissionDelay))
 	{
@@ -99,6 +98,7 @@ void AUTHUD_Showdown::DrawHUD()
 		MapToScreen = FTranslationMatrix(FVector((Canvas->SizeX - MapSize) * 0.5f * (MinimapTexture->GetSurfaceWidth() / MapSize), (Canvas->SizeY - MapSize) * 0.5f, 0.0f)) * FScaleMatrix(FVector(MapSize / MinimapTexture->GetSurfaceWidth(), MapSize / MinimapTexture->GetSurfaceHeight(), 1.0f));
 		if (MinimapTexture != NULL)
 		{
+			Canvas->DrawColor = FColor(192, 192, 192, 255);
 			Canvas->DrawTile(MinimapTexture, MapToScreen.GetOrigin().X, MapToScreen.GetOrigin().Y, MapSize, MapSize, 0.0f, 0.0f, MinimapTexture->GetSurfaceWidth(), MinimapTexture->GetSurfaceHeight());
 		}
 		const float RenderScale = float(Canvas->SizeY) / 1080.0f;
@@ -135,6 +135,7 @@ void AUTHUD_Showdown::DrawHUD()
 			Canvas->DrawColor = FColor::White;
 		}
 		// draw pickup icons
+		Canvas->DrawColor = FColor::White;
 		for (TActorIterator<AUTPickup> It(GetWorld()); It; ++It)
 		{
 			if (It->HUDIcon.Texture != NULL)
