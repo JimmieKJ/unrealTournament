@@ -68,6 +68,61 @@ void SUWReplayBrowser::ConstructPanel(FVector2D ViewportSize)
 	bShouldShowAllReplays = false;
 	bLiveOnly = false;
 	bShowReplaysFromAllUsers = false;
+	
+	FriendList.Add(MakeShareable(new FString(TEXT("My Replays"))));
+
+	if (OnlineIdentityInterface.IsValid())
+	{
+		TSharedPtr<FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(PlayerOwner->GetControllerId());
+		if (UserId.IsValid())
+		{
+			FriendStatIDList.Add(UserId->ToString());
+		}
+		else
+		{
+			FriendStatIDList.AddZeroed();
+		}
+	}
+	else
+	{
+		FriendStatIDList.AddZeroed();
+	}
+
+	FriendList.Add(MakeShareable(new FString(TEXT("All Replays"))));
+	FriendStatIDList.AddZeroed();
+
+	// Real friends
+	TArray<FUTFriend> OnlineFriendsList;
+	PlayerOwner->GetFriendsList(OnlineFriendsList);
+	for (auto Friend : OnlineFriendsList)
+	{
+		FriendList.Add(MakeShareable(new FString(Friend.DisplayName)));
+		FriendStatIDList.Add(Friend.UserId);
+	}
+
+	// Recent players
+	TArray<FUTFriend> OnlineRecentPlayersList;
+	PlayerOwner->GetRecentPlayersList(OnlineRecentPlayersList);
+	for (auto RecentPlayer : OnlineRecentPlayersList)
+	{
+		FriendList.Add(MakeShareable(new FString(RecentPlayer.DisplayName)));
+		FriendStatIDList.Add(RecentPlayer.UserId);
+	}
+
+	// Players in current game
+	AUTGameState* GameState = GetPlayerOwner()->GetWorld()->GetGameState<AUTGameState>();
+	if (GameState)
+	{
+		for (auto PlayerState : GameState->PlayerArray)
+		{
+			AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
+			if (PS && !PS->StatsID.IsEmpty() && !FriendStatIDList.Contains(PS->StatsID))
+			{
+				FriendList.Add(MakeShareable(new FString(PS->PlayerName)));
+				FriendStatIDList.Add(PS->StatsID);
+			}
+		}
+	}
 
 	this->ChildSlot
 	[
@@ -181,6 +236,29 @@ void SUWReplayBrowser::ConstructPanel(FVector2D ViewportSize)
 					+ SHorizontalBox::Slot()
 					.AutoWidth()
 					[
+						SAssignNew(FriendListComboBox, SComboBox< TSharedPtr<FString> >)
+						.InitiallySelectedItem(0)
+						.ComboBoxStyle(SUWindowsStyle::Get(), "UT.ComboBox")
+						.ButtonStyle(SUWindowsStyle::Get(), "UT.Button.White")
+						.OptionsSource(&FriendList)
+						.OnGenerateWidget(this, &SUWReplayBrowser::GenerateStringListWidget)
+						.OnSelectionChanged(this, &SUWReplayBrowser::OnFriendSelected)
+						.Content()
+						[
+							SNew(SHorizontalBox)
+							+ SHorizontalBox::Slot()
+							.Padding(10.0f, 0.0f, 10.0f, 0.0f)
+							[
+								SAssignNew(SelectedFriend, STextBlock)
+								.Text(FText::FromString(TEXT("Player to View")))
+								.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.Black")
+							]
+						]
+					]
+					/*
+					+ SHorizontalBox::Slot()
+					.AutoWidth()
+					[
 						SNew(STextBlock)
 						.Text(NSLOCTEXT("SUWReplayBrowser", "MetaTagText", "MetaTag:"))
 						.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
@@ -198,6 +276,22 @@ void SUWReplayBrowser::ConstructPanel(FVector2D ViewportSize)
 							.MinDesiredWidth(300.0f)
 							.Text(FText::GetEmpty())
 						]
+					]
+					*/
+					+SHorizontalBox::Slot()
+					.AutoWidth()
+					[
+						SNew(STextBlock)
+						.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+						.Text(NSLOCTEXT("SUWReplayBrowser", "LiveOnly", "Live Games Only"))
+					]
+					+SHorizontalBox::Slot()
+					.AutoWidth()
+					[
+						SAssignNew(LiveOnlyCheckbox, SCheckBox)
+						.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
+						.ForegroundColor(FLinearColor::White)
+						.IsChecked(ECheckBoxState::Checked)
 					]
 					+ SHorizontalBox::Slot()
 					.AutoWidth()
@@ -223,18 +317,27 @@ void SUWReplayBrowser::OnShowPanel(TSharedPtr<SUWindowsDesktop> inParentWindow)
 {
 	SUWPanel::OnShowPanel(inParentWindow);
 	
-	MetaTagText->SetText(FText::FromString(MetaString));
-	BuildReplayList();
+	//	MetaTagText->SetText(FText::FromString(MetaString));
+
+	FString UserString = TEXT("");
+
+	if (!bShowReplaysFromAllUsers && OnlineIdentityInterface.IsValid() && GetPlayerOwner() != nullptr)
+	{
+		UserString = GetPlayerOwner()->GetPreferredUniqueNetId()->ToString();
+	}
+	BuildReplayList(UserString);
 }
 
 void SUWReplayBrowser::OnMetaTagTextCommited(const FText& NewText, ETextCommit::Type CommitType)
 {
 	MetaString = NewText.ToString();
-	BuildReplayList();
+	//BuildReplayList();
 }
 
-void SUWReplayBrowser::BuildReplayList()
+void SUWReplayBrowser::BuildReplayList(const FString& UserId)
 {
+	LastUserId = UserId;
+
 	if (GetPlayerOwner() != nullptr && !GetPlayerOwner()->IsLoggedIn())
 	{
 		GetPlayerOwner()->LoginOnline( TEXT( "" ), TEXT( "" ) );
@@ -250,14 +353,10 @@ void SUWReplayBrowser::BuildReplayList()
 			Version.Changelist = 0;
 		}
 
-		FString UserString = TEXT("");
+		// Fix up the UI
+		LiveOnlyCheckbox->SetIsChecked(bLiveOnly ? ECheckBoxState::Checked : ECheckBoxState::Unchecked);
 
-		if (!bShowReplaysFromAllUsers && OnlineIdentityInterface.IsValid() && GetPlayerOwner() != nullptr)
-		{
-			UserString = GetPlayerOwner()->GetPreferredUniqueNetId()->ToString();
-		}
-
-		ReplayStreamer->EnumerateStreams(Version, UserString, MetaString, FOnEnumerateStreamsComplete::CreateSP(this, &SUWReplayBrowser::OnEnumerateStreamsComplete));
+		ReplayStreamer->EnumerateStreams(Version, UserId, MetaString, FOnEnumerateStreamsComplete::CreateSP(this, &SUWReplayBrowser::OnEnumerateStreamsComplete));
 	}
 }
 
@@ -283,9 +382,10 @@ FReply SUWReplayBrowser::OnWatchClick()
 
 FReply SUWReplayBrowser::OnRefreshClick()
 {
-	MetaString = MetaTagText->GetText().ToString();
+	//MetaString = MetaTagText->GetText().ToString();
 
-	BuildReplayList();
+	bLiveOnly = (LiveOnlyCheckbox->GetCheckedState() == ECheckBoxState::Checked);
+	BuildReplayList(LastUserId);
 
 	return FReply::Handled();
 }
@@ -370,6 +470,47 @@ void SUWReplayBrowser::OnReplayListSelectionChanged(TSharedPtr<FReplayData> Sele
 	else
 	{
 		WatchReplayButton->SetEnabled(false);
+	}
+}
+
+TSharedRef<SWidget> SUWReplayBrowser::GenerateStringListWidget(TSharedPtr<FString> InItem)
+{
+	return SNew(SBox)
+			.Padding(5)
+			[
+				SNew(STextBlock)
+				.ColorAndOpacity(FLinearColor::White)
+				.Text(FText::FromString(*InItem.Get()))
+			];
+}
+
+void SUWReplayBrowser::OnFriendSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)
+{
+	int32 Index = INDEX_NONE;
+	if (FriendList.Find(NewSelection, Index))
+	{
+		SelectedFriend->SetText(FText::FromString(*NewSelection));
+		
+		FString UserString;
+		if (Index == 0 && OnlineIdentityInterface.IsValid() && GetPlayerOwner() != nullptr)
+		{
+			UserString = GetPlayerOwner()->GetPreferredUniqueNetId()->ToString();
+			bShowReplaysFromAllUsers = false;
+		}
+		else if (Index == 1)
+		{
+			bShowReplaysFromAllUsers = true;
+			UserString.Empty();
+		}
+		else
+		{
+			bShowReplaysFromAllUsers = false;
+			UserString = FriendStatIDList[Index];
+		}
+
+		bLiveOnly = (LiveOnlyCheckbox->GetCheckedState() == ECheckBoxState::Checked);
+
+		BuildReplayList(UserString);
 	}
 }
 

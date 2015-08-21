@@ -50,7 +50,8 @@ public:
 	bool bShowReplaysFromAllUsers;
 	FString MetaString;
 
-	void BuildReplayList();
+	FString LastUserId;
+	void BuildReplayList(const FString& UserId);
 
 private:
 
@@ -77,6 +78,15 @@ protected:
 	void OnReplayListSelectionChanged(TSharedPtr<FReplayData> SelectedItem, ESelectInfo::Type SelectInfo);
 	virtual void OnListMouseButtonDoubleClick(TSharedPtr<FReplayData> SelectedServer);
 	virtual void OnMetaTagTextCommited(const FText& NewText, ETextCommit::Type CommitType);
+
+	TSharedPtr< SComboBox< TSharedPtr<FString> > > FriendListComboBox;
+	TArray<TSharedPtr<FString>> FriendList;
+	TArray<FString> FriendStatIDList;
+	TSharedPtr<STextBlock> SelectedFriend;
+	void OnFriendSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
+	TSharedRef<SWidget> GenerateStringListWidget(TSharedPtr<FString> InItem);
+
+	TSharedPtr< SCheckBox> LiveOnlyCheckbox;
 
 	virtual FReply OnWatchClick();
 	virtual FReply OnRefreshClick();

@@ -669,7 +669,7 @@ FReply SUWindowsMainMenu::OnYourReplaysClick(TSharedPtr<SComboButton> MenuButton
 
 		if (ReplayBrowser == ActivePanel)
 		{
-			ReplayBrowser->BuildReplayList();
+			ReplayBrowser->BuildReplayList(PlayerOwner->GetPreferredUniqueNetId()->ToString());
 		}
 		else
 		{
@@ -710,7 +710,7 @@ void SUWindowsMainMenu::RecentReplays()
 
 		if (ReplayBrowser == ActivePanel)
 		{
-			ReplayBrowser->BuildReplayList();
+			ReplayBrowser->BuildReplayList(TEXT(""));
 		}
 		else
 		{
@@ -752,7 +752,7 @@ void SUWindowsMainMenu::ShowLiveGameReplays()
 
 		if (ReplayBrowser == ActivePanel)
 		{
-			ReplayBrowser->BuildReplayList();
+			ReplayBrowser->BuildReplayList(TEXT(""));
 		}
 		else
 		{
