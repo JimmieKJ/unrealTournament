@@ -227,7 +227,7 @@ uint8 AUTTeamGameMode::PickBalancedTeam(AUTPlayerState* PS, uint8 RequestedTeam)
 		int32 TestSize = Teams[i]->GetSize();
 		if (Teams[i] == PS->Team)
 		{
-			// player will be leaving this team so count it's size as post-departure
+			// player will be leaving this team so count its size as post-departure
 			TestSize--;
 		}
 		if (BestTeams.Num() == 0 || TestSize < BestSize)
@@ -407,8 +407,8 @@ float AUTTeamGameMode::RatePlayerStart(APlayerStart* P, AController* Player)
 		AUTPlayerState* PS = Cast<AUTPlayerState>(Player->PlayerState);
 		if (PS != NULL && PS->Team != NULL && (Cast<AUTTeamPlayerStart>(P) == NULL || ((AUTTeamPlayerStart*)P)->TeamNum != PS->Team->TeamIndex))
 		{
-			// return low positive rating so it can be used as a last resort
-			Result *= 0.05;
+			// never ever use wrong team playerstart
+			Result = -20.f;
 		}
 	}
 	return Result;
