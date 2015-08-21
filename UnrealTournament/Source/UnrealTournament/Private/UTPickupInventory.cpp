@@ -22,7 +22,14 @@ void AUTPickupInventory::BeginPlay()
 		BaseEffect->SetTemplate(BaseTemplateAvailable);
 	}
 
-	SetInventoryType(InventoryType);
+	if (Role == ROLE_Authority)
+	{
+		SetInventoryType(InventoryType);
+	}
+	else
+	{
+		InventoryTypeUpdated();
+	}
 
 	AUTRecastNavMesh* NavData = GetUTNavData(GetWorld());
 	if (NavData != NULL)

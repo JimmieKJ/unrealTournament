@@ -22,7 +22,14 @@ void AUTPickupWeapon::BeginPlay()
 	{
 		TimerEffect->SetVisibility(true); // note: HiddenInGame used to hide when weapon is available, weapon stay, etc
 	}
-	SetInventoryType((Role == ROLE_Authority) ? TSubclassOf<AUTInventory>(WeaponType) : InventoryType); // initial replication is before BeginPlay() now so we need to make sure client doesn't clobber it :(
+	if (Role == ROLE_Authority)
+	{
+		SetInventoryType(TSubclassOf<AUTInventory>(WeaponType));
+	}
+	else
+	{
+		InventoryTypeUpdated();
+	}
 }
 
 void AUTPickupWeapon::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -52,7 +59,6 @@ void AUTPickupWeapon::InventoryTypeUpdated_Implementation()
 	{
 		if (InventoryType != NULL)
 		{
-			RespawnTime = InventoryType.GetDefaultObject()->RespawnTime;
 			bDelayedSpawn = InventoryType.GetDefaultObject()->bDelayedSpawn;
 		}
 		WeaponType = *InventoryType;
