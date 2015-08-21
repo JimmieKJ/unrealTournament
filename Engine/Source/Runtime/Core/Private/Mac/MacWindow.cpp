@@ -374,7 +374,12 @@ void FMacWindow::SetWindowMode( EWindowMode::Type NewWindowMode )
 	bool bMakeFullscreen = NewWindowMode != EWindowMode::Windowed;
 	bool bIsFullscreen = GetWindowMode() != EWindowMode::Windowed;
 
-	if( bIsFullscreen != bMakeFullscreen )
+	if(bIsFullscreen == bMakeFullscreen && NewWindowMode != GetWindowMode())
+	{
+		SetWindowMode(EWindowMode::Windowed);
+	}
+	
+	if( bIsFullscreen != bMakeFullscreen || NewWindowMode != GetWindowMode() )
 	{
 		bool WindowIsFullScreen = !bMakeFullscreen;
 		

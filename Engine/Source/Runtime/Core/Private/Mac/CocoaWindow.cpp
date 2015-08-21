@@ -85,6 +85,9 @@ NSString* NSPerformDragOperation = @"NSPerformDragOperation";
 - (void)setWindowMode:(EWindowMode::Type)NewWindowMode
 {
 	WindowMode = NewWindowMode;
+	
+	NSView* OpenGLView = [self openGLView];
+	[[NSNotificationCenter defaultCenter] postNotificationName:NSViewGlobalFrameDidChangeNotification object:OpenGLView];
 }
 
 - (EWindowMode::Type)windowMode
