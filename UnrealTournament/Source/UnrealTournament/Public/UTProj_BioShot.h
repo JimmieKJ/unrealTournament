@@ -60,10 +60,10 @@ class UNREALTOURNAMENT_API AUTProj_BioShot : public AUTProjectile
 		AUTProj_BioShot* WebLinkTwo;
 	
 	/** Saved previously replicated web links. */
-	UPROPERTY(ReplicatedUsing = OnRep_WebLinkOne)
+	UPROPERTY()
 		AUTProj_BioShot* SavedWebLinkOne;
 
-	UPROPERTY(ReplicatedUsing = OnRep_WebLinkTwo)
+	UPROPERTY()
 		AUTProj_BioShot* SavedWebLinkTwo;
 
 	/** Identifies which weblink should be overwritten next. */
