@@ -958,7 +958,7 @@ void AUTLobbyMatchInfo::FillPlayerColumnsForDisplay(TArray<FMatchPlayerListStruc
 				else if (PlayersInMatchInstance[i].TeamNum == 1) SecondColumn.Add(FMatchPlayerListStruct(PlayersInMatchInstance[i].PlayerName, PlayersInMatchInstance[i].PlayerID.ToString(), FString::Printf(TEXT("%i"),PlayersInMatchInstance[i].PlayerScore),1) );
 				else 
 				{
-					Spectators = Spectators.IsEmpty() ? Players[i]->PlayerName : FString::Printf(TEXT(", %s"), *Players[i]->PlayerName);
+					Spectators = Spectators.IsEmpty() ? PlayersInMatchInstance[i].PlayerName : FString::Printf(TEXT(", %s"), *PlayersInMatchInstance[i].PlayerName);
 				}
 			}
 		}
