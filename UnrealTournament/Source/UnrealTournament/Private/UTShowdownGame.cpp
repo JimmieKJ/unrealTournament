@@ -292,6 +292,7 @@ void AUTShowdownGame::StartIntermission()
 		else
 		{
 			SetMatchState(MatchState::MatchIntermission);
+			GameState->ForceNetUpdate();
 		}
 	}
 }
@@ -459,6 +460,7 @@ void AUTShowdownGame::DefaultTimer()
 				if (GS->SpawnSelector->RespawnChoiceA == NULL)
 				{
 					GS->SpawnSelector->RespawnChoiceA = Cast<APlayerStart>(FindPlayerStart(Cast<AController>(GS->SpawnSelector->GetOwner())));
+					GS->SpawnSelector->ForceNetUpdate();
 				}
 				RemainingPicks.Remove(GS->SpawnSelector);
 				GS->SpawnSelector = NULL;

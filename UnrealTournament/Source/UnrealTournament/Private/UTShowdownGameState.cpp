@@ -76,6 +76,17 @@ void AUTShowdownGameState::OnRep_MatchState()
 			}
 		}
 	}
+	else if (MatchState == MatchState::MatchIntermission)
+	{
+		for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
+		{
+			AUTCharacter* UTC = Cast<AUTCharacter>(It->Get());
+			if (UTC != NULL && !UTC->IsDead())
+			{
+				UTC->GetRootComponent()->SetHiddenInGame(true, true);
+			}
+		}
+	}
 
 	Super::OnRep_MatchState();
 }
