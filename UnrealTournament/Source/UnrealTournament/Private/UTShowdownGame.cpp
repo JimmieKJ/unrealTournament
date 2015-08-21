@@ -396,6 +396,7 @@ void AUTShowdownGame::HandleMatchIntermission()
 			if (P != NULL)
 			{
 				APlayerState* SavedPlayerState = P->PlayerState; // keep the PlayerState reference for end of round HUD stuff
+				P->TurnOff();
 				C->UnPossess();
 				P->PlayerState = SavedPlayerState;
 				// we want the character around for the HUD displays of status but we don't need to actually see it and this prevents potential camera clipping
