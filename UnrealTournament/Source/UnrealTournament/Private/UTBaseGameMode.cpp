@@ -171,19 +171,9 @@ FString AUTBaseGameMode::GetRedirectURL(const FString& PackageName) const
 	}
 	else
 	{
-		for (int32 i = 0; i < RedirectReferences.Num(); i++)
-		{
-			if (RedirectReferences[i].PackageName == PackageName + TEXT("-WindowsNoEditor"))
-			{
-				FPackageRedirectReference R = RedirectReferences[i];
-				return R.ToString();
-			}
-		}
-
-		FString CloudID = GetCloudID();
-		FString RedirectURL;
-		FString PackageChecksum;
 		FString PackageBaseFilename = FPaths::GetBaseFilename(PackageName) + TEXT("-WindowsNoEditor");
+
+		FString PackageChecksum;
 		for (auto It = UTEngine->LocalContentChecksums.CreateConstIterator(); It; ++It)
 		{
 			if (It.Key() == PackageBaseFilename)
@@ -192,6 +182,18 @@ FString AUTBaseGameMode::GetRedirectURL(const FString& PackageName) const
 			}
 		}
 
+		for (int32 i = 0; i < RedirectReferences.Num(); i++)
+		{
+			if (RedirectReferences[i].PackageName == PackageBaseFilename)
+			{
+				FPackageRedirectReference R = RedirectReferences[i];
+				return R.ToString() + PackageChecksum;
+			}
+		}
+
+		FString RedirectURL;
+
+		FString CloudID = GetCloudID();
 		if (!CloudID.IsEmpty() && !PackageChecksum.IsEmpty())
 		{
 			FString BaseURL = TEXT("https://ut-public-service-prod10.ol.epicgames.com/ut/api/cloudstorage/user/");
