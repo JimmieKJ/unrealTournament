@@ -1009,3 +1009,21 @@ void UUTGameViewportClient::RemoveContentDownloadCompleteDelegate(FDelegateHandl
 {
 	ContentDownloadComplete.Remove(DelegateHandle);
 }
+
+bool UUTGameViewportClient::HideCursorDuringCapture()
+{
+	// workaround for Slate bug where toggling the pointer visibility on/off in the PlayerController while this is enabled can cause the pointer to get locked hidden
+	if (!Super::HideCursorDuringCapture())
+	{
+		return false;
+	}
+	else if (GameInstance == NULL)
+	{
+		return true;
+	}
+	else
+	{
+		const TArray<ULocalPlayer*> GamePlayers = GameInstance->GetLocalPlayers();
+		return (GamePlayers.Num() == 0 || GamePlayers[0] == NULL || GamePlayers[0]->PlayerController == NULL || !GamePlayers[0]->PlayerController->ShouldShowMouseCursor());
+	}
+}

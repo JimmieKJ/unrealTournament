@@ -121,5 +121,7 @@ public:
 	 *	Removes the  call back to an object looking to know when a player's status changed.
 	 **/
 	virtual void RemoveContentDownloadCompleteDelegate(FDelegateHandle DelegateHandle);
+
+	virtual bool HideCursorDuringCapture() override;
 };
 
