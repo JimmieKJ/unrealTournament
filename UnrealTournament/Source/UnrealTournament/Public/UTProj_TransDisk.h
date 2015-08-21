@@ -61,11 +61,16 @@ class UNREALTOURNAMENT_API AUTProj_TransDisk : public AUTProjectile, public IUTM
 	UFUNCTION()
 	virtual void OnRep_TransState();
 
-	/**The effect played when the Disk lands*/
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=TransDisk)
-	UParticleSystem* LandedEffect;
+	virtual UParticleSystemComponent* SpawnOffsetEffect(UParticleSystem *Effect, const FVector& Offset);
 
 	/**The effect played when the Disk lands*/
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=TransDisk)
+	TArray<UParticleSystem*> LandedEffect;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = TransDisk)
+	UParticleSystemComponent* LandedBeaconComponent;
+
+	/**The effect played when the Disk is disrupted*/
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = TransDisk)
 		UParticleSystem* DisruptedEffect;
 
