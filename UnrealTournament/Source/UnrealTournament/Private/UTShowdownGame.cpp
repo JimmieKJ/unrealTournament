@@ -350,6 +350,15 @@ void AUTShowdownGame::HandleMatchIntermission()
 				if (NavData->FindBestPath(NULL, FNavAgentProperties(Extent.X, Extent.Z * 2.0f), NodeEval, StartSpot->GetActorLocation(), Weight, false, Route) && Route.Num() > 0)
 				{
 					SpawnLoc = Route.Last().GetLocation(NULL);
+					// try to pick a better poly for spawning (we'd like to stay away from walls)
+					for (int32 i = Route.Num() - 1; i >= 0; i--)
+					{
+						if (NavData->GetPolySurfaceArea2D(Route[i].TargetPoly) > 10000.0f || NavData->GetPolyWalls(Route[i].TargetPoly).Num() == 0)
+						{
+							SpawnLoc = Route[i].GetLocation(NULL);
+							break;
+						}
+					}
 				}
 				FActorSpawnParameters Params;
 				Params.bNoCollisionFail = true;

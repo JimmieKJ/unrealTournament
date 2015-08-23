@@ -1632,6 +1632,25 @@ float AUTRecastNavMesh::GetPolyZAtLoc(NavNodeRef PolyID, const FVector2D& Loc2D)
 	}
 }
 
+float AUTRecastNavMesh::GetPolySurfaceArea2D(NavNodeRef PolyID) const
+{
+	TArray<FVector> Verts;
+	if (!GetPolyVerts(PolyID, Verts))
+	{
+		return 0.0f;
+	}
+	else
+	{
+		float Area = 0.0f;
+		for (int32 i = 0; i < Verts.Num(); i++)
+		{
+			int32 j = (i + 1) % Verts.Num();
+			Area += Verts[i].X * Verts[j].Y - Verts[j].X * Verts[i].Y;
+		}
+		return Area / 2.0f;
+	}
+}
+
 NavNodeRef AUTRecastNavMesh::FindAnchorPoly(const FVector& TestLoc, APawn* Asker, const FNavAgentProperties& AgentProps) const
 {
 	AUTCharacter* P = Cast<AUTCharacter>(Asker);
