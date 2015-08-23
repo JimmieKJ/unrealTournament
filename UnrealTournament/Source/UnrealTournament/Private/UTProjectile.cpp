@@ -39,6 +39,7 @@ AUTProjectile::AUTProjectile(const class FObjectInitializer& ObjectInitializer)
 		PawnOverlapSphere->bTraceComplexOnMove = false; 
 		PawnOverlapSphere->bReceivesDecals = false;
 		PawnOverlapSphere->AttachParent = RootComponent;
+		PawnOverlapSphere->bShouldUpdatePhysicsVolume = false;
 	}
 
 	// Use a ProjectileMovementComponent to govern this projectile's movement

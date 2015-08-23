@@ -34,6 +34,7 @@ AUTProj_BioShot::AUTProj_BioShot(const class FObjectInitializer& ObjectInitializ
 		BioMesh->bReceivesDecals = false;
 		BioMesh->CastShadow = false;
 		BioMesh->AttachParent = RootComponent;
+		BioMesh->bGenerateOverlapEvents = false;
 	}
 
 	CollisionComp->bAbsoluteScale = true;
