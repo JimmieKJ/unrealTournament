@@ -41,7 +41,7 @@ AUTCTFGameState::AUTCTFGameState(const FObjectInitializer& ObjectInitializer)
 	HighlightMap.Add(HighlightNames::TopFlagCapturesRed, NSLOCTEXT("AUTGameMode", "TopFlagCapturesRed", "Most Flag Caps for Red with <UT.MatchSummary.HighlightText.Value>{0}</>."));
 	HighlightMap.Add(HighlightNames::TopFlagCapturesBlue, NSLOCTEXT("AUTGameMode", "TopFlagCapturesBlue", "Most Flag Caps for Blue with <UT.MatchSummary.HighlightText.Value>{0}</>."));
 	HighlightMap.Add(HighlightNames::TopAssistsRed, NSLOCTEXT("AUTGameMode", "TopAssistsRed", "Most Assists for Red with <UT.MatchSummary.HighlightText.Value>{0}</>."));
-	HighlightMap.Add(HighlightNames::TopAssistsRed, NSLOCTEXT("AUTGameMode", "TopAssistsRed", "Most Assists for Blue with <UT.MatchSummary.HighlightText.Value>{0}</>."));
+	HighlightMap.Add(HighlightNames::TopAssistsBlue , NSLOCTEXT("AUTGameMode", "TopAssistsBlue", "Most Assists for Blue with <UT.MatchSummary.HighlightText.Value>{0}</>."));
 	HighlightMap.Add(HighlightNames::TopFlagReturnsRed, NSLOCTEXT("AUTGameMode", "TopFlagReturnsRed", "Most Flag Returns for Red with <UT.MatchSummary.HighlightText.Value>{0}</>."));
 	HighlightMap.Add(HighlightNames::TopFlagReturnsBlue, NSLOCTEXT("AUTGameMode", "TopFlagReturnsBlue", "Most Flag Returns for Blue with <UT.MatchSummary.HighlightText.Value>{0}</>."));
 
