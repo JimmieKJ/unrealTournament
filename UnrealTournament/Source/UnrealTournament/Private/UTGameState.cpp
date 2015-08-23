@@ -1384,7 +1384,7 @@ void AUTGameState::UpdateHighlights_Implementation()
 void AUTGameState::SetTopScorerHighlights(AUTPlayerState* TopScorerRed, AUTPlayerState* TopScorerBlue)
 {
 	AUTGameMode* Game = GetWorld()->GetAuthGameMode<AUTGameMode>();
-	if (Game && Game->NumPlayers < 3)
+	if (Game && (Game->NumPlayers + Game->NumBots) < 3)
 	{
 		// don't show top scorer highlight if 2 or fewer players
 		return;
@@ -1393,28 +1393,30 @@ void AUTGameState::SetTopScorerHighlights(AUTPlayerState* TopScorerRed, AUTPlaye
 	{
 		if (TopScorerRed != NULL)
 		{
-			TopScorerRed->AddMatchHighlight(HighlightNames::TopScorerRed, TopScorerRed->Score);
+			TopScorerRed->AddMatchHighlight(HighlightNames::TopScorer, int32(TopScorerRed->Score));
 		}
 	}
 	else if (TopScorerRed == NULL)
 	{
 		if (TopScorerBlue != NULL)
 		{
-			TopScorerBlue->AddMatchHighlight(HighlightNames::TopScorerBlue, TopScorerBlue->Score);
+			TopScorerBlue->AddMatchHighlight(HighlightNames::TopScorer, int32(TopScorerBlue->Score));
 		}
 	}
 	else if (TopScorerBlue->Score == TopScorerRed->Score)
 	{
-		TopScorerBlue->AddMatchHighlight(HighlightNames::TopScorerBlue, TopScorerBlue->Score);
-		TopScorerRed->AddMatchHighlight(HighlightNames::TopScorerRed, TopScorerRed->Score);
+		TopScorerBlue->AddMatchHighlight(HighlightNames::TopScorerBlue, int32(TopScorerBlue->Score));
+		TopScorerRed->AddMatchHighlight(HighlightNames::TopScorerRed, int32(TopScorerRed->Score));
 	}
 	else if (TopScorerBlue->Score > TopScorerRed->Score)
 	{
-		TopScorerBlue->AddMatchHighlight(HighlightNames::TopScorerBlue, TopScorerBlue->Score);
+		TopScorerBlue->AddMatchHighlight(HighlightNames::TopScorer, int32(TopScorerBlue->Score));
+		TopScorerRed->AddMatchHighlight(HighlightNames::TopScorerRed, int32(TopScorerRed->Score));
 	}
 	else
 	{
-		TopScorerRed->AddMatchHighlight(HighlightNames::TopScorerRed, TopScorerRed->Score);
+		TopScorerRed->AddMatchHighlight(HighlightNames::TopScorer, int32(TopScorerRed->Score));
+		TopScorerBlue->AddMatchHighlight(HighlightNames::TopScorerBlue, int32(TopScorerBlue->Score));
 	}
 }
 
