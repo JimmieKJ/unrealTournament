@@ -28,37 +28,6 @@ AUTMutator_WeaponArena::AUTMutator_WeaponArena(const FObjectInitializer& ObjectI
 #endif
 }
 
-void AUTMutator_WeaponArena::PreInitializeComponents()
-{
-	Super::PreInitializeComponents();
-
-	// cache weapon and ammo classes
-	ArenaWeaponType = LoadClass<AUTWeapon>(NULL, *ArenaWeaponPath, NULL, LOAD_None, NULL);
-	if (ArenaWeaponType != NULL)
-	{
-		TArray<FAssetData> AssetList;
-		GetAllBlueprintAssetData(AUTPickupAmmo::StaticClass(), AssetList);
-		for (const FAssetData& Asset : AssetList)
-		{
-			static FName NAME_Ammo(TEXT("Ammo"));
-			const FString* AmmoData = Asset.TagsAndValues.Find(NAME_Ammo);
-			if (AmmoData != NULL && AmmoData->Contains(ArenaWeaponType->GetPathName()))
-			{
-				static FName NAME_GeneratedClass(TEXT("GeneratedClass"));
-				const FString* ClassPath = Asset.TagsAndValues.Find(NAME_GeneratedClass);
-				if (ClassPath != NULL)
-				{
-					ArenaAmmoType = LoadClass<AUTPickupAmmo>(NULL, **ClassPath, NULL, LOAD_None, NULL);
-					if (ArenaAmmoType != NULL)
-					{
-						break;
-					}
-				}
-			}
-		}
-	}
-}
-
 void AUTMutator_WeaponArena::BeginPlay()
 {
 	Super::BeginPlay();
@@ -158,5 +127,31 @@ void AUTMutator_WeaponArena::Init_Implementation(const FString& Options)
 	if (!NewWeaponPath.IsEmpty())
 	{
 		ArenaWeaponPath = NewWeaponPath;
+	}
+
+	// cache weapon and ammo classes
+	ArenaWeaponType = LoadClass<AUTWeapon>(NULL, *ArenaWeaponPath, NULL, LOAD_None, NULL);
+	if (ArenaWeaponType != NULL)
+	{
+		TArray<FAssetData> AssetList;
+		GetAllBlueprintAssetData(AUTPickupAmmo::StaticClass(), AssetList);
+		for (const FAssetData& Asset : AssetList)
+		{
+			static FName NAME_Ammo(TEXT("Ammo"));
+			const FString* AmmoData = Asset.TagsAndValues.Find(NAME_Ammo);
+			if (AmmoData != NULL && AmmoData->Contains(ArenaWeaponType->GetPathName()))
+			{
+				static FName NAME_GeneratedClass(TEXT("GeneratedClass"));
+				const FString* ClassPath = Asset.TagsAndValues.Find(NAME_GeneratedClass);
+				if (ClassPath != NULL)
+				{
+					ArenaAmmoType = LoadClass<AUTPickupAmmo>(NULL, **ClassPath, NULL, LOAD_None, NULL);
+					if (ArenaAmmoType != NULL)
+					{
+						break;
+					}
+				}
+			}
+		}
 	}
 }
