@@ -4,6 +4,9 @@
 #pragma once
 #include "UTCTFScoring.generated.h"
 
+static const FName NAME_FlagCaptures(TEXT("FlagCaptures"));
+static const FName NAME_FlagReturns(TEXT("FlagReturns"));
+static const FName NAME_FlagAssists(TEXT("FlagAssists"));
 static const FName NAME_FlagHeldDeny(TEXT("FlagHeldDeny"));
 static const FName NAME_FlagHeldDenyTime(TEXT("FlagHeldDenyTime"));
 static const FName NAME_FlagHeldTime(TEXT("FlagHeldTime"));
