@@ -38,6 +38,7 @@ void AUTCosmetic::PreInitializeComponents()
 			PrimComponent->bLightAttachmentsAsGroup = true;
 			PrimComponent->bUseAsOccluder = false;
 			PrimComponent->MarkRenderStateDirty();
+			PrimComponent->bUseAttachParentBound = true;
 		}
 
 		TArray<USceneComponent*> Children;
@@ -57,6 +58,7 @@ void AUTCosmetic::PreInitializeComponents()
 				PrimComponent->SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
 				PrimComponent->bLightAttachmentsAsGroup = true;
 				PrimComponent->MarkRenderStateDirty();
+				PrimComponent->bUseAttachParentBound = true;
 			}
 		}
 	}
