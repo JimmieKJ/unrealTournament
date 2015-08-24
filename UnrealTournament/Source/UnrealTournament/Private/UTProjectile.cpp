@@ -97,6 +97,7 @@ void AUTProjectile::PreInitializeComponents()
 	// FIXME: engine bug with blueprints and C++ delegate assignments
 	// the previously set delegate for PawnOverlapSphere isn't changed to the new assignment in all blueprints derived from this
 	PawnOverlapSphere->OnComponentBeginOverlap.RemoveDynamic(this, &AUTProjectile::OnOverlapBegin);
+	PawnOverlapSphere->OnComponentBeginOverlap.RemoveDynamic(this, &AUTProjectile::OnPawnSphereOverlapBegin); // delegate code asserts on duplicates...
 	PawnOverlapSphere->OnComponentBeginOverlap.AddDynamic(this, &AUTProjectile::OnPawnSphereOverlapBegin);
 
 	Super::PreInitializeComponents();
