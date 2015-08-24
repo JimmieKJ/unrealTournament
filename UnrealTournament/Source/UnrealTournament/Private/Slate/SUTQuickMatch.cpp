@@ -528,7 +528,7 @@ void SUTQuickMatch::RequestQuickPlayResults(AUTServerBeaconClient* Beacon, const
 		FinalList.Remove(BestServer);
 		BestServer->Beacon->DestroyBeacon();
 
-		// Restart the serarch
+		// Restart the search
 		FindBestMatch();		
 	}
 	else if (CommandCode == EQuickMatchResults::WaitingForStart || CommandCode == EQuickMatchResults::WaitingForStartNew )
@@ -537,7 +537,11 @@ void SUTQuickMatch::RequestQuickPlayResults(AUTServerBeaconClient* Beacon, const
 		bWaitingForMatch = true;
 		if ( CommandCode == EQuickMatchResults::WaitingForStartNew )
 		{
+			FString ServerName;
+			BestServer->SearchResult.Session.SessionSettings.Get(SETTING_SERVERNAME,ServerName);
+
 			PlayerOwner->QuickMatchLimitTime = PlayerOwner->GetWorld()->GetTimeSeconds() + 60.0;
+			MinorStatusText = FText::Format( NSLOCTEXT("QuickMatch","Status_WaitingforMatchMinor","Hub '{0}' is starting a match for you to join."), FText::FromString(ServerName));
 		}
 	}
 	else if (CommandCode == EQuickMatchResults::Join)
