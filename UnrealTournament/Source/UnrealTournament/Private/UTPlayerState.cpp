@@ -35,7 +35,6 @@ AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer
 	bOutOfLives = false;
 	Deaths = 0;
 	bShouldAutoTaunt = false;
-	TauntSelectionIndex = 0;
 
 	// We want to be ticked.
 	PrimaryActorTick.bCanEverTick = true;
@@ -174,11 +173,12 @@ void AUTPlayerState::AnnounceKill()
 		int32 NumTaunts = CharacterVoice.GetDefaultObject()->TauntMessages.Num();
 		if (NumTaunts > 0)
 		{
+			AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+			int32 TauntSelectionIndex = GS ? GS->TauntSelectionIndex % NumTaunts : 0;
 			int32 SelectedTaunt = TauntSelectionIndex + FMath::Min(FMath::RandRange(0, 2), NumTaunts - TauntSelectionIndex - 1);
-			TauntSelectionIndex += 3;
-			if (TauntSelectionIndex >= NumTaunts)
+			if (GS)
 			{
-				TauntSelectionIndex -= FMath::Max(3, NumTaunts);
+				GS->TauntSelectionIndex += 3;
 			}
 			GetWorld()->GetAuthGameMode()->BroadcastLocalized(GetOwner(), CharacterVoice, SelectedTaunt, this);
 		}
@@ -1025,6 +1025,7 @@ void AUTPlayerState::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 
 void AUTPlayerState::AddMatchHighlight(FName NewHighlight, float HighlightData)
 {
+	// @TODO FIXMESTEVE - use matchhighlightpriority to sort list, don't add lower priority highlights once have 3 highlights
 	for (int32 i = 0; i < 5; i++)
 	{
 		if (MatchHighlights[i] == NAME_None)
@@ -1032,6 +1033,29 @@ void AUTPlayerState::AddMatchHighlight(FName NewHighlight, float HighlightData)
 			MatchHighlights[i] = NewHighlight;
 			MatchHighlightData[i] = HighlightData;
 			return;
+		}
+	}
+
+	// if no open slots, try to replace lowest priority highlight
+	AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
+	if (GameState)
+	{
+		float NewPriority = GameState->HighlightPriority.FindRef(NewHighlight);
+		float WorstPriority = 0.f;
+		int32 WorstIndex = -1.f;
+		for (int32 i = 0; i < 5; i++)
+		{
+			float TestPriority = GameState->HighlightPriority.FindRef(MatchHighlights[i]);
+			if (WorstPriority < TestPriority)
+			{
+				WorstPriority = TestPriority;
+				WorstIndex = i;
+			}
+		}
+		if ((WorstIndex >= 0) && (NewPriority < WorstPriority))
+		{
+			MatchHighlights[WorstIndex] = NewHighlight;
+			MatchHighlightData[WorstIndex] = HighlightData;
 		}
 	}
 }

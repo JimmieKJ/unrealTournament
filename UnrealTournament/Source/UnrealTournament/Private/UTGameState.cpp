@@ -29,6 +29,7 @@ AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 	bCasterControl = false;
 	bForcedBalance = false;
 	KickThreshold=51.0f;
+	TauntSelectionIndex = 0;
 
 	ServerName = TEXT("My First Server");
 	ServerMOTD = TEXT("Welcome!");
@@ -184,6 +185,32 @@ AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 	HighlightMap.Add(NAME_SpreeKillLevel2, NSLOCTEXT("AUTGameMode", "SpreeKillLevel2", "Dominating Spree (<UT.MatchSummary.HighlightText.Value>{0}</>)."));
 	HighlightMap.Add(NAME_SpreeKillLevel3, NSLOCTEXT("AUTGameMode", "SpreeKillLevel3", "Unstoppable Spree (<UT.MatchSummary.HighlightText.Value>{0}</>)."));
 	HighlightMap.Add(NAME_SpreeKillLevel4, NSLOCTEXT("AUTGameMode", "SpreeKillLevel4", "Godlike Spree (<UT.MatchSummary.HighlightText.Value>{0}</>)."));
+
+	HighlightPriority.Add(HighlightNames::TopScorer, 5.f);
+	HighlightPriority.Add(HighlightNames::TopScorerRed, 5.f);
+	HighlightPriority.Add(HighlightNames::TopScorerBlue, 5.f);
+	HighlightPriority.Add(HighlightNames::MostKills, 3.f);
+	HighlightPriority.Add(HighlightNames::LeastDeaths, 1.f);
+	HighlightPriority.Add(HighlightNames::BestKD, 2.f);
+	HighlightPriority.Add(HighlightNames::MostWeaponKills, 2.f);
+	HighlightPriority.Add(HighlightNames::BestCombo, 2.f);
+	HighlightPriority.Add(HighlightNames::MostHeadShots, 2.f);
+	HighlightPriority.Add(HighlightNames::MostAirRockets, 2.f);
+
+	HighlightPriority.Add(NAME_AmazingCombos, 1.f);
+	HighlightPriority.Add(NAME_SniperHeadshotKills, 1.f);
+	HighlightPriority.Add(NAME_AirRox, 1.f);
+	HighlightPriority.Add(NAME_FlakShreds, 1.f);
+	HighlightPriority.Add(NAME_AirSnot, 1.f);
+	HighlightPriority.Add(NAME_MultiKillLevel0, 0.5f);
+	HighlightPriority.Add(NAME_MultiKillLevel1, 0.5f);
+	HighlightPriority.Add(NAME_MultiKillLevel2, 1.5f);
+	HighlightPriority.Add(NAME_MultiKillLevel3, 2.5f);
+	HighlightPriority.Add(NAME_SpreeKillLevel0, 2.f);
+	HighlightPriority.Add(NAME_SpreeKillLevel1, 2.5f);
+	HighlightPriority.Add(NAME_SpreeKillLevel2, 3.f);
+	HighlightPriority.Add(NAME_SpreeKillLevel3, 3.5f);
+	HighlightPriority.Add(NAME_SpreeKillLevel4, 4.f);
 }
 
 void AUTGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLifetimeProps) const
@@ -1371,6 +1398,7 @@ void AUTGameState::UpdateHighlights_Implementation()
 		MostAirRoxPS->AddMatchHighlight(HighlightNames::MostAirRockets, MostAirRoxPS->GetStatsValue(NAME_AirRox));
 	}
 
+	// only add low priority highlights if not enough high priority highlights
 	for (int32 i = 0; i < PlayerArray.Num() - 1; i++)
 	{
 		AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerArray[i]);
@@ -1423,7 +1451,7 @@ void AUTGameState::SetTopScorerHighlights(AUTPlayerState* TopScorerRed, AUTPlaye
 void AUTGameState::AddMinorHighlights_Implementation(AUTPlayerState* PS)
 {
 	// skip if already filled with major highlights
-	if (PS->MatchHighlights[4] != NAME_None)
+	if (PS->MatchHighlights[3] != NAME_None)
 	{
 		return;
 	}
@@ -1435,7 +1463,7 @@ void AUTGameState::AddMinorHighlights_Implementation(AUTPlayerState* PS)
 		if (PS->GetStatsValue(SpreeStatsNames[i]) > 0)
 		{
 			PS->AddMatchHighlight(SpreeStatsNames[i], PS->GetStatsValue(SpreeStatsNames[i]));
-			if (PS->MatchHighlights[4] != NAME_None)
+			if (PS->MatchHighlights[3] != NAME_None)
 			{
 				return;
 			}
@@ -1448,7 +1476,7 @@ void AUTGameState::AddMinorHighlights_Implementation(AUTPlayerState* PS)
 		if (PS->GetStatsValue(MultiKillsNames[i]) > 0)
 		{
 			PS->AddMatchHighlight(MultiKillsNames[i], PS->GetStatsValue(MultiKillsNames[i]));
-			if (PS->MatchHighlights[4] != NAME_None)
+			if (PS->MatchHighlights[3] != NAME_None)
 			{
 				return;
 			}
@@ -1474,7 +1502,7 @@ void AUTGameState::AddMinorHighlights_Implementation(AUTPlayerState* PS)
 		if (bIsBestOverall)
 		{
 			PS->AddMatchHighlight(HighlightNames::MostWeaponKills, WeaponKills);
-			if (PS->MatchHighlights[4] != NAME_None)
+			if (PS->MatchHighlights[3] != NAME_None)
 			{
 				return;
 			}
@@ -1488,7 +1516,7 @@ void AUTGameState::AddMinorHighlights_Implementation(AUTPlayerState* PS)
 		if (PS->GetStatsValue(AnnouncedKills[i]) > 0)
 		{
 			PS->AddMatchHighlight(AnnouncedKills[i], PS->GetStatsValue(AnnouncedKills[i]));
-			if (PS->MatchHighlights[4] != NAME_None)
+			if (PS->MatchHighlights[3] != NAME_None)
 			{
 				return;
 			}

@@ -51,6 +51,19 @@ AUTCTFGameState::AUTCTFGameState(const FObjectInitializer& ObjectInitializer)
 	HighlightMap.Add(HighlightNames::FlagCaptures, NSLOCTEXT("AUTGameMode", "FlagCaptures", "Captured Flag (<UT.MatchSummary.HighlightText.Value>{0}</>)."));
 	HighlightMap.Add(HighlightNames::Assists, NSLOCTEXT("AUTGameMode", "Assists", "Assisted Flag Capture (<UT.MatchSummary.HighlightText.Value>{0}</>)."));
 	HighlightMap.Add(HighlightNames::FlagReturns, NSLOCTEXT("AUTGameMode", "FlagReturns", "Returned Flag (<UT.MatchSummary.HighlightText.Value>{0}</>)."));
+
+	HighlightPriority.Add(HighlightNames::TopFlagCapturesRed, 4.5f);
+	HighlightPriority.Add(HighlightNames::TopFlagCapturesBlue, 4.5f);
+	HighlightPriority.Add(HighlightNames::TopAssistsRed, 3.5f);
+	HighlightPriority.Add(HighlightNames::TopAssistsRed, 3.5f);
+	HighlightPriority.Add(HighlightNames::TopFlagReturnsRed, 3.f);
+	HighlightPriority.Add(HighlightNames::TopFlagReturnsBlue, 3.f);
+	HighlightPriority.Add(NAME_FCKills, 3.5f);
+	HighlightPriority.Add(NAME_FlagGrabs, 2.f);
+	HighlightPriority.Add(NAME_FlagSupportKills, 2.5f);
+	HighlightPriority.Add(HighlightNames::FlagCaptures, 3.5f);
+	HighlightPriority.Add(HighlightNames::Assists, 2.75f);
+	HighlightPriority.Add(HighlightNames::FlagReturns, 2.f);
 }
 
 void AUTCTFGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
@@ -455,7 +468,7 @@ void AUTCTFGameState::UpdateHighlights_Implementation()
 void AUTCTFGameState::AddMinorHighlights_Implementation(AUTPlayerState* PS)
 {
 	// skip if already filled with major highlights
-	if (PS->MatchHighlights[4] != NAME_None)
+	if (PS->MatchHighlights[3] != NAME_None)
 	{
 		return;
 	}
@@ -463,7 +476,7 @@ void AUTCTFGameState::AddMinorHighlights_Implementation(AUTPlayerState* PS)
 	if (PS->GetStatsValue(NAME_FCKills) > 0)
 	{
 		PS->AddMatchHighlight(NAME_FCKills, PS->GetStatsValue(NAME_FCKills));
-		if (PS->MatchHighlights[4] != NAME_None)
+		if (PS->MatchHighlights[3] != NAME_None)
 		{
 			return;
 		}
@@ -471,7 +484,7 @@ void AUTCTFGameState::AddMinorHighlights_Implementation(AUTPlayerState* PS)
 	if (PS->GetStatsValue(NAME_FlagGrabs) > 0)
 	{
 		PS->AddMatchHighlight(NAME_FlagGrabs, PS->GetStatsValue(NAME_FlagGrabs));
-		if (PS->MatchHighlights[4] != NAME_None)
+		if (PS->MatchHighlights[3] != NAME_None)
 		{
 			return;
 		}
@@ -479,7 +492,7 @@ void AUTCTFGameState::AddMinorHighlights_Implementation(AUTPlayerState* PS)
 	if (PS->GetStatsValue(NAME_FlagSupportKills) > 0)
 	{
 		PS->AddMatchHighlight(NAME_FlagSupportKills, PS->GetStatsValue(NAME_FlagSupportKills));
-		if (PS->MatchHighlights[4] != NAME_None)
+		if (PS->MatchHighlights[3] != NAME_None)
 		{
 			return;
 		}

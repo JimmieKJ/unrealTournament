@@ -155,10 +155,6 @@ public:
 	UPROPERTY()
 		bool bShouldAutoTaunt;
 
-	/** Current index to use as basis for next selection in Taunt list. */
-	UPROPERTY()
-		int32 TauntSelectionIndex;
-
 	/** Last time this player sent a taunt voice message. */
 	UPROPERTY()
 		float LastTauntTime;
