@@ -3254,6 +3254,9 @@ void AUTGameMode::NewPlayerInfoLine(TSharedPtr<SVerticalBox> VBox, FText Display
 				.Text(Stat.ToSharedRef(), &TAttributeStat::GetValueText)
 				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
 			]
+			+ SHorizontalBox::Slot()
+			.HAlign(HAlign_Right)
+			.FillWidth(0.4f)
 		]
 	];
 }
