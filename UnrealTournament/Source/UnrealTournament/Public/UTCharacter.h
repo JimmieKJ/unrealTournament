@@ -906,6 +906,18 @@ public:
 	virtual void StartRagdoll();
 	virtual void StopRagdoll();
 
+protected:
+	UPROPERTY(BlueprintReadOnly, Category = Ragdoll)
+	float RagdollGravityScale;
+public:
+	inline float GetRagdollGravityScale() const
+	{
+		return RagdollGravityScale;
+	}
+	/** sets gravity for the ragdoll (used by some death effects) */
+	UFUNCTION(BlueprintCallable, Category = Ragdoll)
+	virtual void SetRagdollGravityScale(float NewScale);
+
 	/** Return true to prevent feigning. */
 	UFUNCTION(BlueprintImplementableEvent, BlueprintAuthorityOnly, Category = Pawn)
 	bool BlockFeignDeath();

@@ -1339,6 +1339,9 @@ void AUTCharacter::StartRagdoll()
 
 	GetCharacterMovement()->StopActiveMovement();
 	GetCharacterMovement()->Velocity = FVector::ZeroVector;
+
+	// set up the custom physics override, if necessary
+	SetRagdollGravityScale(RagdollGravityScale);
 }
 
 void AUTCharacter::StopRagdoll()
@@ -1427,6 +1430,18 @@ void AUTCharacter::StopRagdoll()
 
 	bInRagdollRecovery = true;
 	GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+}
+
+void AUTCharacter::SetRagdollGravityScale(float NewScale)
+{
+	for (FBodyInstance* Body : GetMesh()->Bodies)
+	{
+		if (Body != NULL)
+		{
+			Body->SetEnableGravity(NewScale != 0.0f);
+		}
+	}
+	RagdollGravityScale = NewScale;
 }
 
 FVector AUTCharacter::GetLocationCenterOffset() const
@@ -3683,6 +3698,15 @@ void AUTCharacter::Tick(float DeltaTime)
 	}
 	else
 	{
+		if (IsRagdoll() && !bInRagdollRecovery && RagdollGravityScale != 0.0f && RagdollGravityScale != 1.0f)
+		{
+			// apply force to add or remove from the standard gravity force (that we can't modify on an individual object)
+			for (FBodyInstance* Body : GetMesh()->Bodies)
+			{
+				Body->AddForce(FVector(0.0f, 0.0f, GetWorld()->GetGravityZ() * -(1.0f - RagdollGravityScale)), true, true);
+			}
+		}
+
 		LastBreathTime = GetWorld()->GetTimeSeconds();
 	}
 	/*
