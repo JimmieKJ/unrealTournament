@@ -487,9 +487,7 @@ public:
 	 * @param LateUpdateTransform - The post-transform to be applied to the LocalToWorld matrix
 	 */
 	ENGINE_API virtual void ApplyLateUpdateTransform(const FMatrix& LateUpdateTransform);
-
-	/**
-
+	
 protected:
 
 	/** Allow subclasses to override the primitive name. Used primarily by BSP. */
