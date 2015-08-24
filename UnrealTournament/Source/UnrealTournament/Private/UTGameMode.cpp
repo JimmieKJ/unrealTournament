@@ -3258,11 +3258,12 @@ void AUTGameMode::NewPlayerInfoLine(TSharedPtr<SVerticalBox> VBox, FText Display
 	];
 }
 
-void AUTGameMode::NewWeaponInfoLine(TSharedPtr<SVerticalBox> VBox, FText DisplayName, TSharedPtr<TAttributeStat> KillStat, TSharedPtr<TAttributeStat> DeathStat, TArray<TSharedPtr<TAttributeStat> >& StatList)
+void AUTGameMode::NewWeaponInfoLine(TSharedPtr<SVerticalBox> VBox, FText DisplayName, TSharedPtr<TAttributeStat> KillStat, TSharedPtr<TAttributeStat> DeathStat, TSharedPtr<struct TAttributeStat> AccuracyStat, TArray<TSharedPtr<TAttributeStat> >& StatList)
 {
 	//Add stat in here for layout convenience
 	StatList.Add(KillStat);
 	StatList.Add(DeathStat);
+	StatList.Add(AccuracyStat);
 
 	VBox->AddSlot()
 	.AutoHeight()
@@ -3288,7 +3289,7 @@ void AUTGameMode::NewWeaponInfoLine(TSharedPtr<SVerticalBox> VBox, FText Display
 			.HAlign(HAlign_Fill)
 
 			+ SHorizontalBox::Slot()
-			.FillWidth(0.2f)
+			.FillWidth(0.3f)
 			.HAlign(HAlign_Right)
 			[
 				SNew(STextBlock)
@@ -3297,13 +3298,21 @@ void AUTGameMode::NewWeaponInfoLine(TSharedPtr<SVerticalBox> VBox, FText Display
 				.ColorAndOpacity(FLinearColor(0.6f, 1.0f, 0.6f))
 			]
 			+ SHorizontalBox::Slot()
-			.FillWidth(0.2f)
+			.FillWidth(0.3f)
 			.HAlign(HAlign_Right)
 			[
 				SNew(STextBlock)
 				.Text(DeathStat.ToSharedRef(), &TAttributeStat::GetValueText)
 				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
 				.ColorAndOpacity(FLinearColor(1.0f,0.6f,0.6f))
+			]
+			+ SHorizontalBox::Slot()
+			.FillWidth(0.4f)
+			.HAlign(HAlign_Right)
+			[
+				SNew(STextBlock)
+				.Text(AccuracyStat.ToSharedRef(), &TAttributeStat::GetValueText)
+				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
 			]
 		]
 	];
@@ -3409,6 +3418,48 @@ void AUTGameMode::BuildWeaponInfo(AUTPlayerState* PlayerState, TSharedPtr<class 
 	BuildPaneHelper(TopBox, TopLeftPane, TopRightPane);
 	BuildPaneHelper(BotBox, BotLeftPane, BotRightPane);
 
+	//Add the header
+	for (int32 i = 0; i < 2; i++)
+	{
+		TSharedPtr<SVerticalBox> VBox;
+		VBox = (i == 0) ? TopLeftPane : TopRightPane;
+		VBox->AddSlot()
+			.AutoHeight()
+			[
+				SNew(SHorizontalBox)
+				+ SHorizontalBox::Slot()
+				.FillWidth(0.6f)
+				.HAlign(HAlign_Fill)
+
+				+ SHorizontalBox::Slot()
+				.FillWidth(0.3f)
+				.HAlign(HAlign_Right)
+				[
+					SNew(STextBlock)
+					.Text(NSLOCTEXT("AUTGameMode", "Kills", "K"))
+					.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+					.ColorAndOpacity(FLinearColor(0.6f, 1.0f, 0.6f))
+				]
+				+ SHorizontalBox::Slot()
+					.FillWidth(0.3f)
+					.HAlign(HAlign_Right)
+					[
+						SNew(STextBlock)
+						.Text(NSLOCTEXT("AUTGameMode", "Deaths", "D"))
+						.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+						.ColorAndOpacity(FLinearColor(1.0f, 0.6f, 0.6f))
+					]
+				+ SHorizontalBox::Slot()
+					.FillWidth(0.4f)
+					.HAlign(HAlign_Right)
+					[
+						SNew(STextBlock)
+						.Text(NSLOCTEXT("AUTGameMode", "Accuracy", "Acc"))
+						.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+					]
+			];
+	}
+
 	//4x4 panes
 	TSharedPtr<SVerticalBox> MainBox = SNew(SVerticalBox)
 	+ SVerticalBox::Slot()
@@ -3447,8 +3498,9 @@ void AUTGameMode::BuildWeaponInfo(AUTPlayerState* PlayerState, TSharedPtr<class 
 	{
 		TSharedPtr<SVerticalBox> Pane = (i % 2) ? TopRightPane : TopLeftPane;
 		NewWeaponInfoLine(Pane, StatsWeapons[i]->DisplayName,
-			MakeShareable(new TAttributeStatWeapon(PlayerState, StatsWeapons[i], true)),
-			MakeShareable(new TAttributeStatWeapon(PlayerState, StatsWeapons[i], false)),
+			MakeShareable(new TAttributeStatWeapon(PlayerState, StatsWeapons[i], TAttributeStatWeapon::WS_KillStat)),
+			MakeShareable(new TAttributeStatWeapon(PlayerState, StatsWeapons[i], TAttributeStatWeapon::WS_DeathStat)),
+			MakeShareable(new TAttributeStatWeapon(PlayerState, StatsWeapons[i], TAttributeStatWeapon::WS_AccuracyStat)),
 			StatList);
 	}
 
