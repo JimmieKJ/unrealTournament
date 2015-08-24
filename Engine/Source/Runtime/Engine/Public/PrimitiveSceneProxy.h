@@ -482,6 +482,13 @@ public:
 	 */
 	ENGINE_API virtual void ApplyWorldOffset(FVector InOffset);
 
+	/**
+	 * Applies a "late in the frame" adjustment to the proxy's existing transform
+	 * @param LateUpdateTransform - The post-transform to be applied to the LocalToWorld matrix
+	 */
+	ENGINE_API virtual void ApplyLateUpdateTransform(const FMatrix& LateUpdateTransform);
+
+	/**
 
 protected:
 
