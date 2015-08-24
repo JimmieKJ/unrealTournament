@@ -416,6 +416,7 @@ void AUTCarriedObject::SendHome()
 void AUTCarriedObject::MoveToHome()
 {
 	AssistTracking.Empty();
+	HolderRescuers.Empty();
 	if (HomeBase != NULL)
 	{
 		FVector BaseLocation = HomeBase->GetActorLocation() + HomeBase->GetActorRotation().RotateVector(HomeBaseOffset) + FVector(0.f, 0.f, Collision->GetScaledCapsuleHalfHeight());

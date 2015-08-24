@@ -277,15 +277,19 @@ bool AUTCTFScoring::WasThreateningFlagCarrier(AUTPlayerState *VictimPS, APawn* K
 		AController* VictimController = Cast<AController>(VictimPS->GetOwner());
 		AController* FCController = Cast<AController>(FlagHolder->GetOwner());
 		APawn* FlagCarrier = FCController ? FCController->GetPawn() : NULL;
-		if (KilledPawn && FlagCarrier && ((VictimController->GetControlRotation().Vector() | (FlagCarrier->GetActorLocation() - KilledPawn->GetActorLocation()).GetSafeNormal()) > 0.8f))
+		if (KilledPawn && FlagCarrier
+			&& (((VictimController->GetControlRotation().Vector() | (FlagCarrier->GetActorLocation() - KilledPawn->GetActorLocation()).GetSafeNormal()) > 0.8f)
+				|| ((FlagCarrier->GetActorLocation() - KilledPawn->GetActorLocation()).Size() < 1200.f)))
 		{
 			// threat if was looking in direction of FC and has line of sight to FC
 			static FName NAME_LineOfSight = FName(TEXT("LineOfSight"));
-			FCollisionQueryParams CollisionParams(NAME_LineOfSight, true, KilledPawn);
-			CollisionParams.AddIgnoredActor(FlagCarrier);
+			FHitResult Hit;
+			FCollisionQueryParams QueryParams(GetClass()->GetFName(), true, KilledPawn);
+			QueryParams.AddIgnoredActor(FlagCarrier);
 			FVector ViewPoint = KilledPawn->GetActorLocation() + FVector(0.f, 0.f, KilledPawn->BaseEyeHeight);
 			FVector TargetLoc = FlagCarrier->GetActorLocation() + FVector(0.f, 0.f, FlagCarrier->BaseEyeHeight);
-			return !GetWorld()->LineTraceTestByChannel(ViewPoint, TargetLoc, ECC_Visibility, CollisionParams);
+			bool bHasClearView = !GetWorld()->LineTraceSingleByChannel(Hit, ViewPoint, TargetLoc, COLLISION_TRACE_WEAPONNOCHARACTER, QueryParams);
+			return bHasClearView;
 		}
 	}
 	return false;
@@ -312,10 +316,10 @@ void AUTCTFScoring::ScoreKill(AController* Killer, AController* Victim, APawn* K
 			KillerPS->ModifyStatsValue(NAME_FCKills, 1);
 			KillerPS->ModifyStatsValue(NAME_FCKillPoints, Points);
 		}
-		else if (WasThreateningFlagCarrier(VictimPS, KilledPawn, KillerPS))
+		if (WasThreateningFlagCarrier(VictimPS, KilledPawn, KillerPS))
 		{
 			Points += FlagCombatKillBonus;
-			CTFGameState->FlagBases[KillerPS->GetTeamNum()]->MyFlag->HolderRescuers.AddUnique(Killer);
+			CTFGameState->FlagBases[VictimPS->GetTeamNum()]->MyFlag->HolderRescuers.AddUnique(Killer);
 			KillerPS->ModifyStatsValue(NAME_FlagSupportKills, 1);
 			KillerPS->ModifyStatsValue(NAME_FlagSupportKillPoints, Points);
 			bIsSupportKill = true;
