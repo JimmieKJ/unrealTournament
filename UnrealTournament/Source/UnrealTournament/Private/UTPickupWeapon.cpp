@@ -234,7 +234,7 @@ void AUTPickupWeapon::PlayTakenEffects(bool bReplicate)
 void AUTPickupWeapon::SetPickupHidden(bool bNowHidden)
 {
 	Super::SetPickupHidden(bNowHidden);
-	if (GhostDepthMesh != NULL)
+	if (GhostMesh != NULL && GhostDepthMesh != NULL)
 	{
 		GhostDepthMesh->SetVisibility(GhostMesh->bVisible, true);
 	}
