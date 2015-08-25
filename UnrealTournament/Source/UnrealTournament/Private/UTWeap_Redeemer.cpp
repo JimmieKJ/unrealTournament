@@ -49,6 +49,14 @@ AUTProjectile* AUTWeap_Redeemer::FireProjectile()
 			//DrawDebugSphere(GetWorld(), SpawnLocation, 10, 10, FColor::Green, true);
 
 			UTOwner->IncrementFlashCount(CurrentFireMode);
+			if (Role == ROLE_Authority)
+			{
+				AUTPlayerState* PS = UTOwner->Controller ? Cast<AUTPlayerState>(UTOwner->Controller->PlayerState) : NULL;
+				if (PS && (ShotsStatsName != NAME_None))
+				{
+					PS->ModifyStatsValue(ShotsStatsName, 1);
+				}
+			}
 
 			// spawn the projectile at the muzzle
 			FActorSpawnParameters Params;
@@ -64,14 +72,6 @@ AUTProjectile* AUTWeap_Redeemer::FireProjectile()
 				}
 
 				RemoteRedeemer->CollisionComp->bGenerateOverlapEvents = true;
-				if (Role == ROLE_Authority)
-				{
-					AUTPlayerState* PS = UTOwner->Controller ? Cast<AUTPlayerState>(UTOwner->Controller->PlayerState) : NULL;
-					if (PS && (ShotsStatsName != NAME_None))
-					{
-						PS->ModifyStatsValue(ShotsStatsName, 1);
-					}
-				}
 			}
 			else
 			{

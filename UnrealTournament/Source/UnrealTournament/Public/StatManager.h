@@ -149,11 +149,11 @@ public:
 	{}
 
 	explicit FStat(bool inbBackendStat, const FXPBreakdown& InXP = FXPBreakdown(ForceInitToZero))
-		: bBackendStat(inbBackendStat), WriteMultiplier(0.0f), XPPerPoint(InXP)
+		: StatData(0), bBackendStat(inbBackendStat), WriteMultiplier(0.0f), XPPerPoint(InXP)
 	{}
 
 	FStat(bool inbBackendStat, float inWriteMultiplier, const FXPBreakdown& InXP = FXPBreakdown(ForceInitToZero))
-		: bBackendStat(inbBackendStat), WriteMultiplier(inWriteMultiplier), XPPerPoint(InXP)
+		: StatData(0), bBackendStat(inbBackendStat), WriteMultiplier(inWriteMultiplier), XPPerPoint(InXP)
 	{}
 
 	UPROPERTY()
