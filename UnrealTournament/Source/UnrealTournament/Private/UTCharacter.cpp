@@ -120,6 +120,7 @@ AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 	bApplyWallSlide = false;
 	FeignNudgeMag = 100000.f;
 	bCanPickupItems = true;
+	RagdollGravityScale = 1.0f;
 
 	MinPainSoundInterval = 0.35f;
 	LastPainSoundTime = -100.0f;
