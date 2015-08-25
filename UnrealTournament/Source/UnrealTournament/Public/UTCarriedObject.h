@@ -124,7 +124,7 @@ class UNREALTOURNAMENT_API AUTCarriedObject : public AActor, public IUTTeamInter
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
 	USoundBase* DropSound;
 
-	void Init(AUTGameObjective* NewBase);
+	virtual void Init(AUTGameObjective* NewBase);
 
 	// Returns the team number of the team that owns this object
 	UFUNCTION()
