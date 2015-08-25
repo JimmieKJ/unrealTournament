@@ -1652,40 +1652,6 @@ void AUTPlayerState::BuildPlayerInfo(TSharedPtr<SUTTabWidget> TabWidget, TArray<
 	TabWidget->AddTab(NSLOCTEXT("AUTPlayerState", "PlayerInfo", "Player Info"), 
 	SNew(SVerticalBox)
 	+ SVerticalBox::Slot()
-	.Padding(10.0f, 5.0f, 10.0f, 5.0f)
-	.AutoHeight()
-	[
-		SNew(SOverlay)
-		+SOverlay::Slot()
-		[
-			SNew(SHorizontalBox)
-			+SHorizontalBox::Slot()
-			.HAlign(HAlign_Left)
-			.VAlign(VAlign_Center)
-			.AutoWidth()
-			[
-				SNew(SBox)
-				.WidthOverride(150)
-				[
-					SNew(STextBlock)
-					.Text(NSLOCTEXT("Generic", "PlayerNamePrompt", "Name :"))
-					.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-					.ColorAndOpacity(FLinearColor::Gray)
-				]
-			]
-			+ SHorizontalBox::Slot()
-			.HAlign(HAlign_Left)
-			.VAlign(VAlign_Center)
-			.Padding(5.0,0.0,0.0,0.0)
-			.AutoWidth()
-			[
-				SNew(STextBlock)
-				.Text(FText::FromString(PlayerName))
-				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-			]
-		]
-	]
-	+ SVerticalBox::Slot()
 	.Padding(10.0f, 0.0f, 10.0f, 5.0f)
 	.AutoHeight()
 	[
@@ -1693,20 +1659,6 @@ void AUTPlayerState::BuildPlayerInfo(TSharedPtr<SUTTabWidget> TabWidget, TArray<
 		+ SHorizontalBox::Slot()
 		.HAlign(HAlign_Left)
 		.VAlign(VAlign_Center)
-		.AutoWidth()
-		[
-			SNew(SBox)
-			.WidthOverride(150)
-			[
-				SNew(STextBlock)
-				.Text(NSLOCTEXT("Generic", "PlayerFlagPrompt", ""))
-				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-				.ColorAndOpacity(FLinearColor::Gray)
-			]
-		]
-		+ SHorizontalBox::Slot()
-		.VAlign(VAlign_Center)
-		.HAlign(HAlign_Left)
 		.AutoWidth()
 		[
 			SNew(SBox)
@@ -1727,36 +1679,6 @@ void AUTPlayerState::BuildPlayerInfo(TSharedPtr<SUTTabWidget> TabWidget, TArray<
 		[
 			SNew(STextBlock)
 			.Text(FText::FromString(Flag ? Flag->GetFriendlyName() : TEXT("")))
-			.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
-		]
-	]
-	+SVerticalBox::Slot()
-	.Padding(10.0f, 0.0f, 10.0f, 5.0f)
-	.AutoHeight()
-	[
-		SNew(SHorizontalBox)
-		+ SHorizontalBox::Slot()
-		.HAlign(HAlign_Left)
-		.VAlign(VAlign_Center)
-		.AutoWidth()
-		[
-			SNew(SBox)
-			.WidthOverride(150)
-			[
-				SNew(STextBlock)
-				.Text(NSLOCTEXT("Generic", "ScorePrompt", "Score :"))
-				.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
-				.ColorAndOpacity(FLinearColor::Gray)
-			]
-		]
-		+ SHorizontalBox::Slot()
-		.HAlign(HAlign_Left)
-		.VAlign(VAlign_Center)
-		.Padding(5.0, 0.0, 0.0, 0.0)
-		.AutoWidth()
-		[
-			SNew(STextBlock)
-			.Text(FText::AsNumber(Score))
 			.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
 		]
 	]
@@ -1794,36 +1716,6 @@ void AUTPlayerState::BuildPlayerInfo(TSharedPtr<SUTTabWidget> TabWidget, TArray<
 			.Text(FText::FromString(StatsID))
 			.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
 			.OnNavigate(FSimpleDelegate::CreateUObject(this, &AUTPlayerState::EpicIDClicked))
-		]
-	]
-	+SVerticalBox::Slot()
-	.Padding(10.0f, 0.0f, 10.0f, 5.0f)
-	.AutoHeight()
-	[
-		SNew(SHorizontalBox)
-		+ SHorizontalBox::Slot()
-		.HAlign(HAlign_Left)
-		.VAlign(VAlign_Center)
-		.AutoWidth()
-		[
-			SNew(SBox)
-			.WidthOverride(150)
-			[
-				SNew(STextBlock)
-				.Text(NSLOCTEXT("Generic", "TrainingPrompt", "Training :"))
-				.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
-				.ColorAndOpacity(FLinearColor::Gray)
-			]
-		]
-		+ SHorizontalBox::Slot()
-		.HAlign(HAlign_Left)
-		.VAlign(VAlign_Center)
-		.Padding(5.0, 0.0, 0.0, 0.0)
-		.AutoWidth()
-		[
-			SNew(STextBlock)
-			.Text(GetTrainingLevelText())
-			.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
 		]
 	]);
 }
