@@ -109,6 +109,15 @@ AUTProjectile* AUTWeap_FlakCannon::FireProjectile()
 		// increment 3rd person muzzle flash count
 		UTOwner->IncrementFlashCount(CurrentFireMode);
 
+		if (Role == ROLE_Authority)
+		{
+			AUTPlayerState* PS = UTOwner->Controller ? Cast<AUTPlayerState>(UTOwner->Controller->PlayerState) : NULL;
+			if (PS && (ShotsStatsName != NAME_None))
+			{
+				PS->ModifyStatsValue(ShotsStatsName, 1);
+			}
+		}
+
 		// Get muzzle location and rotation
 		const FVector SpawnLocation = GetFireStartLoc();
 		const FRotator SpawnRotation = GetAdjustedAim(SpawnLocation);
@@ -133,14 +142,6 @@ AUTProjectile* AUTWeap_FlakCannon::FireProjectile()
 			if (MainProjectile == NULL)
 			{
 				MainProjectile = MultiShot;
-			}
-		}
-		if (Role == ROLE_Authority)
-		{
-			AUTPlayerState* PS = UTOwner->Controller ? Cast<AUTPlayerState>(UTOwner->Controller->PlayerState) : NULL;
-			if (PS && (ShotsStatsName != NAME_None))
-			{
-				PS->ModifyStatsValue(ShotsStatsName, 1);
 			}
 		}
 
