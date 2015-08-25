@@ -114,7 +114,7 @@ TSharedRef<SWidget> SUHomePanel::BuildHomePanel()
 							.Padding(5.0)
 							[
 								SNew(STextBlock)
-								.Text(FText::FromString(TEXT("Select this option to being training to become the ultimate warrior!")))
+								.Text(FText::FromString(TEXT("Train to become the ultimate Unreal Tournament warrior!")))
 								.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small")
 							]
 						]
