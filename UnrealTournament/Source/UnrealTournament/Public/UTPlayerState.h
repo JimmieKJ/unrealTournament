@@ -547,6 +547,14 @@ public:
 	// Average ELO rank for this player.
 	UPROPERTY(Replicated)
 	int32 AverageRank;
+	UPROPERTY(Replicated)
+	int32 DuelRank;
+	UPROPERTY(Replicated)
+	int32 CTFRank;
+	UPROPERTY(Replicated)
+	int32 TDMRank;
+	UPROPERTY(Replicated)
+	int32 DMRank;
 
 	UPROPERTY(Replicated)
 	int32 TrainingLevel;
@@ -572,9 +580,11 @@ public:
 
 #if !UE_SERVER
 public:
-	const FSlateBrush* GetELOBadgeImage() const;
-	const FSlateBrush* GetELOBadgeNumberImage() const;
+	const FSlateBrush* GetELOBadgeImage(int32 EloRating) const;
+	const FSlateBrush* GetELOBadgeNumberImage(int32 EloRating) const;
 	void BuildPlayerInfo(TSharedPtr<class SUTTabWidget> TabWidget, TArray<TSharedPtr<struct TAttributeStat> >& StatList);
+	TSharedRef<SWidget> BuildRankInfo();
+	TSharedRef<SWidget> BuildRank(FText RankName, int32 Rank);
 	void EpicIDClicked();
 #endif
 

@@ -85,6 +85,10 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	DOREPLIFETIME(AUTPlayerState, CountryFlag);
 	DOREPLIFETIME(AUTPlayerState, Avatar);
 	DOREPLIFETIME(AUTPlayerState, AverageRank);
+	DOREPLIFETIME(AUTPlayerState, DuelRank);
+	DOREPLIFETIME(AUTPlayerState, CTFRank);
+	DOREPLIFETIME(AUTPlayerState, TDMRank);
+	DOREPLIFETIME(AUTPlayerState, DMRank);
 	DOREPLIFETIME(AUTPlayerState, TrainingLevel);
 	DOREPLIFETIME(AUTPlayerState, SelectedCharacter);
 	DOREPLIFETIME(AUTPlayerState, TauntClass);
@@ -1509,24 +1513,136 @@ void AUTPlayerState::UnregisterPlayerWithSession()
 
 #if !UE_SERVER
 
-const FSlateBrush* AUTPlayerState::GetELOBadgeImage() const
+const FSlateBrush* AUTPlayerState::GetELOBadgeImage(int32 EloRating) const
 {
 	int32 Badge = 0;
 	int32 Level = 0;
 
-	UUTLocalPlayer::GetBadgeFromELO(AverageRank, Badge, Level);
+	UUTLocalPlayer::GetBadgeFromELO(EloRating, Badge, Level);
 	FString BadgeStr = FString::Printf(TEXT("UT.Badge.%i"), Badge);
 	return SUWindowsStyle::Get().GetBrush(*BadgeStr);
 }
 
-const FSlateBrush* AUTPlayerState::GetELOBadgeNumberImage() const
+const FSlateBrush* AUTPlayerState::GetELOBadgeNumberImage(int32 EloRating) const
 {
 	int32 Badge = 0;
 	int32 Level = 0;
 
-	UUTLocalPlayer::GetBadgeFromELO(AverageRank, Badge, Level);
+	UUTLocalPlayer::GetBadgeFromELO(EloRating, Badge, Level);
 	FString BadgeNumberStr = FString::Printf(TEXT("UT.Badge.Numbers.%i"), FMath::Clamp<int32>(Level + 1, 1, 9));
 	return SUWindowsStyle::Get().GetBrush(*BadgeNumberStr);
+}
+
+TSharedRef<SWidget> AUTPlayerState::BuildRank(FText RankName, int32 Rank)
+{
+	return SNew(SHorizontalBox)
+		+ SHorizontalBox::Slot()
+		.HAlign(HAlign_Left)
+		.VAlign(VAlign_Center)
+		.AutoWidth()
+		[
+			SNew(SBox)
+			.WidthOverride(150)
+			[
+				SNew(STextBlock)
+				.Text(RankName)
+				.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
+				.ColorAndOpacity(FLinearColor::Gray)
+			]
+		]
+		+ SHorizontalBox::Slot()
+		.HAlign(HAlign_Left)
+		.VAlign(VAlign_Center)
+		.Padding(5.0, 0.0, 0.0, 0.0)
+		.AutoWidth()
+		[
+			SNew(SOverlay)
+			+ SOverlay::Slot()
+			[
+				SNew(SImage)
+				.Image(GetELOBadgeImage(Rank))
+			]
+			+ SOverlay::Slot()
+			.HAlign(HAlign_Center)
+			.VAlign(VAlign_Top)
+			[
+				SNew(SImage)
+				.Image(GetELOBadgeNumberImage(Rank))
+			]
+		];
+}
+
+TSharedRef<SWidget> AUTPlayerState::BuildRankInfo()
+{
+	TSharedRef<SVerticalBox> VBox = SNew(SVerticalBox);
+	if (bIsABot)
+	{
+		VBox->AddSlot()
+			.Padding(10.0f, 0.0f, 10.0f, 5.0f)
+			.AutoHeight()
+			[
+				SNew(SHorizontalBox)
+				+ SHorizontalBox::Slot()
+				.HAlign(HAlign_Left)
+				.VAlign(VAlign_Center)
+				.AutoWidth()
+				[
+					SNew(SBox)
+					.WidthOverride(150)
+					[
+						SNew(STextBlock)
+						.Text(NSLOCTEXT("Generic", "SkillPrompt", "Skill Level "))
+						.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
+						.ColorAndOpacity(FLinearColor::Gray)
+					]
+				]
+				+ SHorizontalBox::Slot()
+				.HAlign(HAlign_Left)
+				.VAlign(VAlign_Center)
+				.Padding(5.0, 0.0, 0.0, 0.0)
+				.AutoWidth()
+				[
+					SNew(STextBlock)
+					.Text(FText::AsNumber(AverageRank))
+					.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
+				]
+			];
+	}
+	else
+	{
+		VBox->AddSlot()
+			.Padding(10.0f, 0.0f, 10.0f, 5.0f)
+			.AutoHeight()
+			[
+				BuildRank(NSLOCTEXT("Generic", "RankPrompt", "Rank :"), AverageRank)
+			];
+		VBox->AddSlot()
+			.Padding(10.0f, 0.0f, 10.0f, 5.0f)
+			.AutoHeight()
+			[
+				BuildRank(NSLOCTEXT("Generic", "DuelRank", "Duel Rank :"), DuelRank)
+			];
+		VBox->AddSlot()
+			.Padding(10.0f, 0.0f, 10.0f, 5.0f)
+			.AutoHeight()
+			[
+				BuildRank(NSLOCTEXT("Generic", "CTFRank", "CTF Rank :"), CTFRank)
+			];
+		VBox->AddSlot()
+			.Padding(10.0f, 0.0f, 10.0f, 5.0f)
+			.AutoHeight()
+			[
+				BuildRank(NSLOCTEXT("Generic", "TDMRank", "TDM Rank :"), TDMRank)
+			];
+		VBox->AddSlot()
+			.Padding(10.0f, 0.0f, 10.0f, 5.0f)
+			.AutoHeight()
+			[
+				BuildRank(NSLOCTEXT("Generic", "DMRank", "DM Rank :"), DMRank)
+			];
+
+	}
+	return VBox;
 }
 
 void AUTPlayerState::BuildPlayerInfo(TSharedPtr<SUTTabWidget> TabWidget, TArray<TSharedPtr<TAttributeStat> >& StatList)
@@ -1566,32 +1682,6 @@ void AUTPlayerState::BuildPlayerInfo(TSharedPtr<SUTTabWidget> TabWidget, TArray<
 				SNew(STextBlock)
 				.Text(FText::FromString(PlayerName))
 				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-			]
-		]
-		+SOverlay::Slot()
-		[
-			SNew(SVerticalBox)
-			+ SVerticalBox::Slot()
-			.HAlign(HAlign_Right)
-			[
-				SNew(SBox)
-				.WidthOverride(32)
-				.HeightOverride(32)
-				[
-					SNew(SOverlay)
-					+ SOverlay::Slot()
-					[
-						SNew(SImage)
-						.Image(GetELOBadgeImage())
-					]
-					+ SOverlay::Slot()
-					.HAlign(HAlign_Center)
-					.VAlign(VAlign_Top)
-					[
-						SNew(SImage)
-						.Image(GetELOBadgeNumberImage())
-					]
-				]
 			]
 		]
 	]
@@ -1670,36 +1760,10 @@ void AUTPlayerState::BuildPlayerInfo(TSharedPtr<SUTTabWidget> TabWidget, TArray<
 			.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
 		]
 	]
-
-	+SVerticalBox::Slot()
-	.Padding(10.0f, 0.0f, 10.0f, 5.0f)
+	+ SVerticalBox::Slot()
 	.AutoHeight()
 	[
-		SNew(SHorizontalBox)
-		+ SHorizontalBox::Slot()
-		.HAlign(HAlign_Left)
-		.VAlign(VAlign_Center)
-		.AutoWidth()
-		[
-			SNew(SBox)
-			.WidthOverride(150)
-			[
-				SNew(STextBlock)
-				.Text(bIsABot ? NSLOCTEXT("Generic", "SkillPrompt", "Skill Level ") : NSLOCTEXT("Generic", "RankPrompt", "Rank :"))
-				.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
-				.ColorAndOpacity(FLinearColor::Gray)
-			]
-		]
-		+ SHorizontalBox::Slot()
-		.HAlign(HAlign_Left)
-		.VAlign(VAlign_Center)
-		.Padding(5.0, 0.0, 0.0, 0.0)
-		.AutoWidth()
-		[
-			SNew(STextBlock)
-			.Text(FText::AsNumber(AverageRank))
-			.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
-		]
+		BuildRankInfo()
 	]
 	+SVerticalBox::Slot()
 	.Padding(10.0f, 0.0f, 10.0f, 5.0f)

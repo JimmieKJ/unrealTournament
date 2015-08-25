@@ -438,15 +438,22 @@ void AUTBasePlayerController::ClientGenericInitialization_Implementation()
 	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
 	if (LP)
 	{
-		ServerReceiveAverageRank(LP->GetBaseELORank());
+		ServerReceiveRank(LP->GetBaseELORank(), LP->GetRankDuel(), LP->GetRankCTF(), LP->GetRankTDM(), LP->GetRankDM());
 	}
 }
 
-bool AUTBasePlayerController::ServerReceiveAverageRank_Validate(int32 NewAverageRank) { return true; }
-void AUTBasePlayerController::ServerReceiveAverageRank_Implementation(int32 NewAverageRank)
+bool AUTBasePlayerController::ServerReceiveRank_Validate(int32 NewAverageRank, int32 NewDuelRank, int32 NewCTFRank, int32 NewTDMRank, int32 NewDMRank) { return true; }
+void AUTBasePlayerController::ServerReceiveRank_Implementation(int32 NewAverageRank, int32 NewDuelRank, int32 NewCTFRank, int32 NewTDMRank, int32 NewDMRank)
 {
 	AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
-	if (PS) PS->AverageRank = NewAverageRank;
+	if (PS)
+	{
+		PS->AverageRank = NewAverageRank;
+		PS->DuelRank = NewDuelRank;
+		PS->CTFRank = NewCTFRank;
+		PS->TDMRank = NewTDMRank;
+		PS->DMRank = NewDMRank;
+	}
 }
 
 

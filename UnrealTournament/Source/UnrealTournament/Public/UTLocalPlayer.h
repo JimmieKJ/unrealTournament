@@ -402,6 +402,11 @@ public:
 	// Returns the base ELO Rank with any type of processing we need.
 	virtual int32 GetBaseELORank();
 
+	inline virtual int32 GetRankTDM() { return TDM_ELO; }
+	inline virtual int32 GetRankDuel() { return DUEL_ELO; }
+	inline virtual int32 GetRankDM() { return FFA_ELO; }
+	inline virtual int32 GetRankCTF() { return CTF_ELO; }
+
 	// Returns what badge should represent player's skill level.
 	static void GetBadgeFromELO(int32 EloRating, int32& BadgeLevel, int32& SubLevel);
 
