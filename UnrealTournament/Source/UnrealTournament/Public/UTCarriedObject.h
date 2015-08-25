@@ -262,4 +262,6 @@ protected:
 	virtual void SendGameMessage(uint32 Switch, APlayerState* PS1, APlayerState* PS2, UObject* OptionalObject = NULL);
 
 	virtual void TossObject(AUTCharacter* ObjectHolder);
+
+	virtual bool TeleportTo(const FVector& DestLocation, const FRotator& DestRotation, bool bIsATest = false, bool bNoCheck = false) override;
 };

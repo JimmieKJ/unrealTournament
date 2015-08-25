@@ -371,7 +371,25 @@ void AUTCarriedObject::TossObject(AUTCharacter* ObjectHolder)
 			MovementComponent->SetUpdatedComponent(NULL);
 		}
 	}
-	
+}
+
+bool AUTCarriedObject::TeleportTo(const FVector& DestLocation, const FRotator& DestRotation, bool bIsATest, bool bNoCheck)
+{
+	if (bNoCheck)
+	{
+		return Super::TeleportTo(DestLocation, DestRotation, bIsATest, bNoCheck);
+	}
+
+	// during teleportation, we need to change our collision to overlap potential telefrag targets instead of block
+	// however, EncroachingBlockingGeometry() doesn't handle reflexivity correctly so we can't get anywhere changing our collision responses
+	// instead, we must change our object type to adjust the query
+	FVector TeleportStart = GetActorLocation();
+	ECollisionChannel SavedObjectType = Collision->GetCollisionObjectType();
+	Collision->SetCollisionObjectType(COLLISION_TELEPORTING_OBJECT);
+	bool bResult = Super::TeleportTo(DestLocation, DestRotation, bIsATest, bNoCheck);
+	Collision->SetCollisionObjectType(SavedObjectType);
+	Collision->UpdateOverlaps(); // make sure collision object type changes didn't mess with our overlaps
+	return bResult;
 }
 
 void AUTCarriedObject::Drop(AController* Killer)
