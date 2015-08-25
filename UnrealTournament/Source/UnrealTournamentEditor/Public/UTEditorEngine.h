@@ -20,21 +20,24 @@ class UUTEditorEngine : public UEditorEngine
 	{
 		Super::InitializeObjectReferences();
 
-		// manually add FStringClassReferences and FStringAssetReferences in native UClasses to the cook list
-		// this will not happen by default because that is done via Serialize() which does not happen for native CDOs
-		UScriptStruct* FStringClassReferenceStruct = FindObject<UScriptStruct>(NULL, TEXT("/Script/CoreUObject.StringClassReference"), true);
-		UScriptStruct* FStringAssetReferenceStruct = FindObject<UScriptStruct>(NULL, TEXT("/Script/CoreUObject.StringAssetReference"), true);
-		for (TObjectIterator<UClass> It; It; ++It)
+		if (FCoreUObjectDelegates::StringAssetReferenceLoaded.IsBound())
 		{
-			if (It->HasAnyClassFlags(CLASS_Native))
+			// manually add FStringClassReferences and FStringAssetReferences in native UClasses to the cook list
+			// this will not happen by default because that is done via Serialize() which does not happen for native CDOs
+			UScriptStruct* FStringClassReferenceStruct = FindObject<UScriptStruct>(NULL, TEXT("/Script/CoreUObject.StringClassReference"), true);
+			UScriptStruct* FStringAssetReferenceStruct = FindObject<UScriptStruct>(NULL, TEXT("/Script/CoreUObject.StringAssetReference"), true);
+			for (TObjectIterator<UClass> It; It; ++It)
 			{
-				for (TFieldIterator<UStructProperty> PropIt(*It, EFieldIteratorFlags::ExcludeSuper); PropIt; ++PropIt)
+				if (It->HasAnyClassFlags(CLASS_Native))
 				{
-					if (!PropIt->HasAnyPropertyFlags(CPF_EditorOnly) && (PropIt->Struct == FStringClassReferenceStruct || PropIt->Struct == FStringAssetReferenceStruct))
+					for (TFieldIterator<UStructProperty> PropIt(*It, EFieldIteratorFlags::ExcludeSuper); PropIt; ++PropIt)
 					{
-						FString ContentPath;
-						PropIt->ExportTextItem(ContentPath, PropIt->ContainerPtrToValuePtr<void>(It->GetDefaultObject()), NULL, NULL, 0, NULL);
-						FCoreUObjectDelegates::StringAssetReferenceLoaded.Execute(ContentPath);
+						if (!PropIt->HasAnyPropertyFlags(CPF_EditorOnly) && (PropIt->Struct == FStringClassReferenceStruct || PropIt->Struct == FStringAssetReferenceStruct))
+						{
+							FString ContentPath;
+							PropIt->ExportTextItem(ContentPath, PropIt->ContainerPtrToValuePtr<void>(It->GetDefaultObject()), NULL, NULL, 0, NULL);
+							FCoreUObjectDelegates::StringAssetReferenceLoaded.Execute(ContentPath);
+						}
 					}
 				}
 			}
