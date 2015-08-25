@@ -86,7 +86,7 @@ void AUTCTFScoring::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Scor
 	if (Reason == FName("SentHome"))
 	{
 		ScorerPS->FlagReturns++;
-		ScorerPS->ModifyStat(NAME_FlagReturns, 1, EStatMod::Delta);
+		ScorerPS->ModifyStatsValue(NAME_FlagReturns, 1);
 		int32 Points = FlagReturnPoints + FMath::Min<int32>(MaxFlagHeldBonus, FlagReturnHeldBonus * GetTotalHeldTime(GameObject) / 2);
 		ScorerPS->AdjustScore(Points);
 		ScorerPS->LastFlagReturnTime = GetWorld()->GetTimeSeconds();
@@ -120,7 +120,7 @@ void AUTCTFScoring::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Scor
 		}
 
 		ScorerPS->FlagCaptures++;
-		ScorerPS->ModifyStat(NAME_FlagCaptures, 1, EStatMod::Delta);
+		ScorerPS->ModifyStatsValue(NAME_FlagCaptures, 1);
 		NewScoringPlay.ScoredByCaps = ScorerPS->FlagCaptures;
 		int32 FlagPickupPoints = FlagFirstPickupPoints;
 		float TotalHeldTime = GetTotalHeldTime(GameObject);
@@ -234,7 +234,7 @@ void AUTCTFScoring::ScoreObject(AUTCarriedObject* GameObject, AUTCharacter* Scor
 			if (Assist.AssistName.PlayerState != NULL)
 			{
 				Assist.AssistName.PlayerState->Assists++;
-				Assist.AssistName.PlayerState->ModifyStat(NAME_FlagAssists, 1, EStatMod::Delta);
+				Assist.AssistName.PlayerState->ModifyStatsValue(NAME_FlagAssists, 1);
 				Assist.AssistName.PlayerState->bNeedsAssistAnnouncement = true;
 			}
 		}
