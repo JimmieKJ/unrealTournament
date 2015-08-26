@@ -710,3 +710,12 @@ bool UUTGameplayStatics::GetBestTime(UObject* WorldContextObject, FName TimingSe
 
 	return false;
 }
+
+bool UUTGameplayStatics::LineTraceForObjectsSimple(UObject* WorldContextObject, const FVector Start, const FVector End, const TArray< TEnumAsByte<EObjectTypeQuery> > & ObjectTypes, bool bTraceComplex, EDrawDebugTrace::Type DrawDebugType, FVector& HitLocation, FVector& HitNormal, bool bIgnoreSelf)
+{
+	FHitResult Hit;
+	bool bResult = UKismetSystemLibrary::LineTraceSingleForObjects(WorldContextObject, Start, End, ObjectTypes, bTraceComplex, TArray<AActor*>(), DrawDebugType, Hit, bIgnoreSelf);
+	HitLocation = Hit.Location;
+	HitNormal = Hit.Normal;
+	return bResult;
+}

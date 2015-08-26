@@ -1,6 +1,8 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "Kismet/KismetSystemLibrary.h"
+
 #include "UTGameplayStatics.generated.h"
 
 UENUM()
@@ -143,4 +145,18 @@ class UNREALTOURNAMENT_API UUTGameplayStatics : public UBlueprintFunctionLibrary
 	/** Get the best time for a named timing section */
 	UFUNCTION(BlueprintCallable, Category = "UT", meta = (WorldContext = "WorldContextObject"))
 	static bool GetBestTime(UObject* WorldContextObject, FName TimingSection, float& OutBestTime);
+
+	/**
+	* Simplified line trace node that returns only hit data, for simplicitly in blueprints when the full HitResult is not needed.
+	* Does a collision trace along the given line and returns the first hit encountered.
+	* This only finds objects that are of a type specified by ObjectTypes.
+	*
+	* @param Start Start of line segment.
+	* @param End End of line segment.
+	* @param ObjectTypes Array of Object Types to trace
+	* @param bTraceComplex True to test against complex collision, false to test against simplified collision.
+	* @return True if there was a hit, false otherwise.
+	*/
+	UFUNCTION(BlueprintCallable, Category = "Collision", meta = (bIgnoreSelf = "true", WorldContext = "WorldContextObject", DisplayName = "LineTraceForObjectsSimple", Keywords = "raycast"))
+	static bool LineTraceForObjectsSimple(UObject* WorldContextObject, const FVector Start, const FVector End, const TArray< TEnumAsByte<EObjectTypeQuery> > & ObjectTypes, bool bTraceComplex, EDrawDebugTrace::Type DrawDebugType, FVector& HitLocation, FVector& HitNormal, bool bIgnoreSelf);
 };

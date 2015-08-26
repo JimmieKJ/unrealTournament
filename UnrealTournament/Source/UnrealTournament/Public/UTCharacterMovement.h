@@ -330,6 +330,10 @@ protected:
 	bool bCountWallSlides;
 
 public:
+	/** accessor to commonly used elements of CurrentFloor to avoid cumbersome/expensive "break" nodes */
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Character Movement: Walking")
+	void GetSimpleFloorInfo(FVector& ImpactPoint, FVector& Normal) const;
+
 	/** Horizontal speed reduction on slide ending (multiplied). */
 	UPROPERTY(Category = "FloorSlide", EditAnywhere, BlueprintReadWrite)
 	float FloorSlideEndingSpeedFactor;
