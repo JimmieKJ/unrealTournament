@@ -30,9 +30,18 @@ class UUTEditorEngine : public UEditorEngine
 			{
 				if (It->HasAnyClassFlags(CLASS_Native))
 				{
-					for (TFieldIterator<UStructProperty> PropIt(*It, EFieldIteratorFlags::ExcludeSuper); PropIt; ++PropIt)
+					for (TFieldIterator<UStructProperty> PropIt(*It, EFieldIteratorFlags::IncludeSuper); PropIt; ++PropIt)
 					{
 						if (!PropIt->HasAnyPropertyFlags(CPF_EditorOnly) && (PropIt->Struct == FStringClassReferenceStruct || PropIt->Struct == FStringAssetReferenceStruct))
+						{
+							FString ContentPath;
+							PropIt->ExportTextItem(ContentPath, PropIt->ContainerPtrToValuePtr<void>(It->GetDefaultObject()), NULL, NULL, 0, NULL);
+							FCoreUObjectDelegates::StringAssetReferenceLoaded.Execute(ContentPath);
+						}
+					}
+					for (TFieldIterator<UAssetObjectProperty> PropIt(*It, EFieldIteratorFlags::IncludeSuper); PropIt; ++PropIt)
+					{
+						if (!PropIt->HasAnyPropertyFlags(CPF_EditorOnly))
 						{
 							FString ContentPath;
 							PropIt->ExportTextItem(ContentPath, PropIt->ContainerPtrToValuePtr<void>(It->GetDefaultObject()), NULL, NULL, 0, NULL);

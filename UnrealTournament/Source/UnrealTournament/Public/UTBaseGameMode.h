@@ -26,6 +26,9 @@ public:
 
 	uint32 bRequirePassword:1;
 
+	// note that this is not visible because in the editor we will still have the user set DefaultPawnClass, see PostEditChangeProperty()
+	// in C++ constructors, you should set this as it takes priority in InitGame()
+	UPROPERTY()
 	TAssetSubclassOf<APawn> PlayerPawnObject;
 
 #if !UE_SERVER
@@ -49,6 +52,16 @@ protected:
 	uint32 LobbyInstanceID;
 
 public:
+#if WITH_EDITOR
+	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override
+	{
+		if (DefaultPawnClass != NULL && PropertyChangedEvent.Property != NULL && PropertyChangedEvent.Property->GetFName() == FName(TEXT("DefaultPawnClass")))
+		{
+			PlayerPawnObject = DefaultPawnClass;
+		}
+		Super::PostEditChangeProperty(PropertyChangedEvent);
+	}
+#endif
 
 	/** human readable localized name for the game mode */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, AssetRegistrySearchable, Category = Game)
