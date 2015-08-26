@@ -1848,7 +1848,7 @@ bool AUTPlayerController::ServerRestartPlayerAltFire_Validate()
 	return true;
 }
 
-void AUTPlayerController::SwitchTeam()
+void AUTPlayerController::ServerSwitchTeam_Implementation()
 {
 	if (UTPlayerState && UTPlayerState->Team && (UTPlayerState->Team->TeamIndex < 2))
 	{
@@ -1880,11 +1880,6 @@ bool AUTPlayerController::ServerSwitchTeam_Validate()
 	return true;
 }
 
-void AUTPlayerController::ServerSwitchTeam_Implementation()
-{
-	SwitchTeam();
-}
-
 void AUTPlayerController::ServerRestartPlayerAltFire_Implementation()
 {
 	if (UTPlayerState != nullptr)
@@ -1895,7 +1890,7 @@ void AUTPlayerController::ServerRestartPlayerAltFire_Implementation()
 
 	if (!GetWorld()->GetAuthGameMode()->HasMatchStarted())
 	{
-		SwitchTeam();
+		ServerSwitchTeam();
 	}
 	else 
 	{

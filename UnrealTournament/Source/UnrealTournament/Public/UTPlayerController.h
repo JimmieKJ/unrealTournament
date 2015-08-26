@@ -608,9 +608,6 @@ public:
 		bool bUseClassicGroups;
 
 	/** Switch between teams 0 and 1 */
-	UFUNCTION(exec)
-	virtual void SwitchTeam();
-
 	UFUNCTION(Reliable, Server, WithValidation)
 	virtual void ServerSwitchTeam();
 
