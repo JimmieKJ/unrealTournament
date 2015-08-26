@@ -97,7 +97,7 @@ void AUTPickupInventory::SetInventoryType(TSubclassOf<AUTInventory> NewType)
 		RespawnTime = 0.0f;
 	}
 	InventoryTypeUpdated();
-	if (Role == ROLE_Authority && GetWorld()->GetAuthGameMode<AUTGameMode>()->HasMatchStarted())
+	if (Role == ROLE_Authority && GetWorld()->GetAuthGameMode<AUTGameMode>() != NULL && GetWorld()->GetAuthGameMode<AUTGameMode>()->HasMatchStarted())
 	{
 		if (InventoryType == NULL || bDelayedSpawn)
 		{
@@ -369,7 +369,7 @@ void AUTPickupInventory::SetPickupHidden(bool bNowHidden)
 bool AUTPickupInventory::AllowPickupBy_Implementation(APawn* Other, bool bDefaultAllowPickup)
 {
 	// TODO: vehicle consideration
-	bDefaultAllowPickup = bDefaultAllowPickup && Cast<AUTCharacter>(Other) != NULL && !((AUTCharacter*)Other)->IsRagdoll();
+	bDefaultAllowPickup = bDefaultAllowPickup && Cast<AUTCharacter>(Other) != NULL && !((AUTCharacter*)Other)->IsRagdoll() && ((AUTCharacter*)Other)->bCanPickupItems;
 	bool bAllowPickup = bDefaultAllowPickup;
 	AUTGameMode* UTGameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
 	return (UTGameMode == NULL || !UTGameMode->OverridePickupQuery(Other, InventoryType, this, bAllowPickup)) ? bDefaultAllowPickup : bAllowPickup;
