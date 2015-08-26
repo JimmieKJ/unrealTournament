@@ -295,6 +295,25 @@ void UUTHUDWidget_SpectatorSlideOut::Draw_Implementation(float DeltaTime)
 					DrawOffset += 1.2f*CellHeight;
 				}
 			}
+
+			AUTPlayerState* OwnerPS = Cast<AUTPlayerState>(UTHUDOwner->UTPlayerOwner->PlayerState);
+			if (!OwnerPS->bCaster)
+			{
+				float StartCamOffset = DrawOffset;
+				float EndCamOffset = 0.0f; //Unknown. will be filled in when cambinds hit the bottom of the screen
+				bool bOverflow = false;
+				DrawCamBind(AutoCamBind, "Auto Camera", DeltaTime, XOffset, DrawOffset, false);
+				UpdateCameraBindOffset(DrawOffset, XOffset, bOverflow, StartCamOffset, EndCamOffset);
+				if (!bOverflow)
+				{
+					DrawCamBind(FName(TEXT("Enter")), "Show Camera Binds", DeltaTime, XOffset, DrawOffset, false);
+					UpdateCameraBindOffset(DrawOffset, XOffset, bOverflow, StartCamOffset, EndCamOffset);
+					if (!bOverflow)
+					{
+						DrawCamBind(FName(TEXT("Numpad Add")), "Toggle SlideOut", DeltaTime, XOffset, DrawOffset, false);
+					}
+				}
+			}
 		}
 		UUTPlayerInput* Input = Cast<UUTPlayerInput>(UTHUDOwner->PlayerOwner->PlayerInput);
 		if (Input && UTHUDOwner->UTPlayerOwner->bShowCameraBinds)
@@ -479,7 +498,7 @@ void UUTHUDWidget_SpectatorSlideOut::DrawCamBind(FName KeyName, FString ProjName
 		ClickElementStack.Add(FClickElement(KeyName, Bounds));
 		if ((MousePosition.X >= Bounds.X && MousePosition.X <= Bounds.Z && MousePosition.Y >= Bounds.Y && MousePosition.Y <= Bounds.W))
 		{
-			BarOpacity = 0.5;
+			BarOpacity = 0.5f;
 		}
 	}
 
