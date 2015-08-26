@@ -525,20 +525,25 @@ void SUTReplayWindow::Tick(const FGeometry & AllottedGeometry, const double InCu
 	if (UTPC &&	LastSpectedPlayerID != UTPC->LastSpectatedPlayerId)
 	{
 		LastSpectedPlayerID = UTPC->LastSpectatedPlayerId;
+
 		if (SelectedBookmark->GetText().ToString() == TEXT("Kills"))
 		{
+			CurrentBookmarks.Empty();
 			OnKillBookmarksSelected();
 		}
 		else if (SelectedBookmark->GetText().ToString() == TEXT("Multi Kills"))
 		{
+			CurrentBookmarks.Empty();
 			OnMultiKillBookmarksSelected();
 		}
 		else if (SelectedBookmark->GetText().ToString() == TEXT("Spree Kills"))
 		{
+			CurrentBookmarks.Empty();
 			OnSpreeKillBookmarksSelected();
 		}
 		else if (SelectedBookmark->GetText().ToString() == TEXT("Flag Returns"))
 		{
+			CurrentBookmarks.Empty();
 			OnFlagReturnsBookmarksSelected();
 		}
 	}
