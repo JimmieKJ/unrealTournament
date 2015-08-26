@@ -116,7 +116,7 @@ void AUTPlayerCameraManager::UpdateCamera(float DeltaTime)
 float AUTPlayerCameraManager::RatePlayerCamera(AUTPlayerState* InPS, AUTCharacter *Character, APlayerState* CurrentCamPS)
 {
 	// 100 is about max
-	float Score = 0.f;
+	float Score = 1.f;
 	if (InPS == CurrentCamPS)
 	{
 		Score += CurrentCamBonus;
