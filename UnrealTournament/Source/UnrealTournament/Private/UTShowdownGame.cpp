@@ -450,10 +450,9 @@ void AUTShowdownGame::CallMatchStateChangeNotify()
 
 void AUTShowdownGame::DefaultTimer()
 {
+	AUTShowdownGameState* GS = Cast<AUTShowdownGameState>(GameState);
 	if (GetMatchState() == MatchState::MatchIntermission)
 	{
-		AUTShowdownGameState* GS = Cast<AUTShowdownGameState>(GameState);
-
 		if (GS->SpawnSelector != NULL && GS->SpawnSelector->RespawnChoiceA != NULL)
 		{
 			GS->IntermissionStageTime = 0;
@@ -507,7 +506,11 @@ void AUTShowdownGame::DefaultTimer()
 	{
 		RoundElapsedTime++;
 
-		Cast<AUTShowdownGameState>(GameState)->bActivateXRayVision = bXRayBreaker && RoundElapsedTime >= 70;
+		if (!GS->bActivateXRayVision && bXRayBreaker && RoundElapsedTime >= 1)
+		{
+			GS->bActivateXRayVision = true;
+			GS->OnRep_XRayVision();
+		}
 
 		if (bLowHealthRegen)
 		{

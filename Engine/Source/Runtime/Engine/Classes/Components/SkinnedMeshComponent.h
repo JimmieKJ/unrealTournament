@@ -615,10 +615,10 @@ protected:
 	/** true when CachedLocalBounds is up to date. */
 	UPROPERTY(Transient)
 	bool bCachedLocalBoundsUpToDate;
-
+public:
 	/** Invalidate Cached Bounds, when Mesh Component has been updated. */
 	void InvalidateCachedBounds();
-
+protected:
 	/** Update Mesh Bound information based on input
 	 * 
 	 * @param RootOffset	: Root Bone offset from mesh location

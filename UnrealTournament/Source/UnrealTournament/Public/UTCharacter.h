@@ -1727,10 +1727,11 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Effects)
 	UMaterialInterface* TacComOverlayMaterial;
 
-	virtual void UpdateTacComMesh(bool bTacComEnabled);
+	virtual void UpdateTacComMesh(bool bNewTacComEnabled);
 
-	//================================
 protected:
+	bool bTacComEnabled;
+
 	/** last time PlayFootstep() was called, for timing footsteps when animations are disabled */
 	float LastFootstepTime;
 

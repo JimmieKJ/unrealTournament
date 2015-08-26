@@ -50,20 +50,23 @@ void AUTHUD_Showdown::UpdateMinimapTexture(UCanvas* C, int32 Width, int32 Height
 				LevelBox += Vert;
 			}
 		}
-		LevelBox = LevelBox.ExpandBy(LevelBox.GetSize() * 0.01f); // extra so edges aren't right up against the texture
-		CalcMinimapTransform(LevelBox, Width, Height);
-		for (TMap<const UUTPathNode*, FNavMeshTriangleList>::TConstIterator It(TriangleMap); It; ++It)
+		if (LevelBox.IsValid)
 		{
-			const FNavMeshTriangleList& TriList = It.Value();
-			
-			for (const FNavMeshTriangleList::FTriangle& Tri : TriList.Triangles)
+			LevelBox = LevelBox.ExpandBy(LevelBox.GetSize() * 0.01f); // extra so edges aren't right up against the texture
+			CalcMinimapTransform(LevelBox, Width, Height);
+			for (TMap<const UUTPathNode*, FNavMeshTriangleList>::TConstIterator It(TriangleMap); It; ++It)
 			{
-				FCanvasTriangleItem Item(FVector2D(MinimapTransform.TransformPosition(TriList.Verts[Tri.Indices[0]])), FVector2D(MinimapTransform.TransformPosition(TriList.Verts[Tri.Indices[1]])), FVector2D(MinimapTransform.TransformPosition(TriList.Verts[Tri.Indices[2]])), C->DefaultTexture->Resource);
-				C->DrawItem(Item);
+				const FNavMeshTriangleList& TriList = It.Value();
+
+				for (const FNavMeshTriangleList::FTriangle& Tri : TriList.Triangles)
+				{
+					FCanvasTriangleItem Item(FVector2D(MinimapTransform.TransformPosition(TriList.Verts[Tri.Indices[0]])), FVector2D(MinimapTransform.TransformPosition(TriList.Verts[Tri.Indices[1]])), FVector2D(MinimapTransform.TransformPosition(TriList.Verts[Tri.Indices[2]])), C->DefaultTexture->Resource);
+					C->DrawItem(Item);
+				}
 			}
 		}
 	}
-	else
+	if (!LevelBox.IsValid)
 	{
 		// set minimap scale based on colliding geometry so map has some functionality without a working navmesh
 		for (TActorIterator<AActor> It(GetWorld()); It; ++It)

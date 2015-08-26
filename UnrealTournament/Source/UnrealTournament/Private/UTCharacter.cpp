@@ -3211,6 +3211,23 @@ void AUTCharacter::SetWeaponAttachmentClass(TSubclassOf<AUTWeaponAttachment> New
 
 void AUTCharacter::UpdateCharOverlays()
 {
+	// tac-com handling, server might overwrite our overlay flags
+	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+	if (GS != NULL)
+	{
+		int32 Index = GS->FindOverlayMaterial(TacComOverlayMaterial);
+		if (Index != INDEX_NONE)
+		{
+			if (bTacComEnabled)
+			{
+				CharOverlayFlags |= (1 << Index);
+			}
+			else
+			{
+				CharOverlayFlags &= ~(1 << Index);
+			}
+		}
+	}
 	if (CharOverlayFlags == 0)
 	{
 		if (OverlayMesh != NULL && OverlayMesh->IsRegistered())
@@ -3260,33 +3277,17 @@ void AUTCharacter::UpdateCharOverlays()
 	}
 }
 
-void AUTCharacter::UpdateTacComMesh(bool bTacComEnabled)
+void AUTCharacter::UpdateTacComMesh(bool bNewTacComEnabled)
 {
-	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-	if (GS != NULL)
-	{
-		int32 Index = GS->FindOverlayMaterial(TacComOverlayMaterial);
-		if (Index != INDEX_NONE)
-		{
-			uint16 OldOverlayFlags = CharOverlayFlags;
-			if (bTacComEnabled)
-			{
-				CharOverlayFlags |= (1 << Index);
-			}
-			else
-			{
-				CharOverlayFlags &= ~(1 << Index);
-			}
-			if (CharOverlayFlags != OldOverlayFlags)
-			{
-				UpdateCharOverlays();
-			}
-		}
-	}
+	bTacComEnabled = bNewTacComEnabled;
 
 	GetMesh()->MeshComponentUpdateFlag = bTacComEnabled ? EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones : EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered;
 	GetMesh()->SetRenderCustomDepth(bTacComEnabled);
 	GetMesh()->BoundsScale = bTacComEnabled ? 15000.f : 1.f;
+	GetMesh()->InvalidateCachedBounds();
+	GetMesh()->UpdateBounds();
+
+	UpdateCharOverlays();
 }
 
 UMaterialInstanceDynamic* AUTCharacter::GetCharOverlayMI()
