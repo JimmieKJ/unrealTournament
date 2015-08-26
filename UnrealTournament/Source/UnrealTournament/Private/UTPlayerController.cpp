@@ -84,6 +84,7 @@ AUTPlayerController::AUTPlayerController(const class FObjectInitializer& ObjectI
 	bUseClassicGroups = true;
 
 	CastingGuideViewIndex = INDEX_NONE;
+	bRequestingSlideOut = true;
 
 	DilationIndex = 2;
 
@@ -2632,11 +2633,11 @@ void AUTPlayerController::ChooseBestCamera()
 	{
 		for (FConstPawnIterator Iterator = GetWorld()->GetPawnIterator(); Iterator; ++Iterator)
 		{
-			AUTCharacter* Pawn = Cast<AUTCharacter>(*Iterator);
-			AUTPlayerState* NextPlayerState = (Pawn && (Pawn->Health > 0)) ? Cast<AUTPlayerState>(Pawn->PlayerState) : NULL;
+			AUTCharacter* CamPawn = Cast<AUTCharacter>(*Iterator);
+			AUTPlayerState* NextPlayerState = (CamPawn && (CamPawn->Health > 0)) ? Cast<AUTPlayerState>(CamPawn->PlayerState) : NULL;
 			if (NextPlayerState)
 			{
-				float NewScore = UTCam->RatePlayerCamera(NextPlayerState, Pawn, LastSpectatedPlayerState);
+				float NewScore = UTCam->RatePlayerCamera(NextPlayerState, CamPawn, LastSpectatedPlayerState);
 				if (NewScore > BestScore)
 				{
 					BestScore = NewScore;
