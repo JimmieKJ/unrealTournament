@@ -22,6 +22,7 @@
 #include "UTEngineMessage.h"
 #include "UTGameState.h"
 #include "UTDemoRecSpectator.h"
+#include "Slate/SUTStyle.h"
 
 AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -1542,7 +1543,7 @@ TSharedRef<SWidget> AUTPlayerState::BuildRank(FText RankName, int32 Rank)
 		.AutoWidth()
 		[
 			SNew(SBox)
-			.WidthOverride(150)
+			.WidthOverride(300)
 			[
 				SNew(STextBlock)
 				.Text(RankName)
@@ -1578,7 +1579,7 @@ TSharedRef<SWidget> AUTPlayerState::BuildRankInfo()
 	if (bIsABot)
 	{
 		VBox->AddSlot()
-			.Padding(10.0f, 0.0f, 10.0f, 5.0f)
+			.Padding(10.0f, 20.0f, 10.0f, 5.0f)
 			.AutoHeight()
 			[
 				SNew(SHorizontalBox)
@@ -1614,7 +1615,16 @@ TSharedRef<SWidget> AUTPlayerState::BuildRankInfo()
 			.Padding(10.0f, 0.0f, 10.0f, 5.0f)
 			.AutoHeight()
 			[
-				BuildRank(NSLOCTEXT("Generic", "RankPrompt", "Rank :"), AverageRank)
+				SNew(STextBlock)
+				.Text(NSLOCTEXT("Generic", "Divider", "____________________________"))
+				.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
+				.ColorAndOpacity(FLinearColor::Gray)
+			];
+		VBox->AddSlot()
+			.Padding(10.0f, 10.0f, 10.0f, 5.0f)
+			.AutoHeight()
+			[
+				BuildRank(NSLOCTEXT("Generic", "RankPrompt", "Overall Rank :"), AverageRank)
 			];
 		VBox->AddSlot()
 			.Padding(10.0f, 0.0f, 10.0f, 5.0f)
@@ -1626,19 +1636,28 @@ TSharedRef<SWidget> AUTPlayerState::BuildRankInfo()
 			.Padding(10.0f, 0.0f, 10.0f, 5.0f)
 			.AutoHeight()
 			[
-				BuildRank(NSLOCTEXT("Generic", "CTFRank", "CTF Rank :"), CTFRank)
+				BuildRank(NSLOCTEXT("Generic", "CTFRank", "Capture the Flag Rank :"), CTFRank)
 			];
 		VBox->AddSlot()
 			.Padding(10.0f, 0.0f, 10.0f, 5.0f)
 			.AutoHeight()
 			[
-				BuildRank(NSLOCTEXT("Generic", "TDMRank", "TDM Rank :"), TDMRank)
+				BuildRank(NSLOCTEXT("Generic", "TDMRank", "Team Deathmatch Rank :"), TDMRank)
 			];
 		VBox->AddSlot()
 			.Padding(10.0f, 0.0f, 10.0f, 5.0f)
 			.AutoHeight()
 			[
-				BuildRank(NSLOCTEXT("Generic", "DMRank", "DM Rank :"), DMRank)
+				BuildRank(NSLOCTEXT("Generic", "DMRank", "Deathmatch Rank :"), DMRank)
+			];
+		VBox->AddSlot()
+			.Padding(10.0f, 0.0f, 10.0f, 5.0f)
+			.AutoHeight()
+			[
+				SNew(STextBlock)
+				.Text(NSLOCTEXT("Generic", "Divider", "____________________________"))
+				.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
+				.ColorAndOpacity(FLinearColor::Gray)
 			];
 
 	}
@@ -1648,11 +1667,40 @@ TSharedRef<SWidget> AUTPlayerState::BuildRankInfo()
 void AUTPlayerState::BuildPlayerInfo(TSharedPtr<SUTTabWidget> TabWidget, TArray<TSharedPtr<TAttributeStat> >& StatList)
 {
 	UUTFlagInfo* Flag = Cast<UUTGameEngine>(GEngine) ? Cast<UUTGameEngine>(GEngine)->GetFlag(CountryFlag) : nullptr;
-
-	TabWidget->AddTab(NSLOCTEXT("AUTPlayerState", "PlayerInfo", "Player Info"), 
+	if ((Avatar == NAME_None) && GetOwner())
+	{
+		AUTPlayerController* PC = Cast<AUTPlayerController>(GetOwner());
+		UUTLocalPlayer* LP = PC ? Cast<UUTLocalPlayer>(PC->Player) : NULL;
+		if (LP)
+		{
+			Avatar = LP->GetAvatar();
+		}
+	}
+	TabWidget->AddTab(NSLOCTEXT("AUTPlayerState", "PlayerInfo", "Player Info"),
 	SNew(SVerticalBox)
 	+ SVerticalBox::Slot()
-	.Padding(10.0f, 0.0f, 10.0f, 5.0f)
+	.Padding(10.0f, 20.0f, 10.0f, 5.0f)
+	.AutoHeight()
+	[
+		SNew(SHorizontalBox)
+		+ SHorizontalBox::Slot()
+		.HAlign(HAlign_Left)
+		.VAlign(VAlign_Center)
+		.AutoWidth()
+		[
+			SNew(SBox)
+			.WidthOverride(64.0f)
+			.HeightOverride(64.0f)
+			.MaxDesiredWidth(64.0f)
+			.MaxDesiredHeight(64.0f)
+			[
+				SNew(SImage)
+				.Image((Avatar != NAME_None) ? SUTStyle::Get().GetBrush(Avatar) : SUTStyle::Get().GetBrush("UT.NoStyle"))
+			]
+		]
+	]
+	+ SVerticalBox::Slot()
+	.Padding(10.0f, 20.0f, 10.0f, 5.0f)
 	.AutoHeight()
 	[
 		SNew(SHorizontalBox)
@@ -1672,7 +1720,7 @@ void AUTPlayerState::BuildPlayerInfo(TSharedPtr<SUTTabWidget> TabWidget, TArray<
 			]
 		]
 		+ SHorizontalBox::Slot()
-		.Padding(5.0f, 0.0f, 0.0f, 0.0f)
+		.Padding(10.0f, 0.0f, 0.0f, 0.0f)
 		.VAlign(VAlign_Center)
 		.HAlign(HAlign_Left)
 		.AutoWidth()
@@ -1688,7 +1736,7 @@ void AUTPlayerState::BuildPlayerInfo(TSharedPtr<SUTTabWidget> TabWidget, TArray<
 		BuildRankInfo()
 	]
 	+SVerticalBox::Slot()
-	.Padding(10.0f, 0.0f, 10.0f, 5.0f)
+	.Padding(10.0f, 20.0f, 10.0f, 5.0f)
 	.AutoHeight()
 	[
 		SNew(SHorizontalBox)
