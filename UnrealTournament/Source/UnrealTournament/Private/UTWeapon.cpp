@@ -167,6 +167,7 @@ void AUTWeapon::BeginPlay()
 			MuzzleFlash[i]->bAutoActivate = false;
 			MuzzleFlash[i]->SecondsBeforeInactive = 0.0f;
 			MuzzleFlash[i]->SetOnlyOwnerSee(false); // we handle this in AUTPlayerController::UpdateHiddenComponents() instead
+			MuzzleFlash[i]->bUseAttachParentBound = true;
 		}
 	}
 
