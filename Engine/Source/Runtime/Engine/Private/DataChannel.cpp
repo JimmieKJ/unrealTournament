@@ -1476,10 +1476,16 @@ bool UActorChannel::CleanUp( const bool bForDestroy )
 		{
 			if (Actor->bTearOff && !Connection->Driver->ShouldClientDestroyTearOffActors())
 			{
-				Actor->Role = ROLE_Authority;
-				Actor->SetReplicates(false);
-				bTornOff = true;
-				Actor->TornOff();
+				if (!bTornOff)
+				{
+					Actor->Role = ROLE_Authority;
+					Actor->SetReplicates(false);
+					bTornOff = true;
+					if (Actor->GetWorld() != NULL && !GIsRequestingExit)
+					{
+						Actor->TornOff();
+					}
+				}
 			}
 			else if (Dormant && !Actor->bTearOff)
 			{
