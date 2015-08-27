@@ -54,14 +54,8 @@ AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer
 	bIsDemoRecording = false;
 	EngineMessageClass = UUTEngineMessage::StaticClass();
 	LastTauntTime = -1000.f;
-
-	static ConstructorHelpers::FObjectFinder<UClass> DefaultVoice(TEXT("BlueprintGeneratedClass'/Game/RestrictedAssets/Character/Voices/SkaarjVoice.SkaarjVoice_C'"));
-	CharacterVoice = DefaultVoice.Object;
-
 	PrevXP = -1;
-
 	EmoteSpeed = 1.0f;
-	
 	BotELOLimit = 1575;
 }
 

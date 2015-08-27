@@ -3946,12 +3946,6 @@ void AUTCharacter::ApplyCharacterData(TSubclassOf<AUTCharacterContent> CharType)
 		}
 		UpdateSkin();
 	}
-
-	if (Data->CharacterVoice && PS != NULL)
-	{
-		PS->CharacterVoice = Data->CharacterVoice;
-	}
-
 }
 
 void AUTCharacter::NotifyTeamChanged()
