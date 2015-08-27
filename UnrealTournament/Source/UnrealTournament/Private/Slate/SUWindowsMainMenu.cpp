@@ -633,12 +633,15 @@ FReply SUWindowsMainMenu::OnBootCampClick(TSharedPtr<SComboButton> MenuButton)
 void SUWindowsMainMenu::OpenTutorialMenu()
 {
 	UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
-	if ((!TutorialMenu.IsValid() || !TutorialMenu->IsInViewport()) && UTEngine->TutorialMenuClass != NULL)
+	if (UTEngine)
 	{
-		TutorialMenu = CreateWidget<UUserWidget>(PlayerOwner->GetWorld(), UTEngine->TutorialMenuClass);
-		if (TutorialMenu != NULL)
+		if ((!TutorialMenu.IsValid() || !TutorialMenu->IsInViewport()) && UTEngine->TutorialMenuClass != NULL)
 		{
-			TutorialMenu->AddToViewport(0);
+			TutorialMenu = CreateWidget<UUserWidget>(PlayerOwner->GetWorld(), UTEngine->TutorialMenuClass);
+			if (TutorialMenu != NULL)
+			{
+				TutorialMenu->AddToViewport(0);
+			}
 		}
 	}
 }
