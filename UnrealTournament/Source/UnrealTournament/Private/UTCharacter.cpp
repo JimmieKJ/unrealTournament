@@ -1465,8 +1465,10 @@ void AUTCharacter::PlayDying()
 	LastDeathDecalTime = GetWorld()->TimeSeconds;
 
 	// Set the hair back to normal because hats are being removed
-	GetMesh()->SetMorphTarget(FName(TEXT("HatHair")), 0.0f);
-
+	if (GetMesh())
+	{
+		GetMesh()->SetMorphTarget(FName(TEXT("HatHair")), 0.0f);
+	}
 	if (Hat && Hat->GetAttachParentActor())
 	{
 		Hat->DetachRootComponentFromParent(true);
