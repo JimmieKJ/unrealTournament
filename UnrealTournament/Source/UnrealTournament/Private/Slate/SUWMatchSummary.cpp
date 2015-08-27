@@ -809,6 +809,10 @@ void SUWMatchSummary::SetupMatchCam()
 	{
 		TeamToView = Cast<AUTPlayerController>(GetPlayerOwner()->PlayerController)->GetTeamNum();
 	}
+	if (TeamToView == 255)
+	{
+		TeamToView = 0;
+	}
 
 	CameraShots.Empty();
 	TSharedPtr<FTeamCamera> TeamCam = MakeShareable(new FTeamCamera(TeamToView));
@@ -864,6 +868,10 @@ void SUWMatchSummary::SetupMatchCam()
 		if (LocalPS)
 		{
 			int32 LocalTeam = LocalPS->GetTeamNum();
+			if (LocalTeam == 255)
+			{
+				LocalTeam = 0;
+			}
 			if (LocalTeam < TeamPreviewMeshs.Num())
 			{
 				TArray<AUTCharacter*> &TeamCharacters = TeamPreviewMeshs[LocalTeam];

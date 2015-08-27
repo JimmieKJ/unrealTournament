@@ -1637,7 +1637,7 @@ void AUTGameMode::EndGame(AUTPlayerState* Winner, FName Reason )
 
 float AUTGameMode::GetTravelDelay()
 {
-	UTGameState->NumWinnersToShow = bTeamGame ? FMath::Min(5, (NumPlayers + NumBots) / 2) : FMath::Min(3, NumPlayers);
+	UTGameState->NumWinnersToShow = bTeamGame ? FMath::Min(5, (NumPlayers + NumBots) / 2) : FMath::Min(3, NumPlayers + NumBots);
 	return EndScoreboardDelay + MainScoreboardDisplayTime + ScoringPlaysDisplayTime + PersonalSummaryDisplayTime + WinnerSummaryDisplayTime * UTGameState->NumWinnersToShow;
 }
 
