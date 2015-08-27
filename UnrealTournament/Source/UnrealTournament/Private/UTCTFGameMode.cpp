@@ -573,10 +573,20 @@ void AUTCTFGameMode::DefaultTimer()
 			}
 		}
 
-		if (bReady && CTFGameState->bStopGameClock == true)
+		if (bReady && CTFGameState->bStopGameClock)
 		{
 			CTFGameState->bStopGameClock = false;
 			CTFGameState->SetTimeLimit(11);
+		}
+	}
+	else if (CTFGameState->IsMatchInOvertime())
+	{
+		float OvertimeElapsed = CTFGameState->ElapsedTime - CTFGameState->OvertimeStartTime;
+		if (OvertimeElapsed > TimeLimit)
+		{
+			// once overtime has gone too long, start increasing respawn delay
+			RespawnWaitTime = 10.f * (1.f + (OvertimeElapsed - TimeLimit) / 60.f);
+			CTFGameState->RespawnWaitTime = RespawnWaitTime;
 		}
 	}
 }

@@ -3073,10 +3073,16 @@ void AUTPlayerController::ServerRconNextMap_Implementation(const FString& NextMa
 
 void AUTPlayerController::BeginInactiveState()
 {
-	Super::BeginInactiveState();
+	if ((GetPawn() != NULL) && (GetPawn()->Controller == this))
+	{
+		GetPawn()->Controller = NULL;
+	}
+	SetPawn(NULL);
 
-	AGameState const* const GameState = GetWorld()->GameState;
+	AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
 
+	float const MinRespawnDelay = GameState ? GameState->RespawnWaitTime : 1.0f;
+	GetWorldTimerManager().SetTimer(TimerHandle_UnFreeze, this, &APlayerController::UnFreeze, MinRespawnDelay);
 	GetWorldTimerManager().SetTimer(SpectateKillerHandle, this, &AUTPlayerController::SpectateKiller, KillerSpectateDelay);
 }
 
