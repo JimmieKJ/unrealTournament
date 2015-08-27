@@ -3238,7 +3238,6 @@ void AUTCharacter::UpdateCharOverlays()
 	}
 	else
 	{
-		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 		if (GS != NULL)
 		{
 			if (OverlayMesh == NULL)
