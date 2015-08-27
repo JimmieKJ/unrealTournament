@@ -431,6 +431,10 @@ void AUTLobbyMatchInfo::LaunchMatch()
 			{
 				GameURL += FString::Printf(TEXT("?BotFill=%i?Difficulty=%i"), OptimalPlayerCount, FMath::Clamp<int32>(BotSkillLevel,0,7));			
 			}
+			else
+			{
+				GameURL += TEXT("?BotFill=0");
+			}
 		}
 
 		LobbyGameState->LaunchGameInstance(this, GameURL);
