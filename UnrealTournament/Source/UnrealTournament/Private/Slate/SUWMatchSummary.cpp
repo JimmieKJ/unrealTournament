@@ -379,6 +379,13 @@ void SUWMatchSummary::Construct(const FArguments& InArgs)
 		else if (GameState->GetMatchState() == MatchState::MatchEnteringHalftime
 			|| GameState->GetMatchState() == MatchState::MatchIsAtHalftime)
 		{
+			//Reset the scoreboard page and timers
+			UUTScoreboard* Scoreboard = GetScoreboard();
+			if (Scoreboard != nullptr)
+			{
+				Scoreboard->SetPage(0);
+				Scoreboard->SetScoringPlaysTimer(true);
+			}
 			ViewAll();
 		}
 		else
@@ -729,7 +736,7 @@ void SUWMatchSummary::SetupIntroCam()
 	//Start with viewing team
 	TSharedPtr<FAllCamera> AllCam = MakeShareable(new FAllCamera);
 	AllCam->CamFlags |= CF_Intro;
-	AllCam->Time = 0.9f;
+	AllCam->Time = 0.1f;
 	CameraShots.Add(AllCam);
 
 	//View teams
@@ -751,6 +758,14 @@ void SUWMatchSummary::SetupIntroCam()
 	}
 	CameraShots.Add(AllCam);
 	SetCamShot(0);
+
+	//Play the intro music
+	AUTPlayerController* UTPC = Cast<AUTPlayerController>(GetPlayerOwner()->PlayerController);
+	USoundBase* Music = LoadObject<USoundBase>(NULL, TEXT("/Game/RestrictedAssets/Audio/Music/FragCenterIntro.FragCenterIntro"), NULL, LOAD_NoWarn | LOAD_Quiet);
+	if (UTPC != nullptr && Music != nullptr)
+	{
+		UTPC->ClientPlaySound(Music);
+	}
 }
 
 void SUWMatchSummary::GetTeamCamTransforms(int32 TeamNum, FTransform& Start, FTransform& End)
@@ -795,7 +810,7 @@ void SUWMatchSummary::SetupMatchCam()
 
 	CameraShots.Empty();
 	TSharedPtr<FTeamCamera> TeamCam = MakeShareable(new FTeamCamera(TeamToView));
-	TeamCam->Time = 7.0f;
+	TeamCam->Time = 0.5f;
 	CameraShots.Add(TeamCam);
 
 	if (TeamPreviewMeshs.IsValidIndex(TeamToView))
@@ -803,14 +818,43 @@ void SUWMatchSummary::SetupMatchCam()
 		for (int32 i = 0; i < TeamPreviewMeshs[TeamToView].Num();i++)
 		{
 			TSharedPtr<FCharacterCamera> PlayerCam = MakeShareable(new FCharacterCamera(TeamPreviewMeshs[TeamToView][i]));
-			PlayerCam->Time = 2.0f;
+			PlayerCam->Time = 3.0f;
 			CameraShots.Add(PlayerCam);
 		}
 	}
 
-	TSharedPtr<FAllCamera> AllCam = MakeShareable(new FAllCamera);
-	AllCam->CamFlags |= CF_CanInteract | CF_ShowScoreboard;
-	CameraShots.Add(AllCam);
+	// finally go to local player view
+	if (GetPlayerOwner().IsValid() && Cast<AUTPlayerController>(GetPlayerOwner()->PlayerController) != nullptr)
+	{
+		AUTPlayerState* LocalPS = Cast<AUTPlayerState>(GetPlayerOwner()->PlayerController->PlayerState);
+		AUTCharacter* LocalChar = NULL;
+		if (LocalPS)
+		{
+			UE_LOG(UT, Warning, TEXT("Here 1"));
+			int32 LocalTeam = LocalPS->GetTeamNum();
+			if (LocalTeam < TeamPreviewMeshs.Num())
+			{
+				UE_LOG(UT, Warning, TEXT("Here 2"));
+				TArray<AUTCharacter*> &TeamCharacters = TeamPreviewMeshs[LocalTeam];
+				for (int32 iPlayer = 0; iPlayer < TeamCharacters.Num(); iPlayer++)
+				{
+					AUTPlayerState* PS = (TeamCharacters[iPlayer] && TeamCharacters[iPlayer]->PlayerState && !TeamCharacters[iPlayer]->PlayerState->IsPendingKillPending()) ? Cast<AUTPlayerState>(TeamCharacters[iPlayer]->PlayerState) : NULL;
+					if (PS == LocalPS)
+					{
+						UE_LOG(UT, Warning, TEXT("Here 3"));
+						LocalChar = TeamCharacters[iPlayer];
+						break;
+					}
+				}
+			}
+		}
+		if (LocalChar)
+		{
+			TSharedPtr<FCharacterCamera> PlayerCam = MakeShareable(new FCharacterCamera(LocalChar));
+			PlayerCam->Time = 99.0f;
+			CameraShots.Add(PlayerCam);
+		}
+	}
 	SetCamShot(0);
 }
 
@@ -1446,13 +1490,6 @@ void SUWMatchSummary::ViewAll()
 	CameraShots.Empty();
 	CameraShots.Add(AllCam);
 	SetCamShot(0);
-
-	UUTScoreboard* Scoreboard = GetScoreboard();
-	if (Scoreboard != nullptr)
-	{
-		Scoreboard->SetPage(0);
-		Scoreboard->SetScoringPlaysTimer(false);
-	}
 }
 
 UUTScoreboard* SUWMatchSummary::GetScoreboard()

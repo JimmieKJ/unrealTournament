@@ -481,6 +481,8 @@ void AUTCTFGameState::AddMinorHighlights_Implementation(AUTPlayerState* PS)
 			return;
 		}
 	}
+	Super::AddMinorHighlights_Implementation(PS);
+
 	if (PS->GetStatsValue(NAME_FlagGrabs) > 0)
 	{
 		PS->AddMatchHighlight(NAME_FlagGrabs, PS->GetStatsValue(NAME_FlagGrabs));
@@ -497,5 +499,4 @@ void AUTCTFGameState::AddMinorHighlights_Implementation(AUTPlayerState* PS)
 			return;
 		}
 	}
-	Super::AddMinorHighlights_Implementation(PS);
 }

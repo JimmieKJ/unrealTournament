@@ -2443,7 +2443,7 @@ void AUTGameMode::HandlePlayerIntro()
 	if (UUTGameEngine::StaticClass()->GetDefaultObject<UUTGameEngine>()->bShowMatchSummary)
 	{
 		FTimerHandle TempHandle;
-		GetWorldTimerManager().SetTimer(TempHandle, this, &AUTGameMode::EndPlayerIntro, 7.0f, false);
+		GetWorldTimerManager().SetTimer(TempHandle, this, &AUTGameMode::EndPlayerIntro, 6.4f, false);
 	}
 	else
 	{
