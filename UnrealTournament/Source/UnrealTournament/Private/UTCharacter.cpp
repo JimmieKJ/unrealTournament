@@ -3236,42 +3236,39 @@ void AUTCharacter::UpdateCharOverlays()
 			OverlayMesh->UnregisterComponent();
 		}
 	}
-	else
+	else if (GS != NULL)
 	{
-		if (GS != NULL)
+		if (OverlayMesh == NULL)
 		{
-			if (OverlayMesh == NULL)
+			OverlayMesh = DuplicateObject<USkeletalMeshComponent>(GetMesh(), this);
+			OverlayMesh->AttachParent = NULL; // this gets copied but we don't want it to be
 			{
-				OverlayMesh = DuplicateObject<USkeletalMeshComponent>(GetMesh(), this);
-				OverlayMesh->AttachParent = NULL; // this gets copied but we don't want it to be
-				{
-					// TODO: scary that these get copied, need an engine solution and/or safe way to duplicate objects during gameplay
-					OverlayMesh->PrimaryComponentTick = OverlayMesh->GetClass()->GetDefaultObject<USkeletalMeshComponent>()->PrimaryComponentTick;
-					OverlayMesh->PostPhysicsComponentTick = OverlayMesh->GetClass()->GetDefaultObject<USkeletalMeshComponent>()->PostPhysicsComponentTick;
-				}
-				OverlayMesh->SetMasterPoseComponent(GetMesh());
+				// TODO: scary that these get copied, need an engine solution and/or safe way to duplicate objects during gameplay
+				OverlayMesh->PrimaryComponentTick = OverlayMesh->GetClass()->GetDefaultObject<USkeletalMeshComponent>()->PrimaryComponentTick;
+				OverlayMesh->PostPhysicsComponentTick = OverlayMesh->GetClass()->GetDefaultObject<USkeletalMeshComponent>()->PostPhysicsComponentTick;
 			}
-			if (!OverlayMesh->IsRegistered())
-			{
-				OverlayMesh->RegisterComponent();
-				OverlayMesh->AttachTo(GetMesh(), NAME_None, EAttachLocation::SnapToTarget);
-				OverlayMesh->SetRelativeScale3D(FVector(1.0f, 1.0f, 1.0f));
-				OverlayMesh->SetRenderCustomDepth(true);
-			}
-			UMaterialInterface* FirstOverlay = GS->GetFirstOverlay(CharOverlayFlags, false);
-			// note: MID doesn't have any safe way to change Parent at runtime, so we need to make a new one every time...
-			UMaterialInstanceDynamic* MID = UMaterialInstanceDynamic::Create(FirstOverlay, OverlayMesh);
-			// apply team color, if applicable
-			AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
-			if (PS != NULL && PS->Team != NULL)
-			{
-				static FName NAME_TeamColor(TEXT("TeamColor"));
-				MID->SetVectorParameterValue(NAME_TeamColor, PS->Team->TeamColor);
-			}
-			for (int32 i = 0; i < OverlayMesh->GetNumMaterials(); i++)
-			{
-				OverlayMesh->SetMaterial(i, MID);
-			}
+			OverlayMesh->SetMasterPoseComponent(GetMesh());
+		}
+		if (!OverlayMesh->IsRegistered())
+		{
+			OverlayMesh->RegisterComponent();
+			OverlayMesh->AttachTo(GetMesh(), NAME_None, EAttachLocation::SnapToTarget);
+			OverlayMesh->SetRelativeScale3D(FVector(1.0f, 1.0f, 1.0f));
+			OverlayMesh->SetRenderCustomDepth(true);
+		}
+		UMaterialInterface* FirstOverlay = GS->GetFirstOverlay(CharOverlayFlags, false);
+		// note: MID doesn't have any safe way to change Parent at runtime, so we need to make a new one every time...
+		UMaterialInstanceDynamic* MID = UMaterialInstanceDynamic::Create(FirstOverlay, OverlayMesh);
+		// apply team color, if applicable
+		AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
+		if (PS != NULL && PS->Team != NULL)
+		{
+			static FName NAME_TeamColor(TEXT("TeamColor"));
+			MID->SetVectorParameterValue(NAME_TeamColor, PS->Team->TeamColor);
+		}
+		for (int32 i = 0; i < OverlayMesh->GetNumMaterials(); i++)
+		{
+			OverlayMesh->SetMaterial(i, MID);
 		}
 	}
 }
