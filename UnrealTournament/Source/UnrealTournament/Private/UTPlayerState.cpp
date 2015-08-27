@@ -841,6 +841,25 @@ void AUTPlayerState::BeginPlay()
 	}
 }
 
+void AUTPlayerState::SetCharacterVoice(const FString& CharacterVoicePath)
+{
+	if (Role == ROLE_Authority)
+	{
+		CharacterVoice = (CharacterVoicePath.Len() > 0) ? LoadClass<UUTCharacterVoice>(NULL, *CharacterVoicePath, NULL, LOAD_None, NULL) : NULL;
+		// redirect from blueprint, for easier testing in the editor via C/P
+#if WITH_EDITORONLY_DATA
+		if (CharacterVoice == NULL)
+		{
+			UBlueprint* BP = LoadObject<UBlueprint>(NULL, *CharacterVoicePath, NULL, LOAD_None, NULL);
+			if (BP != NULL)
+			{
+				CharacterVoice = *BP->GeneratedClass;
+			}
+		}
+#endif
+	}
+}
+
 void AUTPlayerState::SetCharacter(const FString& CharacterPath)
 {
 	if (Role == ROLE_Authority)

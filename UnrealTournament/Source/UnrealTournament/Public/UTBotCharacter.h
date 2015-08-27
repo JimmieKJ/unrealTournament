@@ -42,6 +42,6 @@ public:
 	int32 EyewearVariantId;
 
 	/* Voice associated with this character. */
-	UPROPERTY(EditAnywhere, AssetRegistrySearchable)
-		TSubclassOf<class UUTCharacterVoice> CharacterVoice;
+	UPROPERTY(EditAnywhere, Meta = (MetaClass = "UTCharacterVoice"))
+	FStringClassReference CharacterVoice;
 };

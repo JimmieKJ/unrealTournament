@@ -86,7 +86,10 @@ protected:
 public:
 	UFUNCTION(BlueprintCallable, Category = Character)
 	virtual void SetCharacter(const FString& CharacterPath);
-	
+
+	UFUNCTION(BlueprintCallable, Category = Character)
+		virtual void SetCharacterVoice(const FString& CharacterVoicePath);
+
 	UFUNCTION(BlueprintCallable, Reliable, Server, WithValidation, Category = Character)
 	void ServerSetCharacter(const FString& CharacterPath);
 	inline TSubclassOf<class AUTCharacterContent> GetSelectedCharacter() const
