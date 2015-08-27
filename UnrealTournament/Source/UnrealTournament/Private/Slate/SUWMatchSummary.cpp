@@ -815,12 +815,43 @@ void SUWMatchSummary::SetupMatchCam()
 	TeamCam->Time = 0.5f;
 	CameraShots.Add(TeamCam);
 
-	if (TeamPreviewMeshs.IsValidIndex(TeamToView))
+	if (TeamPreviewMeshs.IsValidIndex(TeamToView) && GameState.IsValid())
 	{
-		for (int32 i = 0; i < TeamPreviewMeshs[TeamToView].Num();i++)
+		float DisplayTime = 3.f;
+		AUTGameMode* DefaultGame = GameState->GameModeClass->GetDefaultObject<AUTGameMode>();
+		if (DefaultGame)
 		{
-			TSharedPtr<FCharacterCamera> PlayerCam = MakeShareable(new FCharacterCamera(TeamPreviewMeshs[TeamToView][i]));
-			PlayerCam->Time = 3.0f;
+			DisplayTime = DefaultGame->WinnerSummaryDisplayTime;
+		}
+
+		TArray<AUTCharacter*> &TeamCharacters = TeamPreviewMeshs[TeamToView];
+		int32 NumWinnersToShow = FMath::Min(int32(GameState->NumWinnersToShow), TeamCharacters.Num());
+
+		// determine match highlight scores to use for sorting
+		for (int32 i = 0; i < TeamCharacters.Num(); i++)
+		{
+			AUTPlayerState* PS = TeamCharacters[i] ? Cast<AUTPlayerState>(TeamCharacters[i]->PlayerState) : NULL;
+			if (PS)
+			{
+				PS->MatchHighlightScore = GameState->MatchHighlightScore(PS);
+			}
+		}
+
+		// sort winners
+		bool(*SortFunc)(const AUTCharacter&, const AUTCharacter&);
+		SortFunc = [](const AUTCharacter& A, const AUTCharacter& B)
+		{
+			AUTPlayerState* PSA = Cast<AUTPlayerState>(A.PlayerState);
+			AUTPlayerState* PSB = Cast<AUTPlayerState>(B.PlayerState);
+			return !PSB || (PSA && (PSA->MatchHighlightScore > PSB->MatchHighlightScore));
+		};
+		TeamCharacters.Sort(SortFunc);
+
+		// add winner shots
+		for (int32 i = 0; i < NumWinnersToShow; i++)
+		{
+			TSharedPtr<FCharacterCamera> PlayerCam = MakeShareable(new FCharacterCamera(TeamCharacters[i]));
+			PlayerCam->Time = DisplayTime;
 			CameraShots.Add(PlayerCam);
 		}
 	}
@@ -832,18 +863,15 @@ void SUWMatchSummary::SetupMatchCam()
 		AUTCharacter* LocalChar = NULL;
 		if (LocalPS)
 		{
-			UE_LOG(UT, Warning, TEXT("Here 1"));
 			int32 LocalTeam = LocalPS->GetTeamNum();
 			if (LocalTeam < TeamPreviewMeshs.Num())
 			{
-				UE_LOG(UT, Warning, TEXT("Here 2"));
 				TArray<AUTCharacter*> &TeamCharacters = TeamPreviewMeshs[LocalTeam];
 				for (int32 iPlayer = 0; iPlayer < TeamCharacters.Num(); iPlayer++)
 				{
 					AUTPlayerState* PS = (TeamCharacters[iPlayer] && TeamCharacters[iPlayer]->PlayerState && !TeamCharacters[iPlayer]->PlayerState->IsPendingKillPending()) ? Cast<AUTPlayerState>(TeamCharacters[iPlayer]->PlayerState) : NULL;
 					if (PS == LocalPS)
 					{
-						UE_LOG(UT, Warning, TEXT("Here 3"));
 						LocalChar = TeamCharacters[iPlayer];
 						break;
 					}

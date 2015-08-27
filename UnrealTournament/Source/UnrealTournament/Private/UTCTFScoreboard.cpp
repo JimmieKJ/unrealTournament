@@ -28,21 +28,6 @@ UUTCTFScoreboard::UUTCTFScoreboard(const FObjectInitializer& ObjectInitializer)
 	ScoreUpdateSound = OtherSpreeSoundFinder.Object;
 }
 
-void UUTCTFScoreboard::SetScoringPlaysTimer(bool bEnableTimer)
-{
-	if (UTHUDOwner)
-	{
-		if (bEnableTimer)
-		{
-			UTHUDOwner->GetWorld()->GetTimerManager().SetTimer(OpenScoringPlaysHandle, this, &UUTCTFScoreboard::OpenScoringPlaysPage, 6.0f, false);
-		}
-		else
-		{
-			UTHUDOwner->GetWorld()->GetTimerManager().ClearTimer(OpenScoringPlaysHandle);
-		}
-	}
-}
-
 void UUTCTFScoreboard::OpenScoringPlaysPage()
 {
 	if (UTHUDOwner)

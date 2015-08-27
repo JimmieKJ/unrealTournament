@@ -186,7 +186,7 @@ AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 	HighlightMap.Add(NAME_SpreeKillLevel3, NSLOCTEXT("AUTGameMode", "SpreeKillLevel3", "Unstoppable Spree (<UT.MatchSummary.HighlightText.Value>{0}</>)."));
 	HighlightMap.Add(NAME_SpreeKillLevel4, NSLOCTEXT("AUTGameMode", "SpreeKillLevel4", "Godlike Spree (<UT.MatchSummary.HighlightText.Value>{0}</>)."));
 
-	HighlightPriority.Add(HighlightNames::TopScorer, 5.f);
+	HighlightPriority.Add(HighlightNames::TopScorer, 10.f);
 	HighlightPriority.Add(HighlightNames::TopScorerRed, 5.f);
 	HighlightPriority.Add(HighlightNames::TopScorerBlue, 5.f);
 	HighlightPriority.Add(HighlightNames::MostKills, 3.f);
@@ -247,6 +247,7 @@ void AUTGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLif
 	DOREPLIFETIME_CONDITION(AUTGameState, ServerMOTD, COND_InitialOnly);
 
 	DOREPLIFETIME_CONDITION(AUTGameState, ServerSessionId, COND_InitialOnly);
+	DOREPLIFETIME(AUTGameState, NumWinnersToShow);
 
 	DOREPLIFETIME(AUTGameState, MapVoteList);
 	DOREPLIFETIME(AUTGameState, VoteTimer);
@@ -1530,4 +1531,17 @@ TArray<FText> AUTGameState::GetPlayerHighlights_Implementation(AUTPlayerState* P
 		}
 	}
 	return Highlights;
+}
+
+float AUTGameState::MatchHighlightScore(AUTPlayerState* PS)
+{
+	float BestHighlightScore = 0.f;
+	for (int32 i = 0; i < 5; i++)
+	{
+		if (PS->MatchHighlights[i] != NAME_None)
+		{
+			BestHighlightScore = FMath::Max(BestHighlightScore, HighlightPriority.FindRef(PS->MatchHighlights[i]));
+		}
+	}
+	return BestHighlightScore;
 }

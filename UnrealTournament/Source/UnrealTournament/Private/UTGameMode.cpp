@@ -78,7 +78,11 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	MinPlayersToStart = 2;
 	MaxWaitForPlayers = 90.f;
 	bOnlyTheStrongSurvive = false;
-	EndScoreboardDelay = 3.0f;
+	EndScoreboardDelay = 4.f;
+	MainScoreboardDisplayTime = 6.f;
+	ScoringPlaysDisplayTime = 0.f; 
+	PersonalSummaryDisplayTime = 8.f;
+	WinnerSummaryDisplayTime = 3.f;
 	GameDifficulty = 3.0f;
 	BotFillCount = 0;
 	bWeaponStayActive = true;
@@ -1617,17 +1621,24 @@ void AUTGameMode::EndGame(AUTPlayerState* Winner, FName Reason )
 	FTimerHandle TempHandle2;
 	GetWorldTimerManager().SetTimer(TempHandle2, this, &AUTGameMode::ShowFinalScoreboard, EndScoreboardDelay);
 
-	// Setup a timer to continue to the next map.
+	// Setup a timer to continue to the next map.  Need enough time for match summaries
 	EndTime = GetWorld()->TimeSeconds;
+	float TravelDelay = GetTravelDelay();
 	FTimerHandle TempHandle3;
-	GetWorldTimerManager().SetTimer(TempHandle3, this, &AUTGameMode::TravelToNextMap, EndTimeDelay);
+	GetWorldTimerManager().SetTimer(TempHandle3, this, &AUTGameMode::TravelToNextMap, TravelDelay);
 
 	FTimerHandle TempHandle4;
-	float EndReplayDelay = EndTimeDelay - 10.f;
+	float EndReplayDelay = TravelDelay - 10.f;
 	GetWorldTimerManager().SetTimer(TempHandle4, this, &AUTGameMode::StopReplayRecording, EndReplayDelay);
 
 	SendEndOfGameStats(Reason);
 	EndMatch();
+}
+
+float AUTGameMode::GetTravelDelay()
+{
+	UTGameState->NumWinnersToShow = bTeamGame ? FMath::Min(5, (NumPlayers + NumBots) / 2) : FMath::Min(3, NumPlayers);
+	return EndScoreboardDelay + MainScoreboardDisplayTime + ScoringPlaysDisplayTime + PersonalSummaryDisplayTime + WinnerSummaryDisplayTime * UTGameState->NumWinnersToShow;
 }
 
 void AUTGameMode::StopReplayRecording()

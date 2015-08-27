@@ -90,13 +90,28 @@ public:
 	UPROPERTY(globalconfig)
 	float GameDifficulty;		
 
-	/** How long to wait after the end of a match before the transition to the new level start */
-	UPROPERTY(config)
-	float EndTimeDelay;			
-
 	/* How long after the end of the match before we display the scoreboard */
-	UPROPERTY(globalconfig)
+	UPROPERTY(EditDefaultsOnly, Category=PostMatchTime)
 	float EndScoreboardDelay;			
+
+	/* How long to display the main scoreboard */
+	UPROPERTY(EditDefaultsOnly, Category = PostMatchTime)
+		float MainScoreboardDisplayTime;
+
+	/* How long to display the scoring summary */
+	UPROPERTY(EditDefaultsOnly, Category = PostMatchTime)
+		float ScoringPlaysDisplayTime;
+
+	/* How long to display personal match summary */
+	UPROPERTY(EditDefaultsOnly, Category = PostMatchTime)
+		float PersonalSummaryDisplayTime;
+
+	/* How long to display winner match summary */
+	UPROPERTY(EditDefaultsOnly, Category = PostMatchTime)
+		float WinnerSummaryDisplayTime;
+
+	/** Return how long to wait after end of match before travelling to next map. */
+	virtual float GetTravelDelay();
 
 	UPROPERTY(EditDefaultsOnly)
 	uint32 bAllowOvertime:1;

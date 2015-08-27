@@ -670,6 +670,10 @@ public:
 
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerSlowerEmote();
+
+	/** Transient, used to sort players */
+	UPROPERTY()
+		float MatchHighlightScore;
 };
 
 

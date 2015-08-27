@@ -40,6 +40,7 @@ AUTTeamGameMode::AUTTeamGameMode(const FObjectInitializer& ObjectInitializer)
 	bHasBroadcastDominating = false;
 	bAnnounceTeam = true;
 	bHighScorerPerTeamBasis = true;
+	ScoringPlaysDisplayTime = 6.f;
 }
 
 void AUTTeamGameMode::InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage)

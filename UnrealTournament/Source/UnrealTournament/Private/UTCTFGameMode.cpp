@@ -98,6 +98,11 @@ void AUTCTFGameMode::InitGameState()
 	CTFGameState->SetMaxNumberOfTeams(NumTeams);
 }
 
+float AUTCTFGameMode::GetTravelDelay()
+{
+	return Super::GetTravelDelay() + (CTFGameState ? FMath::Max(6.f, 1.f + CTFGameState->GetScoringPlays().Num()) : 6.f);
+}
+
 void AUTCTFGameMode::CheatScore()
 {
 	if (GetNetMode() == NM_Standalone)

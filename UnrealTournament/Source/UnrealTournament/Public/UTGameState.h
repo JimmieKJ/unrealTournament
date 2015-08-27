@@ -73,6 +73,10 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Replicated, Category = GameState)
 	float SpawnProtectionTime;
 
+	/** Number of winners to display in EOM summary. */
+	UPROPERTY(BlueprintReadOnly, Replicated, Category = GameState)
+		uint8 NumWinnersToShow;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameState)
 	TSubclassOf<UUTLocalMessage> MultiKillMessageClass;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameState)
@@ -378,6 +382,9 @@ public:
 	/** Add appropriate top scorer highlights to each team score leader. */
 	virtual void SetTopScorerHighlights(AUTPlayerState* TopScorerRed, AUTPlayerState* TopScorerBlue);
 
+	/** Return a score value for the "impressiveness" of the Match highlights for PS. */
+	virtual float MatchHighlightScore(AUTPlayerState* PS);
+	
 	UPROPERTY()
 		TArray<FName> GameScoreStats;
 
