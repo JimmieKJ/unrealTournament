@@ -965,7 +965,7 @@ void SUWindowsMainMenu::StartGame(bool bLanGame)
 		}
 		else
 		{
-			GameOptions += TEXT("?BotFill=0");
+			GameOptions += FString::Printf(TEXT("?BotFill=0?MaxPlayers=%i"), DesiredPlayerCount);
 		}
 
 	}

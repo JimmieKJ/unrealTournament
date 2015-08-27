@@ -731,6 +731,10 @@ void AUTLobbyMatchInfo::ServerCreateCustomRule_Implementation(const FString& Gam
 		{
 			FinalGameOptions += FString::Printf(TEXT("?BotFill=%i?Difficulty=%i"), NewReplicatedRuleset->MaxPlayers, FMath::Clamp<int32>(DesiredSkillLevel,0,7));				
 		}
+		else
+		{
+			FinalGameOptions += TEXT("?BotFill=0");
+		}
 		NewReplicatedRuleset->GameOptions = FinalGameOptions;
 		NewReplicatedRuleset->MinPlayersToStart = 2;
 		NewReplicatedRuleset->DisplayTexture = "Texture2D'/Game/RestrictedAssets/UI/GameModeBadges/GB_Custom.GB_Custom'";

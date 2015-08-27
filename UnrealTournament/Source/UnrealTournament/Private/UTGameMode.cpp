@@ -2786,7 +2786,7 @@ void AUTGameMode::GetGameURLOptions(const TArray<TSharedPtr<TAttributePropertyBa
 {
 	for (TSharedPtr<TAttributePropertyBase> Prop : MenuProps)
 	{
-		if (Prop.IsValid())
+		if (Prop.IsValid() && Prop->GetURLKey() != TEXT("BotFill"))
 		{
 			OptionsList.Add(Prop->GetURLString());
 		}
