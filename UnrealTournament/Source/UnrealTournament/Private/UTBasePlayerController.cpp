@@ -555,6 +555,11 @@ void AUTBasePlayerController::ServerRconExec_Implementation(const FString& Comma
 		return;
 	}
 
+	if (Command == TEXT("crash"))
+	{
+		UE_LOG(UT, Fatal, TEXT("Crashing the gamethread at your request"));
+	}
+
 	ConsoleCommand(Command);
 }
 
