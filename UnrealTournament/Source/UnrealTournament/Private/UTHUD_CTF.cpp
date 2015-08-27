@@ -27,9 +27,15 @@ FLinearColor AUTHUD_CTF::GetBaseHUDColor()
 
 void AUTHUD_CTF::NotifyMatchStateChange()
 {
+	if (MyUTScoreboard != NULL)
+	{
+		MyUTScoreboard->SetScoringPlaysTimer(GetWorld()->GetGameState()->GetMatchState() == MatchState::MatchIsAtHalftime || GetWorld()->GetGameState()->GetMatchState() == MatchState::WaitingPostMatch);
+	}
+
 	if (GetWorld()->GetGameState()->GetMatchState() == MatchState::MatchIsAtHalftime)
 	{
-		GetWorldTimerManager().SetTimer(MatchSummaryHandle, this, &AUTHUD::OpenMatchSummary, 7.0f);
+		// no match summary at half-time for now
+		//GetWorldTimerManager().SetTimer(MatchSummaryHandle, this, &AUTHUD::OpenMatchSummary, 7.0f);
 	}
 	else
 	{
