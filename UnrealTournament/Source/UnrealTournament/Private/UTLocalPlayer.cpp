@@ -1927,20 +1927,22 @@ void UUTLocalPlayer::OnJoinSessionComplete(FName SessionName, EOnJoinSessionComp
 
 void UUTLocalPlayer::LeaveSession()
 {
-	TSharedPtr<FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(0);
-	if (UserId.IsValid() && OnlineSessionInterface->IsPlayerInSession(GameSessionName, *UserId))
+	if (OnlineIdentityInterface.IsValid())
 	{
-		OnEndSessionCompleteDelegate = OnlineSessionInterface->AddOnEndSessionCompleteDelegate_Handle(FOnEndSessionCompleteDelegate::CreateUObject(this, &UUTLocalPlayer::OnEndSessionComplete));
-		OnlineSessionInterface->EndSession(GameSessionName);
-	}
-	else
-	{
-		if (bPendingLoginCreds)
+		TSharedPtr<FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(0);
+		if (UserId.IsValid() && OnlineSessionInterface.IsValid() && OnlineSessionInterface->IsPlayerInSession(GameSessionName, *UserId))
 		{
-			Logout();
+			OnEndSessionCompleteDelegate = OnlineSessionInterface->AddOnEndSessionCompleteDelegate_Handle(FOnEndSessionCompleteDelegate::CreateUObject(this, &UUTLocalPlayer::OnEndSessionComplete));
+			OnlineSessionInterface->EndSession(GameSessionName);
+		}
+		else
+		{
+			if (bPendingLoginCreds)
+			{
+				Logout();
+			}
 		}
 	}
-
 }
 
 void UUTLocalPlayer::OnEndSessionComplete(FName SessionName, bool bWasSuccessful)
