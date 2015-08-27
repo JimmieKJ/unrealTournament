@@ -40,30 +40,45 @@ void SUWWeaponConfigDialog::Construct(const FArguments& InArgs)
 		if (ClassPath != NULL && !ClassPath->Contains(TEXT("/EpicInternal/"))) // exclude debug/test weapons
 		{
 			UClass* TestClass = LoadObject<UClass>(NULL, **ClassPath);
-			if (TestClass != NULL && !TestClass->HasAnyClassFlags(CLASS_Abstract) && TestClass->IsChildOf(AUTWeapon::StaticClass()) && !TestClass->GetDefaultObject<AUTWeapon>()->bHideInMenus)
+			if (TestClass != NULL && !TestClass->HasAnyClassFlags(CLASS_Abstract) && TestClass->IsChildOf(AUTWeapon::StaticClass()))
 			{
-				//Only add crosshairs for new weapons that might not be in the config already
-				FCrosshairInfo* FoundPtr = Hud->CrosshairInfos.FindByPredicate([TestClass](const FCrosshairInfo& Info)
+				//Add weapons for the priority list
+				if (!TestClass->GetDefaultObject<AUTWeapon>()->bHideInMenus)
 				{
-					return Info.WeaponClassName == TestClass->GetPathName();
-				});
+					WeaponList.Add(TestClass);
+				}
 
-				TSharedPtr<FCrosshairInfo> NewCrosshairInfo = MakeShareable(new FCrosshairInfo());
-				if (FoundPtr == nullptr || LoadObject<UClass>(NULL, *FoundPtr->CrosshairClassName) == nullptr)
-				{	
-					NewCrosshairInfo->WeaponClassName = TestClass->GetPathName();
-					NewCrosshairInfo->Color = FLinearColor::White;
-					NewCrosshairInfo->Scale = 1.0f;
-				}
-				else
+				//add weapons to the custom crosshair list
+				if (!TestClass->GetDefaultObject<AUTWeapon>()->bHideInCroshairMenu)
 				{
-					*NewCrosshairInfo = *FoundPtr;
+					//Only add crosshairs for new weapons that might not be in the config already
+					FCrosshairInfo* FoundPtr = Hud->CrosshairInfos.FindByPredicate([TestClass](const FCrosshairInfo& Info)
+					{
+						return Info.WeaponClassName == TestClass->GetPathName();
+					});
+
+					TSharedPtr<FCrosshairInfo> NewCrosshairInfo = MakeShareable(new FCrosshairInfo());
+					if (FoundPtr == nullptr || LoadObject<UClass>(NULL, *FoundPtr->CrosshairClassName) == nullptr)
+					{
+						NewCrosshairInfo->WeaponClassName = TestClass->GetPathName();
+						NewCrosshairInfo->Color = FLinearColor::White;
+						NewCrosshairInfo->Scale = 1.0f;
+					}
+					else
+					{
+						*NewCrosshairInfo = *FoundPtr;
+					}
+					CrosshairInfos.Add(NewCrosshairInfo);
+
+					//Add weapon to a map for easy weapon class lookup
+					WeaponMap.Add(TestClass->GetPathName(), TestClass);
 				}
-				CrosshairInfos.Add(NewCrosshairInfo);
-					
-				//Add weapon to a map for easy weapon class lookup
-				WeaponMap.Add(TestClass->GetPathName(), TestClass);
-				WeaponList.Add(TestClass);
+
+				if (!TestClass->GetDefaultObject<AUTWeapon>()->bHideInMenus || 
+					!TestClass->GetDefaultObject<AUTWeapon>()->bHideInCroshairMenu)
+				{
+					WeaponReferenceList.Add(TestClass);
+				}
 			}
 		}
 	}
@@ -590,7 +605,7 @@ void SUWWeaponConfigDialog::Tick(const FGeometry& AllottedGeometry, const double
 
 void SUWWeaponConfigDialog::AddReferencedObjects(FReferenceCollector& Collector)
 {
-	Collector.AddReferencedObjects(WeaponList);
+	Collector.AddReferencedObjects(WeaponReferenceList);
 	Collector.AddReferencedObjects(CrosshairList);
 	Collector.AddReferencedObject(CrosshairPreviewTexture);
 	Collector.AddReferencedObject(CrosshairPreviewMID);

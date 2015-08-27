@@ -26,6 +26,9 @@ public:
 
 	void Construct(const FArguments& InArgs);
 
+	/**Holds weapons used in both crosshair and priority list so they don't get GC'd*/
+	TArray<UClass*> WeaponReferenceList;
+
 	TSharedPtr<SCheckBox> AutoWeaponSwitch;
 	TArray<UClass*> WeaponList;
 	TSharedPtr< SListView<UClass*> > WeaponPriorities;
