@@ -191,6 +191,7 @@ void AUTPickupInventory::CreatePickupMesh(AActor* Pickup, UMeshComponent*& Picku
 				PickupMesh = NewObject<UMeshComponent>(Pickup, NewMesh->GetClass(), NAME_None, RF_NoFlags, NewMesh);
 				PickupMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 				PickupMesh->bShouldUpdatePhysicsVolume = false;
+				PickupMesh->bUseAttachParentBound = false;
 				PickupMesh->AttachParent = NULL;
 				PickupMesh->AttachChildren.Empty();
 				PickupMesh->RelativeRotation = FRotator::ZeroRotator;
