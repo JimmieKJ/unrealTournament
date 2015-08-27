@@ -756,7 +756,6 @@ void SUWMatchSummary::SetupIntroCam()
 		TeamCam->CamFlags |= CF_ShowPlayerNames | CF_Intro;
 		CameraShots.Add(TeamCam);
 	}
-	CameraShots.Add(AllCam);
 	SetCamShot(0);
 
 	//Play the intro music
