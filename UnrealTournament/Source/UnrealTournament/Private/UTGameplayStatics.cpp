@@ -631,6 +631,28 @@ bool UUTGameplayStatics::HasTokenBeenPickedUpBefore(UObject* WorldContextObject,
 	return false;
 }
 
+int32 UUTGameplayStatics::HowManyTokensHaveBeenPickedUpBefore(UObject* WorldContextObject, TArray<FName> TokenUniqueIDs)
+{
+	int32 TotalPickedUp = 0;
+
+	APlayerController* PC = UGameplayStatics::GetPlayerController(WorldContextObject, 0);
+	if (PC)
+	{
+		UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(PC->Player);
+		if (LP && LP->GetProfileSettings())
+		{
+			for (auto TokenUniqueID : TokenUniqueIDs)
+			{
+				if (LP->GetProfileSettings()->HasTokenBeenPickedUpBefore(TokenUniqueID))
+				{
+					TotalPickedUp++;
+				}
+			}
+		}
+	}
+	return TotalPickedUp;
+}
+
 void UUTGameplayStatics::TokenPickedUp(UObject* WorldContextObject, FName TokenUniqueID)
 {
 	APlayerController* PC = UGameplayStatics::GetPlayerController(WorldContextObject, 0);

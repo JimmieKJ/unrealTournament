@@ -122,6 +122,9 @@ class UNREALTOURNAMENT_API UUTGameplayStatics : public UBlueprintFunctionLibrary
 	UFUNCTION(BlueprintCallable, Category = "UT", meta = (WorldContext = "WorldContextObject"))
 	static bool HasTokenBeenPickedUpBefore(UObject* WorldContextObject, FName TokenUniqueID);
 
+	UFUNCTION(BlueprintCallable, Category = "UT", meta = (WorldContext = "WorldContextObject"))
+	static int32 HowManyTokensHaveBeenPickedUpBefore(UObject* WorldContextObject, TArray<FName> TokenUniqueIDs);
+
 	/** Token pick up noted in temporary storage, not committed to profile storage until TokenCommit called */
 	UFUNCTION(BlueprintCallable, Category = "UT", meta = (WorldContext = "WorldContextObject"))
 	static void TokenPickedUp(UObject* WorldContextObject, FName TokenUniqueID);
