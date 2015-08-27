@@ -68,7 +68,6 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	PlayerControllerClass = AUTPlayerController::StaticClass();
 	BotClass = AUTBot::StaticClass();
 
-	MinRespawnDelay = 1.5f;
 	bUseSeamlessTravel = false;
 	CountDown = 4;
 	bPauseable = false;
@@ -3256,7 +3255,7 @@ void AUTGameMode::NewPlayerInfoLine(TSharedPtr<SVerticalBox> VBox, FText Display
 			]
 			+ SHorizontalBox::Slot()
 			.HAlign(HAlign_Right)
-			.FillWidth(0.4f)
+			.FillWidth(0.35f)
 		]
 	];
 }
@@ -3439,7 +3438,7 @@ void AUTGameMode::BuildWeaponInfo(AUTPlayerState* PlayerState, TSharedPtr<class 
 				.HAlign(HAlign_Right)
 				[
 					SNew(STextBlock)
-					.Text(NSLOCTEXT("AUTGameMode", "Kills", "K"))
+					.Text(NSLOCTEXT("AUTGameMode", "KillsAbbrev", "K"))
 					.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
 					.ColorAndOpacity(FLinearColor(0.6f, 1.0f, 0.6f))
 				]
@@ -3448,7 +3447,7 @@ void AUTGameMode::BuildWeaponInfo(AUTPlayerState* PlayerState, TSharedPtr<class 
 					.HAlign(HAlign_Right)
 					[
 						SNew(STextBlock)
-						.Text(NSLOCTEXT("AUTGameMode", "Deaths", "D"))
+						.Text(NSLOCTEXT("AUTGameMode", "DeathsAbbrev", "D"))
 						.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
 						.ColorAndOpacity(FLinearColor(1.0f, 0.6f, 0.6f))
 					]
@@ -3457,7 +3456,7 @@ void AUTGameMode::BuildWeaponInfo(AUTPlayerState* PlayerState, TSharedPtr<class 
 					.HAlign(HAlign_Right)
 					[
 						SNew(STextBlock)
-						.Text(NSLOCTEXT("AUTGameMode", "Accuracy", "Acc"))
+						.Text(NSLOCTEXT("AUTGameMode", "AccuracyAbbrev", "Acc"))
 						.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
 					]
 			];
