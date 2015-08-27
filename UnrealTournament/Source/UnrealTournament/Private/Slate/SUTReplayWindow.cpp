@@ -329,9 +329,20 @@ void SUTReplayWindow::Construct(const FArguments& InArgs)
 
 	if (!bVideoRecorderPresent)
 	{
-		RecordButton->SetVisibility(EVisibility::Hidden);
-		MarkStartButton->SetVisibility(EVisibility::Hidden);
-		MarkEndButton->SetVisibility(EVisibility::Hidden);
+		if (RecordButton.IsValid())
+		{
+			RecordButton->SetVisibility(EVisibility::Hidden);
+		}
+
+		if (MarkStartButton.IsValid())
+		{
+			MarkStartButton->SetVisibility(EVisibility::Hidden);
+		}
+
+		if (MarkEndButton.IsValid())
+		{
+			MarkEndButton->SetVisibility(EVisibility::Hidden);
+		}
 	}
 
 	if (DemoNetDriver.IsValid())
