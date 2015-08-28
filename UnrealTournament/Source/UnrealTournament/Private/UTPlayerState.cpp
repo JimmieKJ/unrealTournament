@@ -2050,14 +2050,20 @@ bool AUTPlayerState::RegisterVote_Validate(AUTReplicatedMapInfo* VoteInfo) { ret
 void AUTPlayerState::RegisterVote_Implementation(AUTReplicatedMapInfo* VoteInfo)
 {
 	AUTGameState* UTGameState = GetWorld()->GetGameState<AUTGameState>();
-	if (UTGameState)
+	if (UTGameState != NULL)
 	{
-		for (int32 i=0; i< UTGameState->MapVoteList.Num(); i++)
+		for (int32 i = 0; i < UTGameState->MapVoteList.Num(); i++)
 		{
-			if (UTGameState->MapVoteList[i]) UTGameState->MapVoteList[i]->UnregisterVoter(this);
+			if (UTGameState->MapVoteList[i] != NULL)
+			{
+				UTGameState->MapVoteList[i]->UnregisterVoter(this);
+			}
 		}
 
-		VoteInfo->RegisterVoter(this);
+		if (VoteInfo != NULL)
+		{
+			VoteInfo->RegisterVoter(this);
+		}
 	}
 }
 
