@@ -1055,7 +1055,7 @@ void UUTLocalPlayer::ReadProfileItems()
 	}
 #endif
 	TSharedPtr<FUniqueNetId> UserID = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());
-	if (UserID.IsValid() && FPlatformTime::Seconds() > LastItemReadTime + 60.0)
+	if (UserID.IsValid() && (LastItemReadTime == 0.0 || FPlatformTime::Seconds() > LastItemReadTime + 60.0))
 	{
 		FHttpRequestCompleteDelegate Delegate;
 		Delegate.BindUObject(this, &UUTLocalPlayer::OnReadProfileItemsComplete);

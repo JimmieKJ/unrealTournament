@@ -35,6 +35,7 @@
 #include "UTGhostComponent.h"
 #include "UTGameEngine.h"
 #include "UTFlagInfo.h"
+#include "UTProfileItem.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogUTPlayerController, Log, All);
 
@@ -2072,13 +2073,8 @@ void AUTPlayerController::ShowEndGameScoreboard()
 
 void AUTPlayerController::ClientReceiveXP_Implementation(FXPBreakdown GainedXP)
 {
-#if !UE_BUILD_SHIPPING
-	if (!FEngineBuildSettings::IsInternalBuild())
-	{
-		return;
-	}
 	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
-	if (LP != NULL && (LP->IsOnTrustedServer() || LP->GetProfileSettings() != NULL))
+	if (LP != NULL && LP->IsOnTrustedServer() && LP->IsLoggedIn())
 	{
 		// FIXME: temp until there is UI
 		FClientReceiveData ClientData;
@@ -2087,31 +2083,28 @@ void AUTPlayerController::ClientReceiveXP_Implementation(FXPBreakdown GainedXP)
 
 		int32 PrevLevel = 0;
 		int32 NewLevel = 0;
-		if (LP->IsOnTrustedServer())
-		{
-			ClientData.MessageString = FString::Printf(TEXT("YOU GOT %i ONLINE XP FOR THIS MATCH"), GainedXP.Total());
-			PrevLevel = GetLevelForXP(LP->GetOnlineXP());
-			LP->AddOnlineXP(GainedXP.Total());
-			NewLevel = GetLevelForXP(LP->GetOnlineXP());
-		}
-		else
-		{
-			ClientData.MessageString = FString::Printf(TEXT("YOU GOT %i OFFLINE XP FOR THIS MATCH"), GainedXP.Total());
-			PrevLevel = GetLevelForXP(LP->GetProfileSettings()->LocalXP);
-			LP->GetProfileSettings()->LocalXP += GainedXP.Total();
-			NewLevel = GetLevelForXP(LP->GetProfileSettings()->LocalXP);
-		}
+		ClientData.MessageString = FString::Printf(TEXT("YOU GOT %i ONLINE XP FOR THIS MATCH"), GainedXP.Total());
+		PrevLevel = GetLevelForXP(LP->GetOnlineXP());
+		LP->AddOnlineXP(GainedXP.Total());
+		NewLevel = GetLevelForXP(LP->GetOnlineXP());
 
 		UUTChatMessage::StaticClass()->GetDefaultObject<UUTChatMessage>()->ClientReceiveChat(ClientData, ChatDestinations::System);
 		if (PrevLevel < NewLevel)
 		{
-			ClientData.MessageString = FString::Printf(TEXT("YOU ARE NOW LEVEL %i!"), NewLevel);
-			UUTChatMessage::StaticClass()->GetDefaultObject<UUTChatMessage>()->ClientReceiveChat(ClientData, ChatDestinations::System);
+			LP->ShowToast(FText::Format(NSLOCTEXT("UTXP", "LevelUp", "You are now Level {0}!"), FText::AsNumber(NewLevel)));
 		}
 
 		LP->SaveProfileSettings();
 	}
-#endif
+}
+
+void AUTPlayerController::ClientReceiveLevelReward_Implementation(int32 Level, const UUTProfileItem* RewardItem)
+{
+	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
+	if (LP != NULL && LP->IsOnTrustedServer() && LP->IsLoggedIn() && RewardItem != NULL)
+	{
+		LP->ShowToast(FText::Format(NSLOCTEXT("UT", "ItemReward", "You earned {0} for reaching level {1}!"), RewardItem->DisplayName, FText::AsNumber(Level)));
+	}
 }
 
 void AUTPlayerController::ShowMenu()

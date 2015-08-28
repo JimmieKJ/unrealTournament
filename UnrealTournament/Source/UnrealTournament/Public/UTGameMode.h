@@ -726,5 +726,10 @@ public:
 	/**Overridden to replicate Inactive Player States  */
 	virtual void AddInactivePlayer(APlayerState* PlayerState, APlayerController* PC) override;
 	virtual bool FindInactivePlayer(APlayerController* PC) override;
+
+private:
+	// note: one based
+	UPROPERTY()
+	TArray<FStringAssetReference> LevelUpRewards;
 };
 

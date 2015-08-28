@@ -623,47 +623,10 @@ void AUTTeamGameMode::SendEndOfGameStats(FName Reason)
 		for (int32 i = 0; i < GetWorld()->GameState->PlayerArray.Num(); i++)
 		{
 			AUTPlayerState* PS = Cast<AUTPlayerState>(GetWorld()->GameState->PlayerArray[i]);
-			
-			PS->SetStatsValue(NAME_MatchesPlayed, 1);
-			PS->SetStatsValue(NAME_TimePlayed, UTGameState->ElapsedTime);
-			if (PS->CanAwardOnlineXP())
+			if (PS != NULL)
 			{
-				PS->SetStatsValue(NAME_PlayerXP, PS->GetXP().Total());
-			}
-
-			if (UTGameState->WinningTeam == PS->Team)
-			{
-				PS->SetStatsValue(NAME_Wins, 1);
-			}
-			else
-			{
-				PS->SetStatsValue(NAME_Losses, 1);
-			}
-
-			PS->AddMatchToStats(GetClass()->GetPathName(), &Teams, &GetWorld()->GameState->PlayerArray, &InactivePlayerArray);
-			if (PS != nullptr)
-			{
-				PS->WriteStatsToCloud();
-			}
-		}
-
-		for (int32 i = 0; i < InactivePlayerArray.Num(); i++)
-		{
-			AUTPlayerState* PS = Cast<AUTPlayerState>(InactivePlayerArray[i]);
-			if (PS && !PS->HasWrittenStatsToCloud())
-			{
-				if (!PS->bAllowedEarlyLeave)
-				{
-					PS->SetStatsValue(NAME_MatchesQuit, 1);
-				}
-
 				PS->SetStatsValue(NAME_MatchesPlayed, 1);
 				PS->SetStatsValue(NAME_TimePlayed, UTGameState->ElapsedTime);
-				// quitters don't get XP
-				//if (PS->CanAwardOnlineXP())
-				//{
-				//	PS->SetStatsValue(NAME_PlayerXP, PS->GetXP().Total());
-				//}
 
 				if (UTGameState->WinningTeam == PS->Team)
 				{
@@ -675,10 +638,36 @@ void AUTTeamGameMode::SendEndOfGameStats(FName Reason)
 				}
 
 				PS->AddMatchToStats(GetClass()->GetPathName(), &Teams, &GetWorld()->GameState->PlayerArray, &InactivePlayerArray);
-				if (PS != nullptr)
+				
+				PS->WriteStatsToCloud();
+			}
+		}
+
+		for (int32 i = 0; i < InactivePlayerArray.Num(); i++)
+		{
+			AUTPlayerState* PS = Cast<AUTPlayerState>(InactivePlayerArray[i]);
+			if (PS != nullptr && !PS->HasWrittenStatsToCloud())
+			{
+				if (!PS->bAllowedEarlyLeave)
 				{
-					PS->WriteStatsToCloud();
+					PS->SetStatsValue(NAME_MatchesQuit, 1);
 				}
+
+				PS->SetStatsValue(NAME_MatchesPlayed, 1);
+				PS->SetStatsValue(NAME_TimePlayed, UTGameState->ElapsedTime);
+
+				if (UTGameState->WinningTeam == PS->Team)
+				{
+					PS->SetStatsValue(NAME_Wins, 1);
+				}
+				else
+				{
+					PS->SetStatsValue(NAME_Losses, 1);
+				}
+
+				PS->AddMatchToStats(GetClass()->GetPathName(), &Teams, &GetWorld()->GameState->PlayerArray, &InactivePlayerArray);
+				
+				PS->WriteStatsToCloud();
 			}
 		}
 

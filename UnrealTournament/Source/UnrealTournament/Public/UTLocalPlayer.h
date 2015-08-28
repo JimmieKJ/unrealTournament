@@ -631,7 +631,21 @@ public:
 	}
 	inline void AddOnlineXP(int32 NewXP)
 	{
-		OnlineXP += FMath::Max<float>(0, NewXP);
+		OnlineXP += FMath::Max<int32>(0, NewXP);
+		LastItemReadTime = 0.0; // so next time we query we'll get real updated value
+	}
+	inline void AddProfileItem(const UUTProfileItem* NewItem)
+	{
+		LastItemReadTime = 0.0;
+		for (FProfileItemEntry& Entry : ProfileItems)
+		{
+			if (Entry.Item == NewItem)
+			{
+				Entry.Count++;
+				return;
+			}
+		}
+		new(ProfileItems) FProfileItemEntry(NewItem, 1);
 	}
 
 	bool IsOnTrustedServer() const

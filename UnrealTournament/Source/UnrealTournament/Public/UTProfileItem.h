@@ -11,14 +11,14 @@ struct FProfileItemEntry
 	GENERATED_USTRUCT_BODY()
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
-	class UUTProfileItem* Item;
+	const class UUTProfileItem* Item;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly)
 	int32 Count;
 
 	FProfileItemEntry()
 		: Item(NULL), Count(0)
 	{}
-	FProfileItemEntry(UUTProfileItem* InItem, uint32 InCount)
+	FProfileItemEntry(const UUTProfileItem* InItem, uint32 InCount)
 	: Item(InItem), Count(int32(FMath::Min<uint32>(InCount, MAX_int32)))
 	{}
 };

@@ -117,6 +117,28 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	bCasterControl = false;
 	bPlayPlayerIntro = true;
 	bOfflineChallenge = false;
+
+	// note: one based
+	LevelUpRewards.AddZeroed(51);
+	LevelUpRewards[2] = FString(TEXT("/Game/RestrictedAssets/ProfileItems/BeanieBlack.BeanieBlack"));
+	LevelUpRewards[3] = FString(TEXT("/Game/RestrictedAssets/ProfileItems/Sunglasses.Sunglasses"));
+	LevelUpRewards[4] = FString(TEXT(""));
+	LevelUpRewards[5] = FString(TEXT("/Game/RestrictedAssets/ProfileItems/ThundercrashMale05.ThundercrashMale05"));
+	LevelUpRewards[7] = FString(TEXT("/Game/RestrictedAssets/ProfileItems/NecrisMale01.NecrisMale01"));
+	LevelUpRewards[8] = FString(TEXT(""));
+	LevelUpRewards[10] = FString(TEXT(""));
+	LevelUpRewards[12] = FString(TEXT("/Game/RestrictedAssets/ProfileItems/ThundercrashBeanieGreen.ThundercrashBeanieGreen"));
+	LevelUpRewards[14] = FString(TEXT(""));
+	LevelUpRewards[17] = FString(TEXT("/Game/RestrictedAssets/ProfileItems/ThundercrashMale03.ThundercrashMale03"));
+	LevelUpRewards[20] = FString(TEXT(""));
+	LevelUpRewards[23] = FString(TEXT("/Game/RestrictedAssets/ProfileItems/BeanieWhite.BeanieWhite"));
+	LevelUpRewards[26] = FString(TEXT(""));
+	LevelUpRewards[30] = FString(TEXT("/Game/RestrictedAssets/ProfileItems/SkaarjMale01.SkaarjMale01"));
+	LevelUpRewards[34] = FString(TEXT("/Game/RestrictedAssets/ProfileItems/BeanieGrey.BeanieGrey"));
+	LevelUpRewards[39] = FString(TEXT("/Game/RestrictedAssets/ProfileItems/ThundercrashBeanieRed.ThundercrashBeanieRed"));
+	LevelUpRewards[40] = FString(TEXT(""));
+	LevelUpRewards[45] = FString(TEXT("/Game/RestrictedAssets/ProfileItems/ThundercrashBeret.ThundercrashBeret"));
+	LevelUpRewards[50] = FString(TEXT("/Game/RestrictedAssets/ProfileItems/ThundercrashMale01.ThundercrashMale01"));
 }
 
 void AUTGameMode::BeginPlayMutatorHack(FFrame& Stack, RESULT_DECL)
@@ -1544,17 +1566,11 @@ void AUTGameMode::SendEndOfGameStats(FName Reason)
 		for (int32 i = 0; i < GetWorld()->GameState->PlayerArray.Num(); i++)
 		{
 			AUTPlayerState* PS = Cast<AUTPlayerState>(GetWorld()->GameState->PlayerArray[i]);
-
-			PS->SetStatsValue(NAME_MatchesPlayed, 1);
-			PS->SetStatsValue(NAME_TimePlayed, UTGameState->ElapsedTime);
-			if (PS->CanAwardOnlineXP())
+			if (PS != NULL)
 			{
-				PS->SetStatsValue(NAME_PlayerXP, PS->GetXP().Total());
-			}
-			
-			PS->AddMatchToStats(GetClass()->GetPathName(), nullptr, &GetWorld()->GameState->PlayerArray, &InactivePlayerArray);
-			if (PS != nullptr)
-			{
+				PS->SetStatsValue(NAME_MatchesPlayed, 1);
+				PS->SetStatsValue(NAME_TimePlayed, UTGameState->ElapsedTime);
+				PS->AddMatchToStats(GetClass()->GetPathName(), nullptr, &GetWorld()->GameState->PlayerArray, &InactivePlayerArray);
 				PS->WriteStatsToCloud();
 			}
 		}
@@ -1571,11 +1587,6 @@ void AUTGameMode::SendEndOfGameStats(FName Reason)
 
 				PS->SetStatsValue(NAME_MatchesPlayed, 1);
 				PS->SetStatsValue(NAME_TimePlayed, UTGameState->ElapsedTime);
-				// quitters don't get XP
-				//if (PS->CanAwardOnlineXP())
-				//{
-				//	PS->SetStatsValue(NAME_PlayerXP, PS->GetXP().Total());
-				//}
 
 				PS->AddMatchToStats(GetClass()->GetPathName(), nullptr, &GetWorld()->GameState->PlayerArray, &InactivePlayerArray);
 				if (PS != nullptr)
@@ -1592,13 +1603,9 @@ void AUTGameMode::SendEndOfGameStats(FName Reason)
 
 void AUTGameMode::AwardXP()
 {
-#if !UE_BUILD_SHIPPING
-	if (!FEngineBuildSettings::IsInternalBuild())
-	{
-		return;
-	}
-	// TODO: ideally we wouldn't execute this if the server isn't approved for XP, but servers can't easily get their own status...
+	// TODO: ideally we wouldn't execute this if the server isn't approved for XP/items, but servers can't easily get their own status...
 	// client does a redundant check anyway so not a huge deal
+	static const bool bXPCheatEnabled = FParse::Param(FCommandLine::Get(), TEXT("XPGiveaway"));
 	for (APlayerState* PS : GameState->PlayerArray)
 	{
 		AUTPlayerState* UTPS = Cast<AUTPlayerState>(PS);
@@ -1608,21 +1615,39 @@ void AUTGameMode::AwardXP()
 			if (PC != NULL)
 			{
 				UTPS->GiveXP(FNewScoreXP(FMath::TruncToInt(UTPS->Score)));
+				if (bXPCheatEnabled)
+				{
+					UTPS->GiveXP(FNewKillAwardXP(250000));
+				}
 				if (UTPS->CanAwardOnlineXP()) // if we failed to read their previous values, we can't award them anything
 				{
 					int32 PrevLevel = GetLevelForXP(UTPS->GetPrevXP());
 					int32 NewLevel = GetLevelForXP(UTPS->GetPrevXP() + UTPS->GetXP().Total());
+					TArray<FProfileItemEntry> Rewards;
 					for (int32 CurrentLevel = PrevLevel + 1; CurrentLevel <= NewLevel; CurrentLevel++)
 					{
-						//PC->ClientReceiveLevelReward(CurrentLevel, ItemPath);
+						if (LevelUpRewards.IsValidIndex(CurrentLevel) && LevelUpRewards[CurrentLevel].IsValid())
+						{
+							const UUTProfileItem* RewardItem = Cast<UUTProfileItem>(LevelUpRewards[CurrentLevel].TryLoad());
+							if (RewardItem != NULL)
+							{
+								new(Rewards) FProfileItemEntry(RewardItem, 1);
+								PC->ClientReceiveLevelReward(CurrentLevel, RewardItem);
+							}
+						}
 					}
+					if (Rewards.Num() > 0)
+					{
+						GiveProfileItems(UTPS->UniqueId.GetUniqueNetId(), Rewards);
+					}
+					// set for transmission to backend
+					UTPS->SetStatsValue(NAME_PlayerXP, UTPS->GetXP().Total());
 				}
 				// still send RPC for offline/untrusted server XP
 				PC->ClientReceiveXP(UTPS->GetXP());
 			}
 		}
 	}
-#endif
 }
 
 void AUTGameMode::EndGame(AUTPlayerState* Winner, FName Reason )

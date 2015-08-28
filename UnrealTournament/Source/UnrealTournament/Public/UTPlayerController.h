@@ -182,7 +182,9 @@ public:
 	virtual void ShowEndGameScoreboard();
 
 	UFUNCTION(reliable, client)
-	virtual void ClientReceiveXP(FXPBreakdown GainedXP);
+	void ClientReceiveXP(FXPBreakdown GainedXP);
+	UFUNCTION(reliable, client)
+	void ClientReceiveLevelReward(int32 Level, const UUTProfileItem* NewItem);
 
 	/**	Client replicated function that get's called when it's half-time. */
 	UFUNCTION(client, reliable)
