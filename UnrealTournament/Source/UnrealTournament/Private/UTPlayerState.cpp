@@ -162,7 +162,12 @@ void AUTPlayerState::CalculatePing(float NewPing)
 
 bool AUTPlayerState::ShouldAutoTaunt() const
 {
-	return bIsABot || bShouldAutoTaunt;
+	if (!bIsABot)
+	{
+		return bShouldAutoTaunt;
+	}
+	UUTGameUserSettings* GS = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
+	return GS && GS->IsBotSpeechEnabled();
 }
 
 void AUTPlayerState::AnnounceKill()
