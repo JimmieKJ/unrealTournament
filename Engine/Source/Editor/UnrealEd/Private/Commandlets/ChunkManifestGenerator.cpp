@@ -465,9 +465,18 @@ bool FChunkManifestGenerator::LoadAssetRegistry(const FString& SandboxPath, cons
 	return true;
 }
 
-bool FChunkManifestGenerator::SaveAssetRegistry(const FString& SandboxPath)
+bool FChunkManifestGenerator::SaveAssetRegistry(const FString& SandboxPath, const TArray<FName>* IgnorePackageList)
 {
 	UE_LOG(LogChunkManifestGenerator, Display, TEXT("Saving asset registry."));
+
+	TSet<FName> IgnorePackageSet;
+	if (IgnorePackageList != nullptr)
+	{
+		for (const auto& IgnorePackage : *IgnorePackageList)
+		{
+			IgnorePackageSet.Add(IgnorePackage);
+		}
+	}
 
 	// Create asset registry data
 	FArrayWriter SerializedAssetRegistry;
@@ -475,6 +484,11 @@ bool FChunkManifestGenerator::SaveAssetRegistry(const FString& SandboxPath)
 	TMap<FName, FAssetData*> GeneratedAssetRegistryData;
 	for (auto& AssetData : AssetRegistryData)
 	{
+		if (IgnorePackageSet.Contains(AssetData.PackageName))
+		{
+			continue;
+		}
+
 		// Add only assets that have actually been cooked and belong to any chunk
 		if (AssetData.ChunkIDs.Num() > 0)
 		{
