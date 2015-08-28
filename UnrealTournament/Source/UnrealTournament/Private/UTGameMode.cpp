@@ -1196,10 +1196,14 @@ void AUTGameMode::AddKillEventToReplay(AController* Killer, AController* Other, 
 		FMemoryWriter MemoryWriter(Data);
 		MemoryWriter.Serialize(TCHAR_TO_ANSI(*KillInfo), KillInfo.Len() + 1);
 
-		FString MetaTag = KillerPlayerState->StatsID;
-		if (MetaTag.IsEmpty())
+		FString MetaTag;
+		if (KillerPlayerState != nullptr)
 		{
-			MetaTag = KillerPlayerState->PlayerName;
+			MetaTag = KillerPlayerState->StatsID;
+			if (MetaTag.IsEmpty())
+			{
+				MetaTag = KillerPlayerState->PlayerName;
+			}
 		}
 		DemoNetDriver->AddEvent(TEXT("Kills"), MetaTag, Data);
 	}
@@ -1217,10 +1221,14 @@ void AUTGameMode::AddMultiKillEventToReplay(AController* Killer, int32 MultiKill
 		FMemoryWriter MemoryWriter(Data);
 		MemoryWriter.Serialize(TCHAR_TO_ANSI(*KillInfo), KillInfo.Len() + 1);
 
-		FString MetaTag = KillerPlayerState->StatsID;
-		if (MetaTag.IsEmpty())
+		FString MetaTag;
+		if (KillerPlayerState != nullptr)
 		{
-			MetaTag = KillerPlayerState->PlayerName;
+			MetaTag = KillerPlayerState->StatsID;
+			if (MetaTag.IsEmpty())
+			{
+				MetaTag = KillerPlayerState->PlayerName;
+			}
 		}
 		DemoNetDriver->AddEvent(TEXT("MultiKills"), MetaTag, Data);
 	}
@@ -1238,10 +1246,14 @@ void AUTGameMode::AddSpreeKillEventToReplay(AController* Killer, int32 SpreeLeve
 		FMemoryWriter MemoryWriter(Data);
 		MemoryWriter.Serialize(TCHAR_TO_ANSI(*KillInfo), KillInfo.Len() + 1);
 
-		FString MetaTag = KillerPlayerState->StatsID;
-		if (MetaTag.IsEmpty())
+		FString MetaTag;
+		if (KillerPlayerState != nullptr)
 		{
-			MetaTag = KillerPlayerState->PlayerName;
+			MetaTag = KillerPlayerState->StatsID;
+			if (MetaTag.IsEmpty())
+			{
+				MetaTag = KillerPlayerState->PlayerName;
+			}
 		}
 		DemoNetDriver->AddEvent(TEXT("SpreeKills"), MetaTag, Data);
 	}
