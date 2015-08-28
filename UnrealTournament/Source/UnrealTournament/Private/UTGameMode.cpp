@@ -115,6 +115,7 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 
 	bCasterControl = false;
 	bPlayPlayerIntro = true;
+	bOfflineChallenge = false;
 }
 
 void AUTGameMode::BeginPlayMutatorHack(FFrame& Stack, RESULT_DECL)
@@ -132,6 +133,11 @@ void AUTGameMode::BeginPlayMutatorHack(FFrame& Stack, RESULT_DECL)
 			Destroy();
 		}
 	}
+}
+
+bool AUTGameMode::AllowCheats(APlayerController* P)
+{
+	return (GetNetMode() == NM_Standalone || GIsEditor) && !bOfflineChallenge; 
 }
 
 void AUTGameMode::Demigod()
@@ -248,6 +254,10 @@ void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FStr
 
 	InOpt = ParseOption(Options, TEXT("PlayPlayerIntro"));
 	bPlayPlayerIntro = EvalBoolOptions(InOpt, bPlayPlayerIntro);
+
+
+	InOpt = ParseOption(Options, TEXT("Challenge"));
+	bOfflineChallenge = EvalBoolOptions(InOpt, bOfflineChallenge);
 
 	PostInitGame(Options);
 

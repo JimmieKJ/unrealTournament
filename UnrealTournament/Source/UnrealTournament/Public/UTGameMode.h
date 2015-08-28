@@ -241,9 +241,13 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Game")
 	bool bAmmoIsLimited;
 
-	/** If true, the intro cinematic will play just before the countown to begin */
+	/** If true, the intro cinematic will play just before the countdown to begin */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Game")
 	bool bPlayPlayerIntro;
+
+	/** Offline challenge mode. */
+	UPROPERTY(BlueprintReadOnly, Category = "Game")
+	bool bOfflineChallenge;
 
 	/** Last time asnyone sent a taunt voice message. */
 	UPROPERTY()
@@ -353,6 +357,7 @@ public:
 	virtual void RestartGame();
 	virtual void BeginGame();
 	virtual bool AllowPausing(APlayerController* PC) override;
+	virtual bool AllowCheats(APlayerController* P) override;
 	virtual bool IsEnemy(class AController* First, class AController* Second);
 	virtual void Killed(class AController* Killer, class AController* KilledPlayer, class APawn* KilledPawn, TSubclassOf<UDamageType> DamageType);
 	virtual void NotifyKilled(AController* Killer, AController* Killed, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType);
