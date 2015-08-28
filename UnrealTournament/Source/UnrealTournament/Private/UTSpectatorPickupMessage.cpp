@@ -12,7 +12,7 @@ UUTSpectatorPickupMessage::UUTSpectatorPickupMessage(const class FObjectInitiali
 	bIsStatusAnnouncement = true;
 	bIsPartiallyUnique = true;
 
-	PickupFormat = NSLOCTEXT("UUTSpectatorPickupMessage", "PickupFormat", "{PlayerName} picked up the {DisplayName}   ( {Num}  / {TotalNum} )");
+	PickupFormat = NSLOCTEXT("UUTSpectatorPickupMessage", "PickupFormat", "{PlayerName} picked up the {DisplayName}");
 }
 
 
@@ -38,13 +38,20 @@ FText UUTSpectatorPickupMessage::ResolveMessage_Implementation(int32 Switch, boo
 			int32 PlayerPickups = Switch & 0xFFFF;
 			int32 TotalPickups = Switch >> 16;
 
+			FText Format = PickupFormat;
+
+			if (Switch > 0)
+			{
+				Format = FText::Format(FText::FromString(TEXT("{0}  ({Num} / {TotalNum})")), Format);
+			}
+
 			FFormatNamedArguments Args;
 			Args.Add(TEXT("PlayerName"), FText::FromString(RelatedPlayerState_1->PlayerName));
 			Args.Add(TEXT("DisplayName"), DisplayName);
 			Args.Add(TEXT("Num"), PlayerPickups);
 			Args.Add(TEXT("TotalNum"), TotalPickups);
 
-			return FText::Format(PickupFormat, Args);
+			return FText::Format(Format, Args);
 		}
 	}
 	return NSLOCTEXT("PickupMessage", "NoPickupMessage", "No Pickup Message");

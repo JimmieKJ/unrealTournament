@@ -3103,12 +3103,8 @@ void AUTGameMode::BroadcastSpectatorPickup(AUTPlayerState* PS, FName StatsName, 
 {
 	if (PS != nullptr && PickupClass != nullptr && StatsName != NAME_None)
 	{
-		int32 PlayerNumPickups = (int32)PS->GetStatsValue(StatsName);
-		int32 TotalPickups = (int32)UTGameState->GetStatsValue(StatsName);
-
-		//Stats may not have been replicated to the client so pack them in the switch
-		int32 Switch = TotalPickups << 16 | PlayerNumPickups;
-
+		//0 will not show the pickup count numbers
+		int32 Switch = 0;
 		BroadcastSpectator(nullptr, UUTSpectatorPickupMessage::StaticClass(), Switch, PS, nullptr, PickupClass);
 	}
 }
