@@ -21,6 +21,7 @@ UUTGameUserSettings::UUTGameUserSettings(const class FObjectInitializer& ObjectI
 	SoundClassVolumes[EUTSoundClass::Voice] = 1.0f;
 	InitialBenchmarkState = -1;
 	bBenchmarkInProgress=false;
+	bBotSpeechEnabled = true;
 }
 
 bool UUTGameUserSettings::IsVersionValid()
@@ -59,6 +60,7 @@ void UUTGameUserSettings::ApplySettings(bool bCheckForCommandLineOverrides)
 	SetAAMode(AAMode);
 	SetScreenPercentage(ScreenPercentage);
 	SetHRTFEnabled(bHRTFEnabled);
+	SetBotSpeechEnabled(bBotSpeechEnabled);
 }
 
 void UUTGameUserSettings::SetSoundClassVolume(EUTSoundClass::Type Category, float NewValue)
@@ -176,6 +178,16 @@ void UUTGameUserSettings::SetScreenPercentage(int32 NewScreenPercentage)
 	ScreenPercentage = NewScreenPercentage;
 	auto ScreenPercentageCVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.ScreenPercentage"));
 	ScreenPercentageCVar->Set(ScreenPercentage, ECVF_SetByGameSetting);
+}
+
+bool UUTGameUserSettings::IsBotSpeechEnabled()
+{
+	return bBotSpeechEnabled;
+}
+
+void UUTGameUserSettings::SetBotSpeechEnabled(bool NewBotSpeechEnabled)
+{
+	bBotSpeechEnabled = NewBotSpeechEnabled;
 }
 
 bool UUTGameUserSettings::IsHRTFEnabled()

@@ -142,6 +142,7 @@ protected:
 	TSharedPtr<SCheckBox> VSync;
 	TSharedPtr<SEditableTextBox> FrameRateCap;
 
+	TSharedPtr<SCheckBox> BotSpeechCheckBox;
 	TSharedPtr<SCheckBox> HRTFCheckBox;
 	TSharedPtr<SSlider> SoundVolumes[EUTSoundClass::MAX];
 	TSharedPtr<STextBlock> SoundVolumesLabels[EUTSoundClass::MAX];
