@@ -49,7 +49,7 @@ void SUWWeaponConfigDialog::Construct(const FArguments& InArgs)
 				}
 
 				//add weapons to the custom crosshair list
-				if (!TestClass->GetDefaultObject<AUTWeapon>()->bHideInCroshairMenu)
+				if (!TestClass->GetDefaultObject<AUTWeapon>()->bHideInCrosshairMenu)
 				{
 					//Only add crosshairs for new weapons that might not be in the config already
 					FCrosshairInfo* FoundPtr = Hud->CrosshairInfos.FindByPredicate([TestClass](const FCrosshairInfo& Info)
@@ -75,7 +75,7 @@ void SUWWeaponConfigDialog::Construct(const FArguments& InArgs)
 				}
 
 				if (!TestClass->GetDefaultObject<AUTWeapon>()->bHideInMenus || 
-					!TestClass->GetDefaultObject<AUTWeapon>()->bHideInCroshairMenu)
+					!TestClass->GetDefaultObject<AUTWeapon>()->bHideInCrosshairMenu)
 				{
 					WeaponReferenceList.Add(TestClass);
 				}

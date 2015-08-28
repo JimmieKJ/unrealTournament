@@ -242,7 +242,7 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 
 	/** if true, don't display in custom crosshair menu*/
 	UPROPERTY(EditDefaultsOnly, Category = UI)
-	bool bHideInCroshairMenu;
+	bool bHideInCrosshairMenu;
 
 	/** Hack for adjusting first person weapon mesh at different FOVs (until we have separate render pass for first person weapon. */
 	UPROPERTY(EditDefaultsOnly, Category="Weapon")
