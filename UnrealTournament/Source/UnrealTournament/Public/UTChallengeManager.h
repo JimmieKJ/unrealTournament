@@ -3,6 +3,20 @@
 
 #include "UTChallengeManager.generated.h"
 
+USTRUCT()
+struct FChallengeInfo
+{
+	GENERATED_USTRUCT_BODY()
+
+	FChallengeInfo() : PlayerTeamSize(4), EnemyRoster() {};
+
+	UPROPERTY()
+		int32 PlayerTeamSize;
+
+	UPROPERTY()
+		TArray<FName> EnemyRoster;
+};
+
 UCLASS(Abstract)
 class UNREALTOURNAMENT_API UUTChallengeManager : public UObject
 {
@@ -12,4 +26,7 @@ class UNREALTOURNAMENT_API UUTChallengeManager : public UObject
 
 	UPROPERTY()
 		TArray<FName> PlayerTeamRoster;
+
+	UPROPERTY()
+		TArray<FChallengeInfo> Challenges;
 };
