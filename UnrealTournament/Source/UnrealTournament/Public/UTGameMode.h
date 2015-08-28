@@ -249,6 +249,10 @@ public:
 	UPROPERTY(BlueprintReadOnly, Category = "Game")
 	bool bOfflineChallenge;
 
+	/** Index of current challenge. */
+	UPROPERTY(BlueprintReadOnly, Category = "Game")
+	int32 ChallengeIndex;
+
 	/** Last time asnyone sent a taunt voice message. */
 	UPROPERTY()
 	float LastGlobalTauntTime;
@@ -455,9 +459,12 @@ public:
 	void AddSpreeKillEventToReplay(AController* Killer, int32 SpreeLevel);
 protected:
 
+	/** Returns random bot character skill matched to current GameDifficulty. */
+	virtual UUTBotCharacter* ChooseRandomCharacter();
 
-	/** adds a bot to the game */
+	/** Adds a bot to the game */
 	virtual class AUTBot* AddBot(uint8 TeamNum = 255);
+
 	virtual class AUTBot* AddNamedBot(const FString& BotName, uint8 TeamNum = 255);
 	virtual class AUTBot* AddAssetBot(const FStringAssetReference& BotAssetPath, uint8 TeamNum = 255);
 	/** check for adding/removing bots to satisfy BotFillCount */

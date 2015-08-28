@@ -37,6 +37,7 @@
 #include "EngineBuildSettings.h"
 #include "UTEngineMessage.h"
 #include "UTRemoteRedeemer.h"
+#include "UTChallengeManager.h"
 
 UUTResetInterface::UUTResetInterface(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -255,9 +256,11 @@ void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FStr
 	InOpt = ParseOption(Options, TEXT("PlayPlayerIntro"));
 	bPlayPlayerIntro = EvalBoolOptions(InOpt, bPlayPlayerIntro);
 
-
-	InOpt = ParseOption(Options, TEXT("Challenge"));
-	bOfflineChallenge = EvalBoolOptions(InOpt, bOfflineChallenge);
+	if (HasOption(Options, TEXT("Challenge")) && (GetNetMode() == NM_Standalone))
+	{
+		bOfflineChallenge = true;
+		ChallengeIndex = GetIntOption(Options, TEXT("Challenge"), 0);
+	}
 
 	PostInitGame(Options);
 
@@ -588,6 +591,28 @@ void AUTGameMode::EntitlementQueryComplete(bool bWasSuccessful, const FUniqueNet
 	}
 }
 
+UUTBotCharacter* AUTGameMode::ChooseRandomCharacter()
+{
+	UUTBotCharacter* ChosenCharacter = NULL;
+	if (EligibleBots.Num() > 0)
+	{
+		int32 BestMatch = 0;
+		for (int32 i = 0; i < EligibleBots.Num(); i++)
+		{
+			if (EligibleBots[i]->Skill >= GameDifficulty)
+			{
+				BestMatch = i;
+				break;
+			}
+		}
+		int32 Index = FMath::Clamp(BestMatch + FMath::RandHelper(5) - 2, 0, EligibleBots.Num() - 1);
+		ChosenCharacter = EligibleBots[Index];
+		ChosenCharacter->Skill = FMath::Clamp(ChosenCharacter->Skill, GameDifficulty - 1.f, GameDifficulty + 1.5f);
+		EligibleBots.RemoveAt(Index);
+	}
+	return ChosenCharacter;
+}
+
 AUTBot* AUTGameMode::AddBot(uint8 TeamNum)
 {
 	AUTBot* NewBot = GetWorld()->SpawnActor<AUTBot>(BotClass);
@@ -597,7 +622,6 @@ AUTBot* AUTGameMode::AddBot(uint8 TeamNum)
 		{
 			GetAllAssetData(UUTBotCharacter::StaticClass(), BotAssets);
 		}
-
 		if (EligibleBots.Num() == 0)
 		{
 			for (const FAssetData& Asset : BotAssets)
@@ -614,23 +638,20 @@ AUTBot* AUTGameMode::AddBot(uint8 TeamNum)
 				return A.Skill < B.Skill;
 			});
 		}
-
-		if (EligibleBots.Num() > 0)
+		UUTBotCharacter* SelectedCharacter = NULL;
+		if (bOfflineChallenge)
 		{
-			int32 BestMatch = 0;
-			for (int32 i = 0; i < EligibleBots.Num(); i++)
-			{
-				if (EligibleBots[i]->Skill >= GameDifficulty)
-				{
-					BestMatch = i;
-					break;
-				}
-			}
-			int32 Index = FMath::Clamp(BestMatch + FMath::RandHelper(5) - 2, 0, EligibleBots.Num() - 1);
-			EligibleBots[Index]->Skill = FMath::Clamp(EligibleBots[Index]->Skill, GameDifficulty - 1.f, GameDifficulty + 1.5f);
-			NewBot->InitializeCharacter(EligibleBots[Index]);
-			SetUniqueBotName(NewBot, EligibleBots[Index]);
-			EligibleBots.RemoveAt(Index);
+			SelectedCharacter = UUTChallengeManager::StaticClass()->GetDefaultObject<UUTChallengeManager>()->ChooseBotCharacter(this, TeamNum);
+		}
+		if (SelectedCharacter == NULL)
+		{
+			SelectedCharacter = ChooseRandomCharacter();
+		}
+
+		if (SelectedCharacter != NULL)
+		{
+			NewBot->InitializeCharacter(SelectedCharacter);
+			SetUniqueBotName(NewBot, SelectedCharacter);
 		}
 		else
 		{

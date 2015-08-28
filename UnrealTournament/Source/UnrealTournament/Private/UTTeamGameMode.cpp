@@ -47,7 +47,7 @@ void AUTTeamGameMode::InitGame(const FString& MapName, const FString& Options, F
 {
 	Super::InitGame(MapName, Options, ErrorMessage);
 
-	bBalanceTeams = EvalBoolOptions(ParseOption(Options, TEXT("BalanceTeams")), bBalanceTeams);
+	bBalanceTeams = !bOfflineChallenge && EvalBoolOptions(ParseOption(Options, TEXT("BalanceTeams")), bBalanceTeams);
 
 	if (bAllowURLTeamCountOverride)
 	{
@@ -117,6 +117,10 @@ APlayerController* AUTTeamGameMode::Login(class UPlayer* NewPlayer, ENetRole Rem
 	if (PC != NULL && !PC->PlayerState->bOnlySpectator)
 	{
 		uint8 DesiredTeam = uint8(FMath::Clamp<int32>(GetIntOption(Options, TEXT("Team"), 255), 0, 255));
+		if (bOfflineChallenge)
+		{
+			DesiredTeam = 1;
+		}
 		ChangeTeam(PC, DesiredTeam, false);
 	}
 
