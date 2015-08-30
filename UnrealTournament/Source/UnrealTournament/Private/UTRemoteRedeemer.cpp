@@ -114,6 +114,7 @@ bool AUTRemoteRedeemer::DriverEnter(APawn* NewDriver)
 			if (UTChar)
 			{
 				UTChar->StartDriving(this);
+				UTChar->PlayerState = PlayerState;
 			}
 			DamageInstigator = C;
 		}
