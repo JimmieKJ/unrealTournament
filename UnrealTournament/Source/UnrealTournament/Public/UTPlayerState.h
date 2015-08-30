@@ -256,7 +256,7 @@ public:
 
 protected:
 	/** XP player had before current match, read from backend (-1 until successful read) */
-	UPROPERTY()
+	UPROPERTY(replicated)
 	int32 PrevXP;
 	/** XP awarded to this player so far (server only, replicated to owning client via RPC after end of game) */
 	UPROPERTY()

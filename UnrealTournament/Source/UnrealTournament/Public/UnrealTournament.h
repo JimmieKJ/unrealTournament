@@ -125,5 +125,11 @@ extern UNREALTOURNAMENT_API void GiveProfileItems(TSharedPtr<FUniqueNetId> Uniqu
 /** prefix for stat names for our hacky "inventory as stats" implementation */
 extern const FString ITEM_STAT_PREFIX;
 
+/** Gets the XP requirements for each level */
+extern UNREALTOURNAMENT_API const TArray<int32>& GetLevelTable();
+
 /** looks up XP in level table */
 extern UNREALTOURNAMENT_API int32 GetLevelForXP(int32 XPValue);
+
+/** get the xp needed for this level */
+extern UNREALTOURNAMENT_API int32 GetXPForLevel(int32 Level);

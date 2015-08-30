@@ -578,6 +578,10 @@ FHttpRequestPtr ReadBackendStats(const FHttpRequestCompleteDelegate& ResultDeleg
 		{
 			BaseURL = TEXT("https://ut-public-service-gamedev.ol.epicgames.net/ut/api/stats/accountId/");
 		}
+		else if (McpConfigOverride == TEXT("prodnet"))
+		{
+			BaseURL = TEXT("https://ut-public-service-prod10.ol.epicgames.com/ut/api/stats/accountId/");
+		}
 
 		FString FinalStatsURL = BaseURL + StatsID + TEXT("/bulk/window/") + QueryWindow;
 
@@ -719,7 +723,7 @@ void GiveProfileItems(TSharedPtr<FUniqueNetId> UniqueId, const TArray<FProfileIt
 	}
 }
 
-int32 GetLevelForXP(int32 XPValue)
+const TArray<int32>& GetLevelTable()
 {
 	const int32 MAX_LEVEL = 50;
 	const int32 STARTING_INCREMENT = 50;
@@ -743,13 +747,30 @@ int32 GetLevelForXP(int32 XPValue)
 		return Result;
 	}();
 
-	for (int32 i = 0; i < MAX_LEVEL; i++)
+	return LevelReqs;
+}
+
+int32 GetLevelForXP(int32 XPValue)
+{
+	const TArray<int32>& LevelTable = GetLevelTable();
+
+	for (int32 i = 0; i < LevelTable.Num(); i++)
 	{
-		if (XPValue < LevelReqs[i])
+		if (XPValue < LevelTable[i])
 		{
 			return i;
 		}
 	}
 
-	return LevelReqs.Num();
+	return LevelTable.Num();
+}
+
+int32 GetXPForLevel(int32 Level)
+{
+	const TArray<int32>& LevelTable = GetLevelTable();
+	if (Level < LevelTable.Num() && Level > 0)
+	{
+		return LevelTable[Level];
+	}
+	return 0;
 }

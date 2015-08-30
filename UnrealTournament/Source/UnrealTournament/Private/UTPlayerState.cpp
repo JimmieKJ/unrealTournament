@@ -85,6 +85,7 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	DOREPLIFETIME(AUTPlayerState, TDMRank);
 	DOREPLIFETIME(AUTPlayerState, DMRank);
 	DOREPLIFETIME(AUTPlayerState, TrainingLevel);
+	DOREPLIFETIME(AUTPlayerState, PrevXP);
 	DOREPLIFETIME(AUTPlayerState, SelectedCharacter);
 	DOREPLIFETIME(AUTPlayerState, TauntClass);
 	DOREPLIFETIME(AUTPlayerState, Taunt2Class);
@@ -1677,6 +1678,60 @@ TSharedRef<SWidget> AUTPlayerState::BuildRankInfo()
 				.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
 				.ColorAndOpacity(FLinearColor::Gray)
 			];
+
+		//TODO: Should we show offline XP?
+		if (CanAwardOnlineXP())
+		{
+			int32 Level = GetLevelForXP(PrevXP);
+			int32 LevelXPStart = GetXPForLevel(Level - 1);
+			int32 LevelXPEnd = GetXPForLevel(Level);
+			int32 LevelXP = LevelXPEnd - LevelXPStart;
+
+			FText TooltipXP = FText::Format(NSLOCTEXT("AUTPlayerState", "XPTooltipCap", " {0} XP"), FText::AsNumber(PrevXP));
+			float LevelAlpha = 1.0f;
+
+			if (LevelXP > 0)
+			{
+				LevelAlpha = (float)(PrevXP - LevelXPStart) / (float)LevelXP;
+				TooltipXP = FText::Format(NSLOCTEXT("AUTPlayerState", "XPTooltip", " {0} XP / {1} XP To Next Level "), FText::AsNumber(PrevXP), FText::AsNumber(LevelXPEnd - PrevXP));
+			}
+
+			VBox->AddSlot()
+				.Padding(10.0f, 10.0f, 10.0f, 5.0f)
+				.AutoHeight()
+				[
+					SNew(SHorizontalBox)
+					+ SHorizontalBox::Slot()
+					.HAlign(HAlign_Left)
+					.VAlign(VAlign_Center)
+					.AutoWidth()
+					[
+						SNew(SBox)
+						.WidthOverride(150)
+						[
+							SNew(STextBlock)
+							.Text(FText::Format(NSLOCTEXT("AUTPlayerState", "LevelNum", "Level {0}"), FText::AsNumber(Level)))
+							.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
+							.ColorAndOpacity(FLinearColor::Gray)
+						]
+					]
+					+ SHorizontalBox::Slot()
+						.HAlign(HAlign_Fill)
+						.VAlign(VAlign_Fill)
+						.Padding(5.0, 0.0, 0.0, 0.0)
+						.AutoWidth()
+						[
+							SNew(SBox)
+							.WidthOverride(500.0f)
+							.HeightOverride(20.0f)
+							[
+								SNew(SProgressBar)
+								.Percent(LevelAlpha)
+								.ToolTipText(TooltipXP)
+							]
+						]
+				];
+		}
 
 	}
 	return VBox;
