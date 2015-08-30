@@ -377,7 +377,7 @@ void AUTWeapon::StartFire(uint8 FireModeNum)
 
 void AUTWeapon::ServerStartFire_Implementation(uint8 FireModeNum, bool bClientFired)
 {
-	if (!UTOwner->IsFiringDisabled())
+	if (UTOwner && !UTOwner->IsFiringDisabled())
 	{
 		FireZOffsetTime = 0.f;
 		BeginFiringSequence(FireModeNum, bClientFired);
