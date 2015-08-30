@@ -617,6 +617,8 @@ void AUTTeamGameMode::SendEndOfGameStats(FName Reason)
 	
 	if (!bDisableCloudStats)
 	{
+		AwardXP();
+
 		UpdateSkillRating();
 
 		const double CloudStatsStartTime = FPlatformTime::Seconds();
@@ -674,8 +676,6 @@ void AUTTeamGameMode::SendEndOfGameStats(FName Reason)
 		const double CloudStatsTime = FPlatformTime::Seconds() - CloudStatsStartTime;
 		UE_LOG(UT, Log, TEXT("Cloud stats write time %.3f"), CloudStatsTime);
 	}
-
-	AwardXP();
 }
 
 void AUTTeamGameMode::FindAndMarkHighScorer()
