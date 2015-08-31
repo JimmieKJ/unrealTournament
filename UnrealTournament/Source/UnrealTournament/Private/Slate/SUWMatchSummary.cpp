@@ -717,7 +717,8 @@ void SUWMatchSummary::Tick(const FGeometry& AllottedGeometry, const double InCur
 	}
 
 	//Create the xp widget the first time the info widget is open
-	if (!XPBar.IsValid() && HasCamFlag(CF_ShowInfoWidget) && GameState->GetMatchState() == MatchState::WaitingPostMatch)
+	AUTPlayerState* PS = (PlayerOwner.IsValid() && PlayerOwner->PlayerController != nullptr) ? Cast<AUTPlayerState>(PlayerOwner->PlayerController->PlayerState) : nullptr;
+	if (!XPBar.IsValid() && HasCamFlag(CF_ShowInfoWidget) && GameState->GetMatchState() == MatchState::WaitingPostMatch && (PS != nullptr && PS->CanAwardOnlineXP()))
 	{
 		XPOverlay->AddSlot()
 		[

@@ -263,13 +263,6 @@ FXPBreakdown SUTXPBar::GetXPBreakdown() const
 		return UTPC->XPBreakdown;
 	}
 	return FXPBreakdown();
-
-	/*FXPBreakdown XPBreakdown;
-	XPBreakdown.ScoreXP = 50;
-	XPBreakdown.KillAwardXP = 50;
-	XPBreakdown.OffenseXP = 50;
-	XPBreakdown.DefenseXP = 50;
-	return XPBreakdown;*/
 }
 
 void SUTXPBar::Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime)
