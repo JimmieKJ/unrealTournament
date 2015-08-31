@@ -304,44 +304,54 @@ void AUTLobbyMatchInfo::ServerMatchIsReadyForPlayers_Implementation()
 bool AUTLobbyMatchInfo::ServerManageUser_Validate(int32 CommandID, AUTLobbyPlayerState* Target){ return true; }
 void AUTLobbyMatchInfo::ServerManageUser_Implementation(int32 CommandID, AUTLobbyPlayerState* Target)
 {
-
-	for (int32 i=0; i < Players.Num(); i++)
+	// make sure target is in this lobby's player list
+	bool bFoundTarget = false;
+	if (Target && !Target->IsPendingKillPending())
 	{
-		if (Target == Players[i])
+		for (int32 i = 0; i < Players.Num(); i++)
 		{
-			if (!CurrentRuleset->bTeamGame) CommandID++;		// Account for ChangeTeam.
-		
-			if (CommandID == 0 && CurrentRuleset->bTeamGame)
+			if (Target == Players[i])
 			{
-				if (Target->DesiredTeamNum != 255)
-				{
-					Target->DesiredTeamNum = 1 - Target->DesiredTeamNum;
-				}
-				else
-				{
-					Target->DesiredTeamNum = 0;
-				}
-
-				UE_LOG(UT,Log,TEXT("Changing %s to team %i"), *Target->PlayerName, Target->DesiredTeamNum)
-			}
-			else if (CommandID == 1)
-			{
-				Target->DesiredTeamNum = 255;
-				UE_LOG(UT,Log,TEXT("Changing %s to spectator"), *Target->PlayerName, Target->DesiredTeamNum)
-
-			}
-			else if (CommandID > 1)
-			{
-				// Right now we only have kicks and bans.
-				RemovePlayer(Target);
-				if (CommandID == 3)
-				{
-					BannedIDs.Add(Target->UniqueId);
-				}
+				bFoundTarget = true;
+				break;
 			}
 		}
 	}
+	if (!bFoundTarget)
+	{
+		return;
+	}
 
+	// process command
+	if (CommandID == 0)
+	{
+		if (CurrentRuleset->bTeamGame)
+		{
+			if (Target->DesiredTeamNum != 255)
+			{
+				Target->DesiredTeamNum = 1 - Target->DesiredTeamNum;
+			}
+			else
+			{
+				Target->DesiredTeamNum = 0;
+			}
+			UE_LOG(UT, Log, TEXT("Changing %s to team %i"), *Target->PlayerName, Target->DesiredTeamNum)
+		}
+	}
+	else if (CommandID == 1)
+	{
+		Target->DesiredTeamNum = 255;
+		UE_LOG(UT,Log,TEXT("Changing %s to spectator"), *Target->PlayerName, Target->DesiredTeamNum)
+	}
+	else if (CommandID > 1)
+	{
+		// Right now we only have kicks and bans.
+		RemovePlayer(Target);
+		if (CommandID == 3)
+		{
+			BannedIDs.Add(Target->UniqueId);
+		}
+	}
 }
 
 bool AUTLobbyMatchInfo::ServerStartMatch_Validate() { return true; }
