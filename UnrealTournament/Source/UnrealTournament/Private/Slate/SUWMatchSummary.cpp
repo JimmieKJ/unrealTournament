@@ -24,6 +24,7 @@
 #include "UTConsole.h"
 #include "UTHUDWidgetMessage.h"
 #include "UTHUDWidgetMessage_GameMessages.h"
+#include "Widgets/SUTXPBar.h"
 
 #if !UE_SERVER
 #include "Runtime/AppFramework/Public/Widgets/Colors/SColorPicker.h"
@@ -303,6 +304,12 @@ void SUWMatchSummary::Construct(const FArguments& InArgs)
 							.VAlign(VAlign_Fill)
 							[
 								SAssignNew(InfoPanel, SOverlay)
+							]
+							+ SVerticalBox::Slot()
+							.Padding(FMargin(5.0f, 5.0f, 5.0f, 5.0f))
+							.AutoHeight()
+							[
+								SAssignNew(XPOverlay, SOverlay)
 							]
 							+ SVerticalBox::Slot()
 							.AutoHeight()
@@ -707,6 +714,15 @@ void SUWMatchSummary::Tick(const FGeometry& AllottedGeometry, const double InCur
 		{
 			SetCamShot(CurrentShot+1);
 		}
+	}
+
+	//Create the xp widget the first time the info widget is open
+	if (!XPBar.IsValid() && HasCamFlag(CF_ShowInfoWidget) && GameState->GetMatchState() == MatchState::WaitingPostMatch)
+	{
+		XPOverlay->AddSlot()
+		[
+			SAssignNew(XPBar, SUTXPBar).PlayerOwner(PlayerOwner)
+		];
 	}
 }
 

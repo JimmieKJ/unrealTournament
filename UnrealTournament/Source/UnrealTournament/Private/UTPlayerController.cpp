@@ -2076,35 +2076,18 @@ void AUTPlayerController::ClientReceiveXP_Implementation(FXPBreakdown GainedXP)
 	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
 	if (LP != NULL && LP->IsOnTrustedServer() && LP->IsLoggedIn())
 	{
-		// FIXME: temp until there is UI
-		FClientReceiveData ClientData;
-		ClientData.LocalPC = this;
-		ClientData.MessageIndex = 0;
-
-		int32 PrevLevel = 0;
-		int32 NewLevel = 0;
-		ClientData.MessageString = FString::Printf(TEXT("YOU GOT %i ONLINE XP FOR THIS MATCH"), GainedXP.Total());
-		PrevLevel = GetLevelForXP(LP->GetOnlineXP());
 		LP->AddOnlineXP(GainedXP.Total());
-		NewLevel = GetLevelForXP(LP->GetOnlineXP());
-
-		UUTChatMessage::StaticClass()->GetDefaultObject<UUTChatMessage>()->ClientReceiveChat(ClientData, ChatDestinations::System);
-		if (PrevLevel < NewLevel)
-		{
-			LP->ShowToast(FText::Format(NSLOCTEXT("UTXP", "LevelUp", "You are now Level {0}!"), FText::AsNumber(NewLevel)));
-		}
-
 		LP->SaveProfileSettings();
+
+		//Store the XPBreakdown for the SUTXPBar
+		XPBreakdown = GainedXP;
 	}
 }
 
 void AUTPlayerController::ClientReceiveLevelReward_Implementation(int32 Level, const UUTProfileItem* RewardItem)
 {
-	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
-	if (LP != NULL && LP->IsOnTrustedServer() && LP->IsLoggedIn() && RewardItem != NULL)
-	{
-		LP->ShowToast(FText::Format(NSLOCTEXT("UT", "ItemReward", "You earned {0} for reaching level {1}!"), RewardItem->DisplayName, FText::AsNumber(Level)));
-	}
+	//Store the reward. The SUTXPBar will display the toast when it triggers a level up
+	LevelRewards.Add(Level, RewardItem);
 }
 
 void AUTPlayerController::ShowMenu()

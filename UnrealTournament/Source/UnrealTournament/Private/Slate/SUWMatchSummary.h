@@ -241,7 +241,11 @@ protected:
 	virtual void SetupIntroCam();
 	virtual void SetupMatchCam();
 
+	TSharedPtr<class SOverlay> XPOverlay;
+	TSharedPtr<class SUTXPBar> XPBar;
+
 private:
+
 	TWeakObjectPtr<class UUTLocalPlayer> PlayerOwner;
 };
 #endif

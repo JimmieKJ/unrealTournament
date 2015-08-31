@@ -888,6 +888,13 @@ public:
 
 	UFUNCTION(exec)
 	virtual void OpenMatchSummary();
+
+	/**The last recieved XP breakdown from ClientReceiveXP()*/
+	UPROPERTY()
+	FXPBreakdown XPBreakdown;
+
+	/**Stored list of rewards gained from ClientReceiveLevelReward()*/
+	TMap<int32, const class UUTProfileItem*> LevelRewards;
 };
 
 

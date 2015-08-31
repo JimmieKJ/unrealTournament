@@ -614,6 +614,21 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 		}
 	}
 
+	{//XP bar
+		Style.Set("UT.XPBar.BG", new BOX_BRUSH("Toasts/UT.XPBar.BG", FMargin(0.5, 0.5, 0.5, 0.5)));
+		Style.Set("UT.XPBar.XPBreakdown.BG", new FSlateColorBrush(FLinearColor(1.f, 1.f, 1.f, 1.0f)));
+
+		Style.Set("UT.XPBar.XPBreakdown.Text", FTextBlockStyle()
+			.SetFont(TTF_FONT("Play-Regular", 12))
+			.SetColorAndOpacity(FLinearColor::White)
+			);
+
+		Style.Set("UT.XPBar.LevelText", FTextBlockStyle()
+			.SetFont(TTF_FONT("Play-Regular", 22))
+			.SetColorAndOpacity(FLinearColor::White)
+			);
+	}
+
 	SetMidGameMenuRedStyle(StyleRef);
 
 	SetMidGameMenuBlueStyle(StyleRef);
