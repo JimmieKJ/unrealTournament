@@ -3496,46 +3496,43 @@ void AUTGameMode::BuildWeaponInfo(AUTPlayerState* PlayerState, TSharedPtr<class 
 	BuildPaneHelper(BotBox, BotLeftPane, BotRightPane);
 
 	//Add the header
-	for (int32 i = 0; i < 2; i++)
-	{
-		TSharedPtr<SVerticalBox> VBox;
-		VBox = (i == 0) ? TopLeftPane : TopRightPane;
-		VBox->AddSlot()
-			.AutoHeight()
-			[
-				SNew(SHorizontalBox)
-				+ SHorizontalBox::Slot()
-				.FillWidth(0.6f)
-				.HAlign(HAlign_Fill)
+	TSharedPtr<SVerticalBox> VBox;
+	VBox = TopLeftPane;
+	VBox->AddSlot()
+		.AutoHeight()
+		[
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot()
+			.FillWidth(0.6f)
+			.HAlign(HAlign_Fill)
 
-				+ SHorizontalBox::Slot()
+			+ SHorizontalBox::Slot()
+			.FillWidth(0.3f)
+			.HAlign(HAlign_Right)
+			[
+				SNew(STextBlock)
+				.Text(NSLOCTEXT("AUTGameMode", "KillsAbbrev", "K"))
+				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+				.ColorAndOpacity(FLinearColor(0.6f, 1.0f, 0.6f))
+			]
+			+ SHorizontalBox::Slot()
 				.FillWidth(0.3f)
 				.HAlign(HAlign_Right)
 				[
 					SNew(STextBlock)
-					.Text(NSLOCTEXT("AUTGameMode", "KillsAbbrev", "K"))
+					.Text(NSLOCTEXT("AUTGameMode", "DeathsAbbrev", "D"))
 					.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-					.ColorAndOpacity(FLinearColor(0.6f, 1.0f, 0.6f))
+					.ColorAndOpacity(FLinearColor(1.0f, 0.6f, 0.6f))
 				]
-				+ SHorizontalBox::Slot()
-					.FillWidth(0.3f)
-					.HAlign(HAlign_Right)
-					[
-						SNew(STextBlock)
-						.Text(NSLOCTEXT("AUTGameMode", "DeathsAbbrev", "D"))
-						.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-						.ColorAndOpacity(FLinearColor(1.0f, 0.6f, 0.6f))
-					]
-				+ SHorizontalBox::Slot()
-					.FillWidth(0.4f)
-					.HAlign(HAlign_Right)
-					[
-						SNew(STextBlock)
-						.Text(NSLOCTEXT("AUTGameMode", "AccuracyAbbrev", "Acc"))
-						.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-					]
-			];
-	}
+			+ SHorizontalBox::Slot()
+				.FillWidth(0.4f)
+				.HAlign(HAlign_Right)
+				[
+					SNew(STextBlock)
+					.Text(NSLOCTEXT("AUTGameMode", "AccuracyAbbrev", "Acc"))
+					.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+				]
+		];
 
 	//4x4 panes
 	TSharedPtr<SVerticalBox> MainBox = SNew(SVerticalBox)
@@ -3573,7 +3570,7 @@ void AUTGameMode::BuildWeaponInfo(AUTPlayerState* PlayerState, TSharedPtr<class 
 	//Add weapons to the panes
 	for (int32 i = 0; i < StatsWeapons.Num();i++)
 	{
-		TSharedPtr<SVerticalBox> Pane = (i % 2) ? TopRightPane : TopLeftPane;
+		TSharedPtr<SVerticalBox> Pane = TopLeftPane;
 		NewWeaponInfoLine(Pane, StatsWeapons[i]->DisplayName,
 			MakeShareable(new TAttributeStatWeapon(PlayerState, StatsWeapons[i], TAttributeStatWeapon::WS_KillStat)),
 			MakeShareable(new TAttributeStatWeapon(PlayerState, StatsWeapons[i], TAttributeStatWeapon::WS_DeathStat)),
@@ -3581,12 +3578,12 @@ void AUTGameMode::BuildWeaponInfo(AUTPlayerState* PlayerState, TSharedPtr<class 
 			StatList);
 	}
 
-	NewPlayerInfoLine(BotLeftPane, NSLOCTEXT("AUTGameMode", "ShockComboKills", "Shock Combo Kills"), MakeShareable(new TAttributeStat(PlayerState, NAME_ShockComboKills)), StatList);
-	NewPlayerInfoLine(BotLeftPane, NSLOCTEXT("AUTGameMode", "AmazingCombos", "Amazing Combos"), MakeShareable(new TAttributeStat(PlayerState, NAME_AmazingCombos)), StatList);
-	NewPlayerInfoLine(BotLeftPane, NSLOCTEXT("AUTGameMode", "HeadShots", "Sniper Headshots"), MakeShareable(new TAttributeStat(PlayerState, NAME_SniperHeadshotKills)), StatList);
-	NewPlayerInfoLine(BotRightPane, NSLOCTEXT("AUTGameMode", "AirRox", "Air Rocket Kills"), MakeShareable(new TAttributeStat(PlayerState, NAME_AirRox)), StatList);
-	NewPlayerInfoLine(BotRightPane, NSLOCTEXT("AUTGameMode", "FlakShreds", "Flak Shreds"), MakeShareable(new TAttributeStat(PlayerState, NAME_FlakShreds)), StatList);
-	NewPlayerInfoLine(BotRightPane, NSLOCTEXT("AUTGameMode", "AirSnot", "Air Snot Kills"), MakeShareable(new TAttributeStat(PlayerState, NAME_AirSnot)), StatList);
+	NewPlayerInfoLine(TopRightPane, NSLOCTEXT("AUTGameMode", "ShockComboKills", "Shock Combo Kills"), MakeShareable(new TAttributeStat(PlayerState, NAME_ShockComboKills)), StatList);
+	NewPlayerInfoLine(TopRightPane, NSLOCTEXT("AUTGameMode", "AmazingCombos", "Amazing Combos"), MakeShareable(new TAttributeStat(PlayerState, NAME_AmazingCombos)), StatList);
+	NewPlayerInfoLine(TopRightPane, NSLOCTEXT("AUTGameMode", "HeadShots", "Sniper Headshots"), MakeShareable(new TAttributeStat(PlayerState, NAME_SniperHeadshotKills)), StatList);
+	NewPlayerInfoLine(TopRightPane, NSLOCTEXT("AUTGameMode", "AirRox", "Air Rocket Kills"), MakeShareable(new TAttributeStat(PlayerState, NAME_AirRox)), StatList);
+	NewPlayerInfoLine(TopRightPane, NSLOCTEXT("AUTGameMode", "FlakShreds", "Flak Shreds"), MakeShareable(new TAttributeStat(PlayerState, NAME_FlakShreds)), StatList);
+	NewPlayerInfoLine(TopRightPane, NSLOCTEXT("AUTGameMode", "AirSnot", "Air Snot Kills"), MakeShareable(new TAttributeStat(PlayerState, NAME_AirSnot)), StatList);
 }
 
 void AUTGameMode::BuildMovementInfo(AUTPlayerState* PlayerState, TSharedPtr<class SUTTabWidget> TabWidget, TArray<TSharedPtr<TAttributeStat> >& StatList)
