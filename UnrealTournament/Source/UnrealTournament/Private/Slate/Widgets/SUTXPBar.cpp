@@ -215,13 +215,19 @@ FText SUTXPBar::GetGainedXPText() const
 FText SUTXPBar::GetCurrentXPText() const
 {
 	int32 CurrentXP = FMath::Max(GetXP() - GetXPBreakdown().Total(), 0) + (int32)InterpXP;
-	return FText::Format(NSLOCTEXT("SUTXPBar", "CurrentXP", " {0} XP "), FText::AsNumber(CurrentXP));
+	int32 NextLevelXP = GetXPForLevel(GetLevelForXP(CurrentXP)) - CurrentXP;
+	return FText::Format(NSLOCTEXT("SUTXPBar", "CurrentXP", " {0} XP "), (NextLevelXP > 0) ? FText::AsNumber(CurrentXP) : FText::AsNumber(GetXP()));
 }
 
 FText SUTXPBar::GetRemainingXPText() const
 {
 	int32 CurrentXP = FMath::Max(GetXP() - GetXPBreakdown().Total(), 0) + (int32)InterpXP;
-	return FText::Format(NSLOCTEXT("SUTXPBar", "XPToNextLevel", " {0} XP To Next Level "), FText::AsNumber(GetXPForLevel(GetLevelForXP(CurrentXP)) - CurrentXP));
+	int32 NextLevelXP = GetXPForLevel(GetLevelForXP(CurrentXP)) - CurrentXP;
+	if (NextLevelXP > 0)
+	{
+		return FText::Format(NSLOCTEXT("SUTXPBar", "XPToNextLevel", " {0} XP To Next Level "), FText::AsNumber(NextLevelXP));
+	}
+	return FText::GetEmpty();
 }
 
 TOptional<FSlateRenderTransform> SUTXPBar::GetLevelTransform() const
@@ -366,12 +372,35 @@ int32 SUTXPBar::OnPaint(const FPaintArgs& Args, const FGeometry& AllottedGeometr
 	float CurrentXP = OldXP + InterpXP;
 	int32 Level = GetLevelForXP(CurrentXP);
 
-	//Draw the XP that was there before match end
-	float LastXP = 0;
-	DrawBar(OldXP, Level, XPColor, LastXP, BarGeo, LayerId, MyClippingRect, OutDrawElements, DrawEffects);
+	int32 NextLevelXP = GetXPForLevel(GetLevelForXP(CurrentXP)) - CurrentXP;
+	if (NextLevelXP > 0)
+	{
+		//Draw the XP that was there before match end
+		float LastXP = 0;
+		DrawBar(OldXP, Level, XPColor, LastXP, BarGeo, LayerId, MyClippingRect, OutDrawElements, DrawEffects);
 
-	//Draw the new XP
-	DrawBar(CurrentXP, Level, BreakdownColor, LastXP, BarGeo, LayerId, MyClippingRect, OutDrawElements, DrawEffects);
+		//Draw the new XP
+		DrawBar(CurrentXP, Level, BreakdownColor, LastXP, BarGeo, LayerId, MyClippingRect, OutDrawElements, DrawEffects);
+	}
+	else
+	{
+		//Max level, just draw a filled bar
+		TArray<FSlateGradientStop> GradientStops;
+		GradientStops.Add(FSlateGradientStop(FVector2D::ZeroVector, XPColor * 0.5f));
+		GradientStops.Add(FSlateGradientStop(BarGeo.GetLocalSize() * 0.2f, XPColor));
+		GradientStops.Add(FSlateGradientStop(BarGeo.GetLocalSize() * 0.8f, XPColor));
+		GradientStops.Add(FSlateGradientStop(BarGeo.GetLocalSize(), XPColor * 0.5f));
+
+		FSlateDrawElement::MakeGradient(
+			OutDrawElements,
+			LayerId++,
+			BarGeo.ToPaintGeometry(),
+			GradientStops,
+			Orient_Horizontal,
+			MyClippingRect,
+			DrawEffects
+			);
+	}
 	
 	return SCompoundWidget::OnPaint(Args, AllottedGeometry, MyClippingRect, OutDrawElements, LayerId, InWidgetStyle, bParentEnabled);
 }
