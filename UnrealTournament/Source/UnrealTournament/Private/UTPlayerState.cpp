@@ -2104,6 +2104,11 @@ void AUTPlayerState::ModifyStatsValue(FName StatsName, float Change)
 bool AUTPlayerState::RegisterVote_Validate(AUTReplicatedMapInfo* VoteInfo) { return true; }
 void AUTPlayerState::RegisterVote_Implementation(AUTReplicatedMapInfo* VoteInfo)
 {
+	if (bOnlySpectator)
+	{
+		// spectators can't vote
+		return;
+	}
 	AUTGameState* UTGameState = GetWorld()->GetGameState<AUTGameState>();
 	if (UTGameState != NULL)
 	{
