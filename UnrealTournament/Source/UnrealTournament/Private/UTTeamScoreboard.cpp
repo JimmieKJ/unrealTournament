@@ -277,7 +277,7 @@ void UUTTeamScoreboard::SetScoringPlaysTimer(bool bEnableTimer)
 	{
 		if (bEnableTimer)
 		{
-			AUTGameMode* DefaultGame = UTGameState->GameModeClass->GetDefaultObject<AUTGameMode>();
+			AUTGameMode* DefaultGame = (UTGameState && UTGameState->GameModeClass) ? UTGameState->GameModeClass->GetDefaultObject<AUTGameMode>() : nullptr;
 			if (DefaultGame)
 			{
 				UTHUDOwner->GetWorld()->GetTimerManager().SetTimer(OpenScoringPlaysHandle, this, &UUTTeamScoreboard::SwitchToScoringPlaysPage, DefaultGame->MainScoreboardDisplayTime, false);
