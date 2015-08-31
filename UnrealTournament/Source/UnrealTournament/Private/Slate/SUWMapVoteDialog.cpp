@@ -611,8 +611,6 @@ void SUWMapVoteDialog::LeaderTextureLoadComplete(const FName& InPackageName, UPa
 	}
 }
 
-
-
 FReply SUWMapVoteDialog::OnLeadingMapClick(int32 ButtonIndex)
 {
 	AUTPlayerState* OwnerPlayerState = Cast<AUTPlayerState>(GetPlayerOwner()->PlayerController->PlayerState);

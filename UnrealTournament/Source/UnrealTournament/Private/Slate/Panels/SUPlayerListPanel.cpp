@@ -301,6 +301,10 @@ bool SUPlayerListPanel::ShouldShowPlayer(FUniqueNetIdRepl PlayerId, uint8 TeamNu
 
 			return false;
 		}
+		else if (PlayerOwner.IsValid() && PlayerOwner->PlayerController && PlayerOwner->PlayerController->PlayerState && PlayerOwner->PlayerController->PlayerState->bIsABot)
+		{
+			return false;
+		}
 	}
 
 	return true;
