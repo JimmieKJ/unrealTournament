@@ -309,19 +309,6 @@ void AUTGameState::BeginPlay()
 	ServerName += TEXT(" ");
 	ServerMOTD += TEXT(" ");
 
-	// HACK: temporary workaround for replicated world gravity getting clobbered on client
-	if (GetNetMode() == NM_Client)
-	{
-		if (GetWorld()->GetWorldSettings()->WorldGravityZ != 0.0f)
-		{
-			GetWorld()->GetWorldSettings()->bWorldGravitySet = true;
-		}
-		else
-		{
-			GetWorld()->GetWorldSettings()->GetGravityZ();
-		}
-	}
-
 	if (GetNetMode() == NM_Client)
 	{
 		// hook up any TeamInfos that were received prior
