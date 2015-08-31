@@ -756,7 +756,7 @@ FReply SUWWeaponConfigDialog::OKClick()
 	if (UTPlayerController != NULL)
 	{
 		UTPlayerController->bAutoWeaponSwitch = AutoWeaponSwitch->IsChecked();
-		
+
 		UTPlayerController->SetWeaponHand(NewHand);
 		UTPlayerController->SaveConfig();
 	}
@@ -793,32 +793,30 @@ FReply SUWWeaponConfigDialog::OKClick()
 		}
 	}
 
-	//Save the crosshair info to the config and update the current hud if there is one
-	TArray<AUTHUD*> Huds;
-	if (UTPlayerController != nullptr && UTPlayerController->MyUTHUD != nullptr)
+	AUTHUD* DefaultHud = AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>();
+	for (auto CrosshairInfo : CrosshairInfos)
 	{
-		Huds.Add(UTPlayerController->MyUTHUD);
-	}
-	Huds.Add(AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>());
-
-	for (AUTHUD* Hud : Huds)
-	{
-		for (auto CrosshairInfo : CrosshairInfos)
+		//Update or add a new one if not found
+		int32 Index = DefaultHud->CrosshairInfos.Find(*CrosshairInfo.Get());
+		if (Index != INDEX_NONE)
 		{
-			//Update or add a new one if not found
-			int32 Index = Hud->CrosshairInfos.Find(*CrosshairInfo.Get());
-			if (Index != INDEX_NONE)
-			{
-				Hud->CrosshairInfos[Index] = *CrosshairInfo.Get();
-			}
-			else
-			{
-				Hud->CrosshairInfos.Add(*CrosshairInfo.Get());
-			}
+			DefaultHud->CrosshairInfos[Index] = *CrosshairInfo.Get();
 		}
-		Hud->LoadedCrosshairs.Empty();
-		Hud->bCustomWeaponCrosshairs = bCustomWeaponCrosshairs;
-		Hud->SaveConfig();
+		else
+		{
+			DefaultHud->CrosshairInfos.Add(*CrosshairInfo.Get());
+		}
+	}
+	DefaultHud->LoadedCrosshairs.Empty();
+	DefaultHud->bCustomWeaponCrosshairs = bCustomWeaponCrosshairs;
+	DefaultHud->SaveConfig();
+
+	//Copy crosshair settings to every hud class
+	for (TObjectIterator<AUTHUD> It(EObjectFlags::RF_NoFlags, true); It; ++It)
+	{
+		(*It)->LoadedCrosshairs.Empty();
+		(*It)->CrosshairInfos = DefaultHud->CrosshairInfos;
+		(*It)->bCustomWeaponCrosshairs = DefaultHud->bCustomWeaponCrosshairs;
 	}
 
 	if (ProfileSettings != nullptr)
