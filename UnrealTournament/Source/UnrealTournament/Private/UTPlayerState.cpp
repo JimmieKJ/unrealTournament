@@ -1631,13 +1631,15 @@ TSharedRef<SWidget> AUTPlayerState::BuildRankInfo()
 	else
 	{
 		VBox->AddSlot()
-			.Padding(10.0f, 0.0f, 10.0f, 5.0f)
+			.Padding(10.0f, 5.0f, 10.0f, 5.0f)
 			.AutoHeight()
 			[
-				SNew(STextBlock)
-				.Text(NSLOCTEXT("Generic", "Divider", "____________________________"))
-				.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
-				.ColorAndOpacity(FLinearColor::Gray)
+				SNew(SBox)
+				.HeightOverride(2.f)
+				[
+					SNew(SImage)
+					.Image(SUTStyle::Get().GetBrush("UT.Divider"))
+				]
 			];
 		VBox->AddSlot()
 			.Padding(10.0f, 10.0f, 10.0f, 5.0f)
@@ -1670,24 +1672,23 @@ TSharedRef<SWidget> AUTPlayerState::BuildRankInfo()
 				BuildRank(NSLOCTEXT("Generic", "DMRank", "Deathmatch Rank :"), DMRank)
 			];
 		VBox->AddSlot()
-			.Padding(10.0f, 0.0f, 10.0f, 5.0f)
+			.Padding(10.0f, 5.0f, 10.0f, 5.0f)
 			.AutoHeight()
 			[
-				SNew(STextBlock)
-				.Text(NSLOCTEXT("Generic", "Divider", "____________________________"))
-				.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
-				.ColorAndOpacity(FLinearColor::Gray)
+				SNew(SBox)
+				.HeightOverride(2.f)
+				[
+					SNew(SImage)
+					.Image(SUTStyle::Get().GetBrush("UT.Divider"))
+				]
 			];
 
-		//TODO: Should we show offline XP?
-		if (CanAwardOnlineXP())
-		{
 			int32 Level = GetLevelForXP(PrevXP);
 			int32 LevelXPStart = GetXPForLevel(Level - 1);
 			int32 LevelXPEnd = GetXPForLevel(Level);
 			int32 LevelXP = LevelXPEnd - LevelXPStart;
 
-			FText TooltipXP = FText::Format(NSLOCTEXT("AUTPlayerState", "XPTooltipCap", " {0} XP"), FText::AsNumber(PrevXP));
+			FText TooltipXP = FText::Format(NSLOCTEXT("AUTPlayerState", "XPTooltipCap", " {0} Online XP"), FText::AsNumber(PrevXP));
 			float LevelAlpha = 1.0f;
 
 			if (LevelXP > 0)
@@ -1707,10 +1708,10 @@ TSharedRef<SWidget> AUTPlayerState::BuildRankInfo()
 					.AutoWidth()
 					[
 						SNew(SBox)
-						.WidthOverride(150)
+						.WidthOverride(200)
 						[
 							SNew(STextBlock)
-							.Text(FText::Format(NSLOCTEXT("AUTPlayerState", "LevelNum", "Level {0}"), FText::AsNumber(Level)))
+							.Text(FText::Format(NSLOCTEXT("AUTPlayerState", "LevelNum", "Online Level {0}"), FText::AsNumber(Level)))
 							.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
 							.ColorAndOpacity(FLinearColor::Gray)
 						]
@@ -1731,7 +1732,6 @@ TSharedRef<SWidget> AUTPlayerState::BuildRankInfo()
 							]
 						]
 				];
-		}
 
 	}
 	return VBox;
