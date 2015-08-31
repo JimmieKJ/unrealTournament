@@ -67,6 +67,17 @@ UUTHUDWidget_SpectatorSlideOut::UUTHUDWidget_SpectatorSlideOut(const class FObje
 
 	RedFlagBind = NAME_None;
 	BlueFlagBind = NAME_None;
+
+	NumpadString.Add(FName(TEXT("NumPadZero")), TEXT("NumPd 0"));
+	NumpadString.Add(FName(TEXT("NumPadOne")), TEXT("NumPd 1"));
+	NumpadString.Add(FName(TEXT("NumPadTwo")), TEXT("NumPd 2"));
+	NumpadString.Add(FName(TEXT("NumPadThree")), TEXT("NumPd 3"));
+	NumpadString.Add(FName(TEXT("NumPadFour")), TEXT("NumPd 4"));
+	NumpadString.Add(FName(TEXT("NumPadFive")), TEXT("NumPd 5"));
+	NumpadString.Add(FName(TEXT("NumPadSix")), TEXT("NumPd 6"));
+	NumpadString.Add(FName(TEXT("NumPadSeven")), TEXT("NumPd 7"));
+	NumpadString.Add(FName(TEXT("NumPadEight")), TEXT("NumPd 8"));
+	NumpadString.Add(FName(TEXT("NumPadNine")), TEXT("NumPd 9"));
 }
 
 void UUTHUDWidget_SpectatorSlideOut::InitializeWidget(AUTHUD* Hud)
@@ -515,7 +526,12 @@ void UUTHUDWidget_SpectatorSlideOut::DrawCamBind(FName KeyName, FString ProjName
 	// Draw the Text
 	if (KeyName != NAME_None)
 	{
-		DrawText(FText::FromString("[" + KeyName.ToString() + "]"), XOffset + 4.f, YOffset + ColumnY, UTHUDOwner->TinyFont, 1.f, 1.f, FLinearColor(0.7f, 0.7f, 0.7f, 1.f), ETextHorzPos::Left, ETextVertPos::Center);
+		FString KeyString = NumpadString.FindRef(KeyName);
+		if (KeyString.IsEmpty())
+		{
+			KeyString = KeyName.ToString();
+		}
+		DrawText(FText::FromString("[" + KeyString + "]"), XOffset + 4.f, YOffset + ColumnY, UTHUDOwner->TinyFont, 1.f, 1.f, FLinearColor(0.7f, 0.7f, 0.7f, 1.f), ETextHorzPos::Left, ETextVertPos::Center);
 	}
 	DrawText(FText::FromString(ProjName), XOffset + (Width * 0.98f), YOffset + ColumnY, UTHUDOwner->TinyFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Right, ETextVertPos::Center);
 }

@@ -128,6 +128,8 @@ public:
 	UPROPERTY()
 	FString CameraString[10];
 
+	/** Shorter names to use for numpad number binds. */
+	TMap <FName, FString> NumpadString;
 
 	UPROPERTY()
 	int32 NumCameras;
