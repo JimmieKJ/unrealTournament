@@ -240,7 +240,7 @@ void SUPlayerListPanel::GetMenuContent(FString SearchTag, TArray<FMenuOptionData
 
 			MenuOptions.Add(FMenuOptionData(NSLOCTEXT("PlayerListSubMenu","Spectate","Spectate"), EPlayerListContentCommand::Spectate));
 
-			if (bIsHost)
+			if (bIsHost && (TrackedPlayers[Idx]->PlayerState.Get() != PlayerOwner->PlayerController->PlayerState))
 			{
 				MenuOptions.Add(FMenuOptionData());
 				MenuOptions.Add(FMenuOptionData(NSLOCTEXT("PlayerListSubMenu","Kick","Kick"), EPlayerListContentCommand::Kick));
