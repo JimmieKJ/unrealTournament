@@ -31,7 +31,7 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 	virtual void OnRep_ServerMOTD();
 
 	// A quick string field for the scoreboard and other browsers that contains description of the server
-	UPROPERTY(Replicated, Config, EditAnywhere, BlueprintReadWrite, Category = ServerInfo)
+	UPROPERTY(Replicated, GlobalConfig, EditAnywhere, BlueprintReadWrite, Category = ServerInfo)
 	FString ServerDescription;
 
 	/** teams, if the game type has them */
