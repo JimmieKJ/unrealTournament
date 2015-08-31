@@ -1753,6 +1753,12 @@ FString AGameMode::GetRedirectURL(const FString& MapName) const
 {
 	return FString();
 }
+void AGameMode::GameWelcomePlayer(UNetConnection* Connection, FString& RedirectURL)
+{
+	PRAGMA_DISABLE_DEPRECATION_WARNINGS
+	RedirectURL = GetRedirectURL(Connection->ClientWorldPackageName.ToString());
+	PRAGMA_ENABLE_DEPRECATION_WARNINGS
+}
 
 bool AGameMode::IsHandlingReplays()
 {

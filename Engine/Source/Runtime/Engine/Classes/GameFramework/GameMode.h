@@ -629,7 +629,14 @@ public:
 	virtual void GetSeamlessTravelActorList(bool bToEntry, TArray<AActor*>& ActorList);
 
 	/** Allow the game to specify a place for clients to download MapName */
+	DEPRECATED(4.10, "Override GameWelcomePlayer() instead")
 	virtual FString GetRedirectURL(const FString& MapName) const;
+
+	/** allows game to send network messages to provide more information to the client joining the game via NMT_GameSpecific
+	 * (for example required DLC)
+	 * the out string RedirectURL is built in and send automatically if only a simple URL is needed
+	 */
+	virtual void GameWelcomePlayer(UNetConnection* Connection, FString& RedirectURL);
 
 	/** 
 	 * used to swap a viewport/connection's PlayerControllers when seamless traveling and the new GameMode's

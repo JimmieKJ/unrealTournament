@@ -3624,7 +3624,7 @@ void UWorld::WelcomePlayer(UNetConnection* Connection)
 	if (AuthorityGameMode != NULL)
 	{
 		GameName = AuthorityGameMode->GetClass()->GetPathName();
-		RedirectURL = AuthorityGameMode->GetRedirectURL(LevelName);
+		AuthorityGameMode->GameWelcomePlayer(Connection, RedirectURL);
 	}
 
 	FNetControlMessage<NMT_Welcome>::Send(Connection, LevelName, GameName, RedirectURL);
