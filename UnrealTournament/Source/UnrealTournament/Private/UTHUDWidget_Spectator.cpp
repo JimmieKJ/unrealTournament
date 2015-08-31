@@ -45,8 +45,8 @@ void UUTHUDWidget_Spectator::DrawSimpleMessage(FText SimpleMessage, float DeltaT
 	{
 		float YL = 0.0f;
 		Canvas->StrLen(UTHUDOwner->LargeFont, SimpleMessage.ToString(), BackgroundWidth, YL);
-		BackgroundWidth += 64.f;
-		MessageOffset = UTGameState->HasMatchEnded() ? (ScreenWidth * 0.5f) - 0.5f*BackgroundWidth : ScreenWidth - BackgroundWidth;
+		BackgroundWidth = FMath::Max(BackgroundWidth, 128.f) + 64.f;
+		MessageOffset = (ScreenWidth - BackgroundWidth) * (UTGameState->HasMatchEnded() ? 0.5f : 1.f);
 		TextPosition = 32.f + MessageOffset;
 		YOffset = -32.f;
 	}
