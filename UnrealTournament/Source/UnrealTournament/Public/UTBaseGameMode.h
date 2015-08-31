@@ -136,7 +136,7 @@ public:
 	TArray<FPackageRedirectReference> RedirectReferences;
 
 	virtual bool FindRedirect(const FString& PackageName, FPackageRedirectReference& Redirect);
-	virtual FString GetRedirectURL(const FString& PackageName) const;
+	virtual void GameWelcomePlayer(UNetConnection* Connection, FString& RedirectURL) override;
 private:
 	FString GetCloudID() const;
 

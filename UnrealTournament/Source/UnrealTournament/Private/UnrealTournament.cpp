@@ -10,6 +10,7 @@
 #include "UTTaunt.h"
 #include "UTBotCharacter.h"
 #include "StatNames.h"
+#include "Runtime/PakFile/Public/IPlatformFilePak.h"
 
 class FUTModule : public FDefaultGameModuleImpl
 {
@@ -470,6 +471,35 @@ void GetAllBlueprintAssetData(UClass* BaseClass, TArray<FAssetData>& AssetList, 
 			}
 		}
 	}
+}
+
+FString GetModPakFilenameFromPkg(const FString& PkgName)
+{
+	FPakPlatformFile* PakFileMgr = (FPakPlatformFile*)(FPlatformFileManager::Get().FindPlatformFile(TEXT("PakFile")));
+	if (PakFileMgr == NULL)
+	{
+		return FString();
+	}
+	else
+	{
+		FString Filename;
+		if (FPackageName::DoesPackageExist(PkgName, NULL, &Filename))
+		{
+			FPakFile* Pak = NULL;
+			PakFileMgr->FindFileInPakFiles(*Filename, &Pak);
+			return (Pak != NULL && !Pak->GetFilename().StartsWith(TEXT("unrealtournament-"))) ? Pak->GetFilename() : FString();
+		}
+		else
+		{
+			return FString();
+		}
+	}
+}
+FString GetModPakFilenameFromPath(FString ObjPathName)
+{
+	ConstructorHelpers::StripObjectClass(ObjPathName);
+	int32 DotIndex = ObjPathName.Find(TEXT("."));
+	return (DotIndex == INDEX_NONE) ? FString() : GetModPakFilenameFromPkg(ObjPathName.Left(DotIndex));
 }
 
 void SetTimerUFunc(UObject* Obj, FName FuncName, float Time, bool bLooping)

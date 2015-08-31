@@ -598,24 +598,48 @@ void AUTLobbyMatchInfo::OnRep_InitialMap()
 	GetMapInformation();
 }
 
-
-void AUTLobbyMatchInfo::SetRules(TWeakObjectPtr<AUTReplicatedGameRuleset> NewRuleset, const FString& StartingMap)
+void AUTLobbyMatchInfo::SetRedirects()
 {
-	CurrentRuleset = NewRuleset;
-
-	InitialMap = StartingMap;
-	GetMapInformation();
-
 	// Copy any required redirects in to match info.  The UI will pickup on the replication and pull them.
 	AUTBaseGameMode* BaseGame = Cast<AUTBaseGameMode>(GetWorld()->GetAuthGameMode());
-	if (BaseGame)
+	if (BaseGame != NULL)
 	{
 		Redirects.Empty();
-		for (int32 i = 0; i < NewRuleset->RequiredPackages.Num(); i++)
+		for (int32 i = 0; i < CurrentRuleset->RequiredPackages.Num(); i++)
 		{
 			FPackageRedirectReference Redirect;
-			BaseGame->FindRedirect(NewRuleset->RequiredPackages[i], Redirect);
-			if (!Redirect.PackageName.IsEmpty())
+			if (BaseGame->FindRedirect(CurrentRuleset->RequiredPackages[i], Redirect))
+			{
+				Redirects.Add(Redirect);
+			}
+		}
+		// automatically add redirects for the map, game mode and mutator pak files (if any)
+		FPackageRedirectReference Redirect;
+		FString MapFullName;
+		if (FPackageName::SearchForPackageOnDisk(InitialMap + FPackageName::GetMapPackageExtension(), &MapFullName) && BaseGame->FindRedirect(GetModPakFilenameFromPkg(MapFullName), Redirect))
+		{
+			Redirects.Add(Redirect);
+		}
+		if (BaseGame->FindRedirect(GetModPakFilenameFromPath(CurrentRuleset->GameMode), Redirect))
+		{
+			Redirects.Add(Redirect);
+		}
+		FString AllMutators = BaseGame->ParseOption(CurrentRuleset->GameOptions, TEXT("Mutator"));
+		while (AllMutators.Len() > 0)
+		{
+			FString MutPath;
+			int32 Pos = AllMutators.Find(TEXT(","));
+			if (Pos > 0)
+			{
+				MutPath = AllMutators.Left(Pos);
+				AllMutators = AllMutators.Right(AllMutators.Len() - Pos - 1);
+			}
+			else
+			{
+				MutPath = AllMutators;
+				AllMutators.Empty();
+			}
+			if (BaseGame->FindRedirect(GetModPakFilenameFromPath(MutPath), Redirect))
 			{
 				Redirects.Add(Redirect);
 			}
@@ -626,7 +650,16 @@ void AUTLobbyMatchInfo::SetRules(TWeakObjectPtr<AUTReplicatedGameRuleset> NewRul
 			Redirects.Add(InitialMapInfo->Redirect);
 		}
 	}
+}
 
+void AUTLobbyMatchInfo::SetRules(TWeakObjectPtr<AUTReplicatedGameRuleset> NewRuleset, const FString& StartingMap)
+{
+	CurrentRuleset = NewRuleset;
+
+	InitialMap = StartingMap;
+	GetMapInformation();
+
+	SetRedirects();
 
 	bMapChanged = true;
 }
@@ -768,6 +801,8 @@ void AUTLobbyMatchInfo::ServerCreateCustomRule_Implementation(const FString& Gam
 			MatchBadge = FString::Printf(TEXT("Setting up a custom match on %s."), *InitialMapInfo->Title);
 		}
 		MatchBadge = TEXT("Setting up a custom match.");
+
+		SetRedirects();
 	}
 }
 

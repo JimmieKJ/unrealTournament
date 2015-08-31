@@ -3,6 +3,7 @@
 #include "UnrealTournament.h"
 #include "UTGameInstance.h"
 #include "UnrealNetwork.h"
+#include "Slate/SUWRedirectDialog.h"
 
 UUTGameInstance::UUTGameInstance(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -63,4 +64,45 @@ void UUTGameInstance::HandleDemoPlaybackFailure( EDemoPlayFailure::Type FailureT
 		);
 #endif
 	}
+}
+
+void UUTGameInstance::HandleGameNetControlMessage(class UNetConnection* Connection, uint8 MessageByte, const FString& MessageStr)
+{
+	switch (MessageByte)
+	{
+#if !UE_SERVER
+		case UNMT_Redirect:
+		{
+			UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(GetFirstGamePlayer());
+			if (LocalPlayer != NULL)
+			{
+				TSharedRef<SUWRedirectDialog> Dialog = SNew(SUWRedirectDialog)
+					.OnDialogResult(FDialogResultDelegate::CreateUObject(this, &UUTGameInstance::RedirectResult))
+					.DialogTitle(NSLOCTEXT("UTGameViewportClient", "Redirect", "Download"))
+					.RedirectToURL(MessageStr)
+					.PlayerOwner(LocalPlayer);
+				ActiveRedirectDialogs.Add(Dialog);
+				LocalPlayer->OpenDialog(Dialog);
+			}
+			break;
+		}
+#endif
+		default:
+			UE_LOG(UT, Warning, TEXT("Unexpected net control message of type %i"), int32(MessageByte));
+			break;
+	}
+}
+
+void UUTGameInstance::RedirectResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID)
+{
+#if !UE_SERVER
+	if (Widget.IsValid())
+	{
+		ActiveRedirectDialogs.Remove(StaticCastSharedRef<SUWRedirectDialog>(Widget.ToSharedRef()));
+	}
+	if (ButtonID == UTDIALOG_BUTTON_CANCEL)
+	{
+		GEngine->Exec(GetWorld(), TEXT("DISCONNECT"));
+	}
+#endif
 }

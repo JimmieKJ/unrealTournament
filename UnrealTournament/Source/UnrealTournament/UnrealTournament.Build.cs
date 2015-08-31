@@ -33,7 +33,8 @@ public class UnrealTournament : ModuleRules
                                                     "UMG", 
                                                     "EngineSettings", 
 			                                        "Landscape",
-                                                    "Foliage", });
+                                                    "Foliage",
+                                                    "PakFile", });
 
         PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore", "FriendsAndChat", "Sockets" });
         if (Target.Type != TargetRules.TargetType.Server)

@@ -38,6 +38,8 @@
 #include "UTEngineMessage.h"
 #include "UTRemoteRedeemer.h"
 #include "UTChallengeManager.h"
+#include "DataChannel.h"
+#include "UTGameInstance.h"
 
 UUTResetInterface::UUTResetInterface(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -3907,4 +3909,22 @@ bool AUTGameMode::FindInactivePlayer(APlayerController* PC)
 		}
 	}
 	return false;
+}
+
+void AUTGameMode::GameWelcomePlayer(UNetConnection* Connection, FString& RedirectURL)
+{
+	Super::GameWelcomePlayer(Connection, RedirectURL);
+
+	FPackageRedirectReference Redirect;
+	uint8 MessageType = UNMT_Redirect;
+
+	// mutator paks
+	for (TActorIterator<AUTMutator> It(GetWorld()); It; ++It)
+	{	
+		if (FindRedirect(GetModPakFilenameFromPkg(It->GetClass()->GetOutermost()->GetName()), Redirect))
+		{
+			FString RedirectPath = Redirect.ToString();
+			FNetControlMessage<NMT_GameSpecific>::Send(Connection, MessageType, RedirectPath);
+		}
+	}
 }

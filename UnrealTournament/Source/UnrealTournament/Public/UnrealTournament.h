@@ -101,6 +101,12 @@ extern UNREALTOURNAMENT_API void GetAllAssetData(UClass* BaseClass, TArray<FAsse
  */
 extern UNREALTOURNAMENT_API void GetAllBlueprintAssetData(UClass* BaseClass, TArray<FAssetData>& AssetList, bool bRequireEntitlements = true);
 
+/** if the passed in package was loaded from a pak file other than the main one returns its filename; otherwise empty string
+ * primarily used for mod autodownload/redirects
+ */
+extern UNREALTOURNAMENT_API FString GetModPakFilenameFromPkg(const FString& PkgName);
+extern UNREALTOURNAMENT_API FString GetModPakFilenameFromPath(FString ObjPathName);
+
 /** timer manipulation for UFUNCTIONs that doesn't require a timer handle */
 extern UNREALTOURNAMENT_API void SetTimerUFunc(UObject* Obj, FName FuncName, float Time, bool bLooping = false);
 extern UNREALTOURNAMENT_API bool IsTimerActiveUFunc(UObject* Obj, FName FuncName);

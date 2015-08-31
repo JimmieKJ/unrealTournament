@@ -727,6 +727,8 @@ public:
 	virtual void AddInactivePlayer(APlayerState* PlayerState, APlayerController* PC) override;
 	virtual bool FindInactivePlayer(APlayerController* PC) override;
 
+	virtual void GameWelcomePlayer(UNetConnection* Connection, FString& RedirectURL) override;
+
 private:
 	// note: one based
 	UPROPERTY()

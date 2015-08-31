@@ -3,6 +3,8 @@
 #include "SlateBasics.h"
 #include "Slate/SlateGameResources.h"
 #include "UTGameEngine.h"
+#include "UTGameInstance.h"
+#include "DataChannel.h"
 
 AUTBaseGameMode::AUTBaseGameMode(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -31,10 +33,14 @@ void AUTBaseGameMode::InitGame( const FString& MapName, const FString& Options, 
 
 	Super::InitGame(MapName, Options, ErrorMessage);
 
-	ServerPassword = TEXT("");
-	ServerPassword = ParseOption(Options, TEXT("ServerPassword"));
-	SpectatePassword = TEXT("");
-	SpectatePassword = ParseOption(Options, TEXT("SpectatePassword"));
+	if (HasOption(Options, TEXT("ServerPassword")))
+	{
+		ServerPassword = ParseOption(Options, TEXT("ServerPassword"));
+	}
+	if (HasOption(Options, TEXT("SpectatePassword")))
+	{
+		SpectatePassword = ParseOption(Options, TEXT("SpectatePassword"));
+	}
 
 	bRequirePassword = !ServerPassword.IsEmpty() || !SpectatePassword.IsEmpty();
 	bTrainingGround = EvalBoolOptions(ParseOption(Options, TEXT("TG")), bTrainingGround);
@@ -162,15 +168,27 @@ bool AUTBaseGameMode::FindRedirect(const FString& PackageName, FPackageRedirectR
 	return false;
 }
 
-FString AUTBaseGameMode::GetRedirectURL(const FString& PackageName) const
+void AUTBaseGameMode::GameWelcomePlayer(UNetConnection* Connection, FString& RedirectURL)
 {
-	UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
-	if (UTEngine == NULL) // in PIE this will happen
+	FPackageRedirectReference Redirect;
+	uint8 MessageType = UNMT_Redirect;
+	// map pak
+	if (FindRedirect(GetModPakFilenameFromPkg(GetOutermost()->GetName()), Redirect))
 	{
-		return FString();
+		FString RedirectPath = Redirect.ToString();
+		FNetControlMessage<NMT_GameSpecific>::Send(Connection, MessageType, RedirectPath);
 	}
-	else
+	// game class pak
+	if (FindRedirect(GetModPakFilenameFromPkg(GetClass()->GetOutermost()->GetName()), Redirect))
 	{
+		FString RedirectPath = Redirect.ToString();
+		FNetControlMessage<NMT_GameSpecific>::Send(Connection, MessageType, RedirectPath);
+	}
+
+	UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
+	if (UTEngine != NULL) // in PIE this will happen
+	{
+		FString PackageName = Connection->ClientWorldPackageName.ToString();
 		FString PackageBaseFilename = FPaths::GetBaseFilename(PackageName) + TEXT("-WindowsNoEditor");
 
 		FString PackageChecksum;
@@ -187,11 +205,10 @@ FString AUTBaseGameMode::GetRedirectURL(const FString& PackageName) const
 			if (RedirectReferences[i].PackageName == PackageBaseFilename)
 			{
 				FPackageRedirectReference R = RedirectReferences[i];
-				return R.ToString() + PackageChecksum;
+				RedirectURL = R.ToString() + PackageChecksum;
+				return;
 			}
 		}
-
-		FString RedirectURL;
 
 		FString CloudID = GetCloudID();
 		if (!CloudID.IsEmpty() && !PackageChecksum.IsEmpty())
@@ -206,8 +223,6 @@ FString AUTBaseGameMode::GetRedirectURL(const FString& PackageName) const
 
 			RedirectURL = BaseURL + GetCloudID() + TEXT("/") + PackageBaseFilename + TEXT(".pak") + TEXT(" ") + PackageChecksum;
 		}
-
-		return RedirectURL;
 	}
 }
 

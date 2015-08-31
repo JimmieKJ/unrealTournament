@@ -273,6 +273,9 @@ public:
 	// Returns true if the match has room for a new player to join it
 	virtual bool MatchHasRoom(bool bForSpectator=false);
 
+	/** set redirect list on CurrentRuleset, including those explicitly specified and those automatically detected by the game settings */
+	virtual void SetRedirects();
+
 	virtual void SetRules(TWeakObjectPtr<AUTReplicatedGameRuleset> NewRuleset, const FString& StartingMap);
 
 	UFUNCTION(Server, Reliable, WithValidation)
