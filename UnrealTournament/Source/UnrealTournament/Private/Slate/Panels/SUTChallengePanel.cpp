@@ -119,7 +119,7 @@ void SUTChallengePanel::ConstructPanel(FVector2D ViewportSize)
 											.HAlign(HAlign_Center)
 											[
 												SNew(STextBlock)
-												.Text(NSLOCTEXT("SUTChallengePanel","CustomChallenge","Create your own game."))
+												.Text(NSLOCTEXT("SUTChallengePanel","CustomChallenge","Create your own custom match."))
 												.TextStyle(SUTStyle::Get(),"UT.Font.NormalText.Medium")
 											]
 										]									
@@ -575,7 +575,7 @@ TSharedRef<SWidget> SUTChallengePanel::CreateStars(FName ChallengeTag)
 
 FText SUTChallengePanel::GetYourScoreText() const
 {
-	return FText::Format(NSLOCTEXT("SUTChallengePanel","StarTotalFormat","You have earned a total of {0} stars"), FText::AsNumber(PlayerOwner->GetTotalChallengeStars()));
+	return FText::Format(NSLOCTEXT("SUTChallengePanel","StarTotalFormat","You have earned  {0} stars"), FText::AsNumber(PlayerOwner->GetTotalChallengeStars()));
 }
 
 FText SUTChallengePanel::GetCurrentScoreText() const

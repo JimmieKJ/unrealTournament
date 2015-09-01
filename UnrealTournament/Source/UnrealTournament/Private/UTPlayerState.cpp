@@ -55,6 +55,7 @@ AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer
 	EngineMessageClass = UUTEngineMessage::StaticClass();
 	LastTauntTime = -1000.f;
 	PrevXP = -1;
+	TotalChallengeStars = 0;
 	EmoteSpeed = 1.0f;
 	BotELOLimit = 1575;
 }
@@ -86,6 +87,7 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	DOREPLIFETIME(AUTPlayerState, DMRank);
 	DOREPLIFETIME(AUTPlayerState, TrainingLevel);
 	DOREPLIFETIME(AUTPlayerState, PrevXP);
+	DOREPLIFETIME(AUTPlayerState, TotalChallengeStars);
 	DOREPLIFETIME(AUTPlayerState, SelectedCharacter);
 	DOREPLIFETIME(AUTPlayerState, TauntClass);
 	DOREPLIFETIME(AUTPlayerState, Taunt2Class);
@@ -967,6 +969,7 @@ void AUTPlayerState::ProfileItemListReqComplete(FHttpRequestPtr HttpRequest, FHt
 	if (bSucceeded)
 	{
 		ParseProfileItemJson(HttpResponse->GetContentAsString(), ProfileItems, PrevXP);
+		ParseProfileItemJson(HttpResponse->GetContentAsString(), ProfileItems, TotalChallengeStars);
 	}
 	ItemListReq.Reset();
 	ValidateEntitlements();
@@ -1747,7 +1750,25 @@ TSharedRef<SWidget> AUTPlayerState::BuildRankInfo()
 							]
 						]
 				];
-
+			VBox->AddSlot()
+				.Padding(10.0f, 10.0f, 10.0f, 5.0f)
+				.AutoHeight()
+				[
+					SNew(SHorizontalBox)
+					+ SHorizontalBox::Slot()
+					.HAlign(HAlign_Left)
+					.VAlign(VAlign_Center)
+					.AutoWidth()
+					[
+						SNew(SBox)
+						[
+							SNew(STextBlock)
+							.Text(FText::Format(NSLOCTEXT("AUTPlayerState", "LevelNum", "Offline Challenge Stars {0}"), FText::AsNumber(TotalChallengeStars)))
+							.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
+							.ColorAndOpacity(FLinearColor::Gray)
+						]
+					]
+				];
 	}
 	return VBox;
 }
