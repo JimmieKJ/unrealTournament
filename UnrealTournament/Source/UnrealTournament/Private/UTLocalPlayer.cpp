@@ -48,6 +48,7 @@
 #include "Slate/SUWYoutubeConsent.h"
 #include "Slate/SUWMatchSummary.h"
 #include "UTLobbyGameState.h"
+#include "UTChallengeManager.h"
 
 UUTLocalPlayer::UUTLocalPlayer(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -3123,5 +3124,15 @@ void UUTLocalPlayer::ChallengeCompleted(FName ChallengeTag, int32 Stars)
 
 		CurrentProfileSettings->TotalChallengeStars = TotalStars;
 		SaveProfileSettings();
+
+		FText ChallengeToast = FText::Format(NSLOCTEXT("Challenge", "GainedStars", "Challenge Completed!  You earned {0} stars."), FText::AsNumber(Stars));
+		ShowToast(ChallengeToast);
+		if (TotalStars / 5 != (TotalStars - Stars) / 5)
+		{
+			FText OldTeammate = FText::FromName(UUTChallengeManager::StaticClass()->GetDefaultObject<UUTChallengeManager>()->PlayerTeamRoster.Roster[(TotalStars - Stars) / 5]);
+			FText NewTeammate = FText::FromName(UUTChallengeManager::StaticClass()->GetDefaultObject<UUTChallengeManager>()->PlayerTeamRoster.Roster[4 + (TotalStars - Stars) / 5]);
+			FText RosterToast = FText::Format(NSLOCTEXT("Challenge", "RosterUpgrade", "Roster Upgrade!  {0} replaces {1}."), OldTeammate, NewTeammate);
+			ShowToast(RosterToast);
+		}
 	}
 }

@@ -670,11 +670,19 @@ AUTBot* AUTGameMode::AddBot(uint8 TeamNum)
 			{
 				return A.Skill < B.Skill;
 			});
-		}
+
+/*			for (int32 i = 0; i < EligibleBots.Num(); i++)
+			{
+				UE_LOG(UT, Warning, TEXT("%s Skill %f character %s"), *EligibleBots[i]->GetFName().ToString(), EligibleBots[i]->Skill, *EligibleBots[i]->Character.ToString());
+			}
+*/		}
 		UUTBotCharacter* SelectedCharacter = NULL;
 		if (bOfflineChallenge)
 		{
-			SelectedCharacter = UUTChallengeManager::StaticClass()->GetDefaultObject<UUTChallengeManager>()->ChooseBotCharacter(this, TeamNum);
+			APlayerController* LocalPC = GEngine->GetFirstLocalPlayerController(GetWorld());
+			UUTLocalPlayer* LP = LocalPC ? Cast<UUTLocalPlayer>(LocalPC->Player) : NULL;
+			int32 TotalStars = LP ? LP->GetTotalChallengeStars() : 0;
+			SelectedCharacter = UUTChallengeManager::StaticClass()->GetDefaultObject<UUTChallengeManager>()->ChooseBotCharacter(this, TeamNum, TotalStars);
 		}
 		if (SelectedCharacter == NULL)
 		{

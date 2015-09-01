@@ -17,7 +17,7 @@ class UNREALTOURNAMENT_API UUTChallengeManager : public UObject
 {
 	GENERATED_UCLASS_BODY()
 
-	UUTBotCharacter* ChooseBotCharacter(AUTGameMode* CurrentGame, uint8& TeamNum) const;
+	UUTBotCharacter* ChooseBotCharacter(AUTGameMode* CurrentGame, uint8& TeamNum, int32 TotalStars) const;
 
 	int32 GetNumPlayers(AUTGameMode* CurrentGame) const;
 
