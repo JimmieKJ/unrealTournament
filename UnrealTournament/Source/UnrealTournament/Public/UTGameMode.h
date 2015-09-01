@@ -391,6 +391,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = UTGame)
 	virtual void EndGame(AUTPlayerState* Winner, FName Reason);
 
+	/** Return true if human player won offline challenge. */
+	virtual bool PlayerWonChallenge();
+
 	virtual void StartMatch();
 	virtual void EndMatch();
 	virtual void BroadcastDeathMessage(AController* Killer, AController* Other, TSubclassOf<UDamageType> DamageType);

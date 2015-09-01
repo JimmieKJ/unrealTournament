@@ -1659,6 +1659,21 @@ void AUTGameMode::AwardXP()
 	}
 }
 
+bool AUTGameMode::PlayerWonChallenge()
+{
+	AUTPlayerState* Winner = NULL;
+	for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
+	{
+		AController* Controller = *Iterator;
+		AUTPlayerState* CPS = Cast<AUTPlayerState>(Controller->PlayerState);
+		if (CPS && ((Winner == NULL) || (CPS->Score >= Winner->Score)))
+		{
+			Winner = CPS;
+		}
+	}
+	return Winner && Cast<AUTPlayerController>(Winner->GetOwner());
+}
+
 void AUTGameMode::EndGame(AUTPlayerState* Winner, FName Reason )
 {
 	// Dont ever end the game in PIE
@@ -1675,6 +1690,16 @@ void AUTGameMode::EndGame(AUTPlayerState* Winner, FName Reason )
 			{
 				Winner = CPS;
 			}
+		}
+	}
+
+	if (bOfflineChallenge && PlayerWonChallenge())
+	{
+		APlayerController* LocalPC = GEngine->GetFirstLocalPlayerController(GetWorld());
+		UUTLocalPlayer* LP = LocalPC ? Cast<UUTLocalPlayer>(LocalPC->Player) : NULL;
+		if (LP)
+		{
+			LP->ChallengeCompleted(ChallengeTag, ChallengeDifficulty);
 		}
 	}
 

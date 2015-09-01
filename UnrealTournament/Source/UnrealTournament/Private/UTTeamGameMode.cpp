@@ -127,6 +127,37 @@ APlayerController* AUTTeamGameMode::Login(class UPlayer* NewPlayer, ENetRole Rem
 	return PC;
 }
 
+bool AUTTeamGameMode::PlayerWonChallenge()
+{
+	AUTTeamInfo* BestTeam = NULL;
+	bool bTied = false;
+	for (int32 i = 0; i < UTGameState->Teams.Num(); i++)
+	{
+		if (UTGameState->Teams[i] != NULL)
+		{
+			if (BestTeam == NULL || UTGameState->Teams[i]->Score > BestTeam->Score)
+			{
+				BestTeam = UTGameState->Teams[i];
+				bTied = false;
+			}
+			else if (UTGameState->Teams[i]->Score == BestTeam->Score)
+			{
+				bTied = true;
+			}
+		}
+	}
+
+	if (bTied || !BestTeam)
+	{
+		return false;
+	}
+
+	// make sure player is on best team
+	APlayerController* LocalPC = GEngine->GetFirstLocalPlayerController(GetWorld());
+	AUTPlayerState* PS = LocalPC ? Cast<AUTPlayerState>(LocalPC->PlayerState) : NULL;
+	return PS && PS->Team && (PS->Team == BestTeam);
+}
+
 bool AUTTeamGameMode::ShouldBalanceTeams(bool bInitialTeam) const
 {
 	return bBalanceTeams && (!bInitialTeam || HasMatchStarted() || GetMatchState() == MatchState::CountdownToBegin);
@@ -147,6 +178,11 @@ bool AUTTeamGameMode::ChangeTeam(AController* Player, uint8 NewTeam, bool bBroad
 		}
 		else
 		{
+			if (bOfflineChallenge && PS->Team)
+			{
+				return false;
+			}
+
 			bool bForceTeam = false;
 			if (!Teams.IsValidIndex(NewTeam))
 			{
