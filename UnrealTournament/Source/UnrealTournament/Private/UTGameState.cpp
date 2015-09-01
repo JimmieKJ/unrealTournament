@@ -1380,13 +1380,20 @@ void AUTGameState::UpdateHighlights_Implementation()
 		MostAirRoxPS->AddMatchHighlight(HighlightNames::MostAirRockets, MostAirRoxPS->GetStatsValue(NAME_AirRox));
 	}
 
-	// only add low priority highlights if not enough high priority highlights
 	for (int32 i = 0; i < PlayerArray.Num() - 1; i++)
 	{
 		AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerArray[i]);
 		if (PS)
 		{
+			// only add low priority highlights if not enough high priority highlights
 			AddMinorHighlights(PS);
+
+			// remove fifth highlight if not major
+			if ((PS->MatchHighlights[4] != NAME_None) && (HighlightPriority.FindRef(PS->MatchHighlights[4]) < 3.f))
+			{
+				PS->MatchHighlights[4] = NAME_None;
+				PS->MatchHighlightData[4] = 0.f;
+			}
 		}
 	}
 }

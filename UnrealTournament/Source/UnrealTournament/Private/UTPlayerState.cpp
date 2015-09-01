@@ -1049,7 +1049,9 @@ void AUTPlayerState::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 
 void AUTPlayerState::AddMatchHighlight(FName NewHighlight, float HighlightData)
 {
-	// @TODO FIXMESTEVE - use matchhighlightpriority to sort list, don't add lower priority highlights once have 3 highlights
+	AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
+	float NewPriority = GameState ? GameState->HighlightPriority.FindRef(NewHighlight) : 0.f;
+
 	for (int32 i = 0; i < 5; i++)
 	{
 		if (MatchHighlights[i] == NAME_None)
@@ -1058,10 +1060,23 @@ void AUTPlayerState::AddMatchHighlight(FName NewHighlight, float HighlightData)
 			MatchHighlightData[i] = HighlightData;
 			return;
 		}
+		else if (GameState)
+		{
+			float TestPriority = GameState->HighlightPriority.FindRef(MatchHighlights[i]);
+			if (NewPriority > TestPriority)
+			{
+				// insert the highlight, look for a spot for the displaced highlight
+				FName MovedHighlight = MatchHighlights[i];
+				float MovedData = MatchHighlightData[i];
+				MatchHighlights[i] = NewHighlight;
+				MatchHighlightData[i] = HighlightData;
+				NewHighlight = MovedHighlight;
+				HighlightData = MovedData;
+			}
+		}
 	}
 
 	// if no open slots, try to replace lowest priority highlight
-	AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
 	if (GameState)
 	{
 		float NewPriority = GameState->HighlightPriority.FindRef(NewHighlight);
