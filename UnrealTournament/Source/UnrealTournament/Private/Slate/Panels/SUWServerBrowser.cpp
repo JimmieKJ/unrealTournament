@@ -1918,6 +1918,8 @@ void SUWServerBrowser::ShowHUBs()
 
 TSharedRef<ITableRow> SUWServerBrowser::OnGenerateWidgetForHUBList(TSharedPtr<FServerData> InItem, const TSharedRef<STableViewBase>& OwnerTable )
 {
+	bool bPassword = (InItem->Flags & SERVERFLAG_RequiresPassword )  > 0;
+
 	return SNew(STableRow<TSharedPtr<FServerData>>, OwnerTable)
 		//.Style(SUWindowsStyle::Get(),"UWindows.Standard.HUBBrowser.Row")
 		.Style(SUTStyle::Get(),"UT.MatchList.Row")
@@ -2009,9 +2011,25 @@ TSharedRef<ITableRow> SUWServerBrowser::OnGenerateWidgetForHUBList(TSharedPtr<FS
 										.Text(TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateSP(InItem.Get(), &FServerData::GetNumFriends)))
 										.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.HUBBrowser.NormalText")
 									]
+									+ SHorizontalBox::Slot()
+									.FillWidth(1.0)
+									+ SHorizontalBox::Slot()
+									.Padding(0.0, 0.0, 20.0, 0.0)
+									.AutoWidth()
+									.VAlign(VAlign_Center)
+									[
+										SNew(SBox)
+										.HeightOverride(18)
+										.WidthOverride(18)
+										[
+											SNew(SImage)
+											.Visibility(bPassword ? EVisibility::HitTestInvisible : EVisibility::Hidden)
+											.Image(SUTStyle::Get().GetBrush("UT.Icon.Lock.Small"))
+										]
+									]
 									+SHorizontalBox::Slot()
 									.Padding(10.0,0.0,20.0,0.0)
-									.FillWidth(1.0)
+									.AutoWidth()
 									.VAlign(VAlign_Center)
 									[
 										SNew(SVerticalBox)
