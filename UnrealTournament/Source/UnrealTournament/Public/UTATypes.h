@@ -755,6 +755,7 @@ struct FServerInstanceData
 
 namespace EQuickMatchResults
 {
+	const FName JoinTimeout = FName(TEXT("JoinTimeout"));
 	const FName CantJoin = FName(TEXT("CantJoin"));
 	const FName WaitingForStart = FName(TEXT("WaitingForStart"));
 	const FName WaitingForStartNew = FName(TEXT("WaitingForStartNew"));

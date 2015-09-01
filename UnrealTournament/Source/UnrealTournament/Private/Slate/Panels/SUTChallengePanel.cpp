@@ -525,58 +525,52 @@ TSharedRef<SWidget> SUTChallengePanel::CreateCheck(FName ChallengeTag)
 TSharedRef<SWidget> SUTChallengePanel::CreateStars(FName ChallengeTag)
 {
 	int32 NoStars = PlayerOwner->GetChallengeStars(ChallengeTag);
-	if (NoStars > 0)
+	TSharedPtr<SHorizontalBox> Box;
+	SAssignNew(Box, SHorizontalBox);
+
+	for (int32 i=0; i < 3; i++)
 	{
-		TSharedPtr<SHorizontalBox> Box;
-		SAssignNew(Box, SHorizontalBox);
-
-		for (int32 i=0; i < 3; i++)
+		if (i < NoStars)
 		{
-			if (i < NoStars)
-			{
-				Box->AddSlot()
-				.VAlign(VAlign_Center)
-				.AutoWidth()
-				.Padding(0.0,0.0,2.0,0.0)
+			Box->AddSlot()
+			.VAlign(VAlign_Center)
+			.AutoWidth()
+			.Padding(0.0,0.0,2.0,0.0)
+			[
+				SNew(SVerticalBox)
+				+SVerticalBox::Slot()
+				.AutoHeight()
 				[
-					SNew(SVerticalBox)
-					+SVerticalBox::Slot()
-					.AutoHeight()
+					SNew(SBox).WidthOverride(32).HeightOverride(32)
 					[
-						SNew(SBox).WidthOverride(32).HeightOverride(32)
-						[
-							SNew(SImage)
-							.Image(SUTStyle::Get().GetBrush("UT.Star"))
-						]
+						SNew(SImage)
+						.Image(SUTStyle::Get().GetBrush("UT.Star"))
 					]
-				];
-			}
-			else
-			{
-				Box->AddSlot()
-				.VAlign(VAlign_Center)
-				.AutoWidth()
-				.Padding(0.0,0.0,2.0,0.0)
-				[
-					SNew(SVerticalBox)
-					+SVerticalBox::Slot()
-					.AutoHeight()
-					[
-						SNew(SBox).WidthOverride(32).HeightOverride(32)
-						[
-							SNew(SImage)
-							.Image(SUTStyle::Get().GetBrush("UT.Star.Outline"))
-						]
-					]
-				];
-			}
+				]
+			];
 		}
-
-		return Box.ToSharedRef();
+		else
+		{
+			Box->AddSlot()
+			.VAlign(VAlign_Center)
+			.AutoWidth()
+			.Padding(0.0,0.0,2.0,0.0)
+			[
+				SNew(SVerticalBox)
+				+SVerticalBox::Slot()
+				.AutoHeight()
+				[
+					SNew(SBox).WidthOverride(32).HeightOverride(32)
+					[
+						SNew(SImage)
+						.Image(SUTStyle::Get().GetBrush("UT.Star.Outline"))
+					]
+				]
+			];
+		}
 	}
 
-	return SNew(SCanvas);
-
+	return Box.ToSharedRef();
 }
 
 FText SUTChallengePanel::GetYourScoreText() const
