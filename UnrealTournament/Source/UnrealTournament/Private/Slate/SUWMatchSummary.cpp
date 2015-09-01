@@ -615,11 +615,11 @@ void SUWMatchSummary::UpdateChatText()
 				{
 					if (Msg->Color.R > Msg->Color.B)
 					{
-						Style = TEXT("UWindows.Chat.Text.Team.Red");;
+						Style = TEXT("UWindows.Chat.Text.Team.Red");
 					}
 					else
 					{
-						Style = TEXT("UWindows.Chat.Text.Team.Blue");;
+						Style = TEXT("UWindows.Chat.Text.Team.Blue");
 					}
 				}
 				else
@@ -651,12 +651,13 @@ void SUWMatchSummary::Tick(const FGeometry& AllottedGeometry, const double InCur
 {
 	SCompoundWidget::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
 
-	// recreate players if something has changed
-	bool bPlayersAreValid = true;
-	int32 TotalPlayers = 0;
 	if (GameState.IsValid() && (GameState->GetMatchState() == MatchState::WaitingToStart))
 	{
-		// @TODO FIXMESTEVE - this could be reported  to match summary on valid change, rather than
+		// recreate players if something has changed
+		bool bPlayersAreValid = true;
+		int32 TotalPlayers = 0;
+
+		// @TODO FIXMESTEVE - this could be reported to match summary on valid change, rather than checking every tick
 		for (int32 iTeam = 0; iTeam < TeamPreviewMeshs.Num(); iTeam++)
 		{
 			TArray<AUTCharacter*> &TeamCharacters = TeamPreviewMeshs[iTeam];
@@ -675,13 +676,13 @@ void SUWMatchSummary::Tick(const FGeometry& AllottedGeometry, const double InCur
 		{
 			bPlayersAreValid = false;
 		}
-	}
-	if (!bPlayersAreValid)
-	{
-		RecreateAllPlayers();
-		if (HasCamFlag(CF_All))
+		if (!bPlayersAreValid)
 		{
-			ViewAll();
+			RecreateAllPlayers();
+			if (HasCamFlag(CF_All))
+			{
+				ViewAll();
+			}
 		}
 	}
 	if (PlayerPreviewWorld != nullptr)
@@ -894,7 +895,7 @@ void SUWMatchSummary::SetupMatchCam()
 				TArray<AUTCharacter*> &TeamCharacters = TeamPreviewMeshs[LocalTeam];
 				for (int32 iPlayer = 0; iPlayer < TeamCharacters.Num(); iPlayer++)
 				{
-					AUTPlayerState* PS = (TeamCharacters[iPlayer] && TeamCharacters[iPlayer]->PlayerState && !TeamCharacters[iPlayer]->PlayerState->IsPendingKillPending()) ? Cast<AUTPlayerState>(TeamCharacters[iPlayer]->PlayerState) : NULL;
+					APlayerState* PS = (TeamCharacters[iPlayer] && TeamCharacters[iPlayer]->PlayerState && !TeamCharacters[iPlayer]->PlayerState->IsPendingKillPending()) ? TeamCharacters[iPlayer]->PlayerState : NULL;
 					if (PS == LocalPS)
 					{
 						LocalChar = TeamCharacters[iPlayer];
