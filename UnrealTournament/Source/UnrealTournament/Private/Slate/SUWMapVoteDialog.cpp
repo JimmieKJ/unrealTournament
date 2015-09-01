@@ -763,4 +763,11 @@ void SUWMapVoteDialog::OnDialogClosed()
 	SUWDialog::OnDialogClosed();
 }
 
+FReply SUWMapVoteDialog::OnButtonClick(uint16 ButtonID)
+{
+	OnDialogResult.ExecuteIfBound(SharedThis(this), ButtonID);
+	GetPlayerOwner()->CloseMapVote();
+	return FReply::Handled();
+}
+
 #endif
