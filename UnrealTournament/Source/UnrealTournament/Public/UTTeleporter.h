@@ -18,6 +18,14 @@ class UNREALTOURNAMENT_API AUTTeleporter : public AActor, public IUTPathBuilderI
 	UPROPERTY(VisibleAnywhere, Category = Teleporter)
 	class UBoxComponent* TriggerBox;
 
+	/** Sound played when something teleports from this teleporter. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Teleporter)
+		USoundBase* TeleportOutSound;
+
+	/** Sound played when something teleports to this teleporter. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Teleporter)
+		USoundBase* TeleportInSound;
+
 #if WITH_EDITORONLY_DATA
 	/** arrow component to show exit direction defined in TeleportTarget if bSetRotation is true */
 	UPROPERTY(VisibleAnywhere, Category = Teleporter)

@@ -74,6 +74,8 @@ void AUTTeleporter::OnOverlapBegin(AActor* OtherActor)
 		}
 		if (OtherActor->TeleportTo(AdjustedTeleportLoc, bSetRotation ? TargetRot : OtherActor->GetActorRotation()))
 		{
+			UUTGameplayStatics::UTPlaySound(GetWorld(), TeleportOutSound, this);
+			UUTGameplayStatics::UTPlaySound(GetWorld(), TeleportInSound, OtherActor);
 			//UE_LOG(UT, Warning, TEXT("%s TELEPORTED %s"), *GetName(), *OtherActor->GetName());
 			if (P != NULL && P->Controller != NULL)
 			{
