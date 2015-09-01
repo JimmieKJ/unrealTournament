@@ -941,7 +941,7 @@ struct FUTChallengeInfo
 		, Map(inMap)
 		, GameMode(inGameMode)
 		, Description(inDescription)
-		, PlayerTeamSize(PlayerTeamSize)
+		, PlayerTeamSize(inPlayerTeamSize)
 		, EnemyRosters(inEnemyRosters)
 		, SlateUIImageName(inSlateUIImageName)
 	{

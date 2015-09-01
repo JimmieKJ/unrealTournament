@@ -43,6 +43,7 @@ UUTChallengeManager::UUTChallengeManager(const FObjectInitializer& ObjectInitial
 	TArray<FTeamRoster> EnemyRosters;
 	FTeamRoster EnemyRoster;
 
+	// easy enemy team
 	EnemyRoster = FTeamRoster(NAME_EnemyTeam_SkaarjDefault, NSLOCTEXT("Challenges","EnemyTeam_Skaarj_Default","Default Skaarj Team"));
 	EnemyRoster.Roster.Add(FName(TEXT("Cadaver")));
 	EnemyRoster.Roster.Add(FName(TEXT("Leeb")));
@@ -96,5 +97,18 @@ UUTBotCharacter* UUTChallengeManager::ChooseBotCharacter(AUTGameMode* CurrentGam
 		UE_LOG(UT, Warning, TEXT("Challenge %s is Invalid"), *CurrentGame->ChallengeTag.ToString());
 	}
 	return NULL;
+}
+
+int32 UUTChallengeManager::GetNumPlayers(AUTGameMode* CurrentGame) const
+{
+	if (CurrentGame->ChallengeTag != NAME_None && Challenges.Contains(CurrentGame->ChallengeTag))
+	{
+		const FUTChallengeInfo* Challenge = Challenges.Find(CurrentGame->ChallengeTag);
+		int32 RosterIndex = FMath::Clamp<int32>(CurrentGame->ChallengeDifficulty, 0, Challenge->EnemyRosters.Num());
+		int32 EnemyTeamSize = (RosterIndex < Challenge->EnemyRosters.Num()) ? Challenge->EnemyRosters[RosterIndex].Roster.Num() : 0;
+		int32 PlayerTeamSize = FMath::Min(PlayerTeamRoster.Roster.Num(), Challenge->PlayerTeamSize);
+		return 1 + PlayerTeamSize + EnemyTeamSize;
+	}
+	return 1;
 }
 

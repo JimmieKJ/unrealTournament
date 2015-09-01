@@ -19,6 +19,8 @@ class UNREALTOURNAMENT_API UUTChallengeManager : public UObject
 
 	virtual UUTBotCharacter* ChooseBotCharacter(AUTGameMode* CurrentGame, uint8& TeamNum) const;
 
+	virtual int32 GetNumPlayers(AUTGameMode* CurrentGame) const;
+
 	UPROPERTY()
 	FTeamRoster PlayerTeamRoster;
 

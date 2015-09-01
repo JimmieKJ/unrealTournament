@@ -288,6 +288,8 @@ void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FStr
 			ChallengeTag = FName(*InOpt);
 			bOfflineChallenge = true;
 			ChallengeDifficulty = GetIntOption(Options, TEXT("ChallengeDiff"), 0);
+			GameDifficulty = 1.f + 2.5f*ChallengeDifficulty;
+			BotFillCount = UUTChallengeManager::StaticClass()->GetDefaultObject<UUTChallengeManager>()->GetNumPlayers(this);
 		}
 	}
 
