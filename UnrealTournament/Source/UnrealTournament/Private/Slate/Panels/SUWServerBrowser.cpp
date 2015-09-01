@@ -70,12 +70,12 @@ struct FCompareHub
 {
 	FORCEINLINE bool operator()	( const TSharedPtr< FServerData > A, const TSharedPtr< FServerData > B ) const 
 	{
-		// Sorts like this.. First by trust level (where Epic = 2, Trusted = 1 and wild west = 0.. grr)
+		// Sorts like this.. First by trust level (where Epic = 0, Trusted = 1 and wild west = 2.. grr)
 		// then by ping.  So an Epic hub with Ping of 35ms vs a trusted hub with a ping of 250ms vs a wild west hub with a ping of 11ms would be
 		// 0.035 vs 100.250 vs 1000.011
 
-		float AValue = ( (A->TrustLevel == 2) ? 0.0f : ( (A->TrustLevel == 1) ? 100.0f : 1000.0f) ) + (float(A->Ping) / 1000.0f);
-		float BValue = ( (B->TrustLevel == 2) ? 0.0f : ( (B->TrustLevel == 1) ? 100.0f : 1000.0f) ) + (float(B->Ping) / 1000.0f);
+		float AValue = ( (A->TrustLevel == 0) ? 0.0f : ( (A->TrustLevel == 1) ? 100.0f : 1000.0f) ) + (float(A->Ping) / 1000.0f);
+		float BValue = ( (B->TrustLevel == 0) ? 0.0f : ( (B->TrustLevel == 1) ? 100.0f : 1000.0f) ) + (float(B->Ping) / 1000.0f);
 		return AValue < BValue;
 	}
 };
