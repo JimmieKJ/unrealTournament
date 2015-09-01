@@ -62,6 +62,11 @@ AUTProjectile* AUTWeap_Redeemer::FireProjectile()
 			FActorSpawnParameters Params;
 			Params.Instigator = UTOwner;
 			AUTRemoteRedeemer* RemoteRedeemer = GetWorld()->SpawnActor<AUTRemoteRedeemer>(RemoteRedeemerClass, SpawnLocation, SpawnRotation, Params);
+			if (!RemoteRedeemer)
+			{
+				Params.bNoFail = true;
+				RemoteRedeemer = GetWorld()->SpawnActor<AUTRemoteRedeemer>(RemoteRedeemerClass, UTOwner->GetActorLocation(), SpawnRotation, Params);
+			}
 			if (RemoteRedeemer)
 			{
 				if (UTOwner && UTOwner->Controller)
