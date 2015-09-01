@@ -20,6 +20,7 @@
 #include "Panels/SUWReplayBrowser.h"
 #include "Panels/SUWStatsViewer.h"
 #include "Panels/SUWCreditsPanel.h"
+#include "Panels/SUTChallengePanel.h"
 #include "Panels/SUHomePanel.h"
 #include "Panels/SUTFragCenterPanel.h"
 #include "UTEpicDefaultRulesets.h"
@@ -466,30 +467,30 @@ void SUWindowsMainMenu::ShowGamePanel()
 		TutorialMenu->RemoveFromViewport();
 	}
 
+	if ( !ChallengePanel.IsValid() )
+	{
+		SAssignNew(ChallengePanel, SUTChallengePanel, PlayerOwner);
+	}
 
+	ActivatePanel(ChallengePanel);
+}
+
+void SUWindowsMainMenu::ShowCustomGamePanel()
+{
 	if (TickCountDown <= 0)
 	{
-		if (GamePanel.IsValid())
-		{
-			ActivatePanel(GamePanel);
-		}
-		else
-		{
-			PlayerOwner->ShowContentLoadingMessage();
-			bNeedToShowGamePanel = true;
-			TickCountDown = 3;
-		}
+		PlayerOwner->ShowContentLoadingMessage();
+		bNeedToShowGamePanel = true;
+		TickCountDown = 3;
 	}
 }
 
 void SUWindowsMainMenu::OpenDelayedMenu()
 {
-
 	if (TutorialMenu.IsValid())
 	{
 		TutorialMenu->RemoveFromViewport();
 	}
-
 
 	SUTMenuBase::OpenDelayedMenu();
 	if (bNeedToShowGamePanel)

@@ -17,6 +17,13 @@ void AUTBaseGameMode::PreInitializeComponents()
 	GetWorldTimerManager().SetTimer(TimerHandle_DefaultTimer, this, &AUTBaseGameMode::DefaultTimer, GetWorldSettings()->GetEffectiveTimeDilation() / GetWorldSettings()->DemoPlayTimeDilation, true);
 }
 
+void AUTBaseGameMode::CreateServerID()
+{
+	// Create a server instance id for this server and save it out to the config file
+	ServerInstanceGUID = FGuid::NewGuid();
+	ServerInstanceID = ServerInstanceGUID.ToString();
+	SaveConfig();
+}
 
 void AUTBaseGameMode::InitGame( const FString& MapName, const FString& Options, FString& ErrorMessage )
 {
@@ -27,9 +34,28 @@ void AUTBaseGameMode::InitGame( const FString& MapName, const FString& Options, 
 
 	// Grab the InstanceID if it's there.
 	LobbyInstanceID = GetIntOption( Options, TEXT("InstanceID"), 0);
-	
-	// Create a server instance id for this server
-	ServerInstanceGUID = FGuid::NewGuid();
+
+	// If we are a lobby instance, then we always want to generate a ServerInstanceID
+	if (LobbyInstanceID > 0)
+	{
+		ServerInstanceGUID = FGuid::NewGuid();
+	}
+	else   // Otherwise, we want to try and load our instance id from the config so we are consistent.
+	{
+		if (ServerInstanceID.IsEmpty())
+		{
+			CreateServerID();
+		}
+		else
+		{
+			if ( !FGuid::Parse(ServerInstanceID, ServerInstanceGUID) )
+			{
+				UE_LOG(UT,Log,TEXT("WARNING: Could to import this server's previous ID.  A new one has been created so older links to this server will not work."));
+				CreateServerID();
+			}
+		}
+	}
+
 
 	Super::InitGame(MapName, Options, ErrorMessage);
 

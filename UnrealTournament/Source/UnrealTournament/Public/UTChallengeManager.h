@@ -3,19 +3,14 @@
 
 #include "UTChallengeManager.generated.h"
 
-USTRUCT()
-struct FChallengeInfo
-{
-	GENERATED_USTRUCT_BODY()
+static const FName NAME_ChallengeSlateBadgeName_DM(TEXT("UT.ChallengeBadges.DM"));
+static const FName NAME_ChallengeSlateBadgeName_CTF(TEXT("UT.ChallengeBadges.CTF"));
+static const FName NAME_PlayerTeamRoster(TEXT("PlayersTeam"));
+static const FName NAME_ChallengeDM(TEXT("InitialDeathmatchChallenge"));
+static const FName NAME_ChallengeCTF(TEXT("InitialCaptureTheFlagChallenge"));
 
-	FChallengeInfo() : PlayerTeamSize(4), EnemyRoster() {};
+static const FName NAME_EnemyTeam_SkaarjDefault(TEXT("EnemyTeamSkaarjDefault"));
 
-	UPROPERTY()
-		int32 PlayerTeamSize;
-
-	UPROPERTY()
-		TArray<FName> EnemyRoster;
-};
 
 UCLASS(Abstract)
 class UNREALTOURNAMENT_API UUTChallengeManager : public UObject
@@ -25,8 +20,8 @@ class UNREALTOURNAMENT_API UUTChallengeManager : public UObject
 	virtual UUTBotCharacter* ChooseBotCharacter(AUTGameMode* CurrentGame, uint8& TeamNum) const;
 
 	UPROPERTY()
-		TArray<FName> PlayerTeamRoster;
+	FTeamRoster PlayerTeamRoster;
 
 	UPROPERTY()
-		TArray<FChallengeInfo> Challenges;
+	TMap<FName, FUTChallengeInfo> Challenges;
 };

@@ -51,6 +51,9 @@ protected:
 	// Will be > 0 if this is an instance created by lobby
 	uint32 LobbyInstanceID;
 
+	// Creates and stores a new server ID
+	void CreateServerID();
+
 public:
 #if WITH_EDITOR
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override
@@ -73,6 +76,10 @@ public:
 	virtual void GenericPlayerInitialization(AController* C);
 	
 	virtual void InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage) override;
+
+	// Holds the server instance guid.  This is created when 
+	UPROPERTY(GlobalConfig)
+	FString ServerInstanceID;
 
 	// The Unique ID for this game instance.
 	FGuid ServerInstanceGUID;
@@ -146,4 +153,5 @@ public:
 	virtual void BuildRewardInfo(AUTPlayerState* PlayerState, TSharedPtr<class SUTTabWidget> TabWidget, TArray<TSharedPtr<struct TAttributeStat> >& StatList){};
 	virtual void BuildWeaponInfo(AUTPlayerState* PlayerState, TSharedPtr<class SUTTabWidget> TabWidget, TArray<TSharedPtr<struct TAttributeStat> >& StatList){};
 	virtual void BuildMovementInfo(AUTPlayerState* PlayerState, TSharedPtr<class SUTTabWidget> TabWidget, TArray<TSharedPtr<struct TAttributeStat> >& StatList){};
+
 };

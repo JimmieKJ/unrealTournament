@@ -161,6 +161,12 @@ class UNREALTOURNAMENT_API UUTProfileSettings : public UObject
 	UPROPERTY()
 	FName Avatar;
 
+	UPROPERTY()
+	TArray<FUTChallengeResult> ChallengeResults;
+
+	UPROPERTY()
+	int32 TotalChallengeStars;
+
 protected:
 
 	/**

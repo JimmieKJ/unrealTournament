@@ -249,9 +249,13 @@ public:
 	UPROPERTY(BlueprintReadOnly, Category = "Game")
 	bool bOfflineChallenge;
 
-	/** Index of current challenge. */
+	/** Tag of the current challenge */
 	UPROPERTY(BlueprintReadOnly, Category = "Game")
-	int32 ChallengeIndex;
+	FName ChallengeTag;
+
+	/** How difficult is this challenge (0-2) */
+	UPROPERTY(BlueprintReadOnly, Category = "Game")
+	int32 ChallengeDifficulty;
 
 	/** Last time asnyone sent a taunt voice message. */
 	UPROPERTY()

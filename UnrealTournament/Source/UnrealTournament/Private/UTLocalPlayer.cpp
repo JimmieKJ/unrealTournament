@@ -3054,3 +3054,74 @@ void UUTLocalPlayer::CloseJoinInstanceDialog()
 
 }
 
+int32 UUTLocalPlayer::GetTotalChallengeStars()
+{
+	return (CurrentProfileSettings ? CurrentProfileSettings->TotalChallengeStars : 0);
+}
+
+int32 UUTLocalPlayer::GetChallengeStars(FName ChallengeTag)
+{
+	if (CurrentProfileSettings)
+	{
+		for (int32 i = 0 ; i < CurrentProfileSettings->ChallengeResults.Num(); i++)
+		{
+			if (CurrentProfileSettings->ChallengeResults[i].Tag == ChallengeTag)
+			{
+				return CurrentProfileSettings->ChallengeResults[i].Stars;
+			}
+		}
+	}
+
+	return 0;
+}
+
+FString UUTLocalPlayer::GetChallengeDate(FName ChallengeTag)
+{
+	if (CurrentProfileSettings)
+	{
+		for (int32 i = 0 ; i < CurrentProfileSettings->ChallengeResults.Num(); i++)
+		{
+			if (CurrentProfileSettings->ChallengeResults[i].Tag == ChallengeTag)
+			{
+				FDateTime LastUpdate = CurrentProfileSettings->ChallengeResults[i].LastUpdate;
+				return LastUpdate.ToString(TEXT("%m.%d.%y @ %h:%M:%S%a"));
+			}
+		}
+	}
+	return TEXT("Never");
+}
+
+void UUTLocalPlayer::ChallengeCompleted(FName ChallengeTag, int32 Stars)
+{
+	if (CurrentProfileSettings && Stars > 0)
+	{
+		bool bFound = false;
+		for (int32 i = 0 ; i < CurrentProfileSettings->ChallengeResults.Num(); i++)
+		{
+			if (CurrentProfileSettings->ChallengeResults[i].Tag == ChallengeTag)
+			{
+				if (CurrentProfileSettings->ChallengeResults[i].Stars < Stars)
+				{
+					CurrentProfileSettings->ChallengeResults[i].Update(Stars);
+				}
+
+				bFound = true;
+				break;
+			}
+		}
+
+		if (!bFound)
+		{
+			CurrentProfileSettings->ChallengeResults.Add(FUTChallengeResult(ChallengeTag,Stars));
+		}
+
+		int32 TotalStars = 0;
+		for (int32 i = 0 ; i < CurrentProfileSettings->ChallengeResults.Num(); i++)
+		{
+			TotalStars += CurrentProfileSettings->ChallengeResults[i].Stars;
+		}
+
+		CurrentProfileSettings->TotalChallengeStars = TotalStars;
+		SaveProfileSettings();
+	}
+}

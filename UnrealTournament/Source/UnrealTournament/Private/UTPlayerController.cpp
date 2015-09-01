@@ -3331,11 +3331,7 @@ void AUTPlayerController::ResolveKeybind(FString Command, TArray<FString>& Keys,
 
 void AUTPlayerController::DebugTest(FString TestCommand)
 {
-	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
-	if (LP != NULL)
-	{
-		LP->OpenLoadout(TestCommand.Equals(TEXT("buy"),ESearchCase::IgnoreCase));
-	}
+	Cast<UUTLocalPlayer>(Player)->ChallengeCompleted(FName(TEXT("InitialDeathmatchChallenge")),3);
 }
 
 void AUTPlayerController::ClientRequireContentItemListComplete_Implementation()

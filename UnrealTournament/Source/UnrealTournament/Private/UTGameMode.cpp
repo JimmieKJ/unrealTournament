@@ -282,8 +282,13 @@ void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FStr
 
 	if (HasOption(Options, TEXT("Challenge")) && (GetNetMode() == NM_Standalone))
 	{
-		bOfflineChallenge = true;
-		ChallengeIndex = GetIntOption(Options, TEXT("Challenge"), 0);
+		InOpt = ParseOption(Options, TEXT("Challenge"));
+		if (!InOpt.IsEmpty())
+		{
+			ChallengeTag = FName(*InOpt);
+			bOfflineChallenge = true;
+			ChallengeDifficulty = GetIntOption(Options, TEXT("ChallengeDiff"), 0);
+		}
 	}
 
 	PostInitGame(Options);

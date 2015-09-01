@@ -63,6 +63,7 @@ TSharedRef<FSlateStyleSet> SUTStyle::Create()
 	SetFonts(StyleRef);
 	SetCommonStyle(StyleRef);
 	SetAvatars(StyleRef);
+	SetChallengeBadges(StyleRef);
 
 	return StyleRef;
 }
@@ -151,6 +152,10 @@ void SUTStyle::SetCommonStyle(TSharedRef<FSlateStyleSet> StyleRef)
 	Style.Set("UT.Box", new FSlateColorBrush(FColor(13,13,13,153)));
 	Style.Set("UT.Divider", new FSlateColorBrush(FColor(25,25,25,255)));
 
+	Style.Set("UT.Star", new IMAGE_BRUSH( "Star24x24", FVector2D(24,24), FLinearColor(1.0f, 1.0f, 0.0f, 1.0f) ));
+	Style.Set("UT.Star.Outline", new IMAGE_BRUSH( "StarOutline24x24", FVector2D(24,24), FLinearColor(1.0f, 1.0f, 0.0f, 1.0f) ));
+
+	Style.Set("UT.Icon.Checkmark", new IMAGE_BRUSH( "/UTStyle/Icons/UT.Icon.Checkmark", FVector2D(64,64), FLinearColor(1.0f, 1.0f, 0.0f, 1.0f) ));
 
 	Style.Set("UT.TabButton", FButtonStyle()
 		.SetNormal( FSlateColorBrush(FColor(4,4,4,255) ) )
@@ -241,7 +246,6 @@ void SUTStyle::SetCommonStyle(TSharedRef<FSlateStyleSet> StyleRef)
 		.SetHoveredSound(ButtonHoverSound)
 		.SetPressedSound(ButtonPressSound)
 	);
-
 }
 
 void SUTStyle::SetAvatars(TSharedRef<FSlateStyleSet> StyleRef)
@@ -253,6 +257,14 @@ void SUTStyle::SetAvatars(TSharedRef<FSlateStyleSet> StyleRef)
 	Style.Set("UT.Avatar.2", new IMAGE_BRUSH( "UTStyle/Avatars/UT.Avatar.2", FVector2D(50.0f, 50.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
 	Style.Set("UT.Avatar.3", new IMAGE_BRUSH( "UTStyle/Avatars/UT.Avatar.3", FVector2D(50.0f, 50.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
 	Style.Set("UT.Avatar.4", new IMAGE_BRUSH( "UTStyle/Avatars/UT.Avatar.4", FVector2D(50.0f, 50.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
+}
+
+void SUTStyle::SetChallengeBadges(TSharedRef<FSlateStyleSet> StyleRef)
+{
+	FSlateStyleSet& Style = StyleRef.Get();
+	Style.Set("UT.ChallengeBadges.DM", new IMAGE_BRUSH( "UTStyle/ChallengeBadges/DeathmatchChallenge", FVector2D(880.0f, 256.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
+	Style.Set("UT.ChallengeBadges.CTF", new IMAGE_BRUSH( "UTStyle/ChallengeBadges/CaptureTheFlagChallenge", FVector2D(880.0f, 256.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
+
 }
 
 END_SLATE_FUNCTION_BUILD_OPTIMIZATION

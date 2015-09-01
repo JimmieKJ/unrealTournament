@@ -833,3 +833,118 @@ namespace EInstanceJoinResult
 	};
 }
 
+USTRUCT()
+struct FUTChallengeResult
+{
+	GENERATED_USTRUCT_BODY()
+
+	// The Challenge tag this result is for
+	UPROPERTY()
+	FName Tag;
+
+	// The number of stars received for this challenge
+	UPROPERTY()
+	int32 Stars;
+
+	// when was this challenge completed
+	UPROPERTY()
+	FDateTime LastUpdate;
+
+	FUTChallengeResult()
+		: Tag(NAME_None)
+		, Stars(0)
+		, LastUpdate(FDateTime::UtcNow())
+	{}
+
+	FUTChallengeResult(FName inTag, int32 inStars)
+		: Tag(inTag)
+		, Stars(inStars)
+		, LastUpdate(FDateTime::UtcNow())
+	{
+	}
+
+	void Update(int32 NewStars)
+	{
+		Stars = NewStars;
+		LastUpdate = FDateTime::Now();
+	}
+};
+
+USTRUCT()
+struct FTeamRoster
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY()
+	FName TeamTag;
+
+	UPROPERTY()
+	FText TeamName;
+
+	UPROPERTY()
+	TArray<FName> Roster;
+
+	FTeamRoster()
+		: TeamTag(NAME_None)
+		, TeamName(FText::GetEmpty())
+		, Roster()
+	{
+	}
+
+	FTeamRoster(FName inTeamTag, FText inTeamName)
+		: TeamTag(inTeamTag)
+		, TeamName(inTeamName)
+	{
+	}
+};
+
+
+USTRUCT()
+struct FUTChallengeInfo
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY()
+	FString Title;
+
+	UPROPERTY()
+	FString Map;
+
+	UPROPERTY()
+	FString GameMode;
+
+	UPROPERTY()
+	FString Description;
+
+	UPROPERTY()
+	int32 PlayerTeamSize;
+
+	UPROPERTY()
+	TArray<FTeamRoster> EnemyRosters;
+
+	UPROPERTY()
+	FName SlateUIImageName;
+
+
+	FUTChallengeInfo()
+		: Title(TEXT(""))
+		, Map(TEXT(""))
+		, GameMode(TEXT(""))
+		, Description(TEXT(""))
+		, PlayerTeamSize(0)
+		, SlateUIImageName(NAME_None)
+	{
+	}
+
+	FUTChallengeInfo(FString inTitle, FString inMap, FString inGameMode, FString inDescription, int32 inPlayerTeamSize, const TArray<FTeamRoster> inEnemyRosters, FName inSlateUIImageName)
+		: Title(inTitle)
+		, Map(inMap)
+		, GameMode(inGameMode)
+		, Description(inDescription)
+		, PlayerTeamSize(PlayerTeamSize)
+		, EnemyRosters(inEnemyRosters)
+		, SlateUIImageName(inSlateUIImageName)
+	{
+	}
+};
+

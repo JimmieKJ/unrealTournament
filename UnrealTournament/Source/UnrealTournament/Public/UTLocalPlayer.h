@@ -661,5 +661,16 @@ protected:
 	TSharedPtr<SUTJoinInstance> JoinInstanceDialog;
 #endif
 
+public:
+	// Returns the Total # of stars collected by this player.
+	int32 GetTotalChallengeStars();
 
+	// Returns the # of stars for a given challenge tag.  Returns 0 if this challenge hasn't been started
+	int32 GetChallengeStars(FName ChallengeTag);
+
+	// Returns the date a challenge was last updated as a string
+	FString GetChallengeDate(FName ChallengeTag);
+
+	// Marks a challenge as completed.
+	void ChallengeCompleted(FName ChallengeTag, int32 Stars);
 };
