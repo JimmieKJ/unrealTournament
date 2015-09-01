@@ -17,9 +17,12 @@ class UNREALTOURNAMENT_API UUTChallengeManager : public UObject
 {
 	GENERATED_UCLASS_BODY()
 
-	virtual UUTBotCharacter* ChooseBotCharacter(AUTGameMode* CurrentGame, uint8& TeamNum) const;
+	UUTBotCharacter* ChooseBotCharacter(AUTGameMode* CurrentGame, uint8& TeamNum) const;
 
-	virtual int32 GetNumPlayers(AUTGameMode* CurrentGame) const;
+	int32 GetNumPlayers(AUTGameMode* CurrentGame) const;
+
+	/** Validate map and gametype match challenge parameters. */
+	bool IsValidChallenge(AUTGameMode* CurrentGame, const FString& MapName) const;
 
 	UPROPERTY()
 	FTeamRoster PlayerTeamRoster;

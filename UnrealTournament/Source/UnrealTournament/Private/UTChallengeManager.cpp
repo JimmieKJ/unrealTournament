@@ -112,3 +112,24 @@ int32 UUTChallengeManager::GetNumPlayers(AUTGameMode* CurrentGame) const
 	return 1;
 }
 
+bool UUTChallengeManager::IsValidChallenge(AUTGameMode* CurrentGame, const FString& MapName) const
+{
+	if (CurrentGame->ChallengeTag != NAME_None && Challenges.Contains(CurrentGame->ChallengeTag))
+	{
+		const FUTChallengeInfo* Challenge = Challenges.Find(CurrentGame->ChallengeTag);
+
+		// verify gametype and map matches challenge
+		// @TODO FIXMESTEVE
+		// UE_LOG(UT, Warning, TEXT("Challenge in %s should be %s"), *MapName, *Challenge->Map); 
+
+		if (CurrentGame->GetClass()->GetFullName() != CurrentGame->StaticGetFullGameClassName(Challenge->GameMode))
+		{
+			UE_LOG(UT, Warning, TEXT("CHALLENGE FAILED - Challenge game %s should be %s"), *CurrentGame->GetClass()->GetFullName(), *CurrentGame->StaticGetFullGameClassName(Challenge->GameMode));
+			return false;
+		}
+		return true;
+	}
+	UE_LOG(UT, Warning, TEXT("FAILED TO FIND MATCHING CHALLENGE"));
+	return false;
+}
+
