@@ -70,9 +70,9 @@ void UUTGameInstance::HandleGameNetControlMessage(class UNetConnection* Connecti
 {
 	switch (MessageByte)
 	{
-#if !UE_SERVER
 		case UNMT_Redirect:
 		{
+#if !UE_SERVER
 			UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(GetFirstGamePlayer());
 			if (LocalPlayer != NULL)
 			{
@@ -84,9 +84,9 @@ void UUTGameInstance::HandleGameNetControlMessage(class UNetConnection* Connecti
 				ActiveRedirectDialogs.Add(Dialog);
 				LocalPlayer->OpenDialog(Dialog);
 			}
+#endif
 			break;
 		}
-#endif
 		default:
 			UE_LOG(UT, Warning, TEXT("Unexpected net control message of type %i"), int32(MessageByte));
 			break;
