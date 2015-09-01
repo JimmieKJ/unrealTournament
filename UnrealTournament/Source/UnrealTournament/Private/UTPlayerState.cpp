@@ -1079,7 +1079,7 @@ void AUTPlayerState::AddMatchHighlight(FName NewHighlight, float HighlightData)
 	// if no open slots, try to replace lowest priority highlight
 	if (GameState)
 	{
-		float NewPriority = GameState->HighlightPriority.FindRef(NewHighlight);
+		NewPriority = GameState->HighlightPriority.FindRef(NewHighlight);
 		float WorstPriority = 0.f;
 		int32 WorstIndex = -1.f;
 		for (int32 i = 0; i < 5; i++)
