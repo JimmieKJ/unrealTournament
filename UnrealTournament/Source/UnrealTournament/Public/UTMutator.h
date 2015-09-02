@@ -143,8 +143,13 @@ class UNREALTOURNAMENT_API AUTMutator : public AInfo
 	void GetGameURLOptions(TArray<FString>& OptionsList);
 
 protected:
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category=Parse)
 	FString ParseOption( const FString& Options, const FString& InKey );
+
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category=Parse)
 	bool HasOption( const FString& Options, const FString& InKey );
+
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category=Parse)
 	int32 GetIntOption( const FString& Options, const FString& ParseString, int32 CurrentValue);
 
 	/**

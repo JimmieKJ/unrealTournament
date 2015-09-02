@@ -36,4 +36,6 @@ class UNREALTOURNAMENT_API AUTShowdownGameState : public AUTGameState
 
 	UFUNCTION()
 	virtual void OnRep_XRayVision();
+
+	virtual void OnRep_MatchState() override;
 };

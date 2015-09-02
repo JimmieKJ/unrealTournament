@@ -809,7 +809,32 @@ TSharedRef<SWidget> SUWSystemSettingsDialog::BuildAudioTab()
 	+ AddGeneralSliderWithLabelWidget(SoundVolumes[EUTSoundClass::Music], SoundVolumesLabels[EUTSoundClass::Music], &SUWSystemSettingsDialog::OnSoundVolumeChangedMusic, NSLOCTEXT("SUWSystemSettingsDialog", "MusicVolume", "Music Volume").ToString(), UserSettings->GetSoundClassVolume(EUTSoundClass::Music))
 	+ AddGeneralSliderWithLabelWidget(SoundVolumes[EUTSoundClass::SFX], SoundVolumesLabels[EUTSoundClass::SFX], &SUWSystemSettingsDialog::OnSoundVolumeChangedSFX, NSLOCTEXT("SUWSystemSettingsDialog", "SFXVolume", "Effects Volume").ToString(), UserSettings->GetSoundClassVolume(EUTSoundClass::SFX))
 	+ AddGeneralSliderWithLabelWidget(SoundVolumes[EUTSoundClass::Voice], SoundVolumesLabels[EUTSoundClass::Voice], &SUWSystemSettingsDialog::OnSoundVolumeChangedVoice, NSLOCTEXT("SUWSystemSettingsDialog", "VoiceVolume", "Voice Volume").ToString(), UserSettings->GetSoundClassVolume(EUTSoundClass::Voice))
-	
+
+	+ SVerticalBox::Slot()
+	.AutoHeight()
+	.Padding(FMargin(10.0f, 10.0f, 10.0f, 0.0f))
+	[
+		SNew(SHorizontalBox)
+		+ SHorizontalBox::Slot()
+		.AutoWidth()
+		[
+			SNew(SBox)
+			.WidthOverride(650)
+			[
+				SNew(STextBlock)
+				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+				.Text(NSLOCTEXT("SUWSystemSettingsDialog", "BotSpeech", "Enable Bot Speech"))
+				.ToolTip(SUTUtils::CreateTooltip(NSLOCTEXT("SUWSystemSettingsDialog", "BotSpeech_Tooltip", "Whether bots taunt and provide status updates.")))
+			]
+		]
+		+ SHorizontalBox::Slot()
+			.AutoWidth()
+			[
+				SAssignNew(HRTFCheckBox, SCheckBox)
+				.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
+				.IsChecked(UserSettings->IsBotSpeechEnabled() ? ESlateCheckBoxState::Checked : ESlateCheckBoxState::Unchecked)
+			]
+	]
 	+ SVerticalBox::Slot()
 	.AutoHeight()
 	.Padding(FMargin(10.0f, 10.0f, 10.0f, 0.0f))
@@ -830,7 +855,7 @@ TSharedRef<SWidget> SUWSystemSettingsDialog::BuildAudioTab()
 		+ SHorizontalBox::Slot()
 		.AutoWidth()
 		[
-			SAssignNew(HRTFCheckBox, SCheckBox)
+			SAssignNew(BotSpeechCheckBox, SCheckBox)
 			.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
 			.IsChecked(UserSettings->IsHRTFEnabled() ? ESlateCheckBoxState::Checked : ESlateCheckBoxState::Unchecked)
 		]
@@ -959,6 +984,21 @@ FReply SUWSystemSettingsDialog::OnAutodetectClick()
 	if (ensure(LocalPlayer) && !UserSettings->bBenchmarkInProgress)
 	{
 		UserSettings->BenchmarkDetailSettings(LocalPlayer, false);
+
+		UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
+		if (UTEngine != NULL)
+		{
+			int32 RefreshRate;
+			if (UTEngine->GetMonitorRefreshRate(RefreshRate))
+			{
+				int32 AutoDetectedFramerateCap = 120;
+				if (RefreshRate < 120)
+				{
+					AutoDetectedFramerateCap = 60;
+				}
+				FrameRateCap->SetText(FText::AsNumber(AutoDetectedFramerateCap));
+			}
+		}
 	}
 
 	return FReply::Handled();
@@ -988,6 +1028,7 @@ FReply SUWSystemSettingsDialog::OKClick()
 	Suffixes.Add(FString("w"));
 	GetPlayerOwner()->ViewportClient->ConsoleCommand(*FString::Printf(TEXT("setres %s%s"), *SelectedRes->GetText().ToString(), *Suffixes[NewDisplayMode]));
 
+	UserSettings->SetBotSpeechEnabled(BotSpeechCheckBox->IsChecked());
 	UserSettings->SetHRTFEnabled(HRTFCheckBox->IsChecked());
 	UserSettings->SetAAMode(ConvertComboSelectionToAAMode(*AAMode->GetSelectedItem().Get()));
 

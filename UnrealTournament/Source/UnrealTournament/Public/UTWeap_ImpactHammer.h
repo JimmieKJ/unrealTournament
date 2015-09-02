@@ -67,4 +67,6 @@ class UNREALTOURNAMENT_API AUTWeap_ImpactHammer : public AUTWeapon
 	virtual bool DoAssistedJump() override;
 
 	virtual void FiringInfoUpdated_Implementation(uint8 InFireMode, uint8 FlashCount, FVector InFlashLocation) override;
+
+	virtual void DrawWeaponCrosshair_Implementation(UUTHUDWidget* WeaponHudWidget, float RenderDelta) override;
 };

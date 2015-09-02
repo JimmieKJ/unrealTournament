@@ -8,7 +8,10 @@
 UCLASS()
 class UNREALTOURNAMENT_API UUTWeaponStateFiringLinkBeam : public UUTWeaponStateFiringBeam
 {
-    GENERATED_UCLASS_BODY()
+	GENERATED_UCLASS_BODY()
+
+	UPROPERTY()
+	float AccumulatedFiringTime;
 
     virtual void FireShot() override;
     virtual void Tick(float DeltaTime) override;

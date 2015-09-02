@@ -21,11 +21,14 @@ public:
 
 	TWeakObjectPtr<AUTServerBeaconClient> Beacon;
 
+	bool bHasFriends;
+
 	FServerSearchInfo(const FOnlineSessionSearchResult& inSearchResult, int32 inPing, int32 inNoPlayers)
 	{
 		SearchResult = inSearchResult;
 		Ping = inPing;
 		NoPlayers = inNoPlayers;
+		bHasFriends = false;
 		
 		if (SearchResult.IsValid())
 		{
@@ -150,6 +153,12 @@ protected:
 	virtual void AttemptQuickMatch();
 
 	TSharedPtr<FServerSearchInfo> BestServer;
+
+	bool HasFriendsInInstances(const TArray<TSharedPtr<FServerInstanceData>>& Instances, TWeakObjectPtr<UUTLocalPlayer> LocalPlayer);
+
+	bool bWaitingForResponseFromHub;
+	float HubResponseWaitTime;
+
 };
 
 #endif

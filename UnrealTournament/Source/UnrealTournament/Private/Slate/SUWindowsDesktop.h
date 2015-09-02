@@ -22,7 +22,7 @@ public:
 	/**
 	 *	Will be called from the Local Player when the menu has been opened
 	 **/
-	virtual void OnMenuOpened();
+	virtual void OnMenuOpened(const FString& Parameters);
 	virtual void OnMenuClosed();
 	virtual void CloseMenus();
 

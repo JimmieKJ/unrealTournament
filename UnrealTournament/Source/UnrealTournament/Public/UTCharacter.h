@@ -483,7 +483,7 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	 * (the inventory must have a pickup defined)
 	 * ExtraVelocity is in the reference frame of the character (X is forward)
 	 */
-	UFUNCTION(BlueprintCallable, Category = "Pawn")
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = "Pawn")
 	virtual void TossInventory(AUTInventory* InvToToss, FVector ExtraVelocity = FVector::ZeroVector);
 
 	/** discards (generally destroys) all inventory items */
@@ -905,6 +905,18 @@ public:
 
 	virtual void StartRagdoll();
 	virtual void StopRagdoll();
+
+protected:
+	UPROPERTY(BlueprintReadOnly, Category = Ragdoll)
+	float RagdollGravityScale;
+public:
+	inline float GetRagdollGravityScale() const
+	{
+		return RagdollGravityScale;
+	}
+	/** sets gravity for the ragdoll (used by some death effects) */
+	UFUNCTION(BlueprintCallable, Category = Ragdoll)
+	virtual void SetRagdollGravityScale(float NewScale);
 
 	/** Return true to prevent feigning. */
 	UFUNCTION(BlueprintImplementableEvent, BlueprintAuthorityOnly, Category = Pawn)
@@ -1715,10 +1727,11 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Effects)
 	UMaterialInterface* TacComOverlayMaterial;
 
-	virtual void UpdateTacComMesh(bool bTacComEnabled);
+	virtual void UpdateTacComMesh(bool bNewTacComEnabled);
 
-	//================================
 protected:
+	bool bTacComEnabled;
+
 	/** last time PlayFootstep() was called, for timing footsteps when animations are disabled */
 	float LastFootstepTime;
 

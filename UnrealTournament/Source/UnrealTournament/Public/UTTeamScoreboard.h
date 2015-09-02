@@ -43,6 +43,7 @@ protected:
 	virtual AUTPlayerState* FindTopTeamScoreFor(uint8 TeamNum);
 
 	virtual void SetScoringPlaysTimer(bool bEnableTimer) override;
+	void SwitchToScoringPlaysPage();
 	virtual void OpenScoringPlaysPage() override;
 	virtual void DrawStatsLeft(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom) override;
 };

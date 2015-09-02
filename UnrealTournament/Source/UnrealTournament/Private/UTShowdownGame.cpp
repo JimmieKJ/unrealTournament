@@ -26,6 +26,9 @@ AUTShowdownGame::AUTShowdownGame(const FObjectInitializer& OI)
 
 	PowerupBreakerPickupClass.AssetLongPathname = TEXT("/Game/RestrictedAssets/Pickups/Powerups/SuperchargeBase.SuperchargeBase_C");
 	PowerupBreakerItemClass.AssetLongPathname = TEXT("/Game/RestrictedAssets/Pickups/Powerups/BP_Supercharge.BP_Supercharge_C");
+
+	SuperweaponReplacementPickupClass.AssetLongPathname = TEXT("/Game/RestrictedAssets/Pickups/Powerups/PowerupBase.PowerupBase_C");
+	SuperweaponReplacementItemClass.AssetLongPathname = TEXT("/Game/RestrictedAssets/Pickups/Powerups/BP_Invis.BP_Invis_C");
 }
 
 void AUTShowdownGame::InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage)
@@ -105,7 +108,28 @@ bool AUTShowdownGame::CheckRelevance_Implementation(AActor* Other)
 	}
 	else
 	{
-		return Super::CheckRelevance_Implementation(Other);
+		// @TODO FIXMESTEVE - don't check for weapon stay - once have deployable base class, remove all deployables from duel
+		AUTPickupWeapon* PickupWeapon = Cast<AUTPickupWeapon>(Other);
+		if (PickupWeapon != NULL && PickupWeapon->WeaponType != NULL && !PickupWeapon->WeaponType.GetDefaultObject()->bWeaponStay)
+		{
+			TSubclassOf<AUTPickupInventory> ReplacementPickupClass = SuperweaponReplacementPickupClass.TryLoadClass<AUTPickupInventory>();
+			TSubclassOf<AUTInventory> ReplacementItemClass = SuperweaponReplacementItemClass.TryLoadClass<AUTInventory>();
+			if (ReplacementPickupClass != NULL && ReplacementItemClass != NULL)
+			{
+				FActorSpawnParameters Params;
+				Params.bNoCollisionFail = true;
+				AUTPickupInventory* Pickup = GetWorld()->SpawnActor<AUTPickupInventory>(ReplacementPickupClass, PickupWeapon->GetActorLocation(), PickupWeapon->GetActorRotation(), Params);
+				if (Pickup != NULL)
+				{
+					Pickup->SetInventoryType(ReplacementItemClass);
+				}
+			}
+			return false;
+		}
+		else
+		{
+			return Super::CheckRelevance_Implementation(Other);
+		}
 	}
 }
 
@@ -268,6 +292,7 @@ void AUTShowdownGame::StartIntermission()
 		else
 		{
 			SetMatchState(MatchState::MatchIntermission);
+			GameState->ForceNetUpdate();
 		}
 	}
 }
@@ -325,6 +350,15 @@ void AUTShowdownGame::HandleMatchIntermission()
 				if (NavData->FindBestPath(NULL, FNavAgentProperties(Extent.X, Extent.Z * 2.0f), NodeEval, StartSpot->GetActorLocation(), Weight, false, Route) && Route.Num() > 0)
 				{
 					SpawnLoc = Route.Last().GetLocation(NULL);
+					// try to pick a better poly for spawning (we'd like to stay away from walls)
+					for (int32 i = Route.Num() - 1; i >= 0; i--)
+					{
+						if (NavData->GetPolySurfaceArea2D(Route[i].TargetPoly) > 10000.0f || NavData->GetPolyWalls(Route[i].TargetPoly).Num() == 0)
+						{
+							SpawnLoc = Route[i].GetLocation(NULL);
+							break;
+						}
+					}
 				}
 				FActorSpawnParameters Params;
 				Params.bNoCollisionFail = true;
@@ -372,8 +406,11 @@ void AUTShowdownGame::HandleMatchIntermission()
 			if (P != NULL)
 			{
 				APlayerState* SavedPlayerState = P->PlayerState; // keep the PlayerState reference for end of round HUD stuff
+				P->TurnOff();
 				C->UnPossess();
 				P->PlayerState = SavedPlayerState;
+				// we want the character around for the HUD displays of status but we don't need to actually see it and this prevents potential camera clipping
+				P->GetRootComponent()->SetHiddenInGame(true, true);
 			}
 			AUTPlayerState* PS = Cast<AUTPlayerState>(C->PlayerState);
 			if (PS != NULL && !PS->bOnlySpectator && PS->Team != NULL)
@@ -413,10 +450,9 @@ void AUTShowdownGame::CallMatchStateChangeNotify()
 
 void AUTShowdownGame::DefaultTimer()
 {
+	AUTShowdownGameState* GS = Cast<AUTShowdownGameState>(GameState);
 	if (GetMatchState() == MatchState::MatchIntermission)
 	{
-		AUTShowdownGameState* GS = Cast<AUTShowdownGameState>(GameState);
-
 		if (GS->SpawnSelector != NULL && GS->SpawnSelector->RespawnChoiceA != NULL)
 		{
 			GS->IntermissionStageTime = 0;
@@ -432,6 +468,7 @@ void AUTShowdownGame::DefaultTimer()
 				if (GS->SpawnSelector->RespawnChoiceA == NULL)
 				{
 					GS->SpawnSelector->RespawnChoiceA = Cast<APlayerStart>(FindPlayerStart(Cast<AController>(GS->SpawnSelector->GetOwner())));
+					GS->SpawnSelector->ForceNetUpdate();
 				}
 				RemainingPicks.Remove(GS->SpawnSelector);
 				GS->SpawnSelector = NULL;
@@ -469,7 +506,11 @@ void AUTShowdownGame::DefaultTimer()
 	{
 		RoundElapsedTime++;
 
-		Cast<AUTShowdownGameState>(GameState)->bActivateXRayVision = bXRayBreaker && RoundElapsedTime >= 70;
+		if (!GS->bActivateXRayVision && bXRayBreaker && RoundElapsedTime >= 1)
+		{
+			GS->bActivateXRayVision = true;
+			GS->OnRep_XRayVision();
+		}
 
 		if (bLowHealthRegen)
 		{

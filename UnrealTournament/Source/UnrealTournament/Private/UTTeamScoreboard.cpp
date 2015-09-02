@@ -277,13 +277,22 @@ void UUTTeamScoreboard::SetScoringPlaysTimer(bool bEnableTimer)
 	{
 		if (bEnableTimer)
 		{
-			UTHUDOwner->GetWorld()->GetTimerManager().SetTimer(OpenScoringPlaysHandle, this, &UUTTeamScoreboard::OpenScoringPlaysPage, 6.0f, false);
+			AUTGameMode* DefaultGame = (UTGameState && UTGameState->GameModeClass) ? UTGameState->GameModeClass->GetDefaultObject<AUTGameMode>() : nullptr;
+			if (DefaultGame)
+			{
+				UTHUDOwner->GetWorld()->GetTimerManager().SetTimer(OpenScoringPlaysHandle, this, &UUTTeamScoreboard::SwitchToScoringPlaysPage, DefaultGame->MainScoreboardDisplayTime, false);
+			}
 		}
 		else
 		{
 			UTHUDOwner->GetWorld()->GetTimerManager().ClearTimer(OpenScoringPlaysHandle);
 		}
 	}
+}
+
+void UUTTeamScoreboard::SwitchToScoringPlaysPage()
+{
+	OpenScoringPlaysPage();
 }
 
 void UUTTeamScoreboard::OpenScoringPlaysPage()

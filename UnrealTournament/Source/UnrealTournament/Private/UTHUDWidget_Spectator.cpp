@@ -45,8 +45,8 @@ void UUTHUDWidget_Spectator::DrawSimpleMessage(FText SimpleMessage, float DeltaT
 	{
 		float YL = 0.0f;
 		Canvas->StrLen(UTHUDOwner->LargeFont, SimpleMessage.ToString(), BackgroundWidth, YL);
-		BackgroundWidth += 64.f;
-		MessageOffset = UTGameState->HasMatchEnded() ? (ScreenWidth * 0.5f) - 0.5f*BackgroundWidth : ScreenWidth - BackgroundWidth;
+		BackgroundWidth = FMath::Max(BackgroundWidth, 128.f) + 64.f;
+		MessageOffset = (ScreenWidth - BackgroundWidth) * (UTGameState->HasMatchEnded() ? 0.5f : 1.f);
 		TextPosition = 32.f + MessageOffset;
 		YOffset = -32.f;
 	}
@@ -180,9 +180,9 @@ FText UUTHUDWidget_Spectator::GetSpectatorMessageText(bool &bViewingMessage)
 			{
 				SpectatorMessage = NSLOCTEXT("UUTHUDWidget_Spectator", "SpectatorCameraChange", "Press [FIRE] to change viewpoint...");
 			}
-			else if (UTCharacterOwner ? UTCharacterOwner->IsDead() : (UTHUDOwner->UTPlayerOwner->GetPawn() == NULL))
+			else if (UTPS && (UTCharacterOwner ? UTCharacterOwner->IsDead() : (UTHUDOwner->UTPlayerOwner->GetPawn() == NULL)))
 			{
-				if (UTPS && UTPS->RespawnTime > 0.0f)
+				if (UTPS->RespawnTime > 0.0f)
 				{
 					FFormatNamedArguments Args;
 					static const FNumberFormattingOptions RespawnTimeFormat = FNumberFormattingOptions()
@@ -193,7 +193,7 @@ FText UUTHUDWidget_Spectator::GetSpectatorMessageText(bool &bViewingMessage)
 				}
 				else
 				{
-					SpectatorMessage = (UTHUDOwner->UTPlayerOwner->UTPlayerState->RespawnChoiceA != nullptr)
+					SpectatorMessage = (UTPS->RespawnChoiceA != nullptr)
 						? NSLOCTEXT("UUTHUDWidget_Spectator", "ChooseRespawnMessage", "Choose a respawn point with [FIRE] or [ALT-FIRE]")
 						: NSLOCTEXT("UUTHUDWidget_Spectator", "RespawnMessage", "Press [FIRE] to respawn...");
 				}

@@ -48,6 +48,8 @@
 #include "Slate/SUWYoutubeConsent.h"
 #include "Slate/SUWMatchSummary.h"
 #include "UTLobbyGameState.h"
+#include "StatNames.h"
+#include "UTChallengeManager.h"
 
 UUTLocalPlayer::UUTLocalPlayer(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -271,7 +273,7 @@ bool UUTLocalPlayer::IsMenuGame()
 }
 
 
-void UUTLocalPlayer::ShowMenu()
+void UUTLocalPlayer::ShowMenu(const FString& Parameters)
 {
 #if !UE_SERVER
 	
@@ -324,7 +326,7 @@ void UUTLocalPlayer::ShowMenu()
 	{
 		// Widget is already valid, just make it visible.
 		DesktopSlateWidget->SetVisibility(EVisibility::Visible);
-		DesktopSlateWidget->OnMenuOpened();
+		DesktopSlateWidget->OnMenuOpened(Parameters);
 
 		if (PlayerController)
 		{
@@ -1055,7 +1057,7 @@ void UUTLocalPlayer::ReadProfileItems()
 	}
 #endif
 	TSharedPtr<FUniqueNetId> UserID = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());
-	if (UserID.IsValid() && FPlatformTime::Seconds() > LastItemReadTime + 60.0)
+	if (UserID.IsValid() && (LastItemReadTime == 0.0 || FPlatformTime::Seconds() > LastItemReadTime + 60.0))
 	{
 		FHttpRequestCompleteDelegate Delegate;
 		Delegate.BindUObject(this, &UUTLocalPlayer::OnReadProfileItemsComplete);
@@ -1340,15 +1342,15 @@ void UUTLocalPlayer::UpdateBaseELOFromCloudData()
 			FString JsonStatsID;
 			if (StatsJson->TryGetStringField(TEXT("StatsID"), JsonStatsID) && JsonStatsID == UserId->ToString())
 			{
-				StatsJson->TryGetNumberField(TEXT("SkillRating"), DUEL_ELO);
-				StatsJson->TryGetNumberField(TEXT("TDMSkillRating"), TDM_ELO);
-				StatsJson->TryGetNumberField(TEXT("DMSkillRating"), FFA_ELO);
-				StatsJson->TryGetNumberField(TEXT("CTFSkillRating"), CTF_ELO);
-				StatsJson->TryGetNumberField(TEXT("MatchesPlayed"), MatchesPlayed);
-				StatsJson->TryGetNumberField(TEXT("SkillRatingSamples"), DuelMatchesPlayed);
-				StatsJson->TryGetNumberField(TEXT("TDMSkillRatingSamples"), TDMMatchesPlayed);
-				StatsJson->TryGetNumberField(TEXT("DMSkillRatingSamples"), FFAMatchesPlayed);
-				StatsJson->TryGetNumberField(TEXT("CTFSkillRatingSamples"), CTFMatchesPlayed);
+				StatsJson->TryGetNumberField(NAME_SkillRating.ToString(), DUEL_ELO);
+				StatsJson->TryGetNumberField(NAME_TDMSkillRating.ToString(), TDM_ELO);
+				StatsJson->TryGetNumberField(NAME_DMSkillRating.ToString(), FFA_ELO);
+				StatsJson->TryGetNumberField(NAME_CTFSkillRating.ToString(), CTF_ELO);
+				StatsJson->TryGetNumberField(NAME_MatchesPlayed.ToString(), MatchesPlayed);
+				StatsJson->TryGetNumberField(NAME_SkillRatingSamples.ToString(), DuelMatchesPlayed);
+				StatsJson->TryGetNumberField(NAME_TDMSkillRatingSamples.ToString(), TDMMatchesPlayed);
+				StatsJson->TryGetNumberField(NAME_DMSkillRatingSamples.ToString(), FFAMatchesPlayed);
+				StatsJson->TryGetNumberField(NAME_CTFSkillRatingSamples.ToString(), CTFMatchesPlayed);
 			}
 		}
 	}
@@ -1810,7 +1812,7 @@ bool UUTLocalPlayer::JoinSession(const FOnlineSessionSearchResult& SearchResult,
 	{
 		if (OnlineSessionInterface->IsPlayerInSession(GameSessionName, *UniqueId))
 		{
-			UE_LOG(UT, Log, TEXT("--- Alreadyt in a Session -- Deferring while I clean it up"));
+			UE_LOG(UT, Log, TEXT("--- Already in a Session -- Deferring while I clean it up"));
 			bPendingSession = true;
 			PendingSession = SearchResult;
 			LeaveSession();
@@ -1921,26 +1923,33 @@ void UUTLocalPlayer::OnJoinSessionComplete(FName SessionName, EOnJoinSessionComp
 		MessageBox(NSLOCTEXT("MCPMessages", "OnlineError", "Online Error"), NSLOCTEXT("MCPMessages", "SessionFull", "The session you are attempting to join is full."));
 	}
 
-	// Force back to the main menu.
-	ReturnToMainMenu();
+	CloseConnectingDialog();
+#if !UE_SERVER
+	if (GetWorld()->bIsDefaultLevel && !DesktopSlateWidget.IsValid())
+	{
+		ReturnToMainMenu();
+	}
+#endif
 }
 
 void UUTLocalPlayer::LeaveSession()
 {
-	TSharedPtr<FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(0);
-	if (UserId.IsValid() && OnlineSessionInterface->IsPlayerInSession(GameSessionName, *UserId))
+	if (OnlineIdentityInterface.IsValid())
 	{
-		OnEndSessionCompleteDelegate = OnlineSessionInterface->AddOnEndSessionCompleteDelegate_Handle(FOnEndSessionCompleteDelegate::CreateUObject(this, &UUTLocalPlayer::OnEndSessionComplete));
-		OnlineSessionInterface->EndSession(GameSessionName);
-	}
-	else
-	{
-		if (bPendingLoginCreds)
+		TSharedPtr<FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(0);
+		if (UserId.IsValid() && OnlineSessionInterface.IsValid() && OnlineSessionInterface->IsPlayerInSession(GameSessionName, *UserId))
 		{
-			Logout();
+			OnEndSessionCompleteDelegate = OnlineSessionInterface->AddOnEndSessionCompleteDelegate_Handle(FOnEndSessionCompleteDelegate::CreateUObject(this, &UUTLocalPlayer::OnEndSessionComplete));
+			OnlineSessionInterface->EndSession(GameSessionName);
+		}
+		else
+		{
+			if (bPendingLoginCreds)
+			{
+				Logout();
+			}
 		}
 	}
-
 }
 
 void UUTLocalPlayer::OnEndSessionComplete(FName SessionName, bool bWasSuccessful)
@@ -2471,7 +2480,7 @@ void UUTLocalPlayer::OpenLoadout(bool bBuyMenu)
 		{
 			// Widget is already valid, just make it visible.
 			LoadoutMenu->SetVisibility(EVisibility::Visible);
-			LoadoutMenu->OnMenuOpened();
+			LoadoutMenu->OnMenuOpened(TEXT(""));
 		}
 	}
 #endif
@@ -2542,6 +2551,13 @@ void UUTLocalPlayer::OpenMatchSummary(AUTGameState* GameState)
 }
 void UUTLocalPlayer::CloseMatchSummary()
 {
+
+	UE_LOG(UT,Log,TEXT("CLOSEMATCHSUMMARY ====================="));
+	UE_LOG(UT,Log,TEXT("CLOSEMATCHSUMMARY ====================="));
+	UE_LOG(UT,Log,TEXT("CLOSEMATCHSUMMARY ====================="));
+	UE_LOG(UT,Log,TEXT("CLOSEMATCHSUMMARY ====================="));
+	UE_LOG(UT,Log,TEXT("CLOSEMATCHSUMMARY ====================="));
+
 #if !UE_SERVER
 	UUTGameViewportClient* UTGVC = Cast<UUTGameViewportClient>(GEngine->GameViewport);
 	if (MatchSummaryWindow.IsValid() && UTGVC != nullptr)
@@ -3052,3 +3068,84 @@ void UUTLocalPlayer::CloseJoinInstanceDialog()
 
 }
 
+int32 UUTLocalPlayer::GetTotalChallengeStars()
+{
+	return (CurrentProfileSettings ? CurrentProfileSettings->TotalChallengeStars : 0);
+}
+
+int32 UUTLocalPlayer::GetChallengeStars(FName ChallengeTag)
+{
+	if (CurrentProfileSettings)
+	{
+		for (int32 i = 0 ; i < CurrentProfileSettings->ChallengeResults.Num(); i++)
+		{
+			if (CurrentProfileSettings->ChallengeResults[i].Tag == ChallengeTag)
+			{
+				return CurrentProfileSettings->ChallengeResults[i].Stars;
+			}
+		}
+	}
+
+	return 0;
+}
+
+FString UUTLocalPlayer::GetChallengeDate(FName ChallengeTag)
+{
+	if (CurrentProfileSettings)
+	{
+		for (int32 i = 0 ; i < CurrentProfileSettings->ChallengeResults.Num(); i++)
+		{
+			if (CurrentProfileSettings->ChallengeResults[i].Tag == ChallengeTag)
+			{
+				FDateTime LastUpdate = CurrentProfileSettings->ChallengeResults[i].LastUpdate;
+				return LastUpdate.ToString(TEXT("%m.%d.%y @ %h:%M:%S%a"));
+			}
+		}
+	}
+	return TEXT("Never");
+}
+
+void UUTLocalPlayer::ChallengeCompleted(FName ChallengeTag, int32 Stars)
+{
+	if (CurrentProfileSettings && Stars > 0)
+	{
+		bool bFound = false;
+		for (int32 i = 0 ; i < CurrentProfileSettings->ChallengeResults.Num(); i++)
+		{
+			if (CurrentProfileSettings->ChallengeResults[i].Tag == ChallengeTag)
+			{
+				if (CurrentProfileSettings->ChallengeResults[i].Stars < Stars)
+				{
+					CurrentProfileSettings->ChallengeResults[i].Update(Stars);
+				}
+
+				bFound = true;
+				break;
+			}
+		}
+
+		if (!bFound)
+		{
+			CurrentProfileSettings->ChallengeResults.Add(FUTChallengeResult(ChallengeTag,Stars));
+		}
+
+		int32 TotalStars = 0;
+		for (int32 i = 0 ; i < CurrentProfileSettings->ChallengeResults.Num(); i++)
+		{
+			TotalStars += CurrentProfileSettings->ChallengeResults[i].Stars;
+		}
+
+		CurrentProfileSettings->TotalChallengeStars = TotalStars;
+		SaveProfileSettings();
+
+		FText ChallengeToast = FText::Format(NSLOCTEXT("Challenge", "GainedStars", "Challenge Completed!  You earned {0} stars."), FText::AsNumber(Stars));
+		ShowToast(ChallengeToast);
+		if (TotalStars / 5 != (TotalStars - Stars) / 5)
+		{
+			FText OldTeammate = FText::FromName(UUTChallengeManager::StaticClass()->GetDefaultObject<UUTChallengeManager>()->PlayerTeamRoster.Roster[(TotalStars - Stars) / 5]);
+			FText NewTeammate = FText::FromName(UUTChallengeManager::StaticClass()->GetDefaultObject<UUTChallengeManager>()->PlayerTeamRoster.Roster[4 + (TotalStars - Stars) / 5]);
+			FText RosterToast = FText::Format(NSLOCTEXT("Challenge", "RosterUpgrade", "Roster Upgrade!  {0} replaces {1}."), OldTeammate, NewTeammate);
+			ShowToast(RosterToast);
+		}
+	}
+}

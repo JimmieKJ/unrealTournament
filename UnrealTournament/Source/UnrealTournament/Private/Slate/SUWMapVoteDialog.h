@@ -120,7 +120,7 @@ protected:
 		}
 	}
 
-
+	virtual FReply OnButtonClick(uint16 ButtonID) override;
 
 };
 

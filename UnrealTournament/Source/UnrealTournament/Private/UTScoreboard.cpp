@@ -447,7 +447,14 @@ void UUTScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float R
 
 	if (UTGameState && UTGameState->HasMatchStarted())
 	{
-		DrawPlayerScore(PlayerState, XOffset, YOffset, Width, DrawColor);
+		if (PlayerState->bPendingTeamSwitch)
+		{
+			DrawText(NSLOCTEXT("UTScoreboard", "TEAMSWITCH", "TEAM SWAP"), XOffset + (Width * ColumnHeaderScoreX), YOffset + ColumnY, UTHUDOwner->MediumFont, PlayerState->ReadyScale, 1.0f, PlayerState->ReadyColor, ETextHorzPos::Center, ETextVertPos::Center);
+		}
+		else
+		{
+			DrawPlayerScore(PlayerState, XOffset, YOffset, Width, DrawColor);
+		}
 	}
 	else
 	{
@@ -495,7 +502,7 @@ void UUTScoreboard::DrawServerPanel(float RenderDelta, float YOffset)
 		DrawTexture(TextureAtlas, 0, YOffset, 1269, 38, 4, 132, 30, 38, 1.0);
 		DrawText(SpectatorMessage, 10, YOffset + 13, UTHUDOwner->SmallFont, 1.0, 1.0, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
 		DrawText(FText::FromString(UTGameState->ServerDescription), 1259, YOffset + 13, UTHUDOwner->SmallFont, 1.0, 1.0, FLinearColor::White, ETextHorzPos::Right, ETextVertPos::Center);
-		if (NumPages > 1)
+		if ((NumPages > 1) && UTGameState->HasMatchStarted())
 		{
 			FText PageText = FText::Format(NSLOCTEXT("UTScoreboard", "Pages", "Arrow keys to switch page ({0} of {1})"), FText::AsNumber(UTHUDOwner->ScoreboardPage + 1), FText::AsNumber(NumPages - 1 + GetWorld()->GameState->PlayerArray.Num()));
 			DrawText(PageText, Size.X * 0.5f, YOffset + 13, UTHUDOwner->SmallFont, 1.0f, 1.0f, FLinearColor::White, ETextHorzPos::Center, ETextVertPos::Center);

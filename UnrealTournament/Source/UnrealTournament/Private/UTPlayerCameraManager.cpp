@@ -60,11 +60,19 @@ FName AUTPlayerCameraManager::GetCameraStyleWithOverrides() const
 {
 	static const FName NAME_FreeCam = FName(TEXT("FreeCam"));
 	static const FName NAME_FirstPerson = FName(TEXT("FirstPerson"));
+	static const FName NAME_Default = FName(TEXT("Default"));
 
-	AUTCharacter* UTCharacter = Cast<AUTCharacter>(GetViewTarget());
+	AActor* ViewTarget = GetViewTarget();
+	ACameraActor* CameraActor = Cast<ACameraActor>(ViewTarget);
+	if (CameraActor)
+	{
+		return NAME_Default;
+	}
+
+	AUTCharacter* UTCharacter = Cast<AUTCharacter>(ViewTarget);
 	if (UTCharacter == NULL)
 	{
-		return ((GetViewTarget() == PCOwner->GetPawn()) || (GetViewTarget() == PCOwner->GetSpectatorPawn())) ? NAME_FirstPerson : NAME_FreeCam;
+		return ((ViewTarget == PCOwner->GetPawn()) || (ViewTarget == PCOwner->GetSpectatorPawn())) ? NAME_FirstPerson : NAME_FreeCam;
 	}
 	else if (UTCharacter->IsDead() || UTCharacter->IsRagdoll() || UTCharacter->EmoteCount > 0)
 	{
@@ -108,7 +116,7 @@ void AUTPlayerCameraManager::UpdateCamera(float DeltaTime)
 float AUTPlayerCameraManager::RatePlayerCamera(AUTPlayerState* InPS, AUTCharacter *Character, APlayerState* CurrentCamPS)
 {
 	// 100 is about max
-	float Score = 0.f;
+	float Score = 1.f;
 	if (InPS == CurrentCamPS)
 	{
 		Score += CurrentCamBonus;

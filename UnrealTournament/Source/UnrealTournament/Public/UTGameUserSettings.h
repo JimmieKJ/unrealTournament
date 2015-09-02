@@ -42,7 +42,10 @@ public:
 
 	virtual int32 GetScreenPercentage();
 	virtual void SetScreenPercentage(int32 NewScreenPercentage);
-	
+
+	virtual bool IsBotSpeechEnabled();
+	virtual void SetBotSpeechEnabled(bool NewBotSpeechEnabled);
+
 	virtual bool IsHRTFEnabled();
 	virtual void SetHRTFEnabled(bool NewHRTFEnabled);
 
@@ -93,6 +96,9 @@ protected:
 	 */
 	UPROPERTY(config)
 	int32 InitialBenchmarkState;
+
+	UPROPERTY(config)
+		bool bBotSpeechEnabled;
 
 	UPROPERTY(config)
 	bool bHRTFEnabled;

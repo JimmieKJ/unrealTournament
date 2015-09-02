@@ -45,8 +45,6 @@ class UNREALTOURNAMENT_API UUTCTFScoreboard : public UUTTeamScoreboard
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Scoreboard")
 		USoundBase* ScoreUpdateSound;
 
-	virtual void SetScoringPlaysTimer(bool bEnableTimer) override;
-
 	virtual void DrawPlayerStats(AUTPlayerState* PS, float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom, const FStatsFontInfo& StatsFontInfo) override;
 
 protected:

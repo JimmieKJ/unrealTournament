@@ -68,6 +68,7 @@ AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 	FirstPersonMesh->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered;
 	FirstPersonMesh->bCastDynamicShadow = false;
 	FirstPersonMesh->CastShadow = false;
+	FirstPersonMesh->bReceivesDecals = false;
 
 	GetMesh()->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered;
 	GetMesh()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
@@ -120,6 +121,7 @@ AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 	bApplyWallSlide = false;
 	FeignNudgeMag = 100000.f;
 	bCanPickupItems = true;
+	RagdollGravityScale = 1.0f;
 
 	MinPainSoundInterval = 0.35f;
 	LastPainSoundTime = -100.0f;
@@ -504,9 +506,14 @@ static TAutoConsoleVariable<int32> CVarDebugHeadshots(
 FVector AUTCharacter::GetHeadLocation(float PredictionTime)
 {
 	// force mesh update if necessary
-	if (!GetMesh()->ShouldTickPose())
+	if (GetMesh()->IsRegistered() && GetMesh()->MeshComponentUpdateFlag > EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones && !GetMesh()->bRecentlyRendered)
 	{
-		GetMesh()->TickAnimation(0.0f);
+		if (GetMesh()->MeshComponentUpdateFlag > EMeshComponentUpdateFlag::AlwaysTickPose)
+		{
+			GetMesh()->TickAnimation(FMath::Min<float>(GetWorld()->TimeSeconds - GetMesh()->LastRenderTime, 1.0f)); // important to have significant time here so any transitions complete
+		}
+		GetMesh()->AnimUpdateRateParams->bSkipEvaluation = false;
+		GetMesh()->AnimUpdateRateParams->bInterpolateSkippedFrames = false;
 		GetMesh()->RefreshBoneTransforms();
 		GetMesh()->UpdateComponentToWorld();
 	}
@@ -1337,6 +1344,9 @@ void AUTCharacter::StartRagdoll()
 
 	GetCharacterMovement()->StopActiveMovement();
 	GetCharacterMovement()->Velocity = FVector::ZeroVector;
+
+	// set up the custom physics override, if necessary
+	SetRagdollGravityScale(RagdollGravityScale);
 }
 
 void AUTCharacter::StopRagdoll()
@@ -1427,6 +1437,18 @@ void AUTCharacter::StopRagdoll()
 	GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 }
 
+void AUTCharacter::SetRagdollGravityScale(float NewScale)
+{
+	for (FBodyInstance* Body : GetMesh()->Bodies)
+	{
+		if (Body != NULL)
+		{
+			Body->SetEnableGravity(NewScale != 0.0f);
+		}
+	}
+	RagdollGravityScale = NewScale;
+}
+
 FVector AUTCharacter::GetLocationCenterOffset() const
 {
 	return (!IsRagdoll() || RootComponent != GetMesh()) ? FVector::ZeroVector : (GetMesh()->Bounds.Origin - GetMesh()->GetComponentLocation());
@@ -1443,8 +1465,10 @@ void AUTCharacter::PlayDying()
 	LastDeathDecalTime = GetWorld()->TimeSeconds;
 
 	// Set the hair back to normal because hats are being removed
-	GetMesh()->SetMorphTarget(FName(TEXT("HatHair")), 0.0f);
-
+	if (GetMesh())
+	{
+		GetMesh()->SetMorphTarget(FName(TEXT("HatHair")), 0.0f);
+	}
 	if (Hat && Hat->GetAttachParentActor())
 	{
 		Hat->DetachRootComponentFromParent(true);
@@ -2332,17 +2356,20 @@ bool AUTCharacter::IsInInventory(const AUTInventory* TestInv) const
 
 void AUTCharacter::TossInventory(AUTInventory* InvToToss, FVector ExtraVelocity)
 {
-	if (InvToToss == NULL)
+	if (Role == ROLE_Authority)
 	{
-		UE_LOG(UT, Warning, TEXT("TossInventory(): InvToToss == NULL"));
-	}
-	else if (!IsInInventory(InvToToss))
-	{
-		UE_LOG(UT, Warning, TEXT("Attempt to remove %s which is not in %s's inventory!"), *InvToToss->GetName(), *GetName());
-	}
-	else
-	{
-		InvToToss->DropFrom(GetActorLocation() + GetActorRotation().Vector() * GetSimpleCollisionCylinderExtent().X, GetVelocity() + GetActorRotation().RotateVector(ExtraVelocity + FVector(300.0f, 0.0f, 150.0f)));
+		if (InvToToss == NULL)
+		{
+			UE_LOG(UT, Warning, TEXT("TossInventory(): InvToToss == NULL"));
+		}
+		else if (!IsInInventory(InvToToss))
+		{
+			UE_LOG(UT, Warning, TEXT("Attempt to remove %s which is not in %s's inventory!"), *InvToToss->GetName(), *GetName());
+		}
+		else
+		{
+			InvToToss->DropFrom(GetActorLocation() + GetActorRotation().Vector() * GetSimpleCollisionCylinderExtent().X, GetVelocity() + GetActorRotation().RotateVector(ExtraVelocity + FVector(300.0f, 0.0f, 150.0f)));
+		}
 	}
 }
 
@@ -3189,64 +3216,13 @@ void AUTCharacter::SetWeaponAttachmentClass(TSubclassOf<AUTWeaponAttachment> New
 
 void AUTCharacter::UpdateCharOverlays()
 {
-	if (CharOverlayFlags == 0)
-	{
-		if (OverlayMesh != NULL && OverlayMesh->IsRegistered())
-		{
-			OverlayMesh->DetachFromParent();
-			OverlayMesh->UnregisterComponent();
-		}
-	}
-	else
-	{
-		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-		if (GS != NULL)
-		{
-			if (OverlayMesh == NULL)
-			{
-				OverlayMesh = DuplicateObject<USkeletalMeshComponent>(GetMesh(), this);
-				OverlayMesh->AttachParent = NULL; // this gets copied but we don't want it to be
-				{
-					// TODO: scary that these get copied, need an engine solution and/or safe way to duplicate objects during gameplay
-					OverlayMesh->PrimaryComponentTick = OverlayMesh->GetClass()->GetDefaultObject<USkeletalMeshComponent>()->PrimaryComponentTick;
-					OverlayMesh->PostPhysicsComponentTick = OverlayMesh->GetClass()->GetDefaultObject<USkeletalMeshComponent>()->PostPhysicsComponentTick;
-				}
-				OverlayMesh->SetMasterPoseComponent(GetMesh());
-			}
-			if (!OverlayMesh->IsRegistered())
-			{
-				OverlayMesh->RegisterComponent();
-				OverlayMesh->AttachTo(GetMesh(), NAME_None, EAttachLocation::SnapToTarget);
-				OverlayMesh->SetRelativeScale3D(FVector(1.0f, 1.0f, 1.0f));
-				OverlayMesh->SetRenderCustomDepth(true);
-			}
-			UMaterialInterface* FirstOverlay = GS->GetFirstOverlay(CharOverlayFlags, false);
-			// note: MID doesn't have any safe way to change Parent at runtime, so we need to make a new one every time...
-			UMaterialInstanceDynamic* MID = UMaterialInstanceDynamic::Create(FirstOverlay, OverlayMesh);
-			// apply team color, if applicable
-			AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
-			if (PS != NULL && PS->Team != NULL)
-			{
-				static FName NAME_TeamColor(TEXT("TeamColor"));
-				MID->SetVectorParameterValue(NAME_TeamColor, PS->Team->TeamColor);
-			}
-			for (int32 i = 0; i < OverlayMesh->GetNumMaterials(); i++)
-			{
-				OverlayMesh->SetMaterial(i, MID);
-			}
-		}
-	}
-}
-
-void AUTCharacter::UpdateTacComMesh(bool bTacComEnabled)
-{
+	// tac-com handling, server might overwrite our overlay flags
 	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 	if (GS != NULL)
 	{
 		int32 Index = GS->FindOverlayMaterial(TacComOverlayMaterial);
 		if (Index != INDEX_NONE)
 		{
-			uint16 OldOverlayFlags = CharOverlayFlags;
 			if (bTacComEnabled)
 			{
 				CharOverlayFlags |= (1 << Index);
@@ -3255,16 +3231,64 @@ void AUTCharacter::UpdateTacComMesh(bool bTacComEnabled)
 			{
 				CharOverlayFlags &= ~(1 << Index);
 			}
-			if (CharOverlayFlags != OldOverlayFlags)
-			{
-				UpdateCharOverlays();
-			}
 		}
 	}
+	if (CharOverlayFlags == 0)
+	{
+		if (OverlayMesh != NULL && OverlayMesh->IsRegistered())
+		{
+			OverlayMesh->DetachFromParent();
+			OverlayMesh->UnregisterComponent();
+		}
+	}
+	else if (GS != NULL)
+	{
+		if (OverlayMesh == NULL)
+		{
+			OverlayMesh = DuplicateObject<USkeletalMeshComponent>(GetMesh(), this);
+			OverlayMesh->AttachParent = NULL; // this gets copied but we don't want it to be
+			{
+				// TODO: scary that these get copied, need an engine solution and/or safe way to duplicate objects during gameplay
+				OverlayMesh->PrimaryComponentTick = OverlayMesh->GetClass()->GetDefaultObject<USkeletalMeshComponent>()->PrimaryComponentTick;
+				OverlayMesh->PostPhysicsComponentTick = OverlayMesh->GetClass()->GetDefaultObject<USkeletalMeshComponent>()->PostPhysicsComponentTick;
+			}
+			OverlayMesh->SetMasterPoseComponent(GetMesh());
+		}
+		if (!OverlayMesh->IsRegistered())
+		{
+			OverlayMesh->RegisterComponent();
+			OverlayMesh->AttachTo(GetMesh(), NAME_None, EAttachLocation::SnapToTarget);
+			OverlayMesh->SetRelativeScale3D(FVector(1.0f, 1.0f, 1.0f));
+			OverlayMesh->SetRenderCustomDepth(true);
+		}
+		UMaterialInterface* FirstOverlay = GS->GetFirstOverlay(CharOverlayFlags, false);
+		// note: MID doesn't have any safe way to change Parent at runtime, so we need to make a new one every time...
+		UMaterialInstanceDynamic* MID = UMaterialInstanceDynamic::Create(FirstOverlay, OverlayMesh);
+		// apply team color, if applicable
+		AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
+		if (PS != NULL && PS->Team != NULL)
+		{
+			static FName NAME_TeamColor(TEXT("TeamColor"));
+			MID->SetVectorParameterValue(NAME_TeamColor, PS->Team->TeamColor);
+		}
+		for (int32 i = 0; i < OverlayMesh->GetNumMaterials(); i++)
+		{
+			OverlayMesh->SetMaterial(i, MID);
+		}
+	}
+}
+
+void AUTCharacter::UpdateTacComMesh(bool bNewTacComEnabled)
+{
+	bTacComEnabled = bNewTacComEnabled;
 
 	GetMesh()->MeshComponentUpdateFlag = bTacComEnabled ? EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones : EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered;
 	GetMesh()->SetRenderCustomDepth(bTacComEnabled);
 	GetMesh()->BoundsScale = bTacComEnabled ? 15000.f : 1.f;
+	GetMesh()->InvalidateCachedBounds();
+	GetMesh()->UpdateBounds();
+
+	UpdateCharOverlays();
 }
 
 UMaterialInstanceDynamic* AUTCharacter::GetCharOverlayMI()
@@ -3678,6 +3702,15 @@ void AUTCharacter::Tick(float DeltaTime)
 	}
 	else
 	{
+		if (IsRagdoll() && !bInRagdollRecovery && RagdollGravityScale != 0.0f && RagdollGravityScale != 1.0f)
+		{
+			// apply force to add or remove from the standard gravity force (that we can't modify on an individual object)
+			for (FBodyInstance* Body : GetMesh()->Bodies)
+			{
+				Body->AddForce(FVector(0.0f, 0.0f, GetWorld()->GetGravityZ() * -(1.0f - RagdollGravityScale)), true, true);
+			}
+		}
+
 		LastBreathTime = GetWorld()->GetTimeSeconds();
 	}
 	/*
@@ -3913,12 +3946,6 @@ void AUTCharacter::ApplyCharacterData(TSubclassOf<AUTCharacterContent> CharType)
 		}
 		UpdateSkin();
 	}
-
-	if (Data->CharacterVoice && PS != NULL)
-	{
-		PS->CharacterVoice = Data->CharacterVoice;
-	}
-
 }
 
 void AUTCharacter::NotifyTeamChanged()

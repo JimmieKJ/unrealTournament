@@ -158,12 +158,16 @@ FString AUTLobbyGameMode::InitNewPlayer(class APlayerController* NewPlayerContro
 			PS->DesiredQuickStartGameMode = (QuickStartOption.ToLower() == TEXT("CTF")) ? FQuickMatchTypeRulesetTag::CTF : FQuickMatchTypeRulesetTag::DM;
 		}
 
+/*
+		This is older legacy code.  Friends now join directly to the hub.  I'm leaving this there though in case we want to
+		do something similar in the future.
+
 		FString FriendID = ParseOption(Options, TEXT("Friend"));
 		if (FriendID != TEXT(""))
 		{
-			PS->DesiredFriendToJoin = FriendID;
+			//PS->DesiredFriendToJoin = FriendID;
 		}
-
+*/
 		FString MatchId = ParseOption(Options, TEXT("MatchId"));
 		if (!MatchId.IsEmpty())
 		{

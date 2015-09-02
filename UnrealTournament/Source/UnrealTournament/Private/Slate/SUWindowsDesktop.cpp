@@ -29,7 +29,7 @@ void SUWindowsDesktop::CreateDesktop()
 }
 
 
-void SUWindowsDesktop::OnMenuOpened()
+void SUWindowsDesktop::OnMenuOpened(const FString& Parameters)
 {
 	GameViewportWidget = FSlateApplication::Get().GetKeyboardFocusedWidget();
 	FSlateApplication::Get().SetKeyboardFocus(SharedThis(this), EKeyboardFocusCause::Keyboard);

@@ -35,6 +35,7 @@
 #include "UTGhostComponent.h"
 #include "UTGameEngine.h"
 #include "UTFlagInfo.h"
+#include "UTProfileItem.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogUTPlayerController, Log, All);
 
@@ -84,6 +85,7 @@ AUTPlayerController::AUTPlayerController(const class FObjectInitializer& ObjectI
 	bUseClassicGroups = true;
 
 	CastingGuideViewIndex = INDEX_NONE;
+	bRequestingSlideOut = true;
 
 	DilationIndex = 2;
 
@@ -1848,7 +1850,7 @@ bool AUTPlayerController::ServerRestartPlayerAltFire_Validate()
 	return true;
 }
 
-void AUTPlayerController::SwitchTeam()
+void AUTPlayerController::ServerSwitchTeam_Implementation()
 {
 	if (UTPlayerState && UTPlayerState->Team && (UTPlayerState->Team->TeamIndex < 2))
 	{
@@ -1880,11 +1882,6 @@ bool AUTPlayerController::ServerSwitchTeam_Validate()
 	return true;
 }
 
-void AUTPlayerController::ServerSwitchTeam_Implementation()
-{
-	SwitchTeam();
-}
-
 void AUTPlayerController::ServerRestartPlayerAltFire_Implementation()
 {
 	if (UTPlayerState != nullptr)
@@ -1895,7 +1892,7 @@ void AUTPlayerController::ServerRestartPlayerAltFire_Implementation()
 
 	if (!GetWorld()->GetAuthGameMode()->HasMatchStarted())
 	{
-		SwitchTeam();
+		ServerSwitchTeam();
 	}
 	else 
 	{
@@ -2076,52 +2073,27 @@ void AUTPlayerController::ShowEndGameScoreboard()
 
 void AUTPlayerController::ClientReceiveXP_Implementation(FXPBreakdown GainedXP)
 {
-#if !UE_BUILD_SHIPPING
-	if (!FEngineBuildSettings::IsInternalBuild())
-	{
-		return;
-	}
 	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
-	if (LP != NULL && (LP->IsOnTrustedServer() || LP->GetProfileSettings() != NULL))
+	if (LP != NULL && LP->IsOnTrustedServer() && LP->IsLoggedIn())
 	{
-		// FIXME: temp until there is UI
-		FClientReceiveData ClientData;
-		ClientData.LocalPC = this;
-		ClientData.MessageIndex = 0;
-
-		int32 PrevLevel = 0;
-		int32 NewLevel = 0;
-		if (LP->IsOnTrustedServer())
-		{
-			ClientData.MessageString = FString::Printf(TEXT("YOU GOT %i ONLINE XP FOR THIS MATCH"), GainedXP.Total());
-			PrevLevel = GetLevelForXP(LP->GetOnlineXP());
-			LP->AddOnlineXP(GainedXP.Total());
-			NewLevel = GetLevelForXP(LP->GetOnlineXP());
-		}
-		else
-		{
-			ClientData.MessageString = FString::Printf(TEXT("YOU GOT %i OFFLINE XP FOR THIS MATCH"), GainedXP.Total());
-			PrevLevel = GetLevelForXP(LP->GetProfileSettings()->LocalXP);
-			LP->GetProfileSettings()->LocalXP += GainedXP.Total();
-			NewLevel = GetLevelForXP(LP->GetProfileSettings()->LocalXP);
-		}
-
-		UUTChatMessage::StaticClass()->GetDefaultObject<UUTChatMessage>()->ClientReceiveChat(ClientData, ChatDestinations::System);
-		if (PrevLevel < NewLevel)
-		{
-			ClientData.MessageString = FString::Printf(TEXT("YOU ARE NOW LEVEL %i!"), NewLevel);
-			UUTChatMessage::StaticClass()->GetDefaultObject<UUTChatMessage>()->ClientReceiveChat(ClientData, ChatDestinations::System);
-		}
-
+		LP->AddOnlineXP(GainedXP.Total());
 		LP->SaveProfileSettings();
+
+		//Store the XPBreakdown for the SUTXPBar
+		XPBreakdown = GainedXP;
 	}
-#endif
 }
 
-void AUTPlayerController::ShowMenu()
+void AUTPlayerController::ClientReceiveLevelReward_Implementation(int32 Level, const UUTProfileItem* RewardItem)
+{
+	//Store the reward. The SUTXPBar will display the toast when it triggers a level up
+	LevelRewards.Add(Level, RewardItem);
+}
+
+void AUTPlayerController::ShowMenu(const FString& Parameters)
 {
 	ToggleScoreboard(false);
-	Super::ShowMenu();
+	Super::ShowMenu(Parameters);
 	OnStopFire();
 	OnStopAltFire();
 }
@@ -2637,11 +2609,11 @@ void AUTPlayerController::ChooseBestCamera()
 	{
 		for (FConstPawnIterator Iterator = GetWorld()->GetPawnIterator(); Iterator; ++Iterator)
 		{
-			AUTCharacter* Pawn = Cast<AUTCharacter>(*Iterator);
-			AUTPlayerState* NextPlayerState = (Pawn && (Pawn->Health > 0)) ? Cast<AUTPlayerState>(Pawn->PlayerState) : NULL;
+			AUTCharacter* CamPawn = Cast<AUTCharacter>(*Iterator);
+			AUTPlayerState* NextPlayerState = (CamPawn && (CamPawn->Health > 0)) ? Cast<AUTPlayerState>(CamPawn->PlayerState) : NULL;
 			if (NextPlayerState)
 			{
-				float NewScore = UTCam->RatePlayerCamera(NextPlayerState, Pawn, LastSpectatedPlayerState);
+				float NewScore = UTCam->RatePlayerCamera(NextPlayerState, CamPawn, LastSpectatedPlayerState);
 				if (NewScore > BestScore)
 				{
 					BestScore = NewScore;
@@ -2841,6 +2813,11 @@ void AUTPlayerController::ReceivedPlayer()
 			UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
 			if (UTEngine != nullptr)
 			{
+				if (CountryFlag == NAME_None)
+				{
+					// see if I am entitled to Epic flag, if so use it as default
+					CountryFlag = NAME_Epic;
+				}
 				UUTFlagInfo* Flag = UTEngine->GetFlag(CountryFlag);
 				if (Flag == nullptr || !Flag->IsEntitled(LP->CommunityRole))
 				{
@@ -3072,10 +3049,16 @@ void AUTPlayerController::ServerRconNextMap_Implementation(const FString& NextMa
 
 void AUTPlayerController::BeginInactiveState()
 {
-	Super::BeginInactiveState();
+	if ((GetPawn() != NULL) && (GetPawn()->Controller == this))
+	{
+		GetPawn()->Controller = NULL;
+	}
+	SetPawn(NULL);
 
-	AGameState const* const GameState = GetWorld()->GameState;
+	AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
 
+	float const MinRespawnDelay = GameState ? GameState->RespawnWaitTime : 1.0f;
+	GetWorldTimerManager().SetTimer(TimerHandle_UnFreeze, this, &APlayerController::UnFreeze, MinRespawnDelay);
 	GetWorldTimerManager().SetTimer(SpectateKillerHandle, this, &AUTPlayerController::SpectateKiller, KillerSpectateDelay);
 }
 
@@ -3348,11 +3331,7 @@ void AUTPlayerController::ResolveKeybind(FString Command, TArray<FString>& Keys,
 
 void AUTPlayerController::DebugTest(FString TestCommand)
 {
-	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
-	if (LP != NULL)
-	{
-		LP->OpenLoadout(TestCommand.Equals(TEXT("buy"),ESearchCase::IgnoreCase));
-	}
+	Cast<UUTLocalPlayer>(Player)->ChallengeCompleted(FName(TEXT("InitialDeathmatchChallenge")),3);
 }
 
 void AUTPlayerController::ClientRequireContentItemListComplete_Implementation()

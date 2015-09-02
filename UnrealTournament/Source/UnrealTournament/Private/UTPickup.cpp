@@ -30,6 +30,7 @@ AUTPickup::AUTPickup(const FObjectInitializer& ObjectInitializer)
 	Collision->SetCollisionProfileName(FName(TEXT("Pickup")));
 	Collision->InitCapsuleSize(64.0f, 75.0f);
 	Collision->bShouldUpdatePhysicsVolume = false;
+	Collision->Mobility = EComponentMobility::Static;
 	RootComponent = Collision;
 
 	TimerEffect = ObjectInitializer.CreateDefaultSubobject<UParticleSystemComponent>(this, TEXT("TimerEffect"));
@@ -39,6 +40,7 @@ AUTPickup::AUTPickup(const FObjectInitializer& ObjectInitializer)
 		TimerEffect->AttachParent = RootComponent;
 		TimerEffect->LDMaxDrawDistance = 1024.0f;
 		TimerEffect->RelativeLocation.Z = 40.0f;
+		TimerEffect->Mobility = EComponentMobility::Static;
 	}
 	BaseEffect = ObjectInitializer.CreateOptionalDefaultSubobject<UParticleSystemComponent>(this, TEXT("BaseEffect"));
 	if (BaseEffect != NULL)
@@ -46,6 +48,7 @@ AUTPickup::AUTPickup(const FObjectInitializer& ObjectInitializer)
 		BaseEffect->AttachParent = RootComponent;
 		BaseEffect->LDMaxDrawDistance = 2048.0f;
 		BaseEffect->RelativeLocation.Z = -58.0f;
+		BaseEffect->Mobility = EComponentMobility::Static;
 	}
 	TakenEffectTransform.SetScale3D(FVector(1.0f, 1.0f, 1.0f));
 	RespawnEffectTransform.SetScale3D(FVector(1.0f, 1.0f, 1.0f));
@@ -125,7 +128,8 @@ void AUTPickup::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherCom
 bool AUTPickup::AllowPickupBy_Implementation(APawn* Other, bool bDefaultAllowPickup)
 {
 	AUTCharacter* UTC = Cast<AUTCharacter>(Other);
-	bool bAllowPickup = bDefaultAllowPickup && (UTC == NULL || UTC->bCanPickupItems);
+	bDefaultAllowPickup = bDefaultAllowPickup && (UTC == NULL || UTC->bCanPickupItems);
+	bool bAllowPickup = bDefaultAllowPickup;
 	AUTGameMode* UTGameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
 	return (UTGameMode == NULL || !UTGameMode->OverridePickupQuery(Other, NULL, this, bAllowPickup)) ? bDefaultAllowPickup : bAllowPickup;
 }

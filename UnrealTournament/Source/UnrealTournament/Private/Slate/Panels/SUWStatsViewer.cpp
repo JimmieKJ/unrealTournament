@@ -215,6 +215,7 @@ void SUWStatsViewer::OwnerLoginStatusChanged(UUTLocalPlayer* LocalPlayerOwner, E
 {
 	if (NewStatus == ELoginStatus::LoggedIn)
 	{
+		StatsID.Empty();
 		DownloadStats();
 	}
 }

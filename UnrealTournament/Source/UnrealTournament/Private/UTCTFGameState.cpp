@@ -41,7 +41,7 @@ AUTCTFGameState::AUTCTFGameState(const FObjectInitializer& ObjectInitializer)
 	HighlightMap.Add(HighlightNames::TopFlagCapturesRed, NSLOCTEXT("AUTGameMode", "TopFlagCapturesRed", "Most Flag Caps for Red with <UT.MatchSummary.HighlightText.Value>{0}</>."));
 	HighlightMap.Add(HighlightNames::TopFlagCapturesBlue, NSLOCTEXT("AUTGameMode", "TopFlagCapturesBlue", "Most Flag Caps for Blue with <UT.MatchSummary.HighlightText.Value>{0}</>."));
 	HighlightMap.Add(HighlightNames::TopAssistsRed, NSLOCTEXT("AUTGameMode", "TopAssistsRed", "Most Assists for Red with <UT.MatchSummary.HighlightText.Value>{0}</>."));
-	HighlightMap.Add(HighlightNames::TopAssistsRed, NSLOCTEXT("AUTGameMode", "TopAssistsRed", "Most Assists for Blue with <UT.MatchSummary.HighlightText.Value>{0}</>."));
+	HighlightMap.Add(HighlightNames::TopAssistsBlue , NSLOCTEXT("AUTGameMode", "TopAssistsBlue", "Most Assists for Blue with <UT.MatchSummary.HighlightText.Value>{0}</>."));
 	HighlightMap.Add(HighlightNames::TopFlagReturnsRed, NSLOCTEXT("AUTGameMode", "TopFlagReturnsRed", "Most Flag Returns for Red with <UT.MatchSummary.HighlightText.Value>{0}</>."));
 	HighlightMap.Add(HighlightNames::TopFlagReturnsBlue, NSLOCTEXT("AUTGameMode", "TopFlagReturnsBlue", "Most Flag Returns for Blue with <UT.MatchSummary.HighlightText.Value>{0}</>."));
 
@@ -51,6 +51,19 @@ AUTCTFGameState::AUTCTFGameState(const FObjectInitializer& ObjectInitializer)
 	HighlightMap.Add(HighlightNames::FlagCaptures, NSLOCTEXT("AUTGameMode", "FlagCaptures", "Captured Flag (<UT.MatchSummary.HighlightText.Value>{0}</>)."));
 	HighlightMap.Add(HighlightNames::Assists, NSLOCTEXT("AUTGameMode", "Assists", "Assisted Flag Capture (<UT.MatchSummary.HighlightText.Value>{0}</>)."));
 	HighlightMap.Add(HighlightNames::FlagReturns, NSLOCTEXT("AUTGameMode", "FlagReturns", "Returned Flag (<UT.MatchSummary.HighlightText.Value>{0}</>)."));
+
+	HighlightPriority.Add(HighlightNames::TopFlagCapturesRed, 4.5f);
+	HighlightPriority.Add(HighlightNames::TopFlagCapturesBlue, 4.5f);
+	HighlightPriority.Add(HighlightNames::TopAssistsRed, 3.5f);
+	HighlightPriority.Add(HighlightNames::TopAssistsRed, 3.5f);
+	HighlightPriority.Add(HighlightNames::TopFlagReturnsRed, 3.3f);
+	HighlightPriority.Add(HighlightNames::TopFlagReturnsBlue, 3.3f);
+	HighlightPriority.Add(NAME_FCKills, 3.5f);
+	HighlightPriority.Add(NAME_FlagGrabs, 1.5f);
+	HighlightPriority.Add(NAME_FlagSupportKills, 2.5f);
+	HighlightPriority.Add(HighlightNames::FlagCaptures, 3.5f);
+	HighlightPriority.Add(HighlightNames::Assists, 3.f);
+	HighlightPriority.Add(HighlightNames::FlagReturns, 1.9f);
 }
 
 void AUTCTFGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
@@ -455,7 +468,7 @@ void AUTCTFGameState::UpdateHighlights_Implementation()
 void AUTCTFGameState::AddMinorHighlights_Implementation(AUTPlayerState* PS)
 {
 	// skip if already filled with major highlights
-	if (PS->MatchHighlights[4] != NAME_None)
+	if (PS->MatchHighlights[3] != NAME_None)
 	{
 		return;
 	}
@@ -463,15 +476,21 @@ void AUTCTFGameState::AddMinorHighlights_Implementation(AUTPlayerState* PS)
 	if (PS->GetStatsValue(NAME_FCKills) > 0)
 	{
 		PS->AddMatchHighlight(NAME_FCKills, PS->GetStatsValue(NAME_FCKills));
-		if (PS->MatchHighlights[4] != NAME_None)
+		if (PS->MatchHighlights[3] != NAME_None)
 		{
 			return;
 		}
 	}
+	Super::AddMinorHighlights_Implementation(PS);
+	if (PS->MatchHighlights[3] != NAME_None)
+	{
+		return;
+	}
+
 	if (PS->GetStatsValue(NAME_FlagGrabs) > 0)
 	{
 		PS->AddMatchHighlight(NAME_FlagGrabs, PS->GetStatsValue(NAME_FlagGrabs));
-		if (PS->MatchHighlights[4] != NAME_None)
+		if (PS->MatchHighlights[3] != NAME_None)
 		{
 			return;
 		}
@@ -479,10 +498,9 @@ void AUTCTFGameState::AddMinorHighlights_Implementation(AUTPlayerState* PS)
 	if (PS->GetStatsValue(NAME_FlagSupportKills) > 0)
 	{
 		PS->AddMatchHighlight(NAME_FlagSupportKills, PS->GetStatsValue(NAME_FlagSupportKills));
-		if (PS->MatchHighlights[4] != NAME_None)
+		if (PS->MatchHighlights[3] != NAME_None)
 		{
 			return;
 		}
 	}
-	Super::AddMinorHighlights_Implementation(PS);
 }

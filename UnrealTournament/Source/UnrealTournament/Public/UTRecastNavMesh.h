@@ -298,6 +298,9 @@ class UNREALTOURNAMENT_API AUTRecastNavMesh : public ARecastNavMesh
 	 */
 	float GetPolyZAtLoc(NavNodeRef PolyID, const FVector2D& Loc2D) const;
 
+	/** return 2D surface area of polygon */
+	float GetPolySurfaceArea2D(NavNodeRef PolyID) const;
+
 	/** return size for standard human traversable paths (used by special paths to set the appropriate size) */
 	virtual FCapsuleSize GetHumanPathSize() const;
 	inline FCapsuleSize GetMaxPathSize() const

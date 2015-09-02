@@ -29,6 +29,7 @@ AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 	bCasterControl = false;
 	bForcedBalance = false;
 	KickThreshold=51.0f;
+	TauntSelectionIndex = 0;
 
 	ServerName = TEXT("My First Server");
 	ServerMOTD = TEXT("Welcome!");
@@ -169,6 +170,7 @@ AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 	HighlightMap.Add(HighlightNames::BestCombo, NSLOCTEXT("AUTGameMode", "BestCombo", "Most Impressive Shock Combo."));
 	HighlightMap.Add(HighlightNames::MostHeadShots, NSLOCTEXT("AUTGameMode", "MostHeadShots", "Most Headshots (<UT.MatchSummary.HighlightText.Value>{0}</>)."));
 	HighlightMap.Add(HighlightNames::MostAirRockets, NSLOCTEXT("AUTGameMode", "MostAirRockets", "Most Air Rockets (<UT.MatchSummary.HighlightText.Value>{0}</>)."));
+	HighlightMap.Add(HighlightNames::ParticipationAward, NSLOCTEXT("AUTGameMode", "ParticipationAward", "Participation Award."));
 
 	HighlightMap.Add(NAME_AmazingCombos, NSLOCTEXT("AUTGameMode", "AmazingCombos", "Amazing Combos (<UT.MatchSummary.HighlightText.Value>{0}</>)."));
 	HighlightMap.Add(NAME_SniperHeadshotKills, NSLOCTEXT("AUTGameMode", "SniperHeadshotKills", "Headshot Kills (<UT.MatchSummary.HighlightText.Value>{0}</>)."));
@@ -184,6 +186,33 @@ AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 	HighlightMap.Add(NAME_SpreeKillLevel2, NSLOCTEXT("AUTGameMode", "SpreeKillLevel2", "Dominating Spree (<UT.MatchSummary.HighlightText.Value>{0}</>)."));
 	HighlightMap.Add(NAME_SpreeKillLevel3, NSLOCTEXT("AUTGameMode", "SpreeKillLevel3", "Unstoppable Spree (<UT.MatchSummary.HighlightText.Value>{0}</>)."));
 	HighlightMap.Add(NAME_SpreeKillLevel4, NSLOCTEXT("AUTGameMode", "SpreeKillLevel4", "Godlike Spree (<UT.MatchSummary.HighlightText.Value>{0}</>)."));
+
+	HighlightPriority.Add(HighlightNames::TopScorer, 10.f);
+	HighlightPriority.Add(HighlightNames::TopScorerRed, 5.f);
+	HighlightPriority.Add(HighlightNames::TopScorerBlue, 5.f);
+	HighlightPriority.Add(HighlightNames::MostKills, 3.3f);
+	HighlightPriority.Add(HighlightNames::LeastDeaths, 1.f);
+	HighlightPriority.Add(HighlightNames::BestKD, 2.f);
+	HighlightPriority.Add(HighlightNames::MostWeaponKills, 2.f);
+	HighlightPriority.Add(HighlightNames::BestCombo, 2.f);
+	HighlightPriority.Add(HighlightNames::MostHeadShots, 2.f);
+	HighlightPriority.Add(HighlightNames::MostAirRockets, 2.f);
+
+	HighlightPriority.Add(NAME_AmazingCombos, 1.f);
+	HighlightPriority.Add(NAME_SniperHeadshotKills, 1.f);
+	HighlightPriority.Add(NAME_AirRox, 1.f);
+	HighlightPriority.Add(NAME_FlakShreds, 1.f);
+	HighlightPriority.Add(NAME_AirSnot, 1.f);
+	HighlightPriority.Add(NAME_MultiKillLevel0, 0.5f);
+	HighlightPriority.Add(NAME_MultiKillLevel1, 0.5f);
+	HighlightPriority.Add(NAME_MultiKillLevel2, 1.5f);
+	HighlightPriority.Add(NAME_MultiKillLevel3, 2.5f);
+	HighlightPriority.Add(NAME_SpreeKillLevel0, 2.f);
+	HighlightPriority.Add(NAME_SpreeKillLevel1, 2.5f);
+	HighlightPriority.Add(NAME_SpreeKillLevel2, 3.f);
+	HighlightPriority.Add(NAME_SpreeKillLevel3, 3.5f);
+	HighlightPriority.Add(NAME_SpreeKillLevel4, 4.f);
+	HighlightPriority.Add(HighlightNames::ParticipationAward, 0.1f);
 }
 
 void AUTGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLifetimeProps) const
@@ -195,23 +224,17 @@ void AUTGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLif
 	DOREPLIFETIME(AUTGameState, WinningTeam);
 	DOREPLIFETIME(AUTGameState, bStopGameClock);
 	DOREPLIFETIME(AUTGameState, TimeLimit);  // @TODO FIXMESTEVE why not initial only
-	DOREPLIFETIME_CONDITION(AUTGameState, RespawnWaitTime, COND_InitialOnly);  
+	DOREPLIFETIME(AUTGameState, RespawnWaitTime);  
 	DOREPLIFETIME_CONDITION(AUTGameState, ForceRespawnTime, COND_InitialOnly);  
 	DOREPLIFETIME_CONDITION(AUTGameState, bTeamGame, COND_InitialOnly);  
 	DOREPLIFETIME_CONDITION(AUTGameState, bOnlyTheStrongSurvive, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTGameState, bViewKillerOnDeath, COND_InitialOnly);
 	DOREPLIFETIME(AUTGameState, TeamSwapSidesOffset);
 	DOREPLIFETIME_CONDITION(AUTGameState, bIsInstanceServer, COND_InitialOnly);
-	DOREPLIFETIME(AUTGameState, PlayersNeeded);  // FIXME only before match start
+	DOREPLIFETIME(AUTGameState, PlayersNeeded);  
 	DOREPLIFETIME(AUTGameState, AvailableLoadout);
 	DOREPLIFETIME(AUTGameState, HubGuid);
 
-	DOREPLIFETIME_CONDITION(AUTGameState, RespawnWaitTime, COND_InitialOnly);
-	DOREPLIFETIME_CONDITION(AUTGameState, ForceRespawnTime, COND_InitialOnly);
-	DOREPLIFETIME_CONDITION(AUTGameState, bTeamGame, COND_InitialOnly);
-	DOREPLIFETIME_CONDITION(AUTGameState, bOnlyTheStrongSurvive, COND_InitialOnly);
-	DOREPLIFETIME_CONDITION(AUTGameState, bViewKillerOnDeath, COND_InitialOnly);
-	DOREPLIFETIME_CONDITION(AUTGameState, bIsInstanceServer, COND_InitialOnly);  
 	DOREPLIFETIME_CONDITION(AUTGameState, bAllowTeamSwitches, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTGameState, bWeaponStay, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTGameState, GoalScore, COND_InitialOnly);
@@ -226,6 +249,7 @@ void AUTGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLif
 	DOREPLIFETIME_CONDITION(AUTGameState, ServerMOTD, COND_InitialOnly);
 
 	DOREPLIFETIME_CONDITION(AUTGameState, ServerSessionId, COND_InitialOnly);
+	DOREPLIFETIME(AUTGameState, NumWinnersToShow);
 
 	DOREPLIFETIME(AUTGameState, MapVoteList);
 	DOREPLIFETIME(AUTGameState, VoteTimer);
@@ -286,19 +310,6 @@ void AUTGameState::BeginPlay()
 	// HACK: temporary hack around config property replication bug; force to be different from defaults
 	ServerName += TEXT(" ");
 	ServerMOTD += TEXT(" ");
-
-	// HACK: temporary workaround for replicated world gravity getting clobbered on client
-	if (GetNetMode() == NM_Client)
-	{
-		if (GetWorld()->GetWorldSettings()->WorldGravityZ != 0.0f)
-		{
-			GetWorld()->GetWorldSettings()->bWorldGravitySet = true;
-		}
-		else
-		{
-			GetWorld()->GetWorldSettings()->GetGravityZ();
-		}
-	}
 
 	if (GetNetMode() == NM_Client)
 	{
@@ -1376,7 +1387,27 @@ void AUTGameState::UpdateHighlights_Implementation()
 		AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerArray[i]);
 		if (PS)
 		{
+			// only add low priority highlights if not enough high priority highlights
 			AddMinorHighlights(PS);
+
+			// remove fourth highlight if not major
+			if ((PS->MatchHighlights[4] != NAME_None) && (HighlightPriority.FindRef(PS->MatchHighlights[4]) < 2.f))
+			{
+				PS->MatchHighlights[4] = NAME_None;
+				PS->MatchHighlightData[4] = 0.f;
+			}
+
+			// remove fifth highlight if not major
+			if ((PS->MatchHighlights[4] != NAME_None) && (HighlightPriority.FindRef(PS->MatchHighlights[4]) < 3.f))
+			{
+				PS->MatchHighlights[4] = NAME_None;
+				PS->MatchHighlightData[4] = 0.f;
+			}
+
+			if (PS->MatchHighlights[0] == NAME_None)
+			{
+				PS->MatchHighlights[0] = HighlightNames::ParticipationAward;
+			}
 		}
 	}
 }
@@ -1384,7 +1415,7 @@ void AUTGameState::UpdateHighlights_Implementation()
 void AUTGameState::SetTopScorerHighlights(AUTPlayerState* TopScorerRed, AUTPlayerState* TopScorerBlue)
 {
 	AUTGameMode* Game = GetWorld()->GetAuthGameMode<AUTGameMode>();
-	if (Game && Game->NumPlayers < 3)
+	if (Game && (Game->NumPlayers + Game->NumBots) < 3)
 	{
 		// don't show top scorer highlight if 2 or fewer players
 		return;
@@ -1393,35 +1424,37 @@ void AUTGameState::SetTopScorerHighlights(AUTPlayerState* TopScorerRed, AUTPlaye
 	{
 		if (TopScorerRed != NULL)
 		{
-			TopScorerRed->AddMatchHighlight(HighlightNames::TopScorerRed, TopScorerRed->Score);
+			TopScorerRed->AddMatchHighlight(HighlightNames::TopScorer, int32(TopScorerRed->Score));
 		}
 	}
 	else if (TopScorerRed == NULL)
 	{
 		if (TopScorerBlue != NULL)
 		{
-			TopScorerBlue->AddMatchHighlight(HighlightNames::TopScorerBlue, TopScorerBlue->Score);
+			TopScorerBlue->AddMatchHighlight(HighlightNames::TopScorer, int32(TopScorerBlue->Score));
 		}
 	}
 	else if (TopScorerBlue->Score == TopScorerRed->Score)
 	{
-		TopScorerBlue->AddMatchHighlight(HighlightNames::TopScorerBlue, TopScorerBlue->Score);
-		TopScorerRed->AddMatchHighlight(HighlightNames::TopScorerRed, TopScorerRed->Score);
+		TopScorerBlue->AddMatchHighlight(HighlightNames::TopScorerBlue, int32(TopScorerBlue->Score));
+		TopScorerRed->AddMatchHighlight(HighlightNames::TopScorerRed, int32(TopScorerRed->Score));
 	}
 	else if (TopScorerBlue->Score > TopScorerRed->Score)
 	{
-		TopScorerBlue->AddMatchHighlight(HighlightNames::TopScorerBlue, TopScorerBlue->Score);
+		TopScorerBlue->AddMatchHighlight(HighlightNames::TopScorer, int32(TopScorerBlue->Score));
+		TopScorerRed->AddMatchHighlight(HighlightNames::TopScorerRed, int32(TopScorerRed->Score));
 	}
 	else
 	{
-		TopScorerRed->AddMatchHighlight(HighlightNames::TopScorerRed, TopScorerRed->Score);
+		TopScorerRed->AddMatchHighlight(HighlightNames::TopScorer, int32(TopScorerRed->Score));
+		TopScorerBlue->AddMatchHighlight(HighlightNames::TopScorerBlue, int32(TopScorerBlue->Score));
 	}
 }
 
 void AUTGameState::AddMinorHighlights_Implementation(AUTPlayerState* PS)
 {
 	// skip if already filled with major highlights
-	if (PS->MatchHighlights[4] != NAME_None)
+	if (PS->MatchHighlights[3] != NAME_None)
 	{
 		return;
 	}
@@ -1433,7 +1466,7 @@ void AUTGameState::AddMinorHighlights_Implementation(AUTPlayerState* PS)
 		if (PS->GetStatsValue(SpreeStatsNames[i]) > 0)
 		{
 			PS->AddMatchHighlight(SpreeStatsNames[i], PS->GetStatsValue(SpreeStatsNames[i]));
-			if (PS->MatchHighlights[4] != NAME_None)
+			if (PS->MatchHighlights[3] != NAME_None)
 			{
 				return;
 			}
@@ -1446,7 +1479,7 @@ void AUTGameState::AddMinorHighlights_Implementation(AUTPlayerState* PS)
 		if (PS->GetStatsValue(MultiKillsNames[i]) > 0)
 		{
 			PS->AddMatchHighlight(MultiKillsNames[i], PS->GetStatsValue(MultiKillsNames[i]));
-			if (PS->MatchHighlights[4] != NAME_None)
+			if (PS->MatchHighlights[3] != NAME_None)
 			{
 				return;
 			}
@@ -1472,7 +1505,7 @@ void AUTGameState::AddMinorHighlights_Implementation(AUTPlayerState* PS)
 		if (bIsBestOverall)
 		{
 			PS->AddMatchHighlight(HighlightNames::MostWeaponKills, WeaponKills);
-			if (PS->MatchHighlights[4] != NAME_None)
+			if (PS->MatchHighlights[3] != NAME_None)
 			{
 				return;
 			}
@@ -1486,7 +1519,7 @@ void AUTGameState::AddMinorHighlights_Implementation(AUTPlayerState* PS)
 		if (PS->GetStatsValue(AnnouncedKills[i]) > 0)
 		{
 			PS->AddMatchHighlight(AnnouncedKills[i], PS->GetStatsValue(AnnouncedKills[i]));
-			if (PS->MatchHighlights[4] != NAME_None)
+			if (PS->MatchHighlights[3] != NAME_None)
 			{
 				return;
 			}
@@ -1506,4 +1539,17 @@ TArray<FText> AUTGameState::GetPlayerHighlights_Implementation(AUTPlayerState* P
 		}
 	}
 	return Highlights;
+}
+
+float AUTGameState::MatchHighlightScore(AUTPlayerState* PS)
+{
+	float BestHighlightScore = 0.f;
+	for (int32 i = 0; i < 5; i++)
+	{
+		if (PS->MatchHighlights[i] != NAME_None)
+		{
+			BestHighlightScore = FMath::Max(BestHighlightScore, HighlightPriority.FindRef(PS->MatchHighlights[i]));
+		}
+	}
+	return BestHighlightScore;
 }

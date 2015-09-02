@@ -311,13 +311,13 @@ void UUTGameViewportClient::PeekNetworkFailureMessages(UWorld *World, UNetDriver
 			else if (ErrorString == TEXT("TOOWEAK"))
 			{
 				FirstPlayer->ShowMessage(NSLOCTEXT("UTGameViewportClient","PreLoginError","Login Error"), NSLOCTEXT("UTGameViewportClient","WEAKMSG","You are not skilled enough to play on this server!"), UTDIALOG_BUTTON_OK,FDialogResultDelegate::CreateUObject(this, &UUTGameViewportClient::NetworkFailureDialogResult));	
-				FirstPlayer->ShowMenu();
+				FirstPlayer->ShowMenu(TEXT(""));
 				return;
 			}
 			else if (ErrorString == TEXT("TOOSTRONG"))
 			{
 				FirstPlayer->ShowMessage(NSLOCTEXT("UTGameViewportClient","PreLoginError","Login Error"), NSLOCTEXT("UTGameViewportClient","STRONGMSG","Your skill is too high for this server!"), UTDIALOG_BUTTON_OK,FDialogResultDelegate::CreateUObject(this, &UUTGameViewportClient::NetworkFailureDialogResult));	
-				FirstPlayer->ShowMenu();
+				FirstPlayer->ShowMenu(TEXT(""));
 				return;
 			}
 			else if (ErrorString == TEXT("NOTLOGGEDIN"))
@@ -339,14 +339,14 @@ void UUTGameViewportClient::PeekNetworkFailureMessages(UWorld *World, UNetDriver
 			else if (ErrorString == TEXT("BANNED"))
 			{
 				FirstPlayer->ShowMessage(NSLOCTEXT("UTGameViewportClient", "BannedFromServerTitle", "IMPORTANT"), NSLOCTEXT("UTGameViewportClient", "BannedFromServerMsg", "You have been banned from this server!"), UTDIALOG_BUTTON_OK, FDialogResultDelegate::CreateUObject(this, &UUTGameViewportClient::NetworkFailureDialogResult));
-				FirstPlayer->ShowMenu();
+				FirstPlayer->ShowMenu(TEXT(""));
 				return;
 			}
 
 			// TODO: Explain to the engine team why you can't localize server error strings :(
 			else if (ErrorString == TEXT("Server full."))
 			{
-				FirstPlayer->ShowMenu();
+				FirstPlayer->ShowMenu(TEXT(""));
 				FirstPlayer->ShowMessage(NSLOCTEXT("UTGameViewportClient","PreLoginError","Unable to Join"), NSLOCTEXT("UTGameViewportClient","SERVERFULL","The game you are trying to join is full!"), UTDIALOG_BUTTON_OK,FDialogResultDelegate::CreateUObject(this, &UUTGameViewportClient::NetworkFailureDialogResult));	
 				return;
 			}
@@ -1008,4 +1008,22 @@ FDelegateHandle UUTGameViewportClient::RegisterContentDownloadCompleteDelegate(c
 void UUTGameViewportClient::RemoveContentDownloadCompleteDelegate(FDelegateHandle DelegateHandle)
 {
 	ContentDownloadComplete.Remove(DelegateHandle);
+}
+
+bool UUTGameViewportClient::HideCursorDuringCapture()
+{
+	// workaround for Slate bug where toggling the pointer visibility on/off in the PlayerController while this is enabled can cause the pointer to get locked hidden
+	if (!Super::HideCursorDuringCapture())
+	{
+		return false;
+	}
+	else if (GameInstance == NULL)
+	{
+		return true;
+	}
+	else
+	{
+		const TArray<ULocalPlayer*> GamePlayers = GameInstance->GetLocalPlayers();
+		return (GamePlayers.Num() == 0 || GamePlayers[0] == NULL || GamePlayers[0]->PlayerController == NULL || !GamePlayers[0]->PlayerController->ShouldShowMouseCursor());
+	}
 }

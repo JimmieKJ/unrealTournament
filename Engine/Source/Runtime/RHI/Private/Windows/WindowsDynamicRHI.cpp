@@ -2,6 +2,7 @@
 
 #include "RHI.h"
 #include "ModuleManager.h"
+#include "EngineBuildSettings.h"
 
 #if USE_DYNAMIC_RHI
 
@@ -45,7 +46,10 @@ FDynamicRHI* PlatformCreateDynamicRHI()
 		}
 		else if( FPlatformProcess::IsApplicationRunning( TEXT("fraps.exe") ) )
 		{
-			FMessageDialog::Open( EAppMsgType::Ok, NSLOCTEXT("WindowsDynamicRHI", "UseExpressionEncoder", "Fraps has been known to crash D3D11. Please use Microsoft Expression Encoder instead for capturing."));
+			if (!FEngineBuildSettings::IsPerforceBuild())
+			{
+				FMessageDialog::Open(EAppMsgType::Ok, NSLOCTEXT("WindowsDynamicRHI", "UseExpressionEncoder", "Fraps has been known to crash D3D11. Please use Microsoft Expression Encoder instead for capturing."));
+			}
 		}
 	}
 

@@ -52,6 +52,7 @@ void SUWPlayerInfoDialog::Construct(const FArguments& InArgs)
 	ZoomOffset = -50;
 
 	PoseAnimation = LoadObject<UAnimationAsset>(NULL, TEXT("/Game/RestrictedAssets/Animations/Universal/Misc_Poses/Pose_E.Pose_E"));
+	FemalePoseAnimation = LoadObject<UAnimationAsset>(NULL, TEXT("/Game/RestrictedAssets/Animations/Universal/Misc_Poses/Pose_E_Female.Pose_E_Female"));
 
 	// allocate a preview scene for rendering
 	PlayerPreviewWorld = UWorld::CreateWorld(EWorldType::Preview, true);
@@ -150,25 +151,28 @@ SUWPlayerInfoDialog::~SUWPlayerInfoDialog()
 	SSRQualityCVar->Set(OldSSRQuality, ECVF_SetByCode);
 	SSRQualityCVar->SetFlags(Flags);
 
-	if (PlayerPreviewTexture != NULL)
+	if (!GExitPurge)
 	{
-		PlayerPreviewTexture->OnNonUObjectRenderTargetUpdate.Unbind();
-		PlayerPreviewTexture = NULL;
-	}
-	FlushRenderingCommands();
-	if (PlayerPreviewBrush != NULL)
-	{
-		// FIXME: Slate will corrupt memory if this is deleted. Must be referencing it somewhere that doesn't get cleaned up...
-		//		for now, we'll take the minor memory leak (the texture still gets GC'ed so it's not too bad)
-		//delete PlayerPreviewBrush;
-		PlayerPreviewBrush->SetResourceObject(NULL);
-		PlayerPreviewBrush = NULL;
-	}
-	if (PlayerPreviewWorld != NULL)
-	{
-		PlayerPreviewWorld->DestroyWorld(true);
-		GEngine->DestroyWorldContext(PlayerPreviewWorld);
-		PlayerPreviewWorld = NULL;
+		if (PlayerPreviewTexture != NULL)
+		{
+			PlayerPreviewTexture->OnNonUObjectRenderTargetUpdate.Unbind();
+			PlayerPreviewTexture = NULL;
+		}
+		FlushRenderingCommands();
+		if (PlayerPreviewBrush != NULL)
+		{
+			// FIXME: Slate will corrupt memory if this is deleted. Must be referencing it somewhere that doesn't get cleaned up...
+			//		for now, we'll take the minor memory leak (the texture still gets GC'ed so it's not too bad)
+			//delete PlayerPreviewBrush;
+			PlayerPreviewBrush->SetResourceObject(NULL);
+			PlayerPreviewBrush = NULL;
+		}
+		if (PlayerPreviewWorld != NULL)
+		{
+			PlayerPreviewWorld->DestroyWorld(true);
+			GEngine->DestroyWorldContext(PlayerPreviewWorld);
+			PlayerPreviewWorld = NULL;
+		}
 	}
 	ViewState.Destroy();
 }
@@ -179,6 +183,7 @@ void SUWPlayerInfoDialog::AddReferencedObjects(FReferenceCollector& Collector)
 	Collector.AddReferencedObject(PlayerPreviewMID);
 	Collector.AddReferencedObject(PlayerPreviewWorld);
 	Collector.AddReferencedObject(PoseAnimation);
+	Collector.AddReferencedObject(FemalePoseAnimation);
 }
 
 FReply SUWPlayerInfoDialog::OnButtonClick(uint16 ButtonID)
@@ -197,6 +202,16 @@ void SUWPlayerInfoDialog::Tick(const FGeometry& AllottedGeometry, const double I
 	if (PlayerPreviewWorld != nullptr)
 	{
 		PlayerPreviewWorld->Tick(LEVELTICK_All, InDeltaTime);
+	}
+	
+	// Force the preview mesh to put the highest mips into memory
+	if (PlayerPreviewMesh != nullptr)
+	{
+		PlayerPreviewMesh->PrestreamTextures(1, true);
+	}
+	if (PreviewWeapon)
+	{
+		PreviewWeapon->PrestreamTextures(1, true);
 	}
 
 	if ( PlayerPreviewTexture != nullptr )
@@ -245,10 +260,21 @@ void SUWPlayerInfoDialog::RecreatePlayerPreview()
 			PlayerPreviewMesh->SetEyewearClass(TargetPlayerState->EyewearClass);
 			PlayerPreviewMesh->SetEyewearVariant(TargetPlayerState->EyewearVariant);
 
-			if ( PoseAnimation )
+			if (TargetPlayerState->GetSelectedCharacter() != NULL && TargetPlayerState->GetSelectedCharacter().GetDefaultObject()->bIsFemale)
 			{
-				PlayerPreviewMesh->GetMesh()->PlayAnimation(PoseAnimation, true);
-				PlayerPreviewMesh->GetMesh()->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones;
+				if (FemalePoseAnimation)
+				{
+					PlayerPreviewMesh->GetMesh()->PlayAnimation(FemalePoseAnimation, true);
+					PlayerPreviewMesh->GetMesh()->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones;
+				}
+			}
+			else
+			{
+				if (PoseAnimation)
+				{
+					PlayerPreviewMesh->GetMesh()->PlayAnimation(PoseAnimation, true);
+					PlayerPreviewMesh->GetMesh()->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones;
+				}
 			}
 
 			UClass* PreviewAttachmentType = LoadClass<AUTWeaponAttachment>(NULL, TEXT("/Game/RestrictedAssets/Weapons/ShockRifle/ShockAttachment.ShockAttachment_C"), NULL, LOAD_None, NULL);
@@ -347,7 +373,7 @@ TSharedRef<class SWidget> SUWPlayerInfoDialog::BuildCustomButtonBar()
 		SAssignNew(FriendPanel, SHorizontalBox)
 	];
 
-	if ((GetPlayerOwner()->GetWorld()->GetNetMode() == NM_Client) && TargetPlayerState.IsValid() && !TargetPlayerState->bIsABot && (GetPlayerOwner()->PlayerController->PlayerState != TargetPlayerState))
+	if ((GetPlayerOwner()->GetWorld()->GetNetMode() == NM_Client) && GetPlayerOwner()->PlayerController->PlayerState && !GetPlayerOwner()->PlayerController->PlayerState->bOnlySpectator && TargetPlayerState.IsValid() && !TargetPlayerState->bIsABot && (GetPlayerOwner()->PlayerController->PlayerState != TargetPlayerState))
 	{
 		CustomBox->AddSlot()
 		.Padding(10.0f,0.0f,10.0f,0.0f)
@@ -664,10 +690,18 @@ void SUWPlayerInfoDialog::OnUpdatePlayerState()
 		TargetPlayerState->BuildPlayerInfo(TabWidget, StatList);
 
 		//Draw the game specific stats
-		AUTBaseGameMode* DefaultGameMode = GetPlayerOwner()->GetWorld()->GetGameState()->GameModeClass->GetDefaultObject<AUTBaseGameMode>();
-		if (DefaultGameMode)
+		AGameState* GameState = GetPlayerOwner()->GetWorld()->GetGameState();
+		if (GameState && GameState->GameModeClass)
 		{
-			DefaultGameMode->BuildPlayerInfo(TargetPlayerState.Get(), TabWidget, StatList);
+			AGameMode* DefaultGameMode = GameState->GameModeClass->GetDefaultObject<AGameMode>();
+			if (DefaultGameMode)
+			{
+				AUTBaseGameMode* UTDefaultGameMode = Cast<AUTBaseGameMode>(DefaultGameMode);
+				if (UTDefaultGameMode)
+				{
+					UTDefaultGameMode->BuildPlayerInfo(TargetPlayerState.Get(), TabWidget, StatList);
+				}
+			}
 		}
 
 		FriendStatus = NAME_None;

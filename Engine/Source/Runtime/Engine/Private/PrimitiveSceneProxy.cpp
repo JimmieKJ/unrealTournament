@@ -234,6 +234,12 @@ void FPrimitiveSceneProxy::ApplyWorldOffset(FVector InOffset)
 	SetTransform(NewLocalToWorld, NewBounds, NewLocalBounds, NewActorPosition);
 }
 
+void FPrimitiveSceneProxy::ApplyLateUpdateTransform(const FMatrix& LateUpdateTransform)
+{
+	const FMatrix AdjustedLocalToWorld = LocalToWorld * LateUpdateTransform;
+	SetTransform(AdjustedLocalToWorld, Bounds, LocalBounds, ActorPosition);
+}
+
 /**
  * Updates selection for the primitive proxy. This is called in the rendering thread by SetSelection_GameThread.
  * @param bInSelected - true if the parent actor is selected in the editor

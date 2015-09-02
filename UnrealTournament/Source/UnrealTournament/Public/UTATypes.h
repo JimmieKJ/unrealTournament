@@ -114,6 +114,7 @@ namespace HighlightNames
 	const FName TopFlagReturnsRed = FName(TEXT("TopFlagReturnsRed"));
 	const FName TopFlagReturnsBlue = FName(TEXT("TopFlagReturnsBlue"));
 	const FName FlagReturns = FName(TEXT("FlagReturns"));
+	const FName ParticipationAward = FName(TEXT("ParticipationAward"));
 }
 
 namespace ArmorTypeName
@@ -755,6 +756,7 @@ struct FServerInstanceData
 
 namespace EQuickMatchResults
 {
+	const FName JoinTimeout = FName(TEXT("JoinTimeout"));
 	const FName CantJoin = FName(TEXT("CantJoin"));
 	const FName WaitingForStart = FName(TEXT("WaitingForStart"));
 	const FName WaitingForStartNew = FName(TEXT("WaitingForStartNew"));
@@ -832,4 +834,125 @@ namespace EInstanceJoinResult
 		MAX,
 	};
 }
+
+USTRUCT()
+struct FUTChallengeResult
+{
+	GENERATED_USTRUCT_BODY()
+
+	// The Challenge tag this result is for
+	UPROPERTY()
+	FName Tag;
+
+	// The number of stars received for this challenge
+	UPROPERTY()
+	int32 Stars;
+
+	// when was this challenge completed
+	UPROPERTY()
+	FDateTime LastUpdate;
+
+	FUTChallengeResult()
+		: Tag(NAME_None)
+		, Stars(0)
+		, LastUpdate(FDateTime::UtcNow())
+	{}
+
+	FUTChallengeResult(FName inTag, int32 inStars)
+		: Tag(inTag)
+		, Stars(inStars)
+		, LastUpdate(FDateTime::UtcNow())
+	{
+	}
+
+	void Update(int32 NewStars)
+	{
+		Stars = NewStars;
+		LastUpdate = FDateTime::Now();
+	}
+};
+
+USTRUCT()
+struct FTeamRoster
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY()
+	FText TeamName;
+
+	UPROPERTY()
+	TArray<FName> Roster;
+
+	FTeamRoster()
+		: TeamName(FText::GetEmpty())
+		, Roster()
+	{
+	}
+
+	FTeamRoster(FText inTeamName)
+		: TeamName(inTeamName)
+	{
+	}
+};
+
+
+USTRUCT()
+struct FUTChallengeInfo
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY()
+	FString Title;
+
+	UPROPERTY()
+	FString Map;
+
+	UPROPERTY()
+	FString GameMode;
+
+	UPROPERTY()
+	FString Description;
+
+	UPROPERTY()
+	int32 PlayerTeamSize;
+
+	UPROPERTY()
+	int32 EnemyTeamSize;
+
+	UPROPERTY()
+	FName EnemyTeamName[3];
+
+	UPROPERTY()
+	FName SlateUIImageName;
+
+
+	FUTChallengeInfo()
+		: Title(TEXT(""))
+		, Map(TEXT(""))
+		, GameMode(TEXT(""))
+		, Description(TEXT(""))
+		, PlayerTeamSize(0)
+		, EnemyTeamSize(0)
+		, EnemyTeamName()
+		, SlateUIImageName(NAME_None)
+	{
+		EnemyTeamName[0] = NAME_None;
+		EnemyTeamName[1] = NAME_None;
+		EnemyTeamName[2] = NAME_None;
+	}
+
+	FUTChallengeInfo(FString inTitle, FString inMap, FString inGameMode, FString inDescription, int32 inPlayerTeamSize, int32 inEnemyTeamSize, FName EasyEnemyTeam, FName MediumEnemyTeam, FName HardEnemyTeam, FName inSlateUIImageName)
+		: Title(inTitle)
+		, Map(inMap)
+		, GameMode(inGameMode)
+		, Description(inDescription)
+		, PlayerTeamSize(inPlayerTeamSize)
+		, EnemyTeamSize(inEnemyTeamSize)
+		, SlateUIImageName(inSlateUIImageName)
+	{
+		EnemyTeamName[0] = EasyEnemyTeam;
+		EnemyTeamName[1] = MediumEnemyTeam;
+		EnemyTeamName[2] = HardEnemyTeam;
+	}
+};
 

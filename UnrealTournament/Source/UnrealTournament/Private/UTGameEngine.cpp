@@ -13,6 +13,7 @@
 #include "UTConsole.h"
 #include "UTFlagInfo.h"
 #include "UTLobbyGameMode.h"
+#include "UTGameInstance.h"
 #if !UE_SERVER
 #include "SlateBasics.h"
 #include "MoviePlayer.h"
@@ -262,6 +263,16 @@ bool UUTGameEngine::Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Out)
 		return Super::Exec(InWorld, Cmd, Out);
 	}
 
+}
+
+void UUTGameEngine::TickWorldTravel(FWorldContext& WorldContext, float DeltaSeconds)
+{
+	// halt network travel while waiting for redirects
+	UUTGameInstance* GI = Cast<UUTGameInstance>(WorldContext.OwningGameInstance);
+	if (GI == NULL || WorldContext.PendingNetGame == NULL || !GI->IsAutoDownloadingContent())
+	{
+		Super::TickWorldTravel(WorldContext, DeltaSeconds);
+	}
 }
 
 void UUTGameEngine::Tick(float DeltaSeconds, bool bIdleMode)
@@ -680,6 +691,10 @@ void UUTGameEngine::IndexExpansionContent()
 			if (!PakFilename.StartsWith(TEXT("UnrealTournament-"), ESearchCase::IgnoreCase))
 			{
 				bValidPak = CheckVersionOfPakFile(PakFilename);
+				if (bValidPak)
+				{
+					AddAssetRegistry(PakFilename);
+				}
 			}
 			else
 			{
@@ -687,11 +702,7 @@ void UUTGameEngine::IndexExpansionContent()
 				bValidPak = true;
 			}
 
-			if (bValidPak)
-			{
-				AddAssetRegistry(PakFilename);
-			}
-			else
+			if (!bValidPak)
 			{
 				// Unmount the pak
 				if (FCoreDelegates::OnUnmountPak.IsBound())

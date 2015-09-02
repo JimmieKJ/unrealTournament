@@ -631,6 +631,28 @@ bool UUTGameplayStatics::HasTokenBeenPickedUpBefore(UObject* WorldContextObject,
 	return false;
 }
 
+int32 UUTGameplayStatics::HowManyTokensHaveBeenPickedUpBefore(UObject* WorldContextObject, TArray<FName> TokenUniqueIDs)
+{
+	int32 TotalPickedUp = 0;
+
+	APlayerController* PC = UGameplayStatics::GetPlayerController(WorldContextObject, 0);
+	if (PC)
+	{
+		UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(PC->Player);
+		if (LP && LP->GetProfileSettings())
+		{
+			for (auto TokenUniqueID : TokenUniqueIDs)
+			{
+				if (LP->GetProfileSettings()->HasTokenBeenPickedUpBefore(TokenUniqueID))
+				{
+					TotalPickedUp++;
+				}
+			}
+		}
+	}
+	return TotalPickedUp;
+}
+
 void UUTGameplayStatics::TokenPickedUp(UObject* WorldContextObject, FName TokenUniqueID)
 {
 	APlayerController* PC = UGameplayStatics::GetPlayerController(WorldContextObject, 0);
@@ -709,4 +731,13 @@ bool UUTGameplayStatics::GetBestTime(UObject* WorldContextObject, FName TimingSe
 	}
 
 	return false;
+}
+
+bool UUTGameplayStatics::LineTraceForObjectsSimple(UObject* WorldContextObject, const FVector Start, const FVector End, const TArray< TEnumAsByte<EObjectTypeQuery> > & ObjectTypes, bool bTraceComplex, EDrawDebugTrace::Type DrawDebugType, FVector& HitLocation, FVector& HitNormal, bool bIgnoreSelf)
+{
+	FHitResult Hit;
+	bool bResult = UKismetSystemLibrary::LineTraceSingleForObjects(WorldContextObject, Start, End, ObjectTypes, bTraceComplex, TArray<AActor*>(), DrawDebugType, Hit, bIgnoreSelf);
+	HitLocation = Hit.Location;
+	HitNormal = Hit.Normal;
+	return bResult;
 }

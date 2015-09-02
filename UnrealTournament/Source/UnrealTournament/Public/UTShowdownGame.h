@@ -37,6 +37,11 @@ protected:
 	FStringClassReference PowerupBreakerPickupClass;
 	UPROPERTY(EditDefaultsOnly, Meta = (MetaClass = "UTTimedPowerup"))
 	FStringClassReference PowerupBreakerItemClass;
+	/** item that replaces superweapons (Redeemer, etc) */
+	UPROPERTY(EditDefaultsOnly, Meta = (MetaClass = "UTPickupInventory"))
+	FStringClassReference SuperweaponReplacementPickupClass;
+	UPROPERTY(EditDefaultsOnly, Meta = (MetaClass = "UTInventory"))
+	FStringClassReference SuperweaponReplacementItemClass;
 
 	UPROPERTY()
 	AUTPickupInventory* BreakerPickup;

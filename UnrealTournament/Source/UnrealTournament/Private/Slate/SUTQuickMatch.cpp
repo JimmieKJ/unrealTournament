@@ -328,8 +328,17 @@ void SUTQuickMatch::OnServerBeaconResult(AUTServerBeaconClient* Sender, FServerB
 	{
 		if (PingTrackers[i].Beacon == Sender)
 		{
+
+			// Throw out non-epic hubs
+
+			if (PingTrackers[i].Server->ServerTrustLevel > 0)
+			{
+				PingTrackers.RemoveAt(i, 1);
+				break;
+			}
+
 			// Discard training ground hubs if the player isn't a beginner and discard non-training ground hubs if they are one
-			if ( (!bIsBeginner && PingTrackers[i].Server->bServerIsTrainingGround) ||
+			else if ( (!bIsBeginner && PingTrackers[i].Server->bServerIsTrainingGround) ||
 				 (bIsBeginner && !PingTrackers[i].Server->bServerIsTrainingGround) )
 			{
 				PingTrackers.RemoveAt(i, 1);
@@ -355,6 +364,7 @@ void SUTQuickMatch::OnServerBeaconResult(AUTServerBeaconClient* Sender, FServerB
 						break;					}
 				}
 
+				PingTrackers[i].Server->bHasFriends = HasFriendsInInstances(Sender->Instances, PlayerOwner);
 				if (!bInserted) FinalList.Add(PingTrackers[i].Server);
 				PingTrackers.RemoveAt(i, 1);
 				break;
@@ -363,6 +373,31 @@ void SUTQuickMatch::OnServerBeaconResult(AUTServerBeaconClient* Sender, FServerB
 	}
 
 	PingNextBatch();
+}
+
+bool SUTQuickMatch::HasFriendsInInstances(const TArray<TSharedPtr<FServerInstanceData>>& Instances, TWeakObjectPtr<UUTLocalPlayer> LocalPlayer)
+{
+	if (PlayerOwner.IsValid())
+	{
+		TArray<FUTFriend> FriendsList;
+		PlayerOwner->GetFriendsList(FriendsList);
+		{
+			for (int32 i = 0; i < Instances.Num(); i++)
+			{
+				for (int32 p = 0; p < Instances[i]->Players.Num(); p++)
+				{
+					for (int32 j = 0; j < FriendsList.Num(); j++)
+					{
+						if (Instances[i]->Players[p].PlayerId == FriendsList[j].UserId)
+						{
+							return true;
+						}
+					}
+				}
+			}
+		}
+	}
+	return false;
 }
 
 void SUTQuickMatch::FindBestMatch()
@@ -374,12 +409,33 @@ void SUTQuickMatch::FindBestMatch()
 
 		TSharedPtr<FServerSearchInfo> BestPlayers = FinalList[0];
 		TSharedPtr<FServerSearchInfo> BestPing = BestPlayers;
+		TSharedPtr<FServerSearchInfo> BestFriendsServer;
 
+		// Find the best ping....
 		for (int32 i=1;i<FinalList.Num();i++)
 		{
 			if (FinalList[i]->Ping < BestPing->Ping)
 			{
 				BestPing = FinalList[i];
+			}
+		}
+
+		// Now reject any servers outside of our tolerance
+
+		for (int32 i = FinalList.Num()-1; i >=0 ; i--)
+		{
+			if (FinalList[i]->Ping >=  BestPing->Ping * 2)			
+			{
+				FinalList.RemoveAt(i);
+			}
+		}
+
+		// find the best server with friends on it.
+		for (int32 i=1;i<FinalList.Num();i++)
+		{
+			if (FinalList[i]->bHasFriends && ( !BestFriendsServer.IsValid() || FinalList[i]->Ping < BestFriendsServer->Ping) )
+			{
+				BestFriendsServer = FinalList[i];
 			}
 		}
 
@@ -391,9 +447,8 @@ void SUTQuickMatch::FindBestMatch()
 			}
 		}
 
-		BestServer = BestPlayers->NoPlayers > (BestPing->NoPlayers + PLAYER_ALLOWANCE) ? BestPlayers : BestPing;
+		BestServer = BestFriendsServer.IsValid() ? BestFriendsServer : (BestPlayers->NoPlayers > (BestPing->NoPlayers + PLAYER_ALLOWANCE) ? BestPlayers : BestPing);
 		AttemptQuickMatch();
-
 	}
 	else
 	{
@@ -511,10 +566,23 @@ void SUTQuickMatch::Tick( const FGeometry& AllottedGeometry, const double InCurr
 			}
 		}
 	}
+
+	if (bWaitingForResponseFromHub)
+	{
+		HubResponseWaitTime+= InDeltaTime;
+		if (HubResponseWaitTime > 15)		// Server has timed out or bad connect
+		{
+			RequestQuickPlayResults(NULL, EQuickMatchResults::JoinTimeout, TEXT(""));
+		}
+	}
+
 }
 
 void SUTQuickMatch::AttemptQuickMatch()
 {
+	bWaitingForResponseFromHub = true;
+	HubResponseWaitTime = 0.0;
+
 	BestServer->Beacon->OnRequestQuickplay = FServerRequestQuickplayDelegate::CreateSP(this, & SUTQuickMatch::RequestQuickPlayResults);
 	BestServer->Beacon->ServerRequestQuickplay(QuickMatchType, GetPlayerOwner()->GetBaseELORank());
 }
@@ -522,13 +590,26 @@ void SUTQuickMatch::AttemptQuickMatch()
 
 void SUTQuickMatch::RequestQuickPlayResults(AUTServerBeaconClient* Beacon, const FName& CommandCode, const FString& InstanceGuid)
 {
-	if ( CommandCode == EQuickMatchResults::CantJoin )
+
+	bWaitingForResponseFromHub = false;
+
+	if (CommandCode == EQuickMatchResults::JoinTimeout)
+	{
+		UE_LOG(UT,Log,TEXT("QuickPlay Request to server timed out.  Attempting the next one"));
+		FinalList.Remove(BestServer);
+		BestServer->Beacon->DestroyBeacon();
+
+		// Restart the search
+		FindBestMatch();		
+	
+	}
+	else if ( CommandCode == EQuickMatchResults::CantJoin )
 	{
 		UE_LOG(UT,Log,TEXT("QuickPlay Request to server Failed.  Attempting the next one"));
 		FinalList.Remove(BestServer);
 		BestServer->Beacon->DestroyBeacon();
 
-		// Restart the serarch
+		// Restart the search
 		FindBestMatch();		
 	}
 	else if (CommandCode == EQuickMatchResults::WaitingForStart || CommandCode == EQuickMatchResults::WaitingForStartNew )
@@ -537,7 +618,11 @@ void SUTQuickMatch::RequestQuickPlayResults(AUTServerBeaconClient* Beacon, const
 		bWaitingForMatch = true;
 		if ( CommandCode == EQuickMatchResults::WaitingForStartNew )
 		{
+			FString ServerName;
+			BestServer->SearchResult.Session.SessionSettings.Get(SETTING_SERVERNAME,ServerName);
+
 			PlayerOwner->QuickMatchLimitTime = PlayerOwner->GetWorld()->GetTimeSeconds() + 60.0;
+			MinorStatusText = FText::Format( NSLOCTEXT("QuickMatch","Status_WaitingforMatchMinor","Hub '{0}' is starting a match for you to join."), FText::FromString(ServerName));
 		}
 	}
 	else if (CommandCode == EQuickMatchResults::Join)

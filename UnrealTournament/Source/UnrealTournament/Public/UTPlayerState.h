@@ -86,7 +86,10 @@ protected:
 public:
 	UFUNCTION(BlueprintCallable, Category = Character)
 	virtual void SetCharacter(const FString& CharacterPath);
-	
+
+	UFUNCTION(BlueprintCallable, Category = Character)
+		virtual void SetCharacterVoice(const FString& CharacterVoicePath);
+
 	UFUNCTION(BlueprintCallable, Reliable, Server, WithValidation, Category = Character)
 	void ServerSetCharacter(const FString& CharacterPath);
 	inline TSubclassOf<class AUTCharacterContent> GetSelectedCharacter() const
@@ -154,10 +157,6 @@ public:
 
 	UPROPERTY()
 		bool bShouldAutoTaunt;
-
-	/** Current index to use as basis for next selection in Taunt list. */
-	UPROPERTY()
-		int32 TauntSelectionIndex;
 
 	/** Last time this player sent a taunt voice message. */
 	UPROPERTY()
@@ -257,8 +256,13 @@ public:
 
 protected:
 	/** XP player had before current match, read from backend (-1 until successful read) */
-	UPROPERTY()
+	UPROPERTY(replicated)
 	int32 PrevXP;
+
+	/** Currently awarded challenge stars. */
+	UPROPERTY(replicated)
+	int32 TotalChallengeStars;
+
 	/** XP awarded to this player so far (server only, replicated to owning client via RPC after end of game) */
 	UPROPERTY()
 	FXPBreakdown XP;
@@ -491,6 +495,7 @@ public:
 	void StatsWriteComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded);
 	virtual void AddMatchToStats(const FString& GameType, const TArray<class AUTTeamInfo*>* Teams, const TArray<APlayerState*>* ActivePlayerStates, const TArray<APlayerState*>* InactivePlayerStates);
 
+	int32 BotELOLimit;
 	virtual int32 GetSkillRating(FName SkillStatName);
 	virtual void UpdateTeamSkillRating(FName SkillStatName, bool bWonMatch, const TArray<APlayerState*>* ActivePlayerStates, const TArray<APlayerState*>* InactivePlayerStates);
 	virtual void UpdateIndividualSkillRating(FName SkillStatName, const TArray<APlayerState*>* ActivePlayerStates, const TArray<APlayerState*>* InactivePlayerStates);
@@ -550,6 +555,14 @@ public:
 	// Average ELO rank for this player.
 	UPROPERTY(Replicated)
 	int32 AverageRank;
+	UPROPERTY(Replicated)
+	int32 DuelRank;
+	UPROPERTY(Replicated)
+	int32 CTFRank;
+	UPROPERTY(Replicated)
+	int32 TDMRank;
+	UPROPERTY(Replicated)
+	int32 DMRank;
 
 	UPROPERTY(Replicated)
 	int32 TrainingLevel;
@@ -575,9 +588,11 @@ public:
 
 #if !UE_SERVER
 public:
-	const FSlateBrush* GetELOBadgeImage() const;
-	const FSlateBrush* GetELOBadgeNumberImage() const;
+	const FSlateBrush* GetELOBadgeImage(int32 EloRating) const;
+	const FSlateBrush* GetELOBadgeNumberImage(int32 EloRating) const;
 	void BuildPlayerInfo(TSharedPtr<class SUTTabWidget> TabWidget, TArray<TSharedPtr<struct TAttributeStat> >& StatList);
+	TSharedRef<SWidget> BuildRankInfo();
+	TSharedRef<SWidget> BuildRank(FText RankName, int32 Rank);
 	void EpicIDClicked();
 #endif
 
@@ -663,6 +678,10 @@ public:
 
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerSlowerEmote();
+
+	/** Transient, used to sort players */
+	UPROPERTY()
+		float MatchHighlightScore;
 };
 
 

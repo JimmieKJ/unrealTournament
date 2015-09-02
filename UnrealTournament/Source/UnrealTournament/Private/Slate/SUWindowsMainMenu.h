@@ -14,6 +14,7 @@ const FString CommunityVideoURL = "http://epic.gm/utlaunchertutorial";
 class SUWGameSetupDialog;
 class SUTFragCenterPanel;
 class SUTHomePanel;
+class SUTChallengePanel;
 
 #if !UE_SERVER
 class UNREALTOURNAMENT_API SUWindowsMainMenu : public SUTMenuBase
@@ -69,12 +70,15 @@ protected:
 	TSharedPtr<SUTFragCenterPanel> FragCenterPanel;
 	TWeakObjectPtr<class UUserWidget> TutorialMenu;
 
+	TSharedPtr<SUTChallengePanel> ChallengePanel;
+
 public:
 	virtual ~SUWindowsMainMenu();
 
 	virtual FReply OnShowServerBrowserPanel();
 
 	virtual void ShowGamePanel();
+	virtual void ShowCustomGamePanel();
 	virtual void ShowCommunity();
 	virtual void ShowFragCenter();
 	virtual void OpenTutorialMenu();
@@ -82,5 +86,8 @@ public:
 	virtual void ShowLiveGameReplays();
 	virtual void QuickPlay(const FString& QuickMatchType);
 	virtual void DeactivatePanel(TSharedPtr<class SUWPanel> PanelToDeactivate);
+
+	virtual void OnMenuOpened(const FString& Parameters);
+
 };
 #endif

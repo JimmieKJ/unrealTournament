@@ -90,13 +90,28 @@ public:
 	UPROPERTY(globalconfig)
 	float GameDifficulty;		
 
-	/** How long to wait after the end of a match before the transition to the new level start */
-	UPROPERTY(config)
-	float EndTimeDelay;			
-
 	/* How long after the end of the match before we display the scoreboard */
-	UPROPERTY(globalconfig)
+	UPROPERTY(EditDefaultsOnly, Category=PostMatchTime)
 	float EndScoreboardDelay;			
+
+	/* How long to display the main scoreboard */
+	UPROPERTY(EditDefaultsOnly, Category = PostMatchTime)
+		float MainScoreboardDisplayTime;
+
+	/* How long to display the scoring summary */
+	UPROPERTY(EditDefaultsOnly, Category = PostMatchTime)
+		float ScoringPlaysDisplayTime;
+
+	/* How long to display personal match summary */
+	UPROPERTY(EditDefaultsOnly, Category = PostMatchTime)
+		float PersonalSummaryDisplayTime;
+
+	/* How long to display winner match summary */
+	UPROPERTY(EditDefaultsOnly, Category = PostMatchTime)
+		float WinnerSummaryDisplayTime;
+
+	/** Return how long to wait after end of match before travelling to next map. */
+	virtual float GetTravelDelay();
 
 	UPROPERTY(EditDefaultsOnly)
 	uint32 bAllowOvertime:1;
@@ -226,9 +241,21 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Game")
 	bool bAmmoIsLimited;
 
-	/** If true, the intro cinematic will play just before the countown to begin */
+	/** If true, the intro cinematic will play just before the countdown to begin */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Game")
 	bool bPlayPlayerIntro;
+
+	/** Offline challenge mode. */
+	UPROPERTY(BlueprintReadOnly, Category = "Game")
+	bool bOfflineChallenge;
+
+	/** Tag of the current challenge */
+	UPROPERTY(BlueprintReadOnly, Category = "Game")
+	FName ChallengeTag;
+
+	/** How difficult is this challenge (0-2) */
+	UPROPERTY(BlueprintReadOnly, Category = "Game")
+	int32 ChallengeDifficulty;
 
 	/** Last time asnyone sent a taunt voice message. */
 	UPROPERTY()
@@ -338,6 +365,7 @@ public:
 	virtual void RestartGame();
 	virtual void BeginGame();
 	virtual bool AllowPausing(APlayerController* PC) override;
+	virtual bool AllowCheats(APlayerController* P) override;
 	virtual bool IsEnemy(class AController* First, class AController* Second);
 	virtual void Killed(class AController* Killer, class AController* KilledPlayer, class APawn* KilledPawn, TSubclassOf<UDamageType> DamageType);
 	virtual void NotifyKilled(AController* Killer, AController* Killed, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType);
@@ -362,6 +390,9 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = UTGame)
 	virtual void EndGame(AUTPlayerState* Winner, FName Reason);
+
+	/** Return true if human player won offline challenge. */
+	virtual bool PlayerWonChallenge();
 
 	virtual void StartMatch();
 	virtual void EndMatch();
@@ -435,9 +466,12 @@ public:
 	void AddSpreeKillEventToReplay(AController* Killer, int32 SpreeLevel);
 protected:
 
+	/** Returns random bot character skill matched to current GameDifficulty. */
+	virtual UUTBotCharacter* ChooseRandomCharacter();
 
-	/** adds a bot to the game */
+	/** Adds a bot to the game */
 	virtual class AUTBot* AddBot(uint8 TeamNum = 255);
+
 	virtual class AUTBot* AddNamedBot(const FString& BotName, uint8 TeamNum = 255);
 	virtual class AUTBot* AddAssetBot(const FStringAssetReference& BotAssetPath, uint8 TeamNum = 255);
 	/** check for adding/removing bots to satisfy BotFillCount */
@@ -639,7 +673,7 @@ public:
 #if !UE_SERVER
 	void BuildPaneHelper(TSharedPtr<SHorizontalBox>& HBox, TSharedPtr<SVerticalBox>& LeftPane, TSharedPtr<SVerticalBox>& RightPane);
 	void NewPlayerInfoLine(TSharedPtr<SVerticalBox> VBox, FText DisplayName, TSharedPtr<TAttributeStat> Stat, TArray<TSharedPtr<struct TAttributeStat> >& StatList);
-	void NewWeaponInfoLine(TSharedPtr<SVerticalBox> VBox, FText DisplayName, TSharedPtr<TAttributeStat> KillStat, TSharedPtr<struct TAttributeStat> DeathStat, TArray<TSharedPtr<struct TAttributeStat> >& StatList);
+	void NewWeaponInfoLine(TSharedPtr<SVerticalBox> VBox, FText DisplayName, TSharedPtr<TAttributeStat> KillStat, TSharedPtr<struct TAttributeStat> DeathStat, TSharedPtr<struct TAttributeStat> AccuracyStat, TArray<TSharedPtr<struct TAttributeStat> >& StatList);
 
 	virtual void BuildPlayerInfo(AUTPlayerState* PlayerState, TSharedPtr<class SUTTabWidget> TabWidget, TArray<TSharedPtr<struct TAttributeStat> >& StatList);
 	virtual void BuildScoreInfo(AUTPlayerState* PlayerState, TSharedPtr<class SUTTabWidget> TabWidget, TArray<TSharedPtr<struct TAttributeStat> >& StatList);
@@ -699,5 +733,17 @@ public:
 	/**Overridden to replicate Inactive Player States  */
 	virtual void AddInactivePlayer(APlayerState* PlayerState, APlayerController* PC) override;
 	virtual bool FindInactivePlayer(APlayerController* PC) override;
+
+	virtual void GameWelcomePlayer(UNetConnection* Connection, FString& RedirectURL) override;
+
+private:
+	// note: one based
+	UPROPERTY()
+	TArray<FStringAssetReference> LevelUpRewards;
+
+public:
+	UPROPERTY(Config)
+	bool bDisableMapVote;
+
 };
 

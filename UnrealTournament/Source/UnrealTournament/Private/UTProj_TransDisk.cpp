@@ -112,14 +112,30 @@ void AUTProj_TransDisk::OnLanded_Implementation()
 		}
 
 		//Spawn the landing effect
-		UParticleSystemComponent* Particle = UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), LandedEffect, GetActorLocation(), FRotator::ZeroRotator, true);
-
-		if (Cast<AUTCharacter>(Instigator) != NULL)
+		AUTPlayerState* PS = Instigator ? Cast<AUTPlayerState>(Instigator->PlayerState) : NULL;
+		int32 TeamIndex = PS && PS->Team ? PS->Team->TeamIndex : 0;
+		if (LandedEffect.Num() > TeamIndex)
 		{
-			static FName NAME_TeamColor(TEXT("TeamColor"));
-			Particle->SetColorParameter(NAME_TeamColor, Cast<AUTCharacter>(Instigator)->GetTeamColor());
+			LandedBeaconComponent = SpawnOffsetEffect(LandedEffect[TeamIndex], FVector(0.f, 0.f, 20.f));
+			//	DrawDebugSphere(GetWorld(), LandedBeaconComponent->GetComponentLocation(), 20.f, 8, FColor::Yellow, true);
 		}
 	}
+}
+
+UParticleSystemComponent* AUTProj_TransDisk::SpawnOffsetEffect(UParticleSystem *Effect, const FVector& Offset)
+{
+	// we want the PSC 'attached' to ourselves for 1P/3P visibility yet using an absolute transform, so the GameplayStatics functions don't get the job done
+	UParticleSystemComponent* PSC = NewObject<UParticleSystemComponent>(this, UParticleSystemComponent::StaticClass());
+	PSC->bAutoDestroy = true;
+	PSC->SecondsBeforeInactive = 0.0f;
+	PSC->bAutoActivate = false;
+	PSC->SetTemplate(Effect);
+	PSC->bOverrideLODMethod = false;
+	PSC->RegisterComponent();
+	PSC->AttachTo(GetRootComponent());
+	PSC->SetRelativeLocationAndRotation(Offset, FRotator(0.f));
+	PSC->ActivateSystem(true);
+	return PSC;
 }
 
 void AUTProj_TransDisk::OnDisrupted_Implementation()
@@ -149,23 +165,18 @@ void AUTProj_TransDisk::OnDisrupted_Implementation()
 
 		if (DisruptedEffect != NULL)
 		{
-			// we want the PSC 'attached' to ourselves for 1P/3P visibility yet using an absolute transform, so the GameplayStatics functions don't get the job done
-			UParticleSystemComponent* PSC = NewObject<UParticleSystemComponent>(this, UParticleSystemComponent::StaticClass());
-			PSC->bAutoDestroy = true;
-			PSC->SecondsBeforeInactive = 0.0f;
-			PSC->bAutoActivate = false;
-			PSC->SetTemplate(DisruptedEffect);
-			PSC->bOverrideLODMethod = false;
-			PSC->RegisterComponent();
-			PSC->AttachTo(GetRootComponent());
-			PSC->SetRelativeLocationAndRotation(FVector(0.f, 0.f, 20.f), FRotator(0.f));
-			PSC->ActivateSystem(true);
+			SpawnOffsetEffect(DisruptedEffect, FVector(0.f, 0.f, 20.f));
 		}
 	}
 }
 
 void AUTProj_TransDisk::ShutDown()
 {
+	if (LandedBeaconComponent)
+	{
+		LandedBeaconComponent->KillParticlesForced();
+		LandedBeaconComponent = NULL;
+	}
 	if (MyTranslocator != NULL)
 	{
 		MyTranslocator->ClearDisk();
@@ -223,6 +234,11 @@ void AUTProj_TransDisk::AddBasedCharacterNative(AUTCharacter* BasedCharacter)
 
 void AUTProj_TransDisk::Recall()
 {
+	if (LandedBeaconComponent)
+	{
+		LandedBeaconComponent->KillParticlesForced();
+		LandedBeaconComponent = NULL;
+	}
 	AUTCharacter* UTInstigator = Cast<AUTCharacter>(Instigator);
 	if (UTInstigator && MyTranslocator && UTInstigator->GetWeapon() == MyTranslocator)
 	{

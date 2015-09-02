@@ -1,13 +1,15 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+
 #include "SlateBasics.h"
+#include "SUTInGameMenu.h"
 #include "Panels/SUMidGameInfoPanel.h"
 #include "Panels/SULobbyInfoPanel.h"
 #include "Slate/SlateGameResources.h"
 
-
 #if !UE_SERVER
+
 class UNREALTOURNAMENT_API SUWindowsLobby : public SUTInGameMenu
 {
 

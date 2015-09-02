@@ -6,6 +6,7 @@
 UUTWeaponStateFiringLinkBeam::UUTWeaponStateFiringLinkBeam(const FObjectInitializer& OI)
 : Super(OI)
 {
+	AccumulatedFiringTime = 0.f;
 }
 
 void UUTWeaponStateFiringLinkBeam::FireShot()
@@ -61,8 +62,14 @@ void UUTWeaponStateFiringLinkBeam::Tick(float DeltaTime)
     if (!LinkGun->FireShotOverride() && LinkGun->InstantHitInfo.IsValidIndex(LinkGun->GetCurrentFireMode()))
     {
         const FInstantHitDamageInfo& DamageInfo = LinkGun->InstantHitInfo[LinkGun->GetCurrentFireMode()]; //Get and store reference to DamageInfo, Damage = 34, Momentum = -100000, TraceRange = 1800
-        FHitResult Hit;
-        LinkGun->FireInstantHit(false, &Hit);
+		FHitResult Hit; 
+		FName RealShotsStatsName = LinkGun->ShotsStatsName;
+		LinkGun->ShotsStatsName = NAME_None;
+		FName RealHitsStatsName = LinkGun->HitsStatsName;
+		LinkGun->HitsStatsName = NAME_None;
+		LinkGun->FireInstantHit(false, &Hit);
+		LinkGun->ShotsStatsName = RealShotsStatsName;
+		LinkGun->HitsStatsName = RealHitsStatsName;
 
         // We are linked to something, then check to see if we need to break the link
 		if (LinkGun->GetLinkTarget() != nullptr)
@@ -75,6 +82,9 @@ void UUTWeaponStateFiringLinkBeam::Tick(float DeltaTime)
             }
         }
 
+		AccumulatedFiringTime += DeltaTime;
+		float RefireTime = LinkGun->GetRefireTime(LinkGun->GetCurrentFireMode());
+		AUTPlayerState* PS = (LinkGun->Role == ROLE_Authority) && LinkGun->GetUTOwner()->Controller ? Cast<AUTPlayerState>(LinkGun->GetUTOwner()->Controller->PlayerState) : NULL;
 		if (Hit.Actor != NULL && Hit.Actor->bCanBeDamaged && Hit.Actor != LinkGun->GetUTOwner())
         {   
             // Check to see if our HitActor is linkable, if so, link to it
@@ -101,19 +111,35 @@ void UUTWeaponStateFiringLinkBeam::Tick(float DeltaTime)
 			if (LinkGun->GetLinkTarget() == NULL)
             {
                 float LinkedDamage = float(DamageInfo.Damage);
-
                 LinkedDamage += LinkedDamage * LinkGun->PerLinkDamageScalingSecondary * LinkGun->GetNumLinks();
-                Accumulator += LinkedDamage / LinkGun->GetRefireTime(LinkGun->GetCurrentFireMode()) * DeltaTime;
+				Accumulator += LinkedDamage / RefireTime * DeltaTime;
+				if (PS && (LinkGun->ShotsStatsName != NAME_None) && (AccumulatedFiringTime > RefireTime))
+				{
+					AccumulatedFiringTime -= RefireTime;
+					PS->ModifyStatsValue(LinkGun->ShotsStatsName, 1);
+				}
 
-                if (Accumulator >= MinDamage)
+				if (Accumulator >= MinDamage)
                 {
                     int32 AppliedDamage = FMath::TruncToInt(Accumulator);
                     Accumulator -= AppliedDamage;
                     FVector FireDir = (Hit.Location - Hit.TraceStart).GetSafeNormal();
 					Hit.Actor->TakeDamage(AppliedDamage, FUTPointDamageEvent(AppliedDamage, Hit, FireDir, DamageInfo.DamageType, FireDir * (GetOuterAUTWeapon()->GetImpartedMomentumMag(Hit.Actor.Get()) * float(AppliedDamage) / float(DamageInfo.Damage))), GetOuterAUTWeapon()->GetUTOwner()->Controller, GetOuterAUTWeapon());
-                }
+					if (PS && (LinkGun->HitsStatsName != NAME_None))
+					{
+						PS->ModifyStatsValue(LinkGun->HitsStatsName, AppliedDamage/FMath::Max(LinkedDamage, 1.f));
+					}
+				}
             }
         }
+		else
+		{
+			if (PS && (LinkGun->ShotsStatsName != NAME_None) && (AccumulatedFiringTime > RefireTime))
+			{
+				AccumulatedFiringTime -= RefireTime;
+				PS->ModifyStatsValue(LinkGun->ShotsStatsName, 1);
+			}
+		}
         // beams show a clientside beam target
 		if (LinkGun->Role < ROLE_Authority && LinkGun->GetUTOwner() != NULL) // might have lost owner due to TakeDamage() call above!
         {

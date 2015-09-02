@@ -22,7 +22,14 @@ void AUTPickupWeapon::BeginPlay()
 	{
 		TimerEffect->SetVisibility(true); // note: HiddenInGame used to hide when weapon is available, weapon stay, etc
 	}
-	SetInventoryType((Role == ROLE_Authority) ? TSubclassOf<AUTInventory>(WeaponType) : InventoryType); // initial replication is before BeginPlay() now so we need to make sure client doesn't clobber it :(
+	if (Role == ROLE_Authority)
+	{
+		SetInventoryType(TSubclassOf<AUTInventory>(WeaponType));
+	}
+	else
+	{
+		InventoryTypeUpdated();
+	}
 }
 
 void AUTPickupWeapon::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -52,7 +59,6 @@ void AUTPickupWeapon::InventoryTypeUpdated_Implementation()
 	{
 		if (InventoryType != NULL)
 		{
-			RespawnTime = InventoryType.GetDefaultObject()->RespawnTime;
 			bDelayedSpawn = InventoryType.GetDefaultObject()->bDelayedSpawn;
 		}
 		WeaponType = *InventoryType;
@@ -136,7 +142,7 @@ void AUTPickupWeapon::ProcessTouch_Implementation(APawn* TouchedBy)
 		}
 		// note that we don't currently call AllowPickupBy() and associated GameMode/Mutator overrides in the weapon stay case
 		// in part due to client synchronization issues
-		else if (!IsTaken(TouchedBy) && Cast<AUTCharacter>(TouchedBy) != NULL && !((AUTCharacter*)TouchedBy)->IsRagdoll())
+		else if (!IsTaken(TouchedBy) && Cast<AUTCharacter>(TouchedBy) != NULL && !((AUTCharacter*)TouchedBy)->IsRagdoll() && ((AUTCharacter*)TouchedBy)->bCanPickupItems)
 		{
 			// make sure all the meshes are visible and let the PC sort out which ones should be displayed based on per-player respawn
 			if (GhostMesh != NULL)
@@ -228,7 +234,7 @@ void AUTPickupWeapon::PlayTakenEffects(bool bReplicate)
 void AUTPickupWeapon::SetPickupHidden(bool bNowHidden)
 {
 	Super::SetPickupHidden(bNowHidden);
-	if (GhostDepthMesh != NULL)
+	if (GhostMesh != NULL && GhostDepthMesh != NULL)
 	{
 		GhostDepthMesh->SetVisibility(GhostMesh->bVisible, true);
 	}

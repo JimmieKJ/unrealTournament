@@ -24,6 +24,7 @@
 #include "UTConsole.h"
 #include "UTHUDWidgetMessage.h"
 #include "UTHUDWidgetMessage_GameMessages.h"
+#include "Widgets/SUTXPBar.h"
 
 #if !UE_SERVER
 #include "Runtime/AppFramework/Public/Widgets/Colors/SColorPicker.h"
@@ -44,6 +45,45 @@ static const float TEAMANGLE = 12.0f;
 #include "SScaleBox.h"
 #include "Widgets/SDragImage.h"
 
+void FTeamCamera::InitCam(class SUWMatchSummary* MatchWidget)
+{
+	CamFlags |= CF_ShowSwitcher | CF_ShowPlayerNames | CF_Team;
+	MatchWidget->ViewedTeamNum = TeamNum;
+	MatchWidget->GetTeamCamTransforms(TeamNum, CamStart, CamEnd);
+	MatchWidget->ShowTeam(MatchWidget->ViewedTeamNum);
+	MatchWidget->TeamCamAlpha = 0.5f;
+}
+
+void FCharacterCamera::InitCam(class SUWMatchSummary* MatchWidget)
+{
+	CamFlags |= CF_ShowSwitcher | CF_ShowInfoWidget | CF_Player;
+	if (Character.IsValid())
+	{
+		MatchWidget->ViewedChar = Character;
+		MatchWidget->ViewedTeamNum = Character->GetTeamNum() != 255 ? Character->GetTeamNum() : 0;
+		MatchWidget->ShowCharacter(Character.Get());
+		MatchWidget->FriendStatus = NAME_None;
+		MatchWidget->BuildInfoPanel();
+
+		FRotator Dir = Character->GetActorRotation();
+		FVector Location = Character->GetActorLocation() + (Dir.Vector() * 300.0f);
+		Location += Dir.Quaternion().GetAxisY() * -60.0f + FVector(0.0f, 0.0f, 45.0f);
+		Dir.Yaw += 180.0f;
+
+		CameraTransform.SetLocation(Location);
+		CameraTransform.SetRotation(Dir.Quaternion());
+	}
+}
+
+void FAllCamera::InitCam(class SUWMatchSummary* MatchWidget)
+{
+	CamFlags |= CF_All;
+	float CameraOffset = MatchWidget->GetAllCameraOffset();
+	CameraTransform.SetLocation(FVector(CameraOffset, 0.0f, -1.f * CameraOffset * FMath::Sin(ALL_CAMERA_ANGLE * PI / 180.f)));
+	CameraTransform.SetRotation(FRotator(ALL_CAMERA_ANGLE, 180.0f, 0.0f).Quaternion());
+	MatchWidget->ShowAllCharacters();
+}
+
 void SUWMatchSummary::Construct(const FArguments& InArgs)
 {
 	FVector2D ViewportSize;
@@ -54,13 +94,14 @@ void SUWMatchSummary::Construct(const FArguments& InArgs)
 
 	StatsWidth = 0.0f;
 	LastChatCount = 0;
-	IntroTime = 0;
 
-	ViewMode = VM_Team;
+	ShotStartTime = 0.0f;
+	CurrentShot = 0;
+
 	ViewedTeamNum = 0;
 	CameraTransform.SetLocation(FVector(5000.0f, 0.0f, 35.0f));
 	CameraTransform.SetRotation(FRotator(0.0f, 180.0f, 0.0f).Quaternion());
-	DesiredCameraTransform = CameraTransform;
+	//DesiredCameraTransform = CameraTransform;
 	TeamCamAlpha = 0.5f;
 	bAutoScrollTeam = true;
 	AutoScrollTeamDirection = 1.0f;
@@ -89,9 +130,7 @@ void SUWMatchSummary::Construct(const FArguments& InArgs)
 			NewGS->AddOverlayMaterial(DefaultPawnClass.GetDefaultObject()->TacComOverlayMaterial);
 		}
 	}
-
-	PlayerPreviewAnimBlueprint = LoadObject<UClass>(nullptr, TEXT("/Game/RestrictedAssets/UI/ABP_PlayerPreview.ABP_PlayerPreview_C"));
-
+	
 	UMaterialInterface* BaseMat = LoadObject<UMaterialInterface>(NULL, TEXT("/Game/RestrictedAssets/UI/PlayerPreviewProxy.PlayerPreviewProxy"));
 	if (BaseMat != NULL)
 	{
@@ -265,6 +304,12 @@ void SUWMatchSummary::Construct(const FArguments& InArgs)
 								SAssignNew(InfoPanel, SOverlay)
 							]
 							+ SVerticalBox::Slot()
+							.Padding(FMargin(5.0f, 5.0f, 5.0f, 5.0f))
+							.AutoHeight()
+							[
+								SAssignNew(XPOverlay, SOverlay)
+							]
+							+ SVerticalBox::Slot()
 							.AutoHeight()
 							[
 								SNew(SBox)
@@ -329,27 +374,33 @@ void SUWMatchSummary::Construct(const FArguments& InArgs)
 	{
 		if (!GameState->HasMatchStarted())
 		{
-			CameraState = CS_CamIntro;
-			ViewAll();
-			ViewedTeamNum = -1;
+			SetupIntroCam();
 		}
 		//View the winning team at the end of game
 		else if(GameState->GetMatchState() == MatchState::WaitingPostMatch)
 		{
-			CameraState = CS_CamAuto;
-			ViewTeam(GameState->WinningTeam != nullptr ? GameState->WinningTeam->GetTeamNum() : 0);
+			SetupMatchCam();
 		}
-		//View the local players team at halftime
 		else if (GameState->GetMatchState() == MatchState::MatchEnteringHalftime
 			|| GameState->GetMatchState() == MatchState::MatchIsAtHalftime)
 		{
-			CameraState = CS_CamAuto;
-			ViewTeam(Cast<AUTPlayerController>(GetPlayerOwner()->PlayerController)->GetTeamNum());
+			//Reset the scoreboard page and timers
+			UUTScoreboard* Scoreboard = GetScoreboard();
+			if (Scoreboard != nullptr)
+			{
+				Scoreboard->SetPage(0);
+				Scoreboard->SetScoringPlaysTimer(true);
+			}
+			ViewAll();
 		}
 		else
 		{
-			CameraState = CS_FreeCam;
-			ViewTeam(0);
+			int32 TeamToView = 0;
+			if (GetPlayerOwner().IsValid() && Cast<AUTPlayerController>(GetPlayerOwner()->PlayerController) != nullptr)
+			{
+				TeamToView = Cast<AUTPlayerController>(GetPlayerOwner()->PlayerController)->GetTeamNum();
+			}
+			ViewTeam(TeamToView);
 		}
 	}
 
@@ -368,25 +419,28 @@ SUWMatchSummary::~SUWMatchSummary()
 	SSRQualityCVar->Set(OldSSRQuality, ECVF_SetByCode);
 	SSRQualityCVar->SetFlags(Flags);
 
-	if (PlayerPreviewTexture != NULL)
+	if (!GExitPurge)
 	{
-		PlayerPreviewTexture->OnNonUObjectRenderTargetUpdate.Unbind();
-		PlayerPreviewTexture = NULL;
-	}
-	FlushRenderingCommands();
-	if (PlayerPreviewBrush != NULL)
-	{
-		// FIXME: Slate will corrupt memory if this is deleted. Must be referencing it somewhere that doesn't get cleaned up...
-		//		for now, we'll take the minor memory leak (the texture still gets GC'ed so it's not too bad)
-		//delete PlayerPreviewBrush;
-		PlayerPreviewBrush->SetResourceObject(NULL);
-		PlayerPreviewBrush = NULL;
-	}
-	if (PlayerPreviewWorld != NULL)
-	{
-		PlayerPreviewWorld->DestroyWorld(true);
-		GEngine->DestroyWorldContext(PlayerPreviewWorld);
-		PlayerPreviewWorld = NULL;
+		if (PlayerPreviewTexture != NULL)
+		{
+			PlayerPreviewTexture->OnNonUObjectRenderTargetUpdate.Unbind();
+			PlayerPreviewTexture = NULL;
+		}
+		FlushRenderingCommands();
+		if (PlayerPreviewBrush != NULL)
+		{
+			// FIXME: Slate will corrupt memory if this is deleted. Must be referencing it somewhere that doesn't get cleaned up...
+			//		for now, we'll take the minor memory leak (the texture still gets GC'ed so it's not too bad)
+			//delete PlayerPreviewBrush;
+			PlayerPreviewBrush->SetResourceObject(NULL);
+			PlayerPreviewBrush = NULL;
+		}
+		if (PlayerPreviewWorld != NULL)
+		{
+			PlayerPreviewWorld->DestroyWorld(true);
+			GEngine->DestroyWorldContext(PlayerPreviewWorld);
+			PlayerPreviewWorld = NULL;
+		}
 	}
 	ViewState.Destroy();
 }
@@ -430,93 +484,90 @@ void SUWMatchSummary::BuildInfoPanel()
 	StatList.Empty();
 	InfoPanel->ClearChildren();
 
-	if (CameraState != CS_CamIntro)
+	InfoPanel->AddSlot()
+		.HAlign(HAlign_Fill)
+		.VAlign(VAlign_Fill)
+		[
+			SAssignNew(TabWidget, SUTTabWidget)
+			.OnTabButtonSelectionChanged(this, &SUWMatchSummary::OnTabButtonSelectionChanged)
+			.TabTextStyle(SUWindowsStyle::Get(), "UT.MatchSummary.TabButton.TextStyle")
+		];
+
+	//Build all of the player stats
+	AUTPlayerState* UTPS = ViewedChar.IsValid() ? Cast<AUTPlayerState>(ViewedChar->PlayerState) : nullptr;
+	if (UTPS != nullptr && !UTPS->IsPendingKill() && UTPS->IsValidLowLevel())
 	{
-		InfoPanel->AddSlot()
-			.HAlign(HAlign_Fill)
-			.VAlign(VAlign_Fill)
-			[
-				SAssignNew(TabWidget, SUTTabWidget)
-				.OnTabButtonSelectionChanged(this, &SUWMatchSummary::OnTabButtonSelectionChanged)
-				.TabTextStyle(SUWindowsStyle::Get(), "UT.MatchSummary.TabButton.TextStyle")
-			];
-
-		//Build all of the player stats
-		AUTPlayerState* UTPS = ViewedChar.IsValid() ? Cast<AUTPlayerState>(ViewedChar->PlayerState) : nullptr;
-		if (UTPS != nullptr && !UTPS->IsPendingKill() && UTPS->IsValidLowLevel())
+		AUTGameMode* DefaultGameMode = GameState.IsValid() && GameState->GameModeClass ? Cast<AUTGameMode>(GameState->GameModeClass->GetDefaultObject()) : NULL;
+		if (DefaultGameMode != nullptr)
 		{
-			AUTGameMode* DefaultGameMode = GameState.IsValid() ? GameState->GameModeClass->GetDefaultObject<AUTGameMode>() : NULL;
-			if (DefaultGameMode != nullptr)
+			//Build the highlights
+			if (GameState->HasMatchStarted())
 			{
-				//Build the highlights
-				if (GameState->HasMatchStarted())
+				TSharedPtr<SVerticalBox> VBox;
+				TabWidget->AddTab(NSLOCTEXT("AUTGameMode", "Highlights", "Highlights"),
+					SNew(SOverlay)
+					+ SOverlay::Slot()
+					.VAlign(VAlign_Center)
+					.HAlign(HAlign_Fill)
+					[
+						SAssignNew(VBox, SVerticalBox)
+					]);
+
+				TArray<FText> Highlights = GameState->GetPlayerHighlights(UTPS);
+
+				//Cap at 5 highlights
+				if (Highlights.Num() > 5)
 				{
-					TSharedPtr<SVerticalBox> VBox;
-					TabWidget->AddTab(NSLOCTEXT("AUTGameMode", "Highlights", "Highlights"),
-						SNew(SOverlay)
-						+ SOverlay::Slot()
-						.VAlign(VAlign_Center)
-						.HAlign(HAlign_Fill)
+					Highlights.SetNum(5);
+				}
+
+				for (int32 i = 0; i < Highlights.Num(); i++)
+				{
+					VBox->AddSlot()
+						.Padding(100, 20)
+						.AutoHeight()
 						[
-							SAssignNew(VBox, SVerticalBox)
-						]);
-
-					TArray<FText> Highlights = GameState->GetPlayerHighlights(UTPS);
-
-					//Cap at 5 highlights
-					if (Highlights.Num() > 5)
-					{
-						Highlights.SetNum(5);
-					}
-
-					for (int32 i = 0; i < Highlights.Num(); i++)
-					{
-						VBox->AddSlot()
-							.Padding(100, 20)
-							.AutoHeight()
+							SNew(SBorder)
+							.BorderImage(SUWindowsStyle::Get().GetBrush("UT.MatchSummary.Highlight.Border"))
+							.Padding(2)
+							.Content()
 							[
-								SNew(SBorder)
-								.BorderImage(SUWindowsStyle::Get().GetBrush("UT.MatchSummary.Highlight.Border"))
-								.Padding(2)
+								SNew(SBox)
+								.MinDesiredHeight(100.0f)
 								.Content()
 								[
-									SNew(SBox)
-									.MinDesiredHeight(100.0f)
-									.Content()
+									SNew(SOverlay)
+									+ SOverlay::Slot()
 									[
-										SNew(SOverlay)
-										+ SOverlay::Slot()
-										[
-											SNew(SImage)
-											.Image(SUWindowsStyle::Get().GetBrush("UT.MatchSummary.Highlight.BG"))
-										]
-										+ SOverlay::Slot()
-											.VAlign(VAlign_Center)
-											.HAlign(HAlign_Fill)
-											[
-												SNew(SRichTextBlock)
-												.Text(Highlights[i])
-												.TextStyle(SUWindowsStyle::Get(), "UT.MatchSummary.HighlightText.Normal")
-												.Justification(ETextJustify::Center)
-												.DecoratorStyleSet(&SUWindowsStyle::Get())
-												.AutoWrapText(false)
-											]
+										SNew(SImage)
+										.Image(SUWindowsStyle::Get().GetBrush("UT.MatchSummary.Highlight.BG"))
 									]
+									+ SOverlay::Slot()
+										.VAlign(VAlign_Center)
+										.HAlign(HAlign_Fill)
+										[
+											SNew(SRichTextBlock)
+											.Text(Highlights[i])
+											.TextStyle(SUWindowsStyle::Get(), "UT.MatchSummary.HighlightText.Normal")
+											.Justification(ETextJustify::Center)
+											.DecoratorStyleSet(&SUWindowsStyle::Get())
+											.AutoWrapText(false)
+										]
 								]
-							];
-					}
+							]
+						];
 				}
-
-				UTPS->BuildPlayerInfo(TabWidget, StatList);
-
-				//Build the player stats only if the match has started
-				if (GameState->HasMatchStarted())
-				{
-					DefaultGameMode->BuildPlayerInfo(UTPS, TabWidget, StatList);
-				}
-
-				TabWidget->SelectTab(0);
 			}
+
+			UTPS->BuildPlayerInfo(TabWidget, StatList);
+
+			//Build the player stats only if the match has started
+			if (GameState->HasMatchStarted())
+			{
+				DefaultGameMode->BuildPlayerInfo(UTPS, TabWidget, StatList);
+			}
+
+			TabWidget->SelectTab(0);
 		}
 	}
 }
@@ -562,11 +613,11 @@ void SUWMatchSummary::UpdateChatText()
 				{
 					if (Msg->Color.R > Msg->Color.B)
 					{
-						Style = TEXT("UWindows.Chat.Text.Team.Red");;
+						Style = TEXT("UWindows.Chat.Text.Team.Red");
 					}
 					else
 					{
-						Style = TEXT("UWindows.Chat.Text.Team.Blue");;
+						Style = TEXT("UWindows.Chat.Text.Team.Blue");
 					}
 				}
 				else
@@ -598,12 +649,13 @@ void SUWMatchSummary::Tick(const FGeometry& AllottedGeometry, const double InCur
 {
 	SCompoundWidget::Tick(AllottedGeometry, InCurrentTime, InDeltaTime);
 
-	// recreate players if something has changed
-	bool bPlayersAreValid = true;
-	int32 TotalPlayers = 0;
 	if (GameState.IsValid() && (GameState->GetMatchState() == MatchState::WaitingToStart))
 	{
-		// @TODO FIXMESTEVE - this could be reported  to match summary on valid change, rather than
+		// recreate players if something has changed
+		bool bPlayersAreValid = true;
+		int32 TotalPlayers = 0;
+
+		// @TODO FIXMESTEVE - this could be reported to match summary on valid change, rather than checking every tick
 		for (int32 iTeam = 0; iTeam < TeamPreviewMeshs.Num(); iTeam++)
 		{
 			TArray<AUTCharacter*> &TeamCharacters = TeamPreviewMeshs[iTeam];
@@ -622,15 +674,13 @@ void SUWMatchSummary::Tick(const FGeometry& AllottedGeometry, const double InCur
 		{
 			bPlayersAreValid = false;
 		}
-	}
-	if (!bPlayersAreValid)
-	{
-		RecreateAllPlayers();
-		if (ViewMode == EViewMode::VM_All)
+		if (!bPlayersAreValid)
 		{
-			float CameraOffset = GetAllCameraOffset();
-			DesiredCameraTransform.SetLocation(FVector(CameraOffset, 0.0f, -1.f * CameraOffset * FMath::Sin(ALL_CAMERA_ANGLE * PI / 180.f)));
-			CameraTransform = DesiredCameraTransform;
+			RecreateAllPlayers();
+			if (HasCamFlag(CF_All))
+			{
+				ViewAll();
+			}
 		}
 	}
 	if (PlayerPreviewWorld != nullptr)
@@ -643,163 +693,223 @@ void SUWMatchSummary::Tick(const FGeometry& AllottedGeometry, const double InCur
 		PlayerPreviewTexture->UpdateResource();
 	}
 
-	// Force the preview mesh and weapons to put the highest mips into memory
-	for (AUTCharacter* PlayerPreview : PlayerPreviewMeshs)
+	UpdateChatText();
+	BuildFriendPanel();
+
+	if (CameraShots.IsValidIndex(CurrentShot) && GameState.IsValid())
 	{
-		PlayerPreview->PrestreamTextures(1, true);
+		float ElapsedTime = GameState->GetWorld()->RealTimeSeconds - ShotStartTime;
+		if (CameraShots[CurrentShot]->TickCamera(this, ElapsedTime, InDeltaTime, CameraTransform))
+		{
+			SetCamShot(CurrentShot+1);
+		}
 	}
+
+	//Create the xp widget the first time the info widget is open
+	AUTPlayerState* PS = (PlayerOwner.IsValid() && PlayerOwner->PlayerController != nullptr) ? Cast<AUTPlayerState>(PlayerOwner->PlayerController->PlayerState) : nullptr;
+	if (!XPBar.IsValid() && HasCamFlag(CF_ShowInfoWidget) && GameState.IsValid() && GameState->GetMatchState() == MatchState::WaitingPostMatch && (PS != nullptr && PS->CanAwardOnlineXP()))
+	{
+		XPOverlay->AddSlot()
+		[
+			SAssignNew(XPBar, SUTXPBar).PlayerOwner(PlayerOwner)
+		];
+	}
+
+	for (auto PreviewMesh : PlayerPreviewMeshs)
+	{
+		PreviewMesh->PrestreamTextures(1, true);
+	}
+
 	for (auto Weapon : PreviewWeapons)
 	{
 		Weapon->PrestreamTextures(1, true);
 	}
-
-	//Update the camera
-	IntroTime += InDeltaTime;
-	if (CameraState == CS_CamIntro)
-	{
-		UpdateIntroCam();
-	}
-	else if (CameraState == CS_CamAuto)
-	{
-		UpdateAutoCam();
-	}
-	else if (ViewMode == VM_Team && bAutoScrollTeam)
-	{
-		TeamCamAlpha += InDeltaTime * AutoScrollTeamDirection * 0.05;
-		TeamCamAlpha = FMath::Clamp(TeamCamAlpha, 0.0f, 1.0f);
-
-		if (TeamCamAlpha == 0.0f || TeamCamAlpha == 1.0f)
-		{
-			AutoScrollTeamDirection *= -1.0f;
-		}
-	}
-
-	if (ViewMode == VM_Team)
-	{
-		DesiredCameraTransform.Blend(TeamStartCamera, TeamEndCamera, TeamCamAlpha);
-	}
-
-	//Smooth the camera
-	CameraTransform.SetLocation(FMath::VInterpTo(CameraTransform.GetLocation(), DesiredCameraTransform.GetLocation(), InDeltaTime, 5.0f));
-	CameraTransform.SetRotation(FMath::RInterpTo(CameraTransform.Rotator(), DesiredCameraTransform.Rotator(), InDeltaTime, 5.0f).Quaternion());
-
-	UpdateChatText();
-	BuildFriendPanel();
 }
 
-void SUWMatchSummary::UpdateIntroCam()
+void SUWMatchSummary::SetCamShot(int32 ShotIndex)
 {
-	if (GameState.IsValid() && (GameState->GetMatchState() == MatchState::WaitingToStart))
+	if (CameraShots.IsValidIndex(ShotIndex) && GameState.IsValid())
 	{
-		IntroTime = 0.f;
-	}
-	if (ViewedTeamNum < 0 && IntroTime > 0.6f)
-	{
-		//Play the intro music
-		AUTPlayerController* UTPC = Cast<AUTPlayerController>(GetPlayerOwner()->PlayerController);
-		USoundBase* Music = LoadObject<USoundBase>(NULL, TEXT("/Game/RestrictedAssets/Audio/Music/FragCenterIntro.FragCenterIntro"), NULL, LOAD_NoWarn | LOAD_Quiet);
-		if (UTPC != nullptr && Music != nullptr)
+		CurrentShot = ShotIndex;
+		ShotStartTime = GameState->GetWorld()->RealTimeSeconds;
+		CameraShots[CurrentShot]->InitCam(this);
+
+		//Make sure all the characters are rotated in their proper team rotation
+		for (int32 iTeam = 0; iTeam < TeamPreviewMeshs.Num(); iTeam++)
 		{
-			UTPC->ClientPlaySound(Music);
-		}
-
-		ViewTeam(0);
-		IntroTime = 0.0f;
-	}
-	else if (ViewedTeamNum >= 0)
-	{
-		int32 NumViewTeams = FMath::Max(GameState->Teams.Num(), 1);
-
-		//6 seconds for the team camera pan works well with the current song
-		float TimePerTeam = 6.0f / NumViewTeams;
-		TeamCamAlpha = IntroTime / TimePerTeam;
-
-		if (IntroTime > TimePerTeam)
-		{
-			if (ViewedTeamNum + 1 < GameState->Teams.Num())
+			for (int32 iCharacter = 0; iCharacter < TeamPreviewMeshs[iTeam].Num(); iCharacter++)
 			{
-				ViewTeam(ViewedTeamNum + 1);
-				IntroTime = 0.0f;
-
-				if (ViewedTeamNum > 0)
+				if (TeamAnchors.IsValidIndex(iTeam))
 				{
-					//Snap the camera backwards so it swoops down on the team
-					//CameraTransform.SetLocation(FVector(2000.0f, 0.0f, 35.0f));
-					CameraTransform.SetRotation(FRotator(0.0f, 180.0f, 0.0f).Quaternion());
+					TeamPreviewMeshs[iTeam][iCharacter]->SetActorRotation(TeamAnchors[iTeam]->GetActorRotation());
 				}
-			}
-			else
-			{
-				ViewAll();
-				CameraState = CS_FreeCam;
 			}
 		}
 	}
 }
 
-void SUWMatchSummary::UpdateAutoCam()
+void SUWMatchSummary::SetupIntroCam()
 {
-	if (!ViewedChar.IsValid() && ViewMode == EViewMode::VM_Team)
-	{
-		TeamCamAlpha = IntroTime / 7.0f;
-		//Halftime uses the around the flag circle view so just skip it
-		if (IntroTime > 7.0f || GameState->GetMatchState() == MatchState::MatchEnteringHalftime || GameState->GetMatchState() == MatchState::MatchIsAtHalftime)
-		{
-			ViewAll();
-			IntroTime = 0.0f;
+	CameraShots.Empty();
 
-			//Reset the scoreboard page and timers
-			UUTScoreboard* Scoreboard = GetScoreboard();
-			if (Scoreboard != nullptr)
-			{
-				Scoreboard->SetPage(0);
-				Scoreboard->SetScoringPlaysTimer(true);
-			}
+	//Start with viewing team
+	TSharedPtr<FAllCamera> AllCam = MakeShareable(new FAllCamera);
+	AllCam->CamFlags |= CF_Intro;
+	AllCam->Time = 0.1f;
+	CameraShots.Add(AllCam);
+
+	//View teams
+	int32 NumViewTeams = GameState->Teams.Num();
+	if (NumViewTeams == 0)
+	{
+		NumViewTeams = 1;
+	}
+	//6 seconds for the team camera pan works well with the current song
+	float TimePerTeam = 6.0f / NumViewTeams;
+
+	//Add camera pan for each team
+	for (int32 i = 0; i < NumViewTeams; i++)
+	{
+		TSharedPtr<FTeamCamera> TeamCam = MakeShareable(new FTeamCamera(i));
+		TeamCam->Time = TimePerTeam;
+		TeamCam->CamFlags |= CF_ShowPlayerNames | CF_Intro;
+		CameraShots.Add(TeamCam);
+	}
+	SetCamShot(0);
+
+	//Play the intro music
+	AUTPlayerController* UTPC = Cast<AUTPlayerController>(GetPlayerOwner()->PlayerController);
+	USoundBase* Music = LoadObject<USoundBase>(NULL, TEXT("/Game/RestrictedAssets/Audio/Music/FragCenterIntro.FragCenterIntro"), NULL, LOAD_NoWarn | LOAD_Quiet);
+	if (UTPC != nullptr && Music != nullptr)
+	{
+		UTPC->ClientPlaySound(Music);
+	}
+}
+
+void SUWMatchSummary::GetTeamCamTransforms(int32 TeamNum, FTransform& Start, FTransform& End)
+{
+	if (TeamPreviewMeshs.IsValidIndex(TeamNum))
+	{
+		TArray<AUTCharacter*> &TeamCharacters = TeamPreviewMeshs[TeamNum];
+		if (TeamCharacters.Num() > 0)
+		{
+			AUTCharacter* StartChar = TeamCharacters[TeamCharacters.Num() - 1];
+			FRotator Dir = StartChar->GetActorRotation();
+			FVector Location = StartChar->GetActorLocation() + (Dir.Vector() * TEAM_CAMERA_OFFSET) + FVector(0.0f, 0.0f, TEAM_CAMERA_ZOFFSET);
+
+			Dir.Yaw += 180.0f;
+			Start.SetLocation(Location);
+			Start.SetRotation(Dir.Quaternion());
+		}
+		if (TeamCharacters.Num() > 0)
+		{
+			AUTCharacter* EndChar = TeamCharacters[0];
+			FRotator Dir = EndChar->GetActorRotation();
+			FVector Location = EndChar->GetActorLocation() + (Dir.Vector() * TEAM_CAMERA_OFFSET) + FVector(0.0f, 0.0f, TEAM_CAMERA_ZOFFSET);
+
+			Dir.Yaw += 180.0f;
+			End.SetLocation(Location);
+			End.SetRotation(Dir.Quaternion());
 		}
 	}
-	else if (!ViewedChar.IsValid() && ViewMode == EViewMode::VM_All)
+}
+
+void SUWMatchSummary::SetupMatchCam()
+{
+	int32 TeamToView = 0;
+	if (GameState.IsValid() && GameState->GetMatchState() == MatchState::WaitingPostMatch && GameState->WinningTeam != nullptr)
 	{
-		if (IntroTime > 10.0f)
+		TeamToView = GameState->WinningTeam->GetTeamNum();
+	}
+	else if (GetPlayerOwner().IsValid() && Cast<AUTPlayerController>(GetPlayerOwner()->PlayerController) != nullptr)
+	{
+		TeamToView = Cast<AUTPlayerController>(GetPlayerOwner()->PlayerController)->GetTeamNum();
+	}
+	if (TeamToView == 255)
+	{
+		TeamToView = 0;
+	}
+
+	CameraShots.Empty();
+	TSharedPtr<FTeamCamera> TeamCam = MakeShareable(new FTeamCamera(TeamToView));
+	TeamCam->Time = 0.5f;
+	CameraShots.Add(TeamCam);
+
+	if (TeamPreviewMeshs.IsValidIndex(TeamToView) && GameState.IsValid())
+	{
+		float DisplayTime = 3.f;
+		AUTGameMode* DefaultGame = GameState->GameModeClass->GetDefaultObject<AUTGameMode>();
+		if (DefaultGame)
 		{
-			for (AUTCharacter* Char : PlayerPreviewMeshs)
+			DisplayTime = DefaultGame->WinnerSummaryDisplayTime;
+		}
+
+		TArray<AUTCharacter*> &TeamCharacters = TeamPreviewMeshs[TeamToView];
+		int32 NumWinnersToShow = FMath::Min(int32(GameState->NumWinnersToShow), TeamCharacters.Num());
+
+		// determine match highlight scores to use for sorting
+		for (int32 i = 0; i < TeamCharacters.Num(); i++)
+		{
+			AUTPlayerState* PS = TeamCharacters[i] ? Cast<AUTPlayerState>(TeamCharacters[i]->PlayerState) : NULL;
+			if (PS)
 			{
-				if (Char->GetTeamNum() == ViewedTeamNum || Char->GetTeamNum() == 255)
+				PS->MatchHighlightScore = GameState->MatchHighlightScore(PS);
+			}
+		}
+
+		// sort winners
+		bool(*SortFunc)(const AUTCharacter&, const AUTCharacter&);
+		SortFunc = [](const AUTCharacter& A, const AUTCharacter& B)
+		{
+			AUTPlayerState* PSA = Cast<AUTPlayerState>(A.PlayerState);
+			AUTPlayerState* PSB = Cast<AUTPlayerState>(B.PlayerState);
+			return !PSB || (PSA && (PSA->MatchHighlightScore > PSB->MatchHighlightScore));
+		};
+		TeamCharacters.Sort(SortFunc);
+
+		// add winner shots
+		for (int32 i = 0; i < NumWinnersToShow; i++)
+		{
+			TSharedPtr<FCharacterCamera> PlayerCam = MakeShareable(new FCharacterCamera(TeamCharacters[i]));
+			PlayerCam->Time = DisplayTime;
+			CameraShots.Add(PlayerCam);
+		}
+	}
+
+	// finally go to local player view
+	if (GetPlayerOwner().IsValid() && Cast<AUTPlayerController>(GetPlayerOwner()->PlayerController) != nullptr)
+	{
+		AUTPlayerState* LocalPS = Cast<AUTPlayerState>(GetPlayerOwner()->PlayerController->PlayerState);
+		AUTCharacter* LocalChar = NULL;
+		if (LocalPS)
+		{
+			int32 LocalTeam = LocalPS->GetTeamNum();
+			if (LocalTeam == 255)
+			{
+				LocalTeam = 0;
+			}
+			if (LocalTeam < TeamPreviewMeshs.Num())
+			{
+				TArray<AUTCharacter*> &TeamCharacters = TeamPreviewMeshs[LocalTeam];
+				for (int32 iPlayer = 0; iPlayer < TeamCharacters.Num(); iPlayer++)
 				{
-					ViewCharacter(Char);
-					break;
+					APlayerState* PS = (TeamCharacters[iPlayer] && TeamCharacters[iPlayer]->PlayerState && !TeamCharacters[iPlayer]->PlayerState->IsPendingKillPending()) ? TeamCharacters[iPlayer]->PlayerState : NULL;
+					if (PS == LocalPS)
+					{
+						LocalChar = TeamCharacters[iPlayer];
+						break;
+					}
 				}
 			}
-			IntroTime = 0.0f;
+		}
+		if (LocalChar)
+		{
+			TSharedPtr<FCharacterCamera> PlayerCam = MakeShareable(new FCharacterCamera(LocalChar));
+			PlayerCam->Time = 99.0f;
+			CameraShots.Add(PlayerCam);
 		}
 	}
-	else if (IntroTime > 2.0f && (ViewMode == EViewMode::VM_All || ViewMode == EViewMode::VM_Player))
-	{
-		bool bFound = false;
-		bool bFinished = true;
-		for (AUTCharacter* Char : PlayerPreviewMeshs)
-		{
-			if (Char == ViewedChar)
-			{
-				bFound = true;
-				continue;
-			}
-
-			if (bFound && (Char->GetTeamNum() == ViewedTeamNum || Char->GetTeamNum() == 255))
-			{
-				ViewCharacter(Char);
-				bFinished = false;
-				break;
-			}
-		}
-
-		if (bFinished)
-		{
-			ViewAll();
-			CameraState = CS_FreeCam;
-		}
-
-		IntroTime = 0.0f;
-	}
+	SetCamShot(0);
 }
 
 void SUWMatchSummary::RecreateAllPlayers()
@@ -936,13 +1046,23 @@ AUTCharacter* SUWMatchSummary::RecreatePlayerPreview(AUTPlayerState* NewPS, FVec
 	TSubclassOf<class APawn> DefaultPawnClass = Cast<UClass>(StaticLoadObject(UClass::StaticClass(), NULL, *GetDefault<AUTGameMode>()->PlayerPawnObject.ToStringReference().AssetLongPathname, NULL, LOAD_NoWarn));
 
 	AUTCharacter* PlayerPreviewMesh = PlayerPreviewWorld->SpawnActor<AUTCharacter>(DefaultPawnClass, Location, Rotation, SpawnParams);
-	PlayerPreviewMesh->GetMesh()->SetAnimInstanceClass(PlayerPreviewAnimBlueprint);
-
+	
 	if (PlayerPreviewMesh)
 	{
 		PlayerPreviewMesh->PlayerState = NewPS; //PS needed for team colors
 		PlayerPreviewMesh->Health = 100; //Set to 100 so the TacCom Overlay doesn't show damage
 		PlayerPreviewMesh->DeactivateSpawnProtection();
+
+		if (NewPS->GetSelectedCharacter() != NULL && NewPS->GetSelectedCharacter().GetDefaultObject()->bIsFemale)
+		{
+			PlayerPreviewAnimBlueprint = LoadObject<UClass>(nullptr, TEXT("/Game/RestrictedAssets/UI/ABP_Female_PlayerPreview.ABP_Female_PlayerPreview_C"));
+		}
+		else
+		{
+			PlayerPreviewAnimBlueprint = LoadObject<UClass>(nullptr, TEXT("/Game/RestrictedAssets/UI/ABP_PlayerPreview.ABP_PlayerPreview_C"));
+		}
+
+		PlayerPreviewMesh->GetMesh()->SetAnimInstanceClass(PlayerPreviewAnimBlueprint);
 
 		PlayerPreviewMesh->ApplyCharacterData(NewPS->GetSelectedCharacter());
 		PlayerPreviewMesh->NotifyTeamChanged();
@@ -1031,8 +1151,33 @@ void SUWMatchSummary::UpdatePlayerRender(UCanvas* C, int32 Width, int32 Height)
 	--GFrameNumber;
 	GetRendererModule().BeginRenderingViewFamily(C->Canvas, &ViewFamily);
 
+	// Force the preview mesh and weapons to put the highest mips into memory if visible. This assumes each char has a weapon
+	FConvexVolume Frustum;
+	GetViewFrustumBounds(Frustum, PlayerPreviewInitOptions.ComputeViewProjectionMatrix(), true);
+	for (auto Weapon : PreviewWeapons)
+	{
+		AUTCharacter* Holder = Cast<AUTCharacter>(Weapon->Instigator);
+		if (Holder != nullptr)
+		{
+			if (!Holder->bHidden)
+			{
+				FVector Origin, BoxExtent;
+				Holder->GetActorBounds(true, Origin, BoxExtent);
+
+				if (Frustum.IntersectBox(Origin, BoxExtent))
+				{
+					Holder->PrestreamTextures(1, true);
+					Weapon->PrestreamTextures(1, true);
+					continue;
+				}
+			}
+			Holder->PrestreamTextures(0, false);
+			Weapon->PrestreamTextures(0, false);
+		}
+	}
+
 	//Check if the mouse is over a player and apply taccom effect
-	if (CameraState != CS_CamAuto && (ViewMode == VM_Team || ViewMode == VM_All))
+	if (HasCamFlag(CF_CanInteract) && !HasCamFlag(CF_Player))
 	{
 		FVector Start, Direction;
 		View->DeprojectFVector2D(MousePos, Start, Direction);
@@ -1046,7 +1191,8 @@ void SUWMatchSummary::UpdatePlayerRender(UCanvas* C, int32 Width, int32 Height)
 			{
 				HighlightedChar->UpdateTacComMesh(false);
 			}
-			else if (HighlightedChar == nullptr)
+
+			if (HitChar != nullptr)
 			{
 				HitChar->UpdateTacComMesh(true);
 				HighlightedChar = HitChar;
@@ -1060,7 +1206,7 @@ void SUWMatchSummary::UpdatePlayerRender(UCanvas* C, int32 Width, int32 Height)
 	}
 
 	//Draw the player names above their heads
-	if (ViewMode == VM_Team || !GameState->HasMatchStarted())
+	if (HasCamFlag(CF_ShowPlayerNames))
 	{
 		//Helper for making sure player names don't overlap
 		//TODO: do this better. Smooth the spacing of names when they overlap
@@ -1075,7 +1221,7 @@ void SUWMatchSummary::UpdatePlayerRender(UCanvas* C, int32 Width, int32 Height)
 			UFont* DrawFont;
 		};
 
-		UFont* SmallFont = (ViewMode == EViewMode::VM_Team) ? AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->SmallFont : AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->TinyFont;
+		UFont* SmallFont = HasCamFlag(CF_Team) ? AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->SmallFont : AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->TinyFont;
 		UFont* SelectFont = AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->MediumFont;
 		AUTCharacter* SelectedChar = ViewedChar.IsValid() ? ViewedChar.Get() : (HighlightedChar.IsValid() ? HighlightedChar.Get() : NULL);
 
@@ -1140,7 +1286,7 @@ void SUWMatchSummary::UpdatePlayerRender(UCanvas* C, int32 Width, int32 Height)
 		TArray<UUTHUDWidget*> DrawWidgets;
 
 		//Draw the scoreboard if its not the intro
-		if (ShouldShowScoreboard())
+		if (HasCamFlag(CF_ShowScoreboard))
 		{
 			UUTScoreboard* Scoreboard = UTPC->MyUTHUD->GetScoreboard();
 			if (Scoreboard != nullptr)
@@ -1267,26 +1413,6 @@ void SUWMatchSummary::SetEmoteSpeed(AUTPlayerState* PS, float EmoteSpeed)
 	}
 }
 
-void SUWMatchSummary::SetViewMode(EViewMode NewViewMode)
-{
-	if (NewViewMode != ViewMode)
-	{
-		ViewMode = NewViewMode;
-
-		//Make sure all the characters are rotated in their proper team rotation
-		for (int32 iTeam = 0; iTeam < TeamPreviewMeshs.Num(); iTeam++)
-		{
-			for (int32 iCharacter = 0; iCharacter < TeamPreviewMeshs[iTeam].Num(); iCharacter++)
-			{
-				if (TeamAnchors.IsValidIndex(iTeam))
-				{
-					TeamPreviewMeshs[iTeam][iCharacter]->SetActorRotation(TeamAnchors[iTeam]->GetActorRotation());
-				}
-			}
-		}
-	}
-}
-
 AUTCharacter* SUWMatchSummary::FindCharacter(class AUTPlayerState* PS)
 {
 	if (PS != nullptr)
@@ -1309,35 +1435,11 @@ void SUWMatchSummary::ViewCharacter(AUTCharacter* NewChar)
 		NewChar->UpdateTacComMesh(false);
 	}
 
-	SetViewMode(VM_Player);
-	ViewedChar = NewChar;
-
-	ViewedTeamNum = ViewedChar->GetTeamNum() != 255 ? ViewedChar->GetTeamNum() : 0;
-
-	// hide everyone else, show this player
-	if (TeamPreviewMeshs.Num() > 1)
-	{
-		for (int32 i = 0; i< TeamPreviewMeshs.Num(); i++)
-		{
-			TArray<AUTCharacter*> &TeamCharacters = TeamPreviewMeshs[i];
-			for (int32 j = 0; j < TeamCharacters.Num(); j++)
-			{
-				TeamCharacters[j]->HideCharacter(TeamCharacters[j] != ViewedChar);
-			}
-		}
-		for (auto Weapon : PreviewWeapons)
-		{
-			AUTCharacter* Holder = Cast<AUTCharacter>(Weapon->GetAttachParentActor());
-			Weapon->SetActorHiddenInGame(Holder != ViewedChar);
-		}
-	}
-	FRotator Dir = ViewedChar->GetActorRotation();
-	FVector Location = ViewedChar->GetActorLocation() + (Dir.Vector() * 300.0f);
-	Location += Dir.Quaternion().GetAxisY() * -60.0f + FVector(0.0f, 0.0f, 45.0f);
-
-	Dir.Yaw += 180.0f;
-	DesiredCameraTransform.SetLocation(Location);
-	DesiredCameraTransform.SetRotation(Dir.Quaternion());
+	TSharedPtr<FCharacterCamera> PlayerCam = MakeShareable(new FCharacterCamera(NewChar));
+	PlayerCam->CamFlags |= CF_CanInteract;
+	CameraShots.Empty();
+	CameraShots.Add(PlayerCam);
+	SetCamShot(0);
 
 	FriendStatus = NAME_None;
 	BuildInfoPanel();
@@ -1359,13 +1461,36 @@ void SUWMatchSummary::ViewTeam(int32 NewTeam)
 		return;
 	}
 
-	SetViewMode(EViewMode::VM_Team);
 	ViewedTeamNum = NewTeam;
 	if (!TeamAnchors.IsValidIndex(ViewedTeamNum))
 	{
 		ViewedTeamNum = 0;
 	}
 
+	//use TeamCamAlpha to blend between start and end cams
+	struct FTeamCameraPan : FTeamCamera
+	{
+		FTeamCameraPan(int32 InTeamNum) : FTeamCamera(InTeamNum) {}
+		virtual bool TickCamera(class SUWMatchSummary* MatchWidget, float ElapsedTime, float DeltaTime, FTransform& InOutCamera) override
+		{
+			CameraTransform.Blend(CamStart, CamEnd, FMath::Clamp(MatchWidget->TeamCamAlpha, 0.0f, 1.0f));
+			FMatchCamera::TickCamera(MatchWidget, ElapsedTime, DeltaTime, InOutCamera);
+			return false;
+		}
+	};
+
+	TSharedPtr<FTeamCameraPan> TeamCam = MakeShareable(new FTeamCameraPan(NewTeam));
+	TeamCam->CamFlags |= CF_CanInteract;
+	CameraShots.Empty();
+	CameraShots.Add(TeamCam);
+	SetCamShot(0);
+
+	bAutoScrollTeam = true;
+	BuildInfoPanel();
+}
+
+void SUWMatchSummary::ShowTeam(int32 TeamNum)
+{
 	// hide everyone else, show this team
 	if (TeamPreviewMeshs.Num() > 1)
 	{
@@ -1380,39 +1505,53 @@ void SUWMatchSummary::ViewTeam(int32 NewTeam)
 		}
 		for (auto Weapon : PreviewWeapons)
 		{
-			AUTCharacter* Holder = Cast<AUTCharacter>(Weapon->GetAttachParentActor());
+			AUTCharacter* Holder = Cast<AUTCharacter>(Weapon->Instigator);
 			AUTPlayerState* PS = Holder ? Cast<AUTPlayerState>(Holder->PlayerState) : NULL;
-			bool bSameTeamWeapon = (PS && PS->Team && (PS->Team->TeamIndex == ViewedTeamNum));
+			bool bSameTeamWeapon = (PS && PS->Team && (PS->Team->TeamIndex == TeamNum)) || TeamNum < 0;
 			Weapon->SetActorHiddenInGame(!bSameTeamWeapon);
 		}
 	}
+}
 
-	//Figure out the start and end camera transforms for the team pan
-	TArray<AUTCharacter*> &TeamCharacters = TeamPreviewMeshs[ViewedTeamNum];
-	if (TeamCharacters.Num() > 0)
+void SUWMatchSummary::ShowCharacter(AUTCharacter* UTC)
+{
+	// hide everyone else, show this player
+	if (TeamPreviewMeshs.Num() > 1)
 	{
-		AUTCharacter* StartChar = TeamCharacters[TeamCharacters.Num() - 1];
-		FRotator Dir = StartChar->GetActorRotation();
-		FVector Location = StartChar->GetActorLocation() + (Dir.Vector() * TEAM_CAMERA_OFFSET) + FVector(0.0f, 0.0f, TEAM_CAMERA_ZOFFSET);
-
-		Dir.Yaw += 180.0f;
-		TeamStartCamera.SetLocation(Location);
-		TeamStartCamera.SetRotation(Dir.Quaternion());
+		for (int32 i = 0; i< TeamPreviewMeshs.Num(); i++)
+		{
+			TArray<AUTCharacter*> &TeamCharacters = TeamPreviewMeshs[i];
+			for (int32 j = 0; j < TeamCharacters.Num(); j++)
+			{
+				TeamCharacters[j]->HideCharacter(TeamCharacters[j] != UTC);
+			}
+		}
+		for (auto Weapon : PreviewWeapons)
+		{
+			AUTCharacter* Holder = Cast<AUTCharacter>(Weapon->Instigator);
+			Weapon->SetActorHiddenInGame(Holder != UTC);
+		}
 	}
-	if (TeamCharacters.Num() > 0)
+}
+
+void SUWMatchSummary::ShowAllCharacters()
+{
+	if (TeamPreviewMeshs.Num() > 1)
 	{
-		AUTCharacter* EndChar = TeamCharacters[0];
-		FRotator Dir = EndChar->GetActorRotation();
-		FVector Location = EndChar->GetActorLocation() + (Dir.Vector() * TEAM_CAMERA_OFFSET) + FVector(0.0f, 0.0f, TEAM_CAMERA_ZOFFSET);
-
-		Dir.Yaw += 180.0f;
-		TeamEndCamera.SetLocation(Location);
-		TeamEndCamera.SetRotation(Dir.Quaternion());
+		for (int32 i = 0; i< TeamPreviewMeshs.Num(); i++)
+		{
+			TArray<AUTCharacter*> &TeamCharacters = TeamPreviewMeshs[i];
+			for (int32 j = 0; j < TeamCharacters.Num(); j++)
+			{
+				TeamCharacters[j]->HideCharacter(false);
+			}
+		}
+		for (auto Weapon : PreviewWeapons)
+		{
+			AUTCharacter* Holder = Cast<AUTCharacter>(Weapon->Instigator);
+			Weapon->SetActorHiddenInGame(false);
+		}
 	}
-	TeamCamAlpha = 0.5f;
-	bAutoScrollTeam = true;
-
-	BuildInfoPanel();
 }
 
 float SUWMatchSummary::GetAllCameraOffset()
@@ -1435,32 +1574,11 @@ float SUWMatchSummary::GetAllCameraOffset()
 
 void SUWMatchSummary::ViewAll()
 {
-	SetViewMode(EViewMode::VM_All);
-
-	// show everyone
-	for (int32 i = 0; i< TeamPreviewMeshs.Num(); i++)
-	{
-		TArray<AUTCharacter*> &TeamCharacters = TeamPreviewMeshs[i];
-		for (int32 j = 0; j < TeamCharacters.Num(); j++)
-		{
-			TeamCharacters[j]->SetActorHiddenInGame(false);
-		}
-	}
-	for (auto Weapon : PreviewWeapons)
-	{
-		Weapon->SetActorHiddenInGame(false);
-	}
-
-	float CameraOffset = GetAllCameraOffset();
-	DesiredCameraTransform.SetLocation(FVector(CameraOffset, 0.0f, -1.f * CameraOffset * FMath::Sin(ALL_CAMERA_ANGLE * PI/180.f)));
-	DesiredCameraTransform.SetRotation(FRotator(ALL_CAMERA_ANGLE, 180.0f, 0.0f).Quaternion());
-
-	UUTScoreboard* Scoreboard = GetScoreboard();
-	if (Scoreboard != nullptr)
-	{
-		Scoreboard->SetPage(0);
-		Scoreboard->SetScoringPlaysTimer(false);
-	}
+	TSharedPtr<FAllCamera> AllCam = MakeShareable(new FAllCamera);
+	AllCam->CamFlags = CF_CanInteract | CF_ShowScoreboard;
+	CameraShots.Empty();
+	CameraShots.Add(AllCam);
+	SetCamShot(0);
 }
 
 UUTScoreboard* SUWMatchSummary::GetScoreboard()
@@ -1484,32 +1602,31 @@ void SUWMatchSummary::OnMouseDownPlayerPreview(const FGeometry& MyGeometry, cons
 	MousePos = MyGeometry.AbsoluteToLocal(MouseEvent.GetScreenSpacePosition());
 
 	//Try to Click the scoreboard first
-	if (CanClickScoreboard())
+	if (HasCamFlag(CF_ShowScoreboard) && HasCamFlag(CF_CanInteract))
 	{
 		UUTScoreboard* Scoreboard = GetScoreboard();
 		if (Scoreboard != nullptr && Scoreboard->AttemptSelection(MousePos))
 		{
 			Scoreboard->SelectionClick();
-			CameraState = CS_FreeCam;
 			return;
 		}
 	}
 
 	//Click a character
-	if ((ViewMode == VM_Team || ViewMode == VM_All) && HighlightedChar.IsValid() && CameraState != CS_CamAuto)
+	if (HasCamFlag(CF_CanInteract) && !HasCamFlag(CF_Player) && HighlightedChar.IsValid())
 	{
-		CameraState = CS_FreeCam;
 		ViewCharacter(HighlightedChar.Get());
 	}
 }
 
-bool SUWMatchSummary::ShouldShowScoreboard()
+bool SUWMatchSummary::HasCamFlag(ECamFlags CamFlag) const
 {
-	return ViewMode == EViewMode::VM_All && (GameState->HasMatchStarted() || (GameState->GetMatchState() == MatchState::WaitingToStart));
-}
-bool SUWMatchSummary::CanClickScoreboard()
-{
-	return ShouldShowScoreboard() && CameraState != CS_CamAuto;
+	TSharedPtr<FMatchCamera> Shot = GetCurrentShot();
+	if (Shot.IsValid())
+	{
+		return (Shot->CamFlags & (uint32)CamFlag) > 0;
+	}
+	return false;
 }
 
 void SUWMatchSummary::OnMouseMovePlayerPreview(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
@@ -1519,7 +1636,7 @@ void SUWMatchSummary::OnMouseMovePlayerPreview(const FGeometry& MyGeometry, cons
 	UUTScoreboard* Scoreboard = GetScoreboard();
 	if (Scoreboard != nullptr)
 	{
-		if (CanClickScoreboard())
+		if (HasCamFlag(CF_CanInteract) && HasCamFlag(CF_ShowScoreboard))
 		{
 			Scoreboard->BecomeInteractive();
 			Scoreboard->TrackMouseMovement(MousePos);
@@ -1533,29 +1650,24 @@ void SUWMatchSummary::OnMouseMovePlayerPreview(const FGeometry& MyGeometry, cons
 
 void SUWMatchSummary::DragPlayerPreview(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
 {
-	if (CameraState == CS_FreeCam)
+	if (HasCamFlag(CF_CanInteract))
 	{
-		if (ViewMode == VM_Team)
+		if (HasCamFlag(CF_Team))
 		{
 			//Scroll the team left/right
-			if (MouseEvent.IsMouseButtonDown(EKeys::LeftMouseButton))
+			if (MouseEvent.IsMouseButtonDown(EKeys::LeftMouseButton) && TeamPreviewMeshs.IsValidIndex(ViewedTeamNum) && TeamPreviewMeshs[ViewedTeamNum].Num() > 0)
 			{
-				float Dist = FVector::Dist(TeamStartCamera.GetLocation(), TeamEndCamera.GetLocation());
+				float Dist = FVector::Dist(TeamPreviewMeshs[ViewedTeamNum][0]->GetActorLocation(), TeamPreviewMeshs[ViewedTeamNum][TeamPreviewMeshs[ViewedTeamNum].Num() - 1]->GetActorLocation());
 
 				if (Dist > 0.0f)
 				{
 					TeamCamAlpha -= MouseEvent.GetCursorDelta().X / Dist;
 					TeamCamAlpha = FMath::Clamp(TeamCamAlpha, 0.0f, 1.0f);
 				}
-				else
-				{
-					TeamCamAlpha = 0.5f;
-				}
-
 				bAutoScrollTeam = false;
 			}
 		}
-		else if (ViewMode == VM_Player && ViewedChar.IsValid())
+		else if (HasCamFlag(CF_Player) && ViewedChar.IsValid())
 		{
 			//Rotate the character
 			if (MouseEvent.IsMouseButtonDown(EKeys::LeftMouseButton))
@@ -1565,9 +1677,12 @@ void SUWMatchSummary::DragPlayerPreview(const FGeometry& MyGeometry, const FPoin
 			//Pan up and down
 			else if (MouseEvent.IsMouseButtonDown(EKeys::RightMouseButton))
 			{
-				FVector Location = DesiredCameraTransform.GetLocation();
-				Location.Z = FMath::Clamp(Location.Z + MouseEvent.GetCursorDelta().Y, -25.0f, 70.0f);
-				DesiredCameraTransform.SetLocation(Location);
+				if (CameraShots.Num() > 0)
+				{
+					FVector Location = CameraShots[0]->CameraTransform.GetLocation();
+					Location.Z = FMath::Clamp(Location.Z + MouseEvent.GetCursorDelta().Y, -25.0f, 70.0f);
+					CameraShots[0]->CameraTransform.SetLocation(Location);
+				}
 			}
 		}
 	}
@@ -1575,13 +1690,13 @@ void SUWMatchSummary::DragPlayerPreview(const FGeometry& MyGeometry, const FPoin
 
 void SUWMatchSummary::ZoomPlayerPreview(float WheelDelta)
 {
-	if (CameraState != CS_CamAuto)
+	if (HasCamFlag(CF_CanInteract))
 	{
-		if (ViewMode == VM_Player && WheelDelta < 0.0f)
+		if (HasCamFlag(CF_Player) && WheelDelta < 0.0f)
 		{
 			ViewTeam(ViewedTeamNum);
 		}
-		else if (ViewMode == VM_Team && WheelDelta < 0.0f)
+		else if (HasCamFlag(CF_Team) && WheelDelta < 0.0f)
 		{
 			ViewAll();
 		}
@@ -1598,12 +1713,12 @@ void SUWMatchSummary::ZoomPlayerPreview(float WheelDelta)
 
 FReply SUWMatchSummary::OnSwitcherNext()
 {
-	if (ViewMode == VM_Team)
+	if (HasCamFlag(CF_Team))
 	{
 		int32 Index = ViewedTeamNum + 1;
 		ViewTeam(TeamAnchors.IsValidIndex(Index) ? Index : 0);
 	}
-	else if (ViewMode == VM_Player && ViewedChar.IsValid())
+	else if (HasCamFlag(CF_Player) && ViewedChar.IsValid())
 	{
 		int32 Index = PlayerPreviewMeshs.Find(ViewedChar.Get());
 		if (Index == INDEX_NONE)
@@ -1626,12 +1741,12 @@ FReply SUWMatchSummary::OnSwitcherNext()
 
 FReply SUWMatchSummary::OnSwitcherPrevious()
 {
-	if (ViewMode == VM_Team)
+	if (HasCamFlag(CF_Team))
 	{
 		int32 Index = ViewedTeamNum - 1;
 		ViewTeam(TeamAnchors.IsValidIndex(Index) ? Index : TeamAnchors.Num() - 1);
 	}
-	else if (ViewMode == VM_Player && ViewedChar.IsValid())
+	else if (HasCamFlag(CF_Player) && ViewedChar.IsValid())
 	{
 		int32 Index = PlayerPreviewMeshs.Find(ViewedChar.Get());
 		if (Index == INDEX_NONE)
@@ -1654,11 +1769,11 @@ FReply SUWMatchSummary::OnSwitcherPrevious()
 
 FText SUWMatchSummary::GetSwitcherText() const
 {
-	if (ViewMode == VM_Player && ViewedChar.IsValid() && ViewedChar->PlayerState != nullptr)
+	if (HasCamFlag(CF_Player) && ViewedChar.IsValid() && ViewedChar->PlayerState != nullptr)
 	{
 		return FText::FromString(ViewedChar->PlayerState->PlayerName);
 	}
-	if (ViewMode == VM_Team && GameState.IsValid() && GameState->Teams.IsValidIndex(ViewedTeamNum))
+	if (HasCamFlag(CF_Team) && GameState.IsValid() && GameState->Teams.IsValidIndex(ViewedTeamNum))
 	{
 		return FText::Format(NSLOCTEXT("SUWMatchSummary", "Team", "{0} Team"), GameState->Teams[ViewedTeamNum]->TeamName);
 	}
@@ -1667,7 +1782,7 @@ FText SUWMatchSummary::GetSwitcherText() const
 
 FSlateColor SUWMatchSummary::GetSwitcherColor() const
 {
-	if (ViewMode == VM_Team && GameState.IsValid() && GameState->Teams.IsValidIndex(ViewedTeamNum))
+	if (HasCamFlag(CF_Team) && GameState.IsValid() && GameState->Teams.IsValidIndex(ViewedTeamNum))
 	{
 		return FMath::LerpStable(GameState->Teams[ViewedTeamNum]->TeamColor, FLinearColor::White, 0.3f);
 	}
@@ -1676,7 +1791,7 @@ FSlateColor SUWMatchSummary::GetSwitcherColor() const
 
 EVisibility SUWMatchSummary::GetSwitcherVisibility() const
 {
-	if (ViewMode != EViewMode::VM_All && !GetSwitcherText().IsEmpty())
+	if (HasCamFlag(CF_ShowSwitcher) && !GetSwitcherText().IsEmpty())
 	{
 		return EVisibility::Visible;
 	}
@@ -1685,12 +1800,12 @@ EVisibility SUWMatchSummary::GetSwitcherVisibility() const
 
 EVisibility SUWMatchSummary::GetSwitcherButtonVisibility() const
 {
-	return (CameraState == CS_FreeCam && ViewMode != EViewMode::VM_All) ? EVisibility::Visible : EVisibility::Hidden;
+	return (HasCamFlag(CF_CanInteract) && !HasCamFlag(CF_All)) ? EVisibility::Visible : EVisibility::Hidden;
 }
 
 FOptionalSize SUWMatchSummary::GetStatsWidth() const
 {
-	float WantedWidth = ((CameraState != CS_CamIntro) && (ViewMode == VM_Player)) ? 1050.f : 0.0f;
+	float WantedWidth = HasCamFlag(CF_ShowInfoWidget) ? 1050.f : 0.0f;
 	StatsWidth = GameState.IsValid() && GameState->GetWorld() ? FMath::FInterpTo(StatsWidth, WantedWidth, GameState->GetWorld()->DeltaTimeSeconds, 10.0f) : 10.f;
 	return FOptionalSize(StatsWidth);
 }

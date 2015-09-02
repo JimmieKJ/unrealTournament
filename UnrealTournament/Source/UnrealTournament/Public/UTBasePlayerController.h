@@ -36,7 +36,9 @@ class UNREALTOURNAMENT_API AUTBasePlayerController : public APlayerController , 
 
 	/**	Will popup the in-game menu	 **/
 	UFUNCTION(exec, BlueprintCallable, Category = "UI")
-	virtual void ShowMenu();
+	virtual void ShowMenu(const FString& Parameters);
+
+	virtual void execShowMenu();
 
 	UFUNCTION(exec)
 	virtual void HideMenu();
@@ -104,7 +106,7 @@ public:
 	virtual void ClientGenericInitialization();
 
 	UFUNCTION(server, reliable, WithValidation)
-	virtual void ServerReceiveAverageRank(int32 NewAverageRank);
+	virtual void ServerReceiveRank(int32 NewAverageRank, int32 NewDuelRank, int32 NewCTFRank, int32 NewTDMRank, int32 NewDMRank);
 
 	UFUNCTION(client, reliable)
 	virtual void ClientRequireContentItemListBegin(const FString& CloudId);
@@ -178,9 +180,6 @@ public:
 
 	UFUNCTION(Client, Reliable)
 	virtual void ClientCloseAllUI();
-
-	virtual void PreClientTravel(const FString& PendingURL, ETravelType TravelType, bool bIsSeamlessTravel);
-
 
 	/**This is overridden to avoid the Slate focus issues occuring with each widget managing their own input mode.
 	Instead of setting this manually, we will update the input mode based on the state of the game in UpdateInputMode()*/

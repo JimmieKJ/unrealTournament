@@ -98,6 +98,11 @@ void AUTCTFGameMode::InitGameState()
 	CTFGameState->SetMaxNumberOfTeams(NumTeams);
 }
 
+float AUTCTFGameMode::GetTravelDelay()
+{
+	return Super::GetTravelDelay() + (CTFGameState ? FMath::Max(6.f, 1.f + CTFGameState->GetScoringPlays().Num()) : 6.f);
+}
+
 void AUTCTFGameMode::CheatScore()
 {
 	if (GetNetMode() == NM_Standalone)
@@ -428,6 +433,24 @@ void AUTCTFGameMode::PlacePlayersAroundFlagBase(int32 TeamNum)
 	FVector FlagLoc = CTFGameState->FlagBases[TeamNum]->GetActorLocation();
 	float AngleSlices = 360.0f / MaxPlayers;
 	int32 PlacementCounter = 0;
+
+	// respawn dead pawns
+	for (AController* C : Members)
+	{
+		AUTCharacter* UTChar = C ? Cast<AUTCharacter>(C->GetPawn()) : NULL;
+		if (!UTChar || UTChar->IsDead())
+		{
+			if (C->GetPawn())
+			{
+				C->UnPossess();
+			}
+			RestartPlayer(C);
+		}
+	}
+
+	bool bSecondLevel = false;
+	FVector PlacementOffset = FVector(200.f, 0.f, 0.f);
+	float StartAngle = 0.f;
 	for (AController* C : Members)
 	{
 		AUTCharacter* UTChar = C ? Cast<AUTCharacter>(C->GetPawn()) : NULL;
@@ -435,37 +458,35 @@ void AUTCTFGameMode::PlacePlayersAroundFlagBase(int32 TeamNum)
 		{
 			while (PlacementCounter < MaxPlayers)
 			{
-				FRotator AdjustmentAngle(0, AngleSlices * PlacementCounter, 0);
-
-				PlacementCounter++;
-
-				FVector PlacementLoc = FlagLoc + AdjustmentAngle.RotateVector(FVector(200, 0, 0));
+				FRotator AdjustmentAngle(0, StartAngle + AngleSlices * PlacementCounter, 0);
+				FVector PlacementLoc = FlagLoc + AdjustmentAngle.RotateVector(PlacementOffset);
 				PlacementLoc.Z += UTChar->GetSimpleCollisionHalfHeight() * 1.1f;
-
-				FCollisionShape CapsuleShape = FCollisionShape::MakeCapsule(UTChar->GetSimpleCollisionRadius(), UTChar->GetSimpleCollisionHalfHeight());
-				static const FName NAME_FlagPlacement = FName(TEXT("FlagPlacement"));
-				FCollisionQueryParams CapsuleParams(NAME_FlagPlacement, false, this);
-				FCollisionResponseParams ResponseParam;
-				TArray<FOverlapResult> Overlaps;
-				bool bEncroached = GetWorld()->OverlapMultiByChannel(Overlaps, PlacementLoc, FQuat::Identity, ECC_Pawn, CapsuleShape, CapsuleParams, ResponseParam);
-				if (!bEncroached)
+				PlacementCounter++;
+				if ((PlacementCounter == 8) && !bSecondLevel)
 				{
-					UTChar->SetActorLocation(PlacementLoc);
+					bSecondLevel = true;
+					PlacementOffset = FVector(300.f, 0.f, 0.f);
+					StartAngle = 0.5f * AngleSlices;
+					PlacementCounter = 0;
+				}
+				UTChar->bIsTranslocating = true; // hack to get rid of teleport effect
+				if (UTChar->TeleportTo(PlacementLoc, UTChar->GetActorRotation()))
+				{
 					break;
 				}
+				UTChar->bIsTranslocating = false;
 			}
-		}
-
-		if (PlacementCounter == 8)
-		{
-			break;
+			if (PlacementCounter == 8)
+			{
+				break;
+			}
 		}
 	}
 }
 
 void AUTCTFGameMode::HandleEnteringHalftime()
 {
-	UTGameState->UpdateMatchHighlights();
+	//UTGameState->UpdateMatchHighlights();
 	CTFGameState->ResetFlags();
 
 	// Figure out who we should look at
@@ -573,10 +594,20 @@ void AUTCTFGameMode::DefaultTimer()
 			}
 		}
 
-		if (bReady && CTFGameState->bStopGameClock == true)
+		if (bReady && CTFGameState->bStopGameClock)
 		{
 			CTFGameState->bStopGameClock = false;
 			CTFGameState->SetTimeLimit(11);
+		}
+	}
+	else if (CTFGameState->IsMatchInOvertime())
+	{
+		float OvertimeElapsed = CTFGameState->ElapsedTime - CTFGameState->OvertimeStartTime;
+		if (OvertimeElapsed > TimeLimit)
+		{
+			// once overtime has gone too long, start increasing respawn delay
+			RespawnWaitTime = 10.f * (1.f + (OvertimeElapsed - TimeLimit) / 200.f);
+			CTFGameState->RespawnWaitTime = RespawnWaitTime;
 		}
 	}
 }
@@ -926,7 +957,7 @@ void AUTCTFGameMode::UpdateSkillRating()
 		AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[PlayerIdx]);
 		if (PS && !PS->bOnlySpectator)
 		{
-			PS->UpdateTeamSkillRating(FName(TEXT("CTFSkillRating")), PS->Team == UTGameState->WinningTeam, &UTGameState->PlayerArray, &InactivePlayerArray);
+			PS->UpdateTeamSkillRating(NAME_CTFSkillRating, PS->Team == UTGameState->WinningTeam, &UTGameState->PlayerArray, &InactivePlayerArray);
 		}
 	}
 
@@ -935,7 +966,7 @@ void AUTCTFGameMode::UpdateSkillRating()
 		AUTPlayerState* PS = Cast<AUTPlayerState>(InactivePlayerArray[PlayerIdx]);
 		if (PS && !PS->bOnlySpectator)
 		{
-			PS->UpdateTeamSkillRating(FName(TEXT("CTFSkillRating")), PS->Team == UTGameState->WinningTeam, &UTGameState->PlayerArray, &InactivePlayerArray);
+			PS->UpdateTeamSkillRating(NAME_CTFSkillRating, PS->Team == UTGameState->WinningTeam, &UTGameState->PlayerArray, &InactivePlayerArray);
 		}
 	}
 }

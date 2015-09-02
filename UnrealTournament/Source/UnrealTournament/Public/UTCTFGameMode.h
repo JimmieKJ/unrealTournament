@@ -61,6 +61,7 @@ class UNREALTOURNAMENT_API AUTCTFGameMode : public AUTTeamGameMode
 	virtual void DefaultTimer() override;
 
 	virtual void CallMatchStateChangeNotify() override;
+	virtual float GetTravelDelay() override;
 
 	virtual void HandleEnteringHalftime();
 	virtual void HandleHalftime();

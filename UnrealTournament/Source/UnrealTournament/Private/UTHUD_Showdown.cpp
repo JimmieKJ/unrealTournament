@@ -50,20 +50,23 @@ void AUTHUD_Showdown::UpdateMinimapTexture(UCanvas* C, int32 Width, int32 Height
 				LevelBox += Vert;
 			}
 		}
-		LevelBox = LevelBox.ExpandBy(LevelBox.GetSize() * 0.01f); // extra so edges aren't right up against the texture
-		CalcMinimapTransform(LevelBox, Width, Height);
-		for (TMap<const UUTPathNode*, FNavMeshTriangleList>::TConstIterator It(TriangleMap); It; ++It)
+		if (LevelBox.IsValid)
 		{
-			const FNavMeshTriangleList& TriList = It.Value();
-			
-			for (const FNavMeshTriangleList::FTriangle& Tri : TriList.Triangles)
+			LevelBox = LevelBox.ExpandBy(LevelBox.GetSize() * 0.01f); // extra so edges aren't right up against the texture
+			CalcMinimapTransform(LevelBox, Width, Height);
+			for (TMap<const UUTPathNode*, FNavMeshTriangleList>::TConstIterator It(TriangleMap); It; ++It)
 			{
-				FCanvasTriangleItem Item(FVector2D(MinimapTransform.TransformPosition(TriList.Verts[Tri.Indices[0]])), FVector2D(MinimapTransform.TransformPosition(TriList.Verts[Tri.Indices[1]])), FVector2D(MinimapTransform.TransformPosition(TriList.Verts[Tri.Indices[2]])), C->DefaultTexture->Resource);
-				C->DrawItem(Item);
+				const FNavMeshTriangleList& TriList = It.Value();
+
+				for (const FNavMeshTriangleList::FTriangle& Tri : TriList.Triangles)
+				{
+					FCanvasTriangleItem Item(FVector2D(MinimapTransform.TransformPosition(TriList.Verts[Tri.Indices[0]])), FVector2D(MinimapTransform.TransformPosition(TriList.Verts[Tri.Indices[1]])), FVector2D(MinimapTransform.TransformPosition(TriList.Verts[Tri.Indices[2]])), C->DefaultTexture->Resource);
+					C->DrawItem(Item);
+				}
 			}
 		}
 	}
-	else
+	if (!LevelBox.IsValid)
 	{
 		// set minimap scale based on colliding geometry so map has some functionality without a working navmesh
 		for (TActorIterator<AActor> It(GetWorld()); It; ++It)
@@ -85,8 +88,6 @@ void AUTHUD_Showdown::UpdateMinimapTexture(UCanvas* C, int32 Width, int32 Height
 
 void AUTHUD_Showdown::DrawHUD()
 {
-	Super::DrawHUD();
-
 	AUTShowdownGameState* GS = GetWorld()->GetGameState<AUTShowdownGameState>();
 	if (GS != NULL && GS->GetMatchState() == MatchState::MatchIntermission && (GS->SpawnSelector != NULL || GS->bFinalIntermissionDelay))
 	{
@@ -100,6 +101,7 @@ void AUTHUD_Showdown::DrawHUD()
 		MapToScreen = FTranslationMatrix(FVector((Canvas->SizeX - MapSize) * 0.5f * (MinimapTexture->GetSurfaceWidth() / MapSize), (Canvas->SizeY - MapSize) * 0.5f, 0.0f)) * FScaleMatrix(FVector(MapSize / MinimapTexture->GetSurfaceWidth(), MapSize / MinimapTexture->GetSurfaceHeight(), 1.0f));
 		if (MinimapTexture != NULL)
 		{
+			Canvas->DrawColor = FColor(192, 192, 192, 255);
 			Canvas->DrawTile(MinimapTexture, MapToScreen.GetOrigin().X, MapToScreen.GetOrigin().Y, MapSize, MapSize, 0.0f, 0.0f, MinimapTexture->GetSurfaceWidth(), MinimapTexture->GetSurfaceHeight());
 		}
 		const float RenderScale = float(Canvas->SizeY) / 1080.0f;
@@ -136,6 +138,7 @@ void AUTHUD_Showdown::DrawHUD()
 			Canvas->DrawColor = FColor::White;
 		}
 		// draw pickup icons
+		Canvas->DrawColor = FColor::White;
 		for (TActorIterator<AUTPickup> It(GetWorld()); It; ++It)
 		{
 			if (It->HUDIcon.Texture != NULL)
@@ -170,7 +173,7 @@ void AUTHUD_Showdown::DrawHUD()
 		{
 			for (int32 i = 0; i < 2; i++)
 			{
-				float YPos = Canvas->ClipY * 0.1f;
+				float YPos = Canvas->ClipY * 0.05f;
 				for (APlayerState* PS : GS->PlayerArray)
 				{
 					AUTPlayerState* UTPS = Cast<AUTPlayerState>(PS);
@@ -216,6 +219,8 @@ void AUTHUD_Showdown::DrawHUD()
 			}
 		}
 	}
+
+	Super::DrawHUD();
 }
 
 EInputMode::Type AUTHUD_Showdown::GetInputMode_Implementation()

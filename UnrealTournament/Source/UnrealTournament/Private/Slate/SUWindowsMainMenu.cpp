@@ -20,6 +20,7 @@
 #include "Panels/SUWReplayBrowser.h"
 #include "Panels/SUWStatsViewer.h"
 #include "Panels/SUWCreditsPanel.h"
+#include "Panels/SUTChallengePanel.h"
 #include "Panels/SUHomePanel.h"
 #include "Panels/SUTFragCenterPanel.h"
 #include "UTEpicDefaultRulesets.h"
@@ -466,30 +467,35 @@ void SUWindowsMainMenu::ShowGamePanel()
 		TutorialMenu->RemoveFromViewport();
 	}
 
+#if UE_BUILD_SHIPPING
+	ShowCustomGamePanel();
+	return;
+#endif
 
+	if ( !ChallengePanel.IsValid() )
+	{
+		SAssignNew(ChallengePanel, SUTChallengePanel, PlayerOwner);
+	}
+
+	ActivatePanel(ChallengePanel);
+}
+
+void SUWindowsMainMenu::ShowCustomGamePanel()
+{
 	if (TickCountDown <= 0)
 	{
-		if (GamePanel.IsValid())
-		{
-			ActivatePanel(GamePanel);
-		}
-		else
-		{
-			PlayerOwner->ShowContentLoadingMessage();
-			bNeedToShowGamePanel = true;
-			TickCountDown = 3;
-		}
+		PlayerOwner->ShowContentLoadingMessage();
+		bNeedToShowGamePanel = true;
+		TickCountDown = 3;
 	}
 }
 
 void SUWindowsMainMenu::OpenDelayedMenu()
 {
-
 	if (TutorialMenu.IsValid())
 	{
 		TutorialMenu->RemoveFromViewport();
 	}
-
 
 	SUTMenuBase::OpenDelayedMenu();
 	if (bNeedToShowGamePanel)
@@ -633,12 +639,15 @@ FReply SUWindowsMainMenu::OnBootCampClick(TSharedPtr<SComboButton> MenuButton)
 void SUWindowsMainMenu::OpenTutorialMenu()
 {
 	UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
-	if ((!TutorialMenu.IsValid() || !TutorialMenu->IsInViewport()) && UTEngine->TutorialMenuClass != NULL)
+	if (UTEngine)
 	{
-		TutorialMenu = CreateWidget<UUserWidget>(PlayerOwner->GetWorld(), UTEngine->TutorialMenuClass);
-		if (TutorialMenu != NULL)
+		if ((!TutorialMenu.IsValid() || !TutorialMenu->IsInViewport()) && UTEngine->TutorialMenuClass != NULL)
 		{
-			TutorialMenu->AddToViewport(0);
+			TutorialMenu = CreateWidget<UUserWidget>(PlayerOwner->GetWorld(), UTEngine->TutorialMenuClass);
+			if (TutorialMenu != NULL)
+			{
+				TutorialMenu->AddToViewport(0);
+			}
 		}
 	}
 }
@@ -669,7 +678,7 @@ FReply SUWindowsMainMenu::OnYourReplaysClick(TSharedPtr<SComboButton> MenuButton
 
 		if (ReplayBrowser == ActivePanel)
 		{
-			ReplayBrowser->BuildReplayList();
+			ReplayBrowser->BuildReplayList(PlayerOwner->GetPreferredUniqueNetId()->ToString());
 		}
 		else
 		{
@@ -710,7 +719,7 @@ void SUWindowsMainMenu::RecentReplays()
 
 		if (ReplayBrowser == ActivePanel)
 		{
-			ReplayBrowser->BuildReplayList();
+			ReplayBrowser->BuildReplayList(TEXT(""));
 		}
 		else
 		{
@@ -752,7 +761,7 @@ void SUWindowsMainMenu::ShowLiveGameReplays()
 
 		if (ReplayBrowser == ActivePanel)
 		{
-			ReplayBrowser->BuildReplayList();
+			ReplayBrowser->BuildReplayList(TEXT(""));
 		}
 		else
 		{
@@ -962,7 +971,7 @@ void SUWindowsMainMenu::StartGame(bool bLanGame)
 		}
 		else
 		{
-			GameOptions += TEXT("?BotFill=0");
+			GameOptions += FString::Printf(TEXT("?BotFill=0?MaxPlayers=%i"), DesiredPlayerCount);
 		}
 
 	}
@@ -1060,6 +1069,15 @@ FReply SUWindowsMainMenu::OnShowServerBrowserPanel()
 
 	return SUTMenuBase::OnShowServerBrowserPanel();
 
+}
+
+void SUWindowsMainMenu::OnMenuOpened(const FString& Parameters)
+{
+	SUWindowsDesktop::OnMenuOpened(Parameters);
+	if (Parameters.Equals(TEXT("showchallenge"), ESearchCase::IgnoreCase))
+	{
+		ShowGamePanel();
+	}
 }
 
 #endif

@@ -3,6 +3,7 @@
 #include "UTTeamGameMode.h"
 #include "UTTeamDMGameMode.h"
 #include "UTHUD_TeamDM.h"
+#include "StatNames.h"
 #include "UTCTFGameMessage.h"
 
 AUTTeamDMGameMode::AUTTeamDMGameMode(const FObjectInitializer& ObjectInitializer)
@@ -130,7 +131,7 @@ void AUTTeamDMGameMode::UpdateSkillRating()
 		AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[PlayerIdx]);
 		if (PS && !PS->bOnlySpectator)
 		{
-			PS->UpdateTeamSkillRating(FName(TEXT("TDMSkillRating")), PS->Team == UTGameState->WinningTeam, &UTGameState->PlayerArray, &InactivePlayerArray);
+			PS->UpdateTeamSkillRating(NAME_TDMSkillRating, PS->Team == UTGameState->WinningTeam, &UTGameState->PlayerArray, &InactivePlayerArray);
 		}
 	}
 
@@ -139,7 +140,7 @@ void AUTTeamDMGameMode::UpdateSkillRating()
 		AUTPlayerState* PS = Cast<AUTPlayerState>(InactivePlayerArray[PlayerIdx]);
 		if (PS && !PS->bOnlySpectator)
 		{
-			PS->UpdateTeamSkillRating(FName(TEXT("TDMSkillRating")), PS->Team == UTGameState->WinningTeam, &UTGameState->PlayerArray, &InactivePlayerArray);
+			PS->UpdateTeamSkillRating(NAME_TDMSkillRating, PS->Team == UTGameState->WinningTeam, &UTGameState->PlayerArray, &InactivePlayerArray);
 		}
 	}
 }

@@ -611,8 +611,6 @@ void SUWMapVoteDialog::LeaderTextureLoadComplete(const FName& InPackageName, UPa
 	}
 }
 
-
-
 FReply SUWMapVoteDialog::OnLeadingMapClick(int32 ButtonIndex)
 {
 	AUTPlayerState* OwnerPlayerState = Cast<AUTPlayerState>(GetPlayerOwner()->PlayerController->PlayerState);
@@ -763,6 +761,13 @@ void SUWMapVoteDialog::OnDialogClosed()
 
 	VoteButtons.Empty();
 	SUWDialog::OnDialogClosed();
+}
+
+FReply SUWMapVoteDialog::OnButtonClick(uint16 ButtonID)
+{
+	OnDialogResult.ExecuteIfBound(SharedThis(this), ButtonID);
+	GetPlayerOwner()->CloseMapVote();
+	return FReply::Handled();
 }
 
 #endif

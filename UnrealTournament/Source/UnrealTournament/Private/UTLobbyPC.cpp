@@ -61,7 +61,7 @@ void AUTLobbyPC::PlayerTick( float DeltaTime )
 			UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
 			if (LP)
 			{
-				LP->ShowMenu();
+				LP->ShowMenu(TEXT(""));
 			}
 		}
 	}

@@ -51,10 +51,6 @@ public:
 	UPROPERTY(EditAnywhere, AssetRegistrySearchable)
 	bool bRequiresItem;
 
-	/* Voice associated with this character. */
-	UPROPERTY(EditAnywhere, AssetRegistrySearchable)
-		TSubclassOf<class UUTCharacterVoice> CharacterVoice;
-
 protected:
 	UPROPERTY(VisibleDefaultsOnly)
 	USkeletalMeshComponent* Mesh;

@@ -146,6 +146,7 @@ struct FStat
 	GENERATED_USTRUCT_BODY()
 public:
 	FStat()
+		: StatData(0), bBackendStat(false), WriteMultiplier(0.0f), XPPerPoint(FXPBreakdown(ForceInitToZero))
 	{}
 
 	explicit FStat(bool inbBackendStat, const FXPBreakdown& InXP = FXPBreakdown(ForceInitToZero))

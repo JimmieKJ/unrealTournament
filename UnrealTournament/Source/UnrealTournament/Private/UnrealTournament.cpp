@@ -10,6 +10,7 @@
 #include "UTTaunt.h"
 #include "UTBotCharacter.h"
 #include "StatNames.h"
+#include "Runtime/PakFile/Public/IPlatformFilePak.h"
 
 class FUTModule : public FDefaultGameModuleImpl
 {
@@ -472,6 +473,35 @@ void GetAllBlueprintAssetData(UClass* BaseClass, TArray<FAssetData>& AssetList, 
 	}
 }
 
+FString GetModPakFilenameFromPkg(const FString& PkgName)
+{
+	FPakPlatformFile* PakFileMgr = (FPakPlatformFile*)(FPlatformFileManager::Get().FindPlatformFile(TEXT("PakFile")));
+	if (PakFileMgr == NULL)
+	{
+		return FString();
+	}
+	else
+	{
+		FString Filename;
+		if (FPackageName::DoesPackageExist(PkgName, NULL, &Filename))
+		{
+			FPakFile* Pak = NULL;
+			PakFileMgr->FindFileInPakFiles(*Filename, &Pak);
+			return (Pak != NULL && !Pak->GetFilename().StartsWith(TEXT("unrealtournament-"))) ? Pak->GetFilename() : FString();
+		}
+		else
+		{
+			return FString();
+		}
+	}
+}
+FString GetModPakFilenameFromPath(FString ObjPathName)
+{
+	ConstructorHelpers::StripObjectClass(ObjPathName);
+	int32 DotIndex = ObjPathName.Find(TEXT("."));
+	return (DotIndex == INDEX_NONE) ? FString() : GetModPakFilenameFromPkg(ObjPathName.Left(DotIndex));
+}
+
 void SetTimerUFunc(UObject* Obj, FName FuncName, float Time, bool bLooping)
 {
 	if (Obj != NULL)
@@ -577,6 +607,10 @@ FHttpRequestPtr ReadBackendStats(const FHttpRequestCompleteDelegate& ResultDeleg
 		else if (McpConfigOverride == TEXT("gamedev"))
 		{
 			BaseURL = TEXT("https://ut-public-service-gamedev.ol.epicgames.net/ut/api/stats/accountId/");
+		}
+		else if (McpConfigOverride == TEXT("prodnet"))
+		{
+			BaseURL = TEXT("https://ut-public-service-prod10.ol.epicgames.com/ut/api/stats/accountId/");
 		}
 
 		FString FinalStatsURL = BaseURL + StatsID + TEXT("/bulk/window/") + QueryWindow;
@@ -719,7 +753,7 @@ void GiveProfileItems(TSharedPtr<FUniqueNetId> UniqueId, const TArray<FProfileIt
 	}
 }
 
-int32 GetLevelForXP(int32 XPValue)
+const TArray<int32>& GetLevelTable()
 {
 	const int32 MAX_LEVEL = 50;
 	const int32 STARTING_INCREMENT = 50;
@@ -743,13 +777,30 @@ int32 GetLevelForXP(int32 XPValue)
 		return Result;
 	}();
 
-	for (int32 i = 0; i < MAX_LEVEL; i++)
+	return LevelReqs;
+}
+
+int32 GetLevelForXP(int32 XPValue)
+{
+	const TArray<int32>& LevelTable = GetLevelTable();
+
+	for (int32 i = 0; i < LevelTable.Num(); i++)
 	{
-		if (XPValue < LevelReqs[i])
+		if (XPValue < LevelTable[i])
 		{
 			return i;
 		}
 	}
 
-	return LevelReqs.Num();
+	return LevelTable.Num();
+}
+
+int32 GetXPForLevel(int32 Level)
+{
+	const TArray<int32>& LevelTable = GetLevelTable();
+	if (Level < LevelTable.Num() && Level > 0)
+	{
+		return LevelTable[Level];
+	}
+	return 0;
 }

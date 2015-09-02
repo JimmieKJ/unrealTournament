@@ -300,7 +300,7 @@ public:
 	/**
 	* Saves generated asset registry data for each platform.
 	*/
-	bool SaveAssetRegistry(const FString& SandboxPath);
+	bool SaveAssetRegistry(const FString& SandboxPath, const TArray<FName>* IgnorePackageList = nullptr);
 
 
 	/**

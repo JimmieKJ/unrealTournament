@@ -9,6 +9,14 @@ class UNREALTOURNAMENT_API AUTCTFFlag : public AUTCarriedObject
 {
 	GENERATED_UCLASS_BODY()
 
+	// Flag mesh scaling when not held
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = GameObject)
+	float FlagWorldScale;
+
+	// Flag mesh scaling when held
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = GameObject)
+		float FlagHeldScale;
+
 	// The mesh for the flag
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = GameObject)
 	USkeletalMeshComponent* Mesh;
@@ -20,10 +28,9 @@ class UNREALTOURNAMENT_API AUTCTFFlag : public AUTCarriedObject
 
 	virtual bool CanBePickedUpBy(AUTCharacter* Character);
 
-	virtual void DetachFrom(USkeletalMeshComponent* AttachToMesh);
+	virtual void DetachFrom(USkeletalMeshComponent* AttachToMesh) override;
+	virtual void AttachTo(USkeletalMeshComponent* AttachToMesh) override;
 	virtual void OnObjectStateChanged();
-
-	virtual void SendHome() override;
 
 	FTimerHandle SendHomeWithNotifyHandle;
 	virtual void SendHomeWithNotify() override;

@@ -167,6 +167,7 @@ void AUTWeapon::BeginPlay()
 			MuzzleFlash[i]->bAutoActivate = false;
 			MuzzleFlash[i]->SecondsBeforeInactive = 0.0f;
 			MuzzleFlash[i]->SetOnlyOwnerSee(false); // we handle this in AUTPlayerController::UpdateHiddenComponents() instead
+			MuzzleFlash[i]->bUseAttachParentBound = true;
 		}
 	}
 
@@ -283,18 +284,21 @@ void AUTWeapon::ClientGivenTo_Internal(bool bAutoActivate)
 
 void AUTWeapon::DropFrom(const FVector& StartLocation, const FVector& TossVelocity)
 {
-	if (UTOwner && bMustBeHolstered)
+	if (Role == ROLE_Authority)
 	{
-		DetachFromHolster();
-	}
+		if (UTOwner != NULL && bMustBeHolstered)
+		{
+			DetachFromHolster();
+		}
 
-	if (!HasAnyAmmo())
-	{
-		Destroy();
-	}
-	else
-	{
-		Super::DropFrom(StartLocation, TossVelocity);
+		if (!HasAnyAmmo())
+		{
+			Destroy();
+		}
+		else
+		{
+			Super::DropFrom(StartLocation, TossVelocity);
+		}
 	}
 }
 
@@ -373,7 +377,7 @@ void AUTWeapon::StartFire(uint8 FireModeNum)
 
 void AUTWeapon::ServerStartFire_Implementation(uint8 FireModeNum, bool bClientFired)
 {
-	if (!UTOwner->IsFiringDisabled())
+	if (UTOwner && !UTOwner->IsFiringDisabled())
 	{
 		FireZOffsetTime = 0.f;
 		BeginFiringSequence(FireModeNum, bClientFired);
@@ -1469,7 +1473,12 @@ AUTProjectile* AUTWeapon::SpawnNetPredictedProjectile(TSubclassOf<AUTProjectile>
 			if ((CatchupTickDelta > 0.f) && NewProjectile->ProjectileMovement)
 			{
 				// server ticks projectile to match with when client actually fired
-				NewProjectile->ProjectileMovement->TickComponent(CatchupTickDelta, LEVELTICK_All, NULL);
+				// TODO: account for CustomTimeDilation?
+				if (NewProjectile->PrimaryActorTick.IsTickFunctionEnabled())
+				{
+					NewProjectile->TickActor(CatchupTickDelta * NewProjectile->CustomTimeDilation, LEVELTICK_All, NewProjectile->PrimaryActorTick);
+				}
+				NewProjectile->ProjectileMovement->TickComponent(CatchupTickDelta * NewProjectile->CustomTimeDilation, LEVELTICK_All, NULL);
 				NewProjectile->SetForwardTicked(true);
 				if (NewProjectile->GetLifeSpan() > 0.f)
 				{
@@ -1812,9 +1821,8 @@ void AUTWeapon::UpdateCrosshairTarget(AUTPlayerState* NewCrosshairTarget, UUTHUD
 			float Alpha = (TimeSinceSeen < MAXNAMEFULLALPHA) ? 1.f : (1.f - ((TimeSinceSeen - MAXNAMEFULLALPHA) / (MAXNAMEDRAWTIME - MAXNAMEFULLALPHA)));
 
 			float H = WeaponHudWidget->UTHUDOwner->DefaultCrosshairTex->GetSurfaceHeight();
-			UFont* Font = WeaponHudWidget->UTHUDOwner->MediumFont;
 			FText PlayerName = FText::FromString(TargetPlayerState->PlayerName);
-			WeaponHudWidget->DrawText(PlayerName, 0, H * 2, Font, false, FVector2D(0,0), FLinearColor::Black, true, FLinearColor::Black,1.0, Alpha, FLinearColor::Red, ETextHorzPos::Center);
+			WeaponHudWidget->DrawText(PlayerName, 0.f, H * 2.f, WeaponHudWidget->UTHUDOwner->SmallFont, false, FVector2D(0.f, 0.f), FLinearColor::Black, true, FLinearColor::Black, 1.0f, Alpha, FLinearColor::Red, ETextHorzPos::Center);
 		}
 		else
 		{

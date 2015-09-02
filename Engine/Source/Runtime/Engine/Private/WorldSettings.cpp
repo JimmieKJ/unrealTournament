@@ -116,6 +116,11 @@ float AWorldSettings::GetGravityZ() const
 	return WorldGravityZ;
 }
 
+void AWorldSettings::OnRep_WorldGravityZ()
+{
+	bWorldGravitySet = true;
+}
+
 void AWorldSettings::NotifyBeginPlay()
 {
 	UWorld* World = GetWorld();

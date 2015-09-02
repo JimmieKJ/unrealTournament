@@ -193,12 +193,12 @@ void AUTDemoRecSpectator::ToggleReplayWindow()
 	}
 }
 
-void AUTDemoRecSpectator::ShowMenu()
+void AUTDemoRecSpectator::ShowMenu(const FString& Parameters)
 {
 	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(Player);
 	if (LocalPlayer)
 	{
-		LocalPlayer->ShowMenu();
+		LocalPlayer->ShowMenu(Parameters);
 	}
 }
 
@@ -264,6 +264,7 @@ void AUTDemoRecSpectator::InitPlayerState()
 {
 	Super::InitPlayerState();
 	PlayerState->bOnlySpectator = true;
+	PlayerState->PlayerName = TEXT("Replay Spectator");
 
 	AUTPlayerState* UTPS = Cast<AUTPlayerState>(PlayerState);
 	if (UTPS != nullptr)

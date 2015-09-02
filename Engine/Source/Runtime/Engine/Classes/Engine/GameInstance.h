@@ -188,6 +188,13 @@ public:
 	 */
 	virtual void AddUserToReplay(const FString& UserString);
 
+	/** handle a game specific net control message (NMT_GameSpecific)
+	 * this allows games to insert their own logic into the control channel
+	 * the meaning of both data parameters is game-specific
+	 */
+	virtual void HandleGameNetControlMessage(class UNetConnection* Connection, uint8 MessageByte, const FString& MessageStr)
+	{}
+
 private:
 	FTimerManager* TimerManager;
 };

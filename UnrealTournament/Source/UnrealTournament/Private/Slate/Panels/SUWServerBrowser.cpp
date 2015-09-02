@@ -70,12 +70,12 @@ struct FCompareHub
 {
 	FORCEINLINE bool operator()	( const TSharedPtr< FServerData > A, const TSharedPtr< FServerData > B ) const 
 	{
-		// Sorts like this.. First by trust level (where Epic = 2, Trusted = 1 and wild west = 0.. grr)
+		// Sorts like this.. First by trust level (where Epic = 0, Trusted = 1 and wild west = 2.. grr)
 		// then by ping.  So an Epic hub with Ping of 35ms vs a trusted hub with a ping of 250ms vs a wild west hub with a ping of 11ms would be
 		// 0.035 vs 100.250 vs 1000.011
 
-		float AValue = ( (A->TrustLevel == 2) ? 0.0f : ( (A->TrustLevel == 1) ? 100.0f : 1000.0f) ) + (float(A->Ping) / 1000.0f);
-		float BValue = ( (B->TrustLevel == 2) ? 0.0f : ( (B->TrustLevel == 1) ? 100.0f : 1000.0f) ) + (float(B->Ping) / 1000.0f);
+		float AValue = ( (A->TrustLevel == 0) ? 0.0f : ( (A->TrustLevel == 1) ? 100.0f : 1000.0f) ) + (float(A->Ping) / 1000.0f);
+		float BValue = ( (B->TrustLevel == 0) ? 0.0f : ( (B->TrustLevel == 1) ? 100.0f : 1000.0f) ) + (float(B->Ping) / 1000.0f);
 		return AValue < BValue;
 	}
 };
@@ -1587,7 +1587,6 @@ void SUWServerBrowser::ConnectTo(FServerData ServerData,bool bSpectate)
 	bNeedsRefresh = true;
 	PlayerOwner->JoinSession(ServerData.SearchResult, bSpectate);
 	CleanupQoS();
-	PlayerOwner->HideMenu();
 }
 
 void SUWServerBrowser::FilterAllServers()
@@ -1918,6 +1917,8 @@ void SUWServerBrowser::ShowHUBs()
 
 TSharedRef<ITableRow> SUWServerBrowser::OnGenerateWidgetForHUBList(TSharedPtr<FServerData> InItem, const TSharedRef<STableViewBase>& OwnerTable )
 {
+	bool bPassword = (InItem->Flags & SERVERFLAG_RequiresPassword )  > 0;
+
 	return SNew(STableRow<TSharedPtr<FServerData>>, OwnerTable)
 		//.Style(SUWindowsStyle::Get(),"UWindows.Standard.HUBBrowser.Row")
 		.Style(SUTStyle::Get(),"UT.MatchList.Row")
@@ -2009,9 +2010,25 @@ TSharedRef<ITableRow> SUWServerBrowser::OnGenerateWidgetForHUBList(TSharedPtr<FS
 										.Text(TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateSP(InItem.Get(), &FServerData::GetNumFriends)))
 										.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.HUBBrowser.NormalText")
 									]
+									+ SHorizontalBox::Slot()
+									.FillWidth(1.0)
+									+ SHorizontalBox::Slot()
+									.Padding(0.0, 0.0, 20.0, 0.0)
+									.AutoWidth()
+									.VAlign(VAlign_Center)
+									[
+										SNew(SBox)
+										.HeightOverride(18)
+										.WidthOverride(18)
+										[
+											SNew(SImage)
+											.Visibility(bPassword ? EVisibility::HitTestInvisible : EVisibility::Hidden)
+											.Image(SUTStyle::Get().GetBrush("UT.Icon.Lock.Small"))
+										]
+									]
 									+SHorizontalBox::Slot()
 									.Padding(10.0,0.0,20.0,0.0)
-									.FillWidth(1.0)
+									.AutoWidth()
 									.VAlign(VAlign_Center)
 									[
 										SNew(SVerticalBox)

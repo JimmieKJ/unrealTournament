@@ -14,17 +14,15 @@ FSimpleBind::FSimpleBind(const FText& InDisplayName)
 	Key = MakeShareable(new FKey());
 	AltKey = MakeShareable(new FKey());
 }
-
-FSimpleBind* FSimpleBind::AddMapping(const FString& Mapping, float Scale)
+FSimpleBind* FSimpleBind::AddActionMapping(const FName& Mapping)
 {
 	UInputSettings* InputSettings = UInputSettings::StaticClass()->GetDefaultObject<UInputSettings>();
 
 	bool bFound = false;
-	//Add any ActionMappings
 	for (int32 i = 0; i < InputSettings->ActionMappings.Num(); i++)
 	{
 		FInputActionKeyMapping Action = InputSettings->ActionMappings[i];
-		if (Mapping.Compare(Action.ActionName.ToString()) == 0 && !Action.Key.IsGamepadKey())
+		if (Mapping == Action.ActionName && !Action.Key.IsGamepadKey())
 		{
 			ActionMappings.Add(Action);
 
@@ -40,11 +38,25 @@ FSimpleBind* FSimpleBind::AddMapping(const FString& Mapping, float Scale)
 			bFound = true;
 		}
 	}
-	//Add any AxisMappings
+
+	if (!bFound)
+	{
+		FInputActionKeyMapping Action;
+		Action.ActionName = Mapping;
+		ActionMappings.Add(Action);
+	}
+	return this;
+}
+
+FSimpleBind* FSimpleBind::AddAxisMapping(const FName& Mapping, float Scale)
+{
+	UInputSettings* InputSettings = UInputSettings::StaticClass()->GetDefaultObject<UInputSettings>();
+
+	bool bFound = false;
 	for (int32 i = 0; i < InputSettings->AxisMappings.Num(); i++)
 	{
 		FInputAxisKeyMapping Axis = InputSettings->AxisMappings[i];
-		if (Mapping.Compare(Axis.AxisName.ToString()) == 0 && Axis.Scale == Scale && !Axis.Key.IsGamepadKey())
+		if (Mapping == Axis.AxisName && Axis.Scale == Scale && !Axis.Key.IsGamepadKey())
 		{
 			AxisMappings.Add(Axis);
 
@@ -60,12 +72,27 @@ FSimpleBind* FSimpleBind::AddMapping(const FString& Mapping, float Scale)
 			bFound = true;
 		}
 	}
-	//Add any CustomBinds
+
+	if (!bFound)
+	{
+		FInputAxisKeyMapping Action;
+		Action.AxisName = Mapping;
+		Action.Scale = Scale;
+		AxisMappings.Add(Action);
+	}
+	return this;
+}
+
+FSimpleBind* FSimpleBind::AddCustomBinding(const FName& Mapping)
+{
+	UInputSettings* InputSettings = UInputSettings::StaticClass()->GetDefaultObject<UInputSettings>();
+
+	bool bFound = false;
 	UUTPlayerInput* UTPlayerInput = UUTPlayerInput::StaticClass()->GetDefaultObject<UUTPlayerInput>();
 	for (int32 i = 0; i < UTPlayerInput->CustomBinds.Num(); i++)
 	{
 		FCustomKeyBinding CustomBind = UTPlayerInput->CustomBinds[i];
-		if (Mapping.Compare(CustomBind.Command) == 0 && !FKey(CustomBind.KeyName).IsGamepadKey())
+		if (Mapping.ToString().Compare(CustomBind.Command) == 0 && !FKey(CustomBind.KeyName).IsGamepadKey())
 		{
 			//Fill in the first 2 keys we find from the ini
 			if (*Key == FKey())
@@ -95,20 +122,33 @@ FSimpleBind* FSimpleBind::AddMapping(const FString& Mapping, float Scale)
 		}
 	}
 
-	//Special Console case
-	if (Mapping.Compare(TEXT("Console")) == 0)
+	if (!bFound)
 	{
-		*Key = InputSettings->ConsoleKeys[0];
-	}
-	else if (!bFound)
-	{
-		// assume not found items are CustomBinds
-		// somewhat hacky, need to figure out a better way to detect and match this stuff to the possible settings
-		FCustomKeyBinding* Bind = new(CustomBindings) FCustomKeyBinding;
+		FCustomKeyBinding* Bind = new(CustomBindings)FCustomKeyBinding;
 		Bind->KeyName = NAME_None;
 		Bind->EventType = IE_Pressed;
-		Bind->Command = Mapping;
+		Bind->Command = Mapping.ToString();
 	}
+	return this;
+}
+
+FSimpleBind* FSimpleBind::AddSpecialBinding(const FName& Mapping)
+{
+	if (Mapping == FName(TEXT("Console")))
+	{
+		UInputSettings* InputSettings = UInputSettings::StaticClass()->GetDefaultObject<UInputSettings>();
+		if (InputSettings->ConsoleKeys.IsValidIndex(0))
+		{
+			*Key = InputSettings->ConsoleKeys[0];
+		}
+		if (InputSettings->ConsoleKeys.IsValidIndex(1))
+		{
+			*AltKey = InputSettings->ConsoleKeys[1];
+		}
+	}
+
+	SpecialBindings.Add(Mapping);
+
 	return this;
 }
 
@@ -189,11 +229,14 @@ void FSimpleBind::WriteBind()
 		}
 	}
 
-	//Special Console case
-	if (DisplayName.Compare(TEXT("Console")) == 0)
+	for (FName Bind : SpecialBindings)
 	{
-		InputSettings->ConsoleKeys.Empty();
-		InputSettings->ConsoleKeys.Add(*Key);
+		if (Bind == FName(TEXT("Console")))
+		{
+			InputSettings->ConsoleKeys.Empty();
+			InputSettings->ConsoleKeys.Add(*Key);
+			InputSettings->ConsoleKeys.Add(*AltKey);
+		}
 	}
 }
 
@@ -202,130 +245,130 @@ void SUWControlSettingsDialog::CreateBinds()
 	//Movement
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Movement", "Movement")))->MakeHeader()));
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Move Forward", "Move Forward")))
-		->AddMapping("MoveForward", 1.0f)
-		->AddMapping("TapForward")
-		->AddMapping("TapForwardRelease")
+		->AddAxisMapping("MoveForward", 1.0f)
+		->AddActionMapping("TapForward")
+		->AddActionMapping("TapForwardRelease")
 		->AddDefaults(EKeys::W, EKeys::Up)));
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Move Backward", "Move Backward")))
-		->AddMapping("MoveBackward", 1.0f)
-		->AddMapping("TapBack")
-		->AddMapping("TapBackRelease")
+		->AddAxisMapping("MoveBackward", 1.0f)
+		->AddActionMapping("TapBack")
+		->AddActionMapping("TapBackRelease")
 		->AddDefaults(EKeys::S, EKeys::Down)));
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Move Left", "Move Left")))
-		->AddMapping("MoveLeft", 1.0f)
-		->AddMapping("TapLeft")
-		->AddMapping("TapLeftRelease")
+		->AddAxisMapping("MoveLeft", 1.0f)
+		->AddActionMapping("TapLeft")
+		->AddActionMapping("TapLeftRelease")
 		->AddDefaults(EKeys::A)));
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Move Right", "Move Right")))
-		->AddMapping("MoveRight", 1.0f)
-		->AddMapping("TapRight")
-		->AddMapping("TapRightRelease")
+		->AddAxisMapping("MoveRight", 1.0f)
+		->AddActionMapping("TapRight")
+		->AddActionMapping("TapRightRelease")
 		->AddDefaults(EKeys::D)));
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Turn Left", "Turn Left")))
-		->AddMapping("TurnRate", -1.0f)
+		->AddAxisMapping("TurnRate", -1.0f)
 		->AddDefaults(EKeys::Left)));
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Turn Right", "Turn Right")))
-		->AddMapping("TurnRate", 1.0f)
+		->AddAxisMapping("TurnRate", 1.0f)
 		->AddDefaults(EKeys::Right)));
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Jump", "Jump")))
-		->AddMapping("MoveUp", 1.0f)
-		->AddMapping("Jump")
+		->AddAxisMapping("MoveUp", 1.0f)
+		->AddActionMapping("Jump")
 		->AddDefaults(EKeys::SpaceBar)));
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Crouch", "Crouch")))
-		->AddMapping("MoveUp", -1.0f)
-		->AddMapping("Crouch")
+		->AddAxisMapping("MoveUp", -1.0f)
+		->AddActionMapping("Crouch")
 		->AddDefaults(EKeys::LeftControl, EKeys::C)));
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Single Tap Dodge", "Single Tap Dodge")))
-		->AddMapping("SingleTapDodge")
+		->AddActionMapping("SingleTapDodge")
 		->AddDefaults(EKeys::V)));
 	//Weapons
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Weapons", "Weapons")))->MakeHeader()));
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Fire", "Fire")))
-		->AddMapping("StartFire")
-		->AddMapping("StopFire")
+		->AddActionMapping("StartFire")
+		->AddActionMapping("StopFire")
 		->AddDefaults(EKeys::LeftMouseButton, EKeys::RightControl)));
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Alt Fire", "Alt Fire")))
-		->AddMapping("StartAltFire")
-		->AddMapping("StopAltFire")
+		->AddActionMapping("StartAltFire")
+		->AddActionMapping("StopAltFire")
 		->AddDefaults(EKeys::RightMouseButton)));
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Next Weapon", "Next Weapon")))
-		->AddMapping("NextWeapon")
+		->AddActionMapping("NextWeapon")
 		->AddDefaults(EKeys::MouseScrollUp)));
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Previous Weapon", "Previous Weapon")))
-		->AddMapping("PrevWeapon")
+		->AddActionMapping("PrevWeapon")
 		->AddDefaults(EKeys::MouseScrollDown)));
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "BestWeapon", "Best Weapon")))
-		->AddMapping("SwitchToBestWeapon")
+		->AddCustomBinding("SwitchToBestWeapon")
 		->AddDefaults(EKeys::E)));
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Throw Weapon", "Throw Weapon")))
-		->AddMapping("ThrowWeapon")
+		->AddActionMapping("ThrowWeapon")
 		->AddDefaults(EKeys::M)));
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Select Translocator", "Select Translocator")))
-		->AddMapping("ToggleTranslocator")
+		->AddCustomBinding("ToggleTranslocator")
 		->AddDefaults(EKeys::Q)));
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Select Impact Hammer", "Select Impact Hammer")))
-		->AddMapping("SwitchWeapon 1")
+		->AddCustomBinding("SwitchWeapon 1")
 		->AddDefaults(EKeys::One)));
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Select Enforcer", "Select Enforcer")))
-		->AddMapping("SwitchWeapon 2")
+		->AddCustomBinding("SwitchWeapon 2")
 		->AddDefaults(EKeys::Two)));
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Select Bio Rifle", "Select Bio Rifle")))
-		->AddMapping("SwitchWeapon 3")
+		->AddCustomBinding("SwitchWeapon 3")
 		->AddDefaults(EKeys::Three)));
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Select Shock Rifle", "Select Shock Rifle")))
-		->AddMapping("SwitchWeapon 4")
+		->AddCustomBinding("SwitchWeapon 4")
 		->AddDefaults(EKeys::Four)));
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Select Link Gun", "Select Link Gun")))
-		->AddMapping("SwitchWeapon 5")
+		->AddCustomBinding("SwitchWeapon 5")
 		->AddDefaults(EKeys::Five)));
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Select Stinger", "Select Stinger")))
-		->AddMapping("SwitchWeapon 6")
+		->AddCustomBinding("SwitchWeapon 6")
 		->AddDefaults(EKeys::Six)));
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Select Flak Cannon", "Select Flak Cannon")))
-		->AddMapping("SwitchWeapon 7")
+		->AddCustomBinding("SwitchWeapon 7")
 		->AddDefaults(EKeys::Seven)));
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Select Rocket Launcher", "Select Rocket Launcher")))
-		->AddMapping("SwitchWeapon 8")
+		->AddCustomBinding("SwitchWeapon 8")
 		->AddDefaults(EKeys::Eight)));
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Select Sniper Rifle", "Select Sniper Rifle")))
-		->AddMapping("SwitchWeapon 9")
+		->AddCustomBinding("SwitchWeapon 9")
 		->AddDefaults(EKeys::Nine)));
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Select Superweapon", "Select Superweapon")))
-		->AddMapping("SwitchWeapon 10")
+		->AddCustomBinding("SwitchWeapon 10")
 		->AddDefaults(EKeys::Zero)));
 	//Taunts
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Taunts", "Taunts")))->MakeHeader()));
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Taunt", "Taunt 1")))
-		->AddMapping("PlayTaunt")
+		->AddActionMapping("PlayTaunt")
 		->AddDefaults(EKeys::J)));
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Taunt2", "Taunt 2")))
-		->AddMapping("PlayTaunt2")
+		->AddActionMapping("PlayTaunt2")
 		->AddDefaults(EKeys::K)));
 	//Misc
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Misc", "Misc")))->MakeHeader()));
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Feign Death", "Feign Death")))
-		->AddMapping("FeignDeath")
+		->AddCustomBinding("FeignDeath")
 		->AddDefaults(EKeys::H)));
 	//Hud
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Hud", "Hud")))->MakeHeader()));
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Show Scores", "Show Scores")))
-		->AddMapping("ShowScores")
+		->AddActionMapping("ShowScores")
 		->AddDefaults(EKeys::Tab)));
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Show Menu", "Show Menu")))
-		->AddMapping("ShowMenu")
+		->AddActionMapping("ShowMenu")
 		->AddDefaults(EKeys::Escape)));
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Console", "Console")))
-		->AddMapping("Console")
+		->AddSpecialBinding("Console")
 		->AddDefaults(EKeys::Tilde)));
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Talk", "Talk")))
-		->AddMapping("Talk")
+		->AddActionMapping("Talk")
 		->AddDefaults(EKeys::T)));
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Team Talk", "Team Talk")))
-		->AddMapping("TeamTalk")
+		->AddActionMapping("TeamTalk")
 		->AddDefaults(EKeys::Y)));
 
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Buy Menu", "Buy Menu")))
-		->AddMapping("ShowBuyMenu")
+		->AddActionMapping("ShowBuyMenu")
 		->AddDefaults(EKeys::B)));
 
 	// TODO: mod binding registration
@@ -999,12 +1042,20 @@ FReply SUWControlSettingsDialog::OnBindDefaultClick()
 
 FReply SUWControlSettingsDialog::OKClick()
 {
+	UInputSettings* InputSettings = UInputSettings::StaticClass()->GetDefaultObject<UInputSettings>();
+
 	//Write the binds to the ini
 	for (const auto& Bind : Binds)
 	{
 		Bind->WriteBind();
 	}
-	UInputSettings::StaticClass()->GetDefaultObject<UInputSettings>()->SaveConfig();
+	InputSettings->SaveConfig();
+
+	AUTPlayerController* UTPC = Cast<AUTPlayerController>(GetPlayerOwner()->PlayerController);
+	if (UTPC != nullptr)
+	{
+		UTPC->UpdateWeaponGroupKeys();
+	}
 
 	//Update the playing players custom binds
 	APlayerController* PC = GetPlayerOwner()->PlayerController;
@@ -1053,7 +1104,7 @@ FReply SUWControlSettingsDialog::OKClick()
 			}
 		}
 	}
-	UInputSettings* InputSettings = UInputSettings::StaticClass()->GetDefaultObject<UInputSettings>();
+
 	for (FInputAxisConfigEntry& Entry : InputSettings->AxisConfig)
 	{
 		if (Entry.AxisKeyName == EKeys::MouseX || Entry.AxisKeyName == EKeys::MouseY)

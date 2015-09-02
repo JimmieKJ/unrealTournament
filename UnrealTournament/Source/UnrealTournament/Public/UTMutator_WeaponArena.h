@@ -20,8 +20,6 @@ class UNREALTOURNAMENT_API AUTMutator_WeaponArena : public AUTMutator
 	UPROPERTY(BlueprintReadWrite)
 	TSubclassOf<class AUTPickupAmmo> ArenaAmmoType;
 
-
-	virtual void PreInitializeComponents() override;
 	virtual void BeginPlay() override;
 	void ModifyPlayer_Implementation(APawn* Other, bool bIsNewSpawn) override;
 	bool CheckRelevance_Implementation(AActor* Other) override;

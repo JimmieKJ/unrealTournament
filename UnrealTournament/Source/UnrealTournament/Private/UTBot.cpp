@@ -141,6 +141,7 @@ void AUTBot::InitializeCharacter(UUTBotCharacter* NewCharacterData)
 	if (PS != NULL)
 	{
 		PS->bReadyToPlay = true;
+		PS->SetCharacterVoice(CharacterData->CharacterVoice.ToString());
 		PS->SetCharacter(CharacterData->Character.ToString());
 		if (!CharacterData->HatType.ToString().IsEmpty())
 		{
@@ -2576,7 +2577,13 @@ void AUTBot::FightEnemy(bool bCanCharge, float EnemyStrength)
 			}
 		}
 
-		if (!CanAttack(Enemy, EnemyLoc, true)) // TODO: maybe not bDirectOnly = true? Unsure if best to check for indirect attacks from here
+		const bool bCanAttack = CanAttack(Enemy, EnemyLoc, true); // TODO: maybe not bDirectOnly = true? Unsure if best to check for indirect attacks from here
+		// CanAttack() may call into script so we can't make assumptions
+		if (GetPawn() == NULL)
+		{
+			return;
+		}
+		if (!bCanAttack)
 		{
 			if (Squad->MustKeepEnemy(Enemy))
 			{

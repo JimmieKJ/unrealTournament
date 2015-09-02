@@ -180,7 +180,7 @@ public:
 	virtual void ServerStartMatch();
 	
 	// Actually launch the map.  NOTE: This is used for QuickStart and doesn't check any of the "can I launch" metrics.
-	virtual void LaunchMatch();
+	virtual void LaunchMatch(bool bQuickPlay=false);
 
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerAbortMatch();
@@ -272,6 +272,9 @@ public:
 
 	// Returns true if the match has room for a new player to join it
 	virtual bool MatchHasRoom(bool bForSpectator=false);
+
+	/** set redirect list on CurrentRuleset, including those explicitly specified and those automatically detected by the game settings */
+	virtual void SetRedirects();
 
 	virtual void SetRules(TWeakObjectPtr<AUTReplicatedGameRuleset> NewRuleset, const FString& StartingMap);
 

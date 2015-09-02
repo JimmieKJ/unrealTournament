@@ -27,8 +27,12 @@ struct FSimpleBind
 	TArray<FInputActionKeyMapping> ActionMappings;
 	TArray<FInputAxisKeyMapping> AxisMappings;
 	TArray<FCustomKeyBinding>  CustomBindings;
+	TArray<FName>  SpecialBindings;
 
-	FSimpleBind* AddMapping(const FString& Mapping, float Scale = 0.0f);
+	FSimpleBind* AddActionMapping(const FName& Mapping);
+	FSimpleBind* AddAxisMapping(const FName& Mapping, float Scale);
+	FSimpleBind* AddCustomBinding(const FName& Mapping);
+	FSimpleBind* AddSpecialBinding(const FName& Mapping);
 	FSimpleBind* AddDefaults(FKey InDefaultKey, FKey InDefaultAltKey = FKey())
 	{
 		DefaultKey = InDefaultKey;

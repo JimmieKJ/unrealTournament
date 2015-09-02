@@ -124,7 +124,7 @@ class UNREALTOURNAMENT_API AUTCarriedObject : public AActor, public IUTTeamInter
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
 	USoundBase* DropSound;
 
-	void Init(AUTGameObjective* NewBase);
+	virtual void Init(AUTGameObjective* NewBase);
 
 	// Returns the team number of the team that owns this object
 	UFUNCTION()
@@ -262,4 +262,6 @@ protected:
 	virtual void SendGameMessage(uint32 Switch, APlayerState* PS1, APlayerState* PS2, UObject* OptionalObject = NULL);
 
 	virtual void TossObject(AUTCharacter* ObjectHolder);
+
+	virtual bool TeleportTo(const FVector& DestLocation, const FRotator& DestRotation, bool bIsATest = false, bool bNoCheck = false) override;
 };

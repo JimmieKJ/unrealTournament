@@ -214,24 +214,34 @@ TSharedRef<ITableRow> SUMatchPanel::OnGenerateWidgetForMatchList( TSharedPtr<FTr
 					.VAlign(VAlign_Center)
 					.AutoWidth()
 					[
-						SNew(SBox).HeightOverride(78).WidthOverride(348).Padding(FMargin(5.0f,0.0f,5.0f,0.0f))
+						SNew(SBox).HeightOverride(78).WidthOverride(500).Padding(FMargin(5.0f,0.0f,5.0f,0.0f))
 						[
 							SNew(SVerticalBox)
 							+SVerticalBox::Slot()
 							.AutoHeight()
 							[
-								SNew(STextBlock)
-								.Text(TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateSP(InItem.Get(), &FTrackedMatch::GetRuleTitle)))
-								.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium.Bold")
-								.ColorAndOpacity(FSlateColor(FLinearColor(0.8f,0.8f,0.8f,1.0f)))
+								SNew(SHorizontalBox)
+								+SHorizontalBox::Slot()
+								.AutoWidth()
+								[
+									SNew(STextBlock)
+									.Text(TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateSP(InItem.Get(), &FTrackedMatch::GetRuleTitle)))
+									.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium.Bold")
+									.ColorAndOpacity(FSlateColor(FLinearColor(0.8f,0.8f,0.8f,1.0f)))
+								]
 							]
 							+SVerticalBox::Slot()
 							.AutoHeight()
 							[
-								SNew(STextBlock)
-								.Text(TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateSP(InItem.Get(), &FTrackedMatch::GetMap)))
-								.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small")
-								.ColorAndOpacity(FSlateColor(FLinearColor(0.6f,0.6f,0.6f,1.0f)))
+								SNew(SHorizontalBox)
+								+SHorizontalBox::Slot()
+								.AutoWidth()
+								[
+									SNew(STextBlock)
+									.Text(TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateSP(InItem.Get(), &FTrackedMatch::GetMap)))
+									.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small")
+									.ColorAndOpacity(FSlateColor(FLinearColor(0.6f,0.6f,0.6f,1.0f)))
+								]
 							]
 						]
 					]

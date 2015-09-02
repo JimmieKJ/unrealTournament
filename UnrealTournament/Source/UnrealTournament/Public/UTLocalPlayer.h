@@ -107,7 +107,7 @@ public:
 
 	virtual void PlayerAdded(class UGameViewportClient* InViewportClient, int32 InControllerID);
 
-	virtual void ShowMenu();
+	virtual void ShowMenu(const FString& Parameters);
 	virtual void HideMenu();
 	virtual void OpenTutorialMenu();
 	virtual void ShowToast(FText ToastText);	// NOTE: Need to add a type/etc so that they can be skinned better.
@@ -402,6 +402,11 @@ public:
 	// Returns the base ELO Rank with any type of processing we need.
 	virtual int32 GetBaseELORank();
 
+	inline virtual int32 GetRankTDM() { return TDM_ELO; }
+	inline virtual int32 GetRankDuel() { return DUEL_ELO; }
+	inline virtual int32 GetRankDM() { return FFA_ELO; }
+	inline virtual int32 GetRankCTF() { return CTF_ELO; }
+
 	// Returns what badge should represent player's skill level.
 	static void GetBadgeFromELO(int32 EloRating, int32& BadgeLevel, int32& SubLevel);
 
@@ -626,7 +631,21 @@ public:
 	}
 	inline void AddOnlineXP(int32 NewXP)
 	{
-		OnlineXP += FMath::Max<float>(0, NewXP);
+		OnlineXP += FMath::Max<int32>(0, NewXP);
+		LastItemReadTime = 0.0; // so next time we query we'll get real updated value
+	}
+	inline void AddProfileItem(const UUTProfileItem* NewItem)
+	{
+		LastItemReadTime = 0.0;
+		for (FProfileItemEntry& Entry : ProfileItems)
+		{
+			if (Entry.Item == NewItem)
+			{
+				Entry.Count++;
+				return;
+			}
+		}
+		new(ProfileItems) FProfileItemEntry(NewItem, 1);
 	}
 
 	bool IsOnTrustedServer() const
@@ -642,5 +661,16 @@ protected:
 	TSharedPtr<SUTJoinInstance> JoinInstanceDialog;
 #endif
 
+public:
+	// Returns the Total # of stars collected by this player.
+	int32 GetTotalChallengeStars();
 
+	// Returns the # of stars for a given challenge tag.  Returns 0 if this challenge hasn't been started
+	int32 GetChallengeStars(FName ChallengeTag);
+
+	// Returns the date a challenge was last updated as a string
+	FString GetChallengeDate(FName ChallengeTag);
+
+	// Marks a challenge as completed.
+	void ChallengeCompleted(FName ChallengeTag, int32 Stars);
 };

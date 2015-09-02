@@ -71,7 +71,7 @@ struct FPlayerCompare
 		BValue += (B->TeamNum==0) ? 0 : ( B->TeamNum==1 ? 1 : 2);
 
 		//UE_LOG(UT,Log,TEXT("Sort:  %s vs %s - %i < %i???"), *A->PlayerName, *B->PlayerName, AValue, BValue);			
-		return AValue < BValue;
+		return (AValue != BValue) ? AValue < BValue : (A->PlayerName < B->PlayerName);
 	}
 };
 
@@ -240,7 +240,7 @@ void SUPlayerListPanel::GetMenuContent(FString SearchTag, TArray<FMenuOptionData
 
 			MenuOptions.Add(FMenuOptionData(NSLOCTEXT("PlayerListSubMenu","Spectate","Spectate"), EPlayerListContentCommand::Spectate));
 
-			if (bIsHost)
+			if (bIsHost && (TrackedPlayers[Idx]->PlayerState.Get() != PlayerOwner->PlayerController->PlayerState))
 			{
 				MenuOptions.Add(FMenuOptionData());
 				MenuOptions.Add(FMenuOptionData(NSLOCTEXT("PlayerListSubMenu","Kick","Kick"), EPlayerListContentCommand::Kick));
@@ -281,6 +281,11 @@ bool SUPlayerListPanel::IsInMatch(AUTPlayerState* PlayerState)
 
 bool SUPlayerListPanel::ShouldShowPlayer(FUniqueNetIdRepl PlayerId, uint8 TeamNum, bool bIsInMatch)
 {
+	if (!PlayerId.IsValid())
+	{
+		return false;
+	}
+
 	if (ConnectedChatPanel.IsValid())
 	{
 		if (ConnectedChatPanel->CurrentChatDestination == ChatDestinations::Friends)

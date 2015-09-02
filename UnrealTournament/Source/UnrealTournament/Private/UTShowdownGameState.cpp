@@ -61,3 +61,32 @@ void AUTShowdownGameState::OnRep_XRayVision()
 		}
 	}
 }
+
+void AUTShowdownGameState::OnRep_MatchState()
+{
+	// clean up old corpses after intermission
+	if (PreviousMatchState == MatchState::MatchIntermission && MatchState == MatchState::InProgress)
+	{
+		for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
+		{
+			AUTCharacter* UTC = Cast<AUTCharacter>(It->Get());
+			if (UTC != NULL && UTC->IsDead())
+			{
+				UTC->Destroy();
+			}
+		}
+	}
+	else if (MatchState == MatchState::MatchIntermission)
+	{
+		for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
+		{
+			AUTCharacter* UTC = Cast<AUTCharacter>(It->Get());
+			if (UTC != NULL && !UTC->IsDead())
+			{
+				UTC->GetRootComponent()->SetHiddenInGame(true, true);
+			}
+		}
+	}
+
+	Super::OnRep_MatchState();
+}

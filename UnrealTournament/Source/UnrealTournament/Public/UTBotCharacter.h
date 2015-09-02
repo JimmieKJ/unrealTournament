@@ -40,4 +40,8 @@ public:
 	/** optional eyewear variant ID */
 	UPROPERTY(EditAnywhere)
 	int32 EyewearVariantId;
+
+	/* Voice associated with this character. */
+	UPROPERTY(EditAnywhere, Meta = (MetaClass = "UTCharacterVoice"))
+	FStringClassReference CharacterVoice;
 };

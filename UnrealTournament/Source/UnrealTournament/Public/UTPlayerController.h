@@ -182,7 +182,9 @@ public:
 	virtual void ShowEndGameScoreboard();
 
 	UFUNCTION(reliable, client)
-	virtual void ClientReceiveXP(FXPBreakdown GainedXP);
+	void ClientReceiveXP(FXPBreakdown GainedXP);
+	UFUNCTION(reliable, client)
+	void ClientReceiveLevelReward(int32 Level, const UUTProfileItem* NewItem);
 
 	/**	Client replicated function that get's called when it's half-time. */
 	UFUNCTION(client, reliable)
@@ -608,9 +610,6 @@ public:
 		bool bUseClassicGroups;
 
 	/** Switch between teams 0 and 1 */
-	UFUNCTION(exec)
-	virtual void SwitchTeam();
-
 	UFUNCTION(Reliable, Server, WithValidation)
 	virtual void ServerSwitchTeam();
 
@@ -868,7 +867,7 @@ public:
 	}
 
 	/** Make sure no firing and scoreboard hidden before bringing up menu. */
-	virtual void ShowMenu() override;
+	virtual void ShowMenu(const FString& Parameters) override;
 	
 	AUTCharacter* PreGhostChar;
 
@@ -889,6 +888,13 @@ public:
 
 	UFUNCTION(exec)
 	virtual void OpenMatchSummary();
+
+	/**The last recieved XP breakdown from ClientReceiveXP()*/
+	UPROPERTY()
+	FXPBreakdown XPBreakdown;
+
+	/**Stored list of rewards gained from ClientReceiveLevelReward()*/
+	TMap<int32, const class UUTProfileItem*> LevelRewards;
 };
 
 

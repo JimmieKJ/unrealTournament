@@ -1008,7 +1008,7 @@ void AUTLobbyGameState::HandleQuickplayRequest(AUTServerBeaconClient* Beacon, co
 			NewMatchInfo->NotifyBeacons.Add(Beacon);
 			NewMatchInfo->bJoinAnytime = true;
 			NewMatchInfo->bSpectatable = true;
-			NewMatchInfo->LaunchMatch();
+			NewMatchInfo->LaunchMatch(true);
 		}
 	}
 	else

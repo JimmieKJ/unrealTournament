@@ -100,6 +100,7 @@ public:
 	virtual void PreExit();
 	virtual bool HandleOpenCommand(const TCHAR* Cmd, FOutputDevice& Ar, UWorld *InWorld) override;
 	virtual bool Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Out = *GLog) override;
+	virtual void TickWorldTravel(FWorldContext& WorldContext, float DeltaSeconds) override;
 	virtual void Tick(float DeltaSeconds, bool bIdleMode) override;
 	virtual float GetMaxTickRate(float DeltaTime, bool bAllowFrameRateSmoothing) const override;
 	virtual void UpdateRunningAverageDeltaTime(float DeltaTime, bool bAllowFrameRateSmoothing = true) override;

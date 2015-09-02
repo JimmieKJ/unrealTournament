@@ -1,6 +1,7 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealTournament.h"
+#include "UTGameEngine.h"
 #include "UTGameUserSettings.h"
 
 namespace EUTGameUserSettingsVersion
@@ -21,6 +22,7 @@ UUTGameUserSettings::UUTGameUserSettings(const class FObjectInitializer& ObjectI
 	SoundClassVolumes[EUTSoundClass::Voice] = 1.0f;
 	InitialBenchmarkState = -1;
 	bBenchmarkInProgress=false;
+	bBotSpeechEnabled = true;
 }
 
 bool UUTGameUserSettings::IsVersionValid()
@@ -59,6 +61,7 @@ void UUTGameUserSettings::ApplySettings(bool bCheckForCommandLineOverrides)
 	SetAAMode(AAMode);
 	SetScreenPercentage(ScreenPercentage);
 	SetHRTFEnabled(bHRTFEnabled);
+	SetBotSpeechEnabled(bBotSpeechEnabled);
 }
 
 void UUTGameUserSettings::SetSoundClassVolume(EUTSoundClass::Type Category, float NewValue)
@@ -178,6 +181,16 @@ void UUTGameUserSettings::SetScreenPercentage(int32 NewScreenPercentage)
 	ScreenPercentageCVar->Set(ScreenPercentage, ECVF_SetByGameSetting);
 }
 
+bool UUTGameUserSettings::IsBotSpeechEnabled()
+{
+	return bBotSpeechEnabled;
+}
+
+void UUTGameUserSettings::SetBotSpeechEnabled(bool NewBotSpeechEnabled)
+{
+	bBotSpeechEnabled = NewBotSpeechEnabled;
+}
+
 bool UUTGameUserSettings::IsHRTFEnabled()
 {
 	return bHRTFEnabled;
@@ -244,6 +257,26 @@ void UUTGameUserSettings::RunSynthBenchmark(bool bSaveSettingsOnceDetected)
 
 	if (bSaveSettingsOnceDetected)
 	{
+		// If monitor refresh rate is under 120, we're going to cap framerate at 60 by default, else 120
+		UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
+		if (UTEngine != NULL)
+		{
+			int32 RefreshRate;
+			if (UTEngine->GetMonitorRefreshRate(RefreshRate))
+			{
+				if (RefreshRate >= 120)
+				{
+					UTEngine->FrameRateCap = 120;
+				}
+				else
+				{
+					UTEngine->FrameRateCap = 60;
+				}
+
+				UTEngine->SaveConfig();
+			}
+		}
+
 		ScalabilityQuality = DetectedLevels;
 		Scalability::SetQualityLevels(ScalabilityQuality);
 		Scalability::SaveState(GGameUserSettingsIni);

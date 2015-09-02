@@ -40,13 +40,14 @@ AUTTeamGameMode::AUTTeamGameMode(const FObjectInitializer& ObjectInitializer)
 	bHasBroadcastDominating = false;
 	bAnnounceTeam = true;
 	bHighScorerPerTeamBasis = true;
+	ScoringPlaysDisplayTime = 6.f;
 }
 
 void AUTTeamGameMode::InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage)
 {
 	Super::InitGame(MapName, Options, ErrorMessage);
 
-	bBalanceTeams = EvalBoolOptions(ParseOption(Options, TEXT("BalanceTeams")), bBalanceTeams);
+	bBalanceTeams = !bOfflineChallenge && EvalBoolOptions(ParseOption(Options, TEXT("BalanceTeams")), bBalanceTeams);
 
 	if (bAllowURLTeamCountOverride)
 	{
@@ -116,10 +117,45 @@ APlayerController* AUTTeamGameMode::Login(class UPlayer* NewPlayer, ENetRole Rem
 	if (PC != NULL && !PC->PlayerState->bOnlySpectator)
 	{
 		uint8 DesiredTeam = uint8(FMath::Clamp<int32>(GetIntOption(Options, TEXT("Team"), 255), 0, 255));
+		if (bOfflineChallenge)
+		{
+			DesiredTeam = 1;
+		}
 		ChangeTeam(PC, DesiredTeam, false);
 	}
 
 	return PC;
+}
+
+bool AUTTeamGameMode::PlayerWonChallenge()
+{
+	AUTTeamInfo* BestTeam = NULL;
+	bool bTied = false;
+	for (int32 i = 0; i < UTGameState->Teams.Num(); i++)
+	{
+		if (UTGameState->Teams[i] != NULL)
+		{
+			if (BestTeam == NULL || UTGameState->Teams[i]->Score > BestTeam->Score)
+			{
+				BestTeam = UTGameState->Teams[i];
+				bTied = false;
+			}
+			else if (UTGameState->Teams[i]->Score == BestTeam->Score)
+			{
+				bTied = true;
+			}
+		}
+	}
+
+	if (bTied || !BestTeam)
+	{
+		return false;
+	}
+
+	// make sure player is on best team
+	APlayerController* LocalPC = GEngine->GetFirstLocalPlayerController(GetWorld());
+	AUTPlayerState* PS = LocalPC ? Cast<AUTPlayerState>(LocalPC->PlayerState) : NULL;
+	return PS && PS->Team && (PS->Team == BestTeam);
 }
 
 bool AUTTeamGameMode::ShouldBalanceTeams(bool bInitialTeam) const
@@ -142,6 +178,11 @@ bool AUTTeamGameMode::ChangeTeam(AController* Player, uint8 NewTeam, bool bBroad
 		}
 		else
 		{
+			if (bOfflineChallenge && PS->Team)
+			{
+				return false;
+			}
+
 			bool bForceTeam = false;
 			if (!Teams.IsValidIndex(NewTeam))
 			{
@@ -227,7 +268,7 @@ uint8 AUTTeamGameMode::PickBalancedTeam(AUTPlayerState* PS, uint8 RequestedTeam)
 		int32 TestSize = Teams[i]->GetSize();
 		if (Teams[i] == PS->Team)
 		{
-			// player will be leaving this team so count it's size as post-departure
+			// player will be leaving this team so count its size as post-departure
 			TestSize--;
 		}
 		if (BestTeams.Num() == 0 || TestSize < BestSize)
@@ -407,8 +448,8 @@ float AUTTeamGameMode::RatePlayerStart(APlayerStart* P, AController* Player)
 		AUTPlayerState* PS = Cast<AUTPlayerState>(Player->PlayerState);
 		if (PS != NULL && PS->Team != NULL && (Cast<AUTTeamPlayerStart>(P) == NULL || ((AUTTeamPlayerStart*)P)->TeamNum != PS->Team->TeamIndex))
 		{
-			// return low positive rating so it can be used as a last resort
-			Result *= 0.05;
+			// never ever use wrong team playerstart
+			Result = -20.f;
 		}
 	}
 	return Result;
@@ -582,7 +623,7 @@ void AUTTeamGameMode::PlayEndOfMatchMessage()
 			if (Controller && Controller->IsA(AUTPlayerController::StaticClass()))
 			{
 				AUTPlayerController* PC = Cast<AUTPlayerController>(Controller);
-				if (PC && Cast<AUTPlayerState>(PC->PlayerState) && !PC->PlayerState->bOnlySpectator)
+				if (PC && Cast<AUTPlayerState>(PC->PlayerState))
 				{
 					PC->ClientReceiveLocalizedMessage(VictoryMessageClass, 2*IsFlawlessVictory + ((UTGameState->WinningTeam == Cast<AUTPlayerState>(PC->PlayerState)->Team) ? 1 : 0), UTGameState->WinnerPlayerState, PC->PlayerState, UTGameState->WinningTeam);
 				}
@@ -612,53 +653,18 @@ void AUTTeamGameMode::SendEndOfGameStats(FName Reason)
 	
 	if (!bDisableCloudStats)
 	{
+		AwardXP();
+
 		UpdateSkillRating();
 
 		const double CloudStatsStartTime = FPlatformTime::Seconds();
 		for (int32 i = 0; i < GetWorld()->GameState->PlayerArray.Num(); i++)
 		{
 			AUTPlayerState* PS = Cast<AUTPlayerState>(GetWorld()->GameState->PlayerArray[i]);
-			
-			PS->SetStatsValue(NAME_MatchesPlayed, 1);
-			PS->SetStatsValue(NAME_TimePlayed, UTGameState->ElapsedTime);
-			if (PS->CanAwardOnlineXP())
+			if (PS != NULL)
 			{
-				PS->SetStatsValue(NAME_PlayerXP, PS->GetXP().Total());
-			}
-
-			if (UTGameState->WinningTeam == PS->Team)
-			{
-				PS->SetStatsValue(NAME_Wins, 1);
-			}
-			else
-			{
-				PS->SetStatsValue(NAME_Losses, 1);
-			}
-
-			PS->AddMatchToStats(GetClass()->GetPathName(), &Teams, &GetWorld()->GameState->PlayerArray, &InactivePlayerArray);
-			if (PS != nullptr)
-			{
-				PS->WriteStatsToCloud();
-			}
-		}
-
-		for (int32 i = 0; i < InactivePlayerArray.Num(); i++)
-		{
-			AUTPlayerState* PS = Cast<AUTPlayerState>(InactivePlayerArray[i]);
-			if (PS && !PS->HasWrittenStatsToCloud())
-			{
-				if (!PS->bAllowedEarlyLeave)
-				{
-					PS->SetStatsValue(NAME_MatchesQuit, 1);
-				}
-
 				PS->SetStatsValue(NAME_MatchesPlayed, 1);
 				PS->SetStatsValue(NAME_TimePlayed, UTGameState->ElapsedTime);
-				// quitters don't get XP
-				//if (PS->CanAwardOnlineXP())
-				//{
-				//	PS->SetStatsValue(NAME_PlayerXP, PS->GetXP().Total());
-				//}
 
 				if (UTGameState->WinningTeam == PS->Team)
 				{
@@ -670,18 +676,42 @@ void AUTTeamGameMode::SendEndOfGameStats(FName Reason)
 				}
 
 				PS->AddMatchToStats(GetClass()->GetPathName(), &Teams, &GetWorld()->GameState->PlayerArray, &InactivePlayerArray);
-				if (PS != nullptr)
+				
+				PS->WriteStatsToCloud();
+			}
+		}
+
+		for (int32 i = 0; i < InactivePlayerArray.Num(); i++)
+		{
+			AUTPlayerState* PS = Cast<AUTPlayerState>(InactivePlayerArray[i]);
+			if (PS != nullptr && !PS->HasWrittenStatsToCloud())
+			{
+				if (!PS->bAllowedEarlyLeave)
 				{
-					PS->WriteStatsToCloud();
+					PS->SetStatsValue(NAME_MatchesQuit, 1);
 				}
+
+				PS->SetStatsValue(NAME_MatchesPlayed, 1);
+				PS->SetStatsValue(NAME_TimePlayed, UTGameState->ElapsedTime);
+
+				if (UTGameState->WinningTeam == PS->Team)
+				{
+					PS->SetStatsValue(NAME_Wins, 1);
+				}
+				else
+				{
+					PS->SetStatsValue(NAME_Losses, 1);
+				}
+
+				PS->AddMatchToStats(GetClass()->GetPathName(), &Teams, &GetWorld()->GameState->PlayerArray, &InactivePlayerArray);
+				
+				PS->WriteStatsToCloud();
 			}
 		}
 
 		const double CloudStatsTime = FPlatformTime::Seconds() - CloudStatsStartTime;
 		UE_LOG(UT, Log, TEXT("Cloud stats write time %.3f"), CloudStatsTime);
 	}
-
-	AwardXP();
 }
 
 void AUTTeamGameMode::FindAndMarkHighScorer()

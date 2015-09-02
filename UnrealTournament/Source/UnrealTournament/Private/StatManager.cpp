@@ -135,6 +135,9 @@ UStatManager::UStatManager(const FObjectInitializer& ObjectInitializer)
 	Stats.Add(NAME_SlideDist, new FStat(true));
 	Stats.Add(NAME_WallRunDist, new FStat(true));
 
+	Stats.Add(NAME_FlagCaptures, new FStat(true));
+	Stats.Add(NAME_FlagReturns, new FStat(true));
+	Stats.Add(NAME_FlagAssists, new FStat(true));
 	Stats.Add(NAME_FlagHeldDeny, new FStat(true));
 	Stats.Add(NAME_FlagHeldDenyTime, new FStat(true));
 	Stats.Add(NAME_FlagHeldTime, new FStat(true));
@@ -225,8 +228,16 @@ bool UStatManager::ModifyStat(FName StatName, int32 Amount, EStatMod::Type ModTy
 	FStat* Stat = GetStatByName(StatName);
 	if (Stat != NULL)
 	{
-		Stat->ModifyStat(Amount, ModType);
-		return true;
+		if (!Stat->bBackendStat)
+		{
+			Stat->ModifyStat(Amount, ModType);
+			return true;
+		}
+		else
+		{
+			UE_LOG(LogGameStats, Warning, TEXT("Don't use UStatManager::ModifyStat '%s' on backend stats"), *StatName.ToString());
+			return false;
+		}
 	}
 	else
 	{

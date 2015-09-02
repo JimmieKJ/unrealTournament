@@ -304,44 +304,54 @@ void AUTLobbyMatchInfo::ServerMatchIsReadyForPlayers_Implementation()
 bool AUTLobbyMatchInfo::ServerManageUser_Validate(int32 CommandID, AUTLobbyPlayerState* Target){ return true; }
 void AUTLobbyMatchInfo::ServerManageUser_Implementation(int32 CommandID, AUTLobbyPlayerState* Target)
 {
-
-	for (int32 i=0; i < Players.Num(); i++)
+	// make sure target is in this lobby's player list
+	bool bFoundTarget = false;
+	if (Target && !Target->IsPendingKillPending())
 	{
-		if (Target == Players[i])
+		for (int32 i = 0; i < Players.Num(); i++)
 		{
-			if (!CurrentRuleset->bTeamGame) CommandID++;		// Account for ChangeTeam.
-		
-			if (CommandID == 0 && CurrentRuleset->bTeamGame)
+			if (Target == Players[i])
 			{
-				if (Target->DesiredTeamNum != 255)
-				{
-					Target->DesiredTeamNum = 1 - Target->DesiredTeamNum;
-				}
-				else
-				{
-					Target->DesiredTeamNum = 0;
-				}
-
-				UE_LOG(UT,Log,TEXT("Changing %s to team %i"), *Target->PlayerName, Target->DesiredTeamNum)
-			}
-			else if (CommandID == 1)
-			{
-				Target->DesiredTeamNum = 255;
-				UE_LOG(UT,Log,TEXT("Changing %s to spectator"), *Target->PlayerName, Target->DesiredTeamNum)
-
-			}
-			else if (CommandID > 1)
-			{
-				// Right now we only have kicks and bans.
-				RemovePlayer(Target);
-				if (CommandID == 3)
-				{
-					BannedIDs.Add(Target->UniqueId);
-				}
+				bFoundTarget = true;
+				break;
 			}
 		}
 	}
+	if (!bFoundTarget)
+	{
+		return;
+	}
 
+	// process command
+	if (CommandID == 0)
+	{
+		if (CurrentRuleset->bTeamGame)
+		{
+			if (Target->DesiredTeamNum != 255)
+			{
+				Target->DesiredTeamNum = 1 - Target->DesiredTeamNum;
+			}
+			else
+			{
+				Target->DesiredTeamNum = 0;
+			}
+			UE_LOG(UT, Log, TEXT("Changing %s to team %i"), *Target->PlayerName, Target->DesiredTeamNum)
+		}
+	}
+	else if (CommandID == 1)
+	{
+		Target->DesiredTeamNum = 255;
+		UE_LOG(UT,Log,TEXT("Changing %s to spectator"), *Target->PlayerName, Target->DesiredTeamNum)
+	}
+	else if (CommandID > 1)
+	{
+		// Right now we only have kicks and bans.
+		RemovePlayer(Target);
+		if (CommandID == 3)
+		{
+			BannedIDs.Add(Target->UniqueId);
+		}
+	}
 }
 
 bool AUTLobbyMatchInfo::ServerStartMatch_Validate() { return true; }
@@ -407,15 +417,22 @@ void AUTLobbyMatchInfo::ServerStartMatch_Implementation()
 	GetOwnerPlayerState()->ClientMatchError(NSLOCTEXT("LobbyMessage", "TooManyInstances","All available game instances are taken.  Please wait a bit and try starting again."));
 }
 
-void AUTLobbyMatchInfo::LaunchMatch()
+void AUTLobbyMatchInfo::LaunchMatch(bool bQuickPlay)
 {
 	for (int32 i=0;i<Players.Num();i++)
 	{
 		Players[i]->bReadyToPlay = true;
 	}
 
+
 	if (CheckLobbyGameState() && CurrentRuleset.IsValid() && InitialMapInfo.IsValid())
 	{
+		if (bQuickPlay) 
+		{
+			AUTLobbyGameMode* LobbyGame = Cast<AUTLobbyGameMode>(LobbyGameState->AuthorityGameMode);
+			BotSkillLevel = (LobbyGame && LobbyGame->bTrainingGround) ? 1 : 3;
+		}
+
 		// build all of the data needed to launch the map.
 
 		FString GameURL = FString::Printf(TEXT("%s?Game=%s?MaxPlayers=%i"),*InitialMap, *CurrentRuleset->GameMode, CurrentRuleset->MaxPlayers);
@@ -430,6 +447,10 @@ void AUTLobbyMatchInfo::LaunchMatch()
 			if (BotSkillLevel >= 0)
 			{
 				GameURL += FString::Printf(TEXT("?BotFill=%i?Difficulty=%i"), OptimalPlayerCount, FMath::Clamp<int32>(BotSkillLevel,0,7));			
+			}
+			else
+			{
+				GameURL += TEXT("?BotFill=0");
 			}
 		}
 
@@ -584,24 +605,48 @@ void AUTLobbyMatchInfo::OnRep_InitialMap()
 	GetMapInformation();
 }
 
-
-void AUTLobbyMatchInfo::SetRules(TWeakObjectPtr<AUTReplicatedGameRuleset> NewRuleset, const FString& StartingMap)
+void AUTLobbyMatchInfo::SetRedirects()
 {
-	CurrentRuleset = NewRuleset;
-
-	InitialMap = StartingMap;
-	GetMapInformation();
-
 	// Copy any required redirects in to match info.  The UI will pickup on the replication and pull them.
 	AUTBaseGameMode* BaseGame = Cast<AUTBaseGameMode>(GetWorld()->GetAuthGameMode());
-	if (BaseGame)
+	if (BaseGame != NULL)
 	{
 		Redirects.Empty();
-		for (int32 i = 0; i < NewRuleset->RequiredPackages.Num(); i++)
+		for (int32 i = 0; i < CurrentRuleset->RequiredPackages.Num(); i++)
 		{
 			FPackageRedirectReference Redirect;
-			BaseGame->FindRedirect(NewRuleset->RequiredPackages[i], Redirect);
-			if (!Redirect.PackageName.IsEmpty())
+			if (BaseGame->FindRedirect(CurrentRuleset->RequiredPackages[i], Redirect))
+			{
+				Redirects.Add(Redirect);
+			}
+		}
+		// automatically add redirects for the map, game mode and mutator pak files (if any)
+		FPackageRedirectReference Redirect;
+		FString MapFullName;
+		if (FPackageName::SearchForPackageOnDisk(InitialMap + FPackageName::GetMapPackageExtension(), &MapFullName) && BaseGame->FindRedirect(GetModPakFilenameFromPkg(MapFullName), Redirect))
+		{
+			Redirects.Add(Redirect);
+		}
+		if (BaseGame->FindRedirect(GetModPakFilenameFromPath(CurrentRuleset->GameMode), Redirect))
+		{
+			Redirects.Add(Redirect);
+		}
+		FString AllMutators = BaseGame->ParseOption(CurrentRuleset->GameOptions, TEXT("Mutator"));
+		while (AllMutators.Len() > 0)
+		{
+			FString MutPath;
+			int32 Pos = AllMutators.Find(TEXT(","));
+			if (Pos > 0)
+			{
+				MutPath = AllMutators.Left(Pos);
+				AllMutators = AllMutators.Right(AllMutators.Len() - Pos - 1);
+			}
+			else
+			{
+				MutPath = AllMutators;
+				AllMutators.Empty();
+			}
+			if (BaseGame->FindRedirect(GetModPakFilenameFromPath(MutPath), Redirect))
 			{
 				Redirects.Add(Redirect);
 			}
@@ -612,7 +657,16 @@ void AUTLobbyMatchInfo::SetRules(TWeakObjectPtr<AUTReplicatedGameRuleset> NewRul
 			Redirects.Add(InitialMapInfo->Redirect);
 		}
 	}
+}
 
+void AUTLobbyMatchInfo::SetRules(TWeakObjectPtr<AUTReplicatedGameRuleset> NewRuleset, const FString& StartingMap)
+{
+	CurrentRuleset = NewRuleset;
+
+	InitialMap = StartingMap;
+	GetMapInformation();
+
+	SetRedirects();
 
 	bMapChanged = true;
 }
@@ -687,6 +741,8 @@ void AUTLobbyMatchInfo::ServerCreateCustomRule_Implementation(const FString& Gam
 		AUTGameMode* CustomGameModeDefaultObject = NewReplicatedRuleset->GetDefaultGameModeObject();
 		if (CustomGameModeDefaultObject)
 		{
+			NewReplicatedRuleset->Title = FString::Printf(TEXT("Custom Rule - %s"), *CustomGameModeDefaultObject->DisplayName.ToString());
+
 			TArray< TSharedPtr<TAttributePropertyBase> > AllowedProps;
 			CustomGameModeDefaultObject->CreateGameURLOptions(AllowedProps);
 
@@ -731,6 +787,10 @@ void AUTLobbyMatchInfo::ServerCreateCustomRule_Implementation(const FString& Gam
 		{
 			FinalGameOptions += FString::Printf(TEXT("?BotFill=%i?Difficulty=%i"), NewReplicatedRuleset->MaxPlayers, FMath::Clamp<int32>(DesiredSkillLevel,0,7));				
 		}
+		else
+		{
+			FinalGameOptions += TEXT("?BotFill=0");
+		}
 		NewReplicatedRuleset->GameOptions = FinalGameOptions;
 		NewReplicatedRuleset->MinPlayersToStart = 2;
 		NewReplicatedRuleset->DisplayTexture = "Texture2D'/Game/RestrictedAssets/UI/GameModeBadges/GB_Custom.GB_Custom'";
@@ -750,6 +810,8 @@ void AUTLobbyMatchInfo::ServerCreateCustomRule_Implementation(const FString& Gam
 			MatchBadge = FString::Printf(TEXT("Setting up a custom match on %s."), *InitialMapInfo->Title);
 		}
 		MatchBadge = TEXT("Setting up a custom match.");
+
+		SetRedirects();
 	}
 }
 

@@ -31,7 +31,7 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 	virtual void OnRep_ServerMOTD();
 
 	// A quick string field for the scoreboard and other browsers that contains description of the server
-	UPROPERTY(Replicated, Config, EditAnywhere, BlueprintReadWrite, Category = ServerInfo)
+	UPROPERTY(Replicated, GlobalConfig, EditAnywhere, BlueprintReadWrite, Category = ServerInfo)
 	FString ServerDescription;
 
 	/** teams, if the game type has them */
@@ -72,6 +72,10 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 	/** amount of time after a player spawns where they are immune to damage from enemies */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Replicated, Category = GameState)
 	float SpawnProtectionTime;
+
+	/** Number of winners to display in EOM summary. */
+	UPROPERTY(BlueprintReadOnly, Replicated, Category = GameState)
+		uint8 NumWinnersToShow;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = GameState)
 	TSubclassOf<UUTLocalMessage> MultiKillMessageClass;
@@ -342,12 +346,9 @@ public:
 		return 255;
 	};
 
-
 	// Used to get a list of game modes and maps that can be choosen from the menu.  Typically, this just pulls all of 
 	// available local content however, in hubs it will be from data replicated from the server.
-
 	virtual void GetAvailableGameData(TArray<UClass*>& GameModes, TArray<UClass*>& MutatorList);
-
 
 	virtual void ScanForMaps(const TArray<FString>& AllowedMapPrefixes, TArray<FAssetData>& MapList);
 
@@ -356,6 +357,9 @@ public:
 
 	/** Used to translate replicated FName refs to highlights into text. */
 	TMap< FName, FText> HighlightMap;
+
+	/** Used to prioritize which highlights to show (lower value = higher priority). */
+	TMap< FName, float> HighlightPriority;
 
 	/** Clear highlights array. */
 	UFUNCTION(BlueprintCallable, Category = "Game")
@@ -378,6 +382,9 @@ public:
 	/** Add appropriate top scorer highlights to each team score leader. */
 	virtual void SetTopScorerHighlights(AUTPlayerState* TopScorerRed, AUTPlayerState* TopScorerBlue);
 
+	/** Return a score value for the "impressiveness" of the Match highlights for PS. */
+	virtual float MatchHighlightScore(AUTPlayerState* PS);
+	
 	UPROPERTY()
 		TArray<FName> GameScoreStats;
 
@@ -445,6 +452,11 @@ public:
 	 */
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = GameState)
 	bool IsAllowedSpawnPoint(AUTPlayerState* Chooser, APlayerStart* DesiredStart) const;
+
+
+	/** Current index to use as basis for next selection in Taunt list. */
+	UPROPERTY()
+		int32 TauntSelectionIndex;
 };
 
 

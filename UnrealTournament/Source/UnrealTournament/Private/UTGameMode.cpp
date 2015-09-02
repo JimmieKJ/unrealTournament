@@ -37,6 +37,9 @@
 #include "EngineBuildSettings.h"
 #include "UTEngineMessage.h"
 #include "UTRemoteRedeemer.h"
+#include "UTChallengeManager.h"
+#include "DataChannel.h"
+#include "UTGameInstance.h"
 
 UUTResetInterface::UUTResetInterface(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -68,7 +71,6 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	PlayerControllerClass = AUTPlayerController::StaticClass();
 	BotClass = AUTBot::StaticClass();
 
-	MinRespawnDelay = 1.5f;
 	bUseSeamlessTravel = false;
 	CountDown = 4;
 	bPauseable = false;
@@ -79,7 +81,11 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	MinPlayersToStart = 2;
 	MaxWaitForPlayers = 90.f;
 	bOnlyTheStrongSurvive = false;
-	EndScoreboardDelay = 3.0f;
+	EndScoreboardDelay = 4.f;
+	MainScoreboardDisplayTime = 6.f;
+	ScoringPlaysDisplayTime = 0.f; 
+	PersonalSummaryDisplayTime = 8.f;
+	WinnerSummaryDisplayTime = 3.f;
 	GameDifficulty = 3.0f;
 	BotFillCount = 0;
 	bWeaponStayActive = true;
@@ -112,6 +118,32 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 
 	bCasterControl = false;
 	bPlayPlayerIntro = true;
+	bOfflineChallenge = false;
+
+	// note: one based
+	LevelUpRewards.AddZeroed(51);
+	LevelUpRewards[2] = FString(TEXT("/Game/RestrictedAssets/ProfileItems/BeanieBlack.BeanieBlack"));
+	LevelUpRewards[3] = FString(TEXT("/Game/RestrictedAssets/ProfileItems/Sunglasses.Sunglasses"));
+	LevelUpRewards[4] = FString(TEXT(""));
+	LevelUpRewards[5] = FString(TEXT("/Game/RestrictedAssets/ProfileItems/ThundercrashMale05.ThundercrashMale05"));
+	LevelUpRewards[7] = FString(TEXT("/Game/RestrictedAssets/ProfileItems/NecrisMale01.NecrisMale01"));
+	LevelUpRewards[8] = FString(TEXT(""));
+	LevelUpRewards[10] = FString(TEXT(""));
+	LevelUpRewards[12] = FString(TEXT("/Game/RestrictedAssets/ProfileItems/ThundercrashBeanieGreen.ThundercrashBeanieGreen"));
+	LevelUpRewards[14] = FString(TEXT(""));
+	LevelUpRewards[17] = FString(TEXT("/Game/RestrictedAssets/ProfileItems/ThundercrashMale03.ThundercrashMale03"));
+	LevelUpRewards[20] = FString(TEXT(""));
+	LevelUpRewards[23] = FString(TEXT("/Game/RestrictedAssets/ProfileItems/BeanieWhite.BeanieWhite"));
+	LevelUpRewards[26] = FString(TEXT(""));
+	LevelUpRewards[30] = FString(TEXT("/Game/RestrictedAssets/ProfileItems/SkaarjMale01.SkaarjMale01"));
+	LevelUpRewards[34] = FString(TEXT("/Game/RestrictedAssets/ProfileItems/BeanieGrey.BeanieGrey"));
+	LevelUpRewards[39] = FString(TEXT("/Game/RestrictedAssets/ProfileItems/ThundercrashBeanieRed.ThundercrashBeanieRed"));
+	LevelUpRewards[40] = FString(TEXT(""));
+	LevelUpRewards[45] = FString(TEXT("/Game/RestrictedAssets/ProfileItems/ThundercrashBeret.ThundercrashBeret"));
+	LevelUpRewards[50] = FString(TEXT("/Game/RestrictedAssets/ProfileItems/ThundercrashMale01.ThundercrashMale01"));
+
+	bDisableMapVote = false;
+
 }
 
 void AUTGameMode::BeginPlayMutatorHack(FFrame& Stack, RESULT_DECL)
@@ -129,6 +161,11 @@ void AUTGameMode::BeginPlayMutatorHack(FFrame& Stack, RESULT_DECL)
 			Destroy();
 		}
 	}
+}
+
+bool AUTGameMode::AllowCheats(APlayerController* P)
+{
+	return (GetNetMode() == NM_Standalone || GIsEditor) && !bOfflineChallenge; 
 }
 
 void AUTGameMode::Demigod()
@@ -245,6 +282,21 @@ void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FStr
 
 	InOpt = ParseOption(Options, TEXT("PlayPlayerIntro"));
 	bPlayPlayerIntro = EvalBoolOptions(InOpt, bPlayPlayerIntro);
+
+	if (HasOption(Options, TEXT("Challenge")) && (GetNetMode() == NM_Standalone))
+	{
+		InOpt = ParseOption(Options, TEXT("Challenge"));
+		if (!InOpt.IsEmpty())
+		{
+			ChallengeTag = FName(*InOpt);
+			ChallengeDifficulty = GetIntOption(Options, TEXT("ChallengeDiff"), 0);
+			GameDifficulty = 1.f + 2.5f*ChallengeDifficulty;
+			BotFillCount = UUTChallengeManager::StaticClass()->GetDefaultObject<UUTChallengeManager>()->GetNumPlayers(this);
+			bOfflineChallenge = UUTChallengeManager::StaticClass()->GetDefaultObject<UUTChallengeManager>()->IsValidChallenge(this, MapName);
+			bForceRespawn = true;
+			TimeLimit = 60 * GetClass()->GetDefaultObject<AUTGameMode>()->TimeLimit;
+		}
+	}
 
 	PostInitGame(Options);
 
@@ -418,6 +470,40 @@ void AUTGameMode::InitGameState()
 			}
 		}
 	}
+
+	if (!bDisableMapVote)
+	{
+		// First, fixup the MapRotation array so it only has long names...
+
+		for (int32 i=0; i < MapRotation.Num(); i++)
+		{
+			FString Map = MapRotation[i];
+			if ( FPackageName::IsShortPackageName(Map) )
+			{
+				FPackageName::SearchForPackageOnDisk(Map, &MapRotation[i]); 
+			}
+		}
+
+		TArray<FString> MapPrefixList;
+		TArray<FAssetData> MapList;	
+
+		MapPrefixList.Add(MapPrefix);
+		UTGameState->ScanForMaps(MapPrefixList, MapList);
+		for(int32 i = 0; i < MapList.Num(); i++)
+		{
+			FString PackageName = MapList[i].PackageName.ToString();
+			for (int32 j = 0; j < MapRotation.Num(); j++)
+			{
+				
+				if (PackageName.Equals(MapRotation[j], ESearchCase::IgnoreCase))
+				{
+					const FString* Title = MapList[i].TagsAndValues.Find(NAME_MapInfo_Title); 
+					const FString* Screenshot = MapList[i].TagsAndValues.Find(NAME_MapInfo_ScreenshotReference);
+					UTGameState->CreateMapVoteInfo(PackageName, (Title != NULL && !Title->IsEmpty()) ? *Title : *MapList[i].AssetName.ToString(), *Screenshot);
+				}
+			}
+		}
+	}
 }
 
 void AUTGameMode::UpdateOnlineServer()
@@ -575,6 +661,28 @@ void AUTGameMode::EntitlementQueryComplete(bool bWasSuccessful, const FUniqueNet
 	}
 }
 
+UUTBotCharacter* AUTGameMode::ChooseRandomCharacter()
+{
+	UUTBotCharacter* ChosenCharacter = NULL;
+	if (EligibleBots.Num() > 0)
+	{
+		int32 BestMatch = 0;
+		for (int32 i = 0; i < EligibleBots.Num(); i++)
+		{
+			if (EligibleBots[i]->Skill >= GameDifficulty)
+			{
+				BestMatch = i;
+				break;
+			}
+		}
+		int32 Index = FMath::Clamp(BestMatch + FMath::RandHelper(5) - 2, 0, EligibleBots.Num() - 1);
+		ChosenCharacter = EligibleBots[Index];
+		ChosenCharacter->Skill = FMath::Clamp(ChosenCharacter->Skill, GameDifficulty - 1.f, GameDifficulty + 1.5f);
+		EligibleBots.RemoveAt(Index);
+	}
+	return ChosenCharacter;
+}
+
 AUTBot* AUTGameMode::AddBot(uint8 TeamNum)
 {
 	AUTBot* NewBot = GetWorld()->SpawnActor<AUTBot>(BotClass);
@@ -584,7 +692,6 @@ AUTBot* AUTGameMode::AddBot(uint8 TeamNum)
 		{
 			GetAllAssetData(UUTBotCharacter::StaticClass(), BotAssets);
 		}
-
 		if (EligibleBots.Num() == 0)
 		{
 			for (const FAssetData& Asset : BotAssets)
@@ -600,24 +707,29 @@ AUTBot* AUTGameMode::AddBot(uint8 TeamNum)
 			{
 				return A.Skill < B.Skill;
 			});
+
+/*			for (int32 i = 0; i < EligibleBots.Num(); i++)
+			{
+				UE_LOG(UT, Warning, TEXT("%s Skill %f character %s"), *EligibleBots[i]->GetFName().ToString(), EligibleBots[i]->Skill, *EligibleBots[i]->Character.ToString());
+			}
+*/		}
+		UUTBotCharacter* SelectedCharacter = NULL;
+		if (bOfflineChallenge)
+		{
+			APlayerController* LocalPC = GEngine->GetFirstLocalPlayerController(GetWorld());
+			UUTLocalPlayer* LP = LocalPC ? Cast<UUTLocalPlayer>(LocalPC->Player) : NULL;
+			int32 TotalStars = LP ? LP->GetTotalChallengeStars() : 0;
+			SelectedCharacter = UUTChallengeManager::StaticClass()->GetDefaultObject<UUTChallengeManager>()->ChooseBotCharacter(this, TeamNum, TotalStars);
+		}
+		if (SelectedCharacter == NULL)
+		{
+			SelectedCharacter = ChooseRandomCharacter();
 		}
 
-		if (EligibleBots.Num() > 0)
+		if (SelectedCharacter != NULL)
 		{
-			int32 BestMatch = 0;
-			for (int32 i = 0; i < EligibleBots.Num(); i++)
-			{
-				if (EligibleBots[i]->Skill >= GameDifficulty)
-				{
-					BestMatch = i;
-					break;
-				}
-			}
-			int32 Index = FMath::Clamp(BestMatch + FMath::RandHelper(5) - 2, 0, EligibleBots.Num() - 1);
-			EligibleBots[Index]->Skill = FMath::Clamp(EligibleBots[Index]->Skill, GameDifficulty - 1.f, GameDifficulty + 1.5f);
-			NewBot->InitializeCharacter(EligibleBots[Index]);
-			SetUniqueBotName(NewBot, EligibleBots[Index]);
-			EligibleBots.RemoveAt(Index);
+			NewBot->InitializeCharacter(SelectedCharacter);
+			SetUniqueBotName(NewBot, SelectedCharacter);
 		}
 		else
 		{
@@ -1183,10 +1295,14 @@ void AUTGameMode::AddKillEventToReplay(AController* Killer, AController* Other, 
 		FMemoryWriter MemoryWriter(Data);
 		MemoryWriter.Serialize(TCHAR_TO_ANSI(*KillInfo), KillInfo.Len() + 1);
 
-		FString MetaTag = KillerPlayerState->StatsID;
-		if (MetaTag.IsEmpty())
+		FString MetaTag;
+		if (KillerPlayerState != nullptr)
 		{
-			MetaTag = KillerPlayerState->PlayerName;
+			MetaTag = KillerPlayerState->StatsID;
+			if (MetaTag.IsEmpty())
+			{
+				MetaTag = KillerPlayerState->PlayerName;
+			}
 		}
 		DemoNetDriver->AddEvent(TEXT("Kills"), MetaTag, Data);
 	}
@@ -1204,10 +1320,14 @@ void AUTGameMode::AddMultiKillEventToReplay(AController* Killer, int32 MultiKill
 		FMemoryWriter MemoryWriter(Data);
 		MemoryWriter.Serialize(TCHAR_TO_ANSI(*KillInfo), KillInfo.Len() + 1);
 
-		FString MetaTag = KillerPlayerState->StatsID;
-		if (MetaTag.IsEmpty())
+		FString MetaTag;
+		if (KillerPlayerState != nullptr)
 		{
-			MetaTag = KillerPlayerState->PlayerName;
+			MetaTag = KillerPlayerState->StatsID;
+			if (MetaTag.IsEmpty())
+			{
+				MetaTag = KillerPlayerState->PlayerName;
+			}
 		}
 		DemoNetDriver->AddEvent(TEXT("MultiKills"), MetaTag, Data);
 	}
@@ -1225,10 +1345,14 @@ void AUTGameMode::AddSpreeKillEventToReplay(AController* Killer, int32 SpreeLeve
 		FMemoryWriter MemoryWriter(Data);
 		MemoryWriter.Serialize(TCHAR_TO_ANSI(*KillInfo), KillInfo.Len() + 1);
 
-		FString MetaTag = KillerPlayerState->StatsID;
-		if (MetaTag.IsEmpty())
+		FString MetaTag;
+		if (KillerPlayerState != nullptr)
 		{
-			MetaTag = KillerPlayerState->PlayerName;
+			MetaTag = KillerPlayerState->StatsID;
+			if (MetaTag.IsEmpty())
+			{
+				MetaTag = KillerPlayerState->PlayerName;
+			}
 		}
 		DemoNetDriver->AddEvent(TEXT("SpreeKills"), MetaTag, Data);
 	}
@@ -1498,17 +1622,11 @@ void AUTGameMode::SendEndOfGameStats(FName Reason)
 		for (int32 i = 0; i < GetWorld()->GameState->PlayerArray.Num(); i++)
 		{
 			AUTPlayerState* PS = Cast<AUTPlayerState>(GetWorld()->GameState->PlayerArray[i]);
-
-			PS->SetStatsValue(NAME_MatchesPlayed, 1);
-			PS->SetStatsValue(NAME_TimePlayed, UTGameState->ElapsedTime);
-			if (PS->CanAwardOnlineXP())
+			if (PS != NULL)
 			{
-				PS->SetStatsValue(NAME_PlayerXP, PS->GetXP().Total());
-			}
-			
-			PS->AddMatchToStats(GetClass()->GetPathName(), nullptr, &GetWorld()->GameState->PlayerArray, &InactivePlayerArray);
-			if (PS != nullptr)
-			{
+				PS->SetStatsValue(NAME_MatchesPlayed, 1);
+				PS->SetStatsValue(NAME_TimePlayed, UTGameState->ElapsedTime);
+				PS->AddMatchToStats(GetClass()->GetPathName(), nullptr, &GetWorld()->GameState->PlayerArray, &InactivePlayerArray);
 				PS->WriteStatsToCloud();
 			}
 		}
@@ -1525,11 +1643,6 @@ void AUTGameMode::SendEndOfGameStats(FName Reason)
 
 				PS->SetStatsValue(NAME_MatchesPlayed, 1);
 				PS->SetStatsValue(NAME_TimePlayed, UTGameState->ElapsedTime);
-				// quitters don't get XP
-				//if (PS->CanAwardOnlineXP())
-				//{
-				//	PS->SetStatsValue(NAME_PlayerXP, PS->GetXP().Total());
-				//}
 
 				PS->AddMatchToStats(GetClass()->GetPathName(), nullptr, &GetWorld()->GameState->PlayerArray, &InactivePlayerArray);
 				if (PS != nullptr)
@@ -1546,13 +1659,9 @@ void AUTGameMode::SendEndOfGameStats(FName Reason)
 
 void AUTGameMode::AwardXP()
 {
-#if !UE_BUILD_SHIPPING
-	if (!FEngineBuildSettings::IsInternalBuild())
-	{
-		return;
-	}
-	// TODO: ideally we wouldn't execute this if the server isn't approved for XP, but servers can't easily get their own status...
+	// TODO: ideally we wouldn't execute this if the server isn't approved for XP/items, but servers can't easily get their own status...
 	// client does a redundant check anyway so not a huge deal
+	static const bool bXPCheatEnabled = FParse::Param(FCommandLine::Get(), TEXT("XPGiveaway"));
 	for (APlayerState* PS : GameState->PlayerArray)
 	{
 		AUTPlayerState* UTPS = Cast<AUTPlayerState>(PS);
@@ -1562,21 +1671,54 @@ void AUTGameMode::AwardXP()
 			if (PC != NULL)
 			{
 				UTPS->GiveXP(FNewScoreXP(FMath::TruncToInt(UTPS->Score)));
+				if (bXPCheatEnabled)
+				{
+					UTPS->GiveXP(FNewKillAwardXP(250000));
+				}
 				if (UTPS->CanAwardOnlineXP()) // if we failed to read their previous values, we can't award them anything
 				{
 					int32 PrevLevel = GetLevelForXP(UTPS->GetPrevXP());
 					int32 NewLevel = GetLevelForXP(UTPS->GetPrevXP() + UTPS->GetXP().Total());
+					TArray<FProfileItemEntry> Rewards;
 					for (int32 CurrentLevel = PrevLevel + 1; CurrentLevel <= NewLevel; CurrentLevel++)
 					{
-						//PC->ClientReceiveLevelReward(CurrentLevel, ItemPath);
+						if (LevelUpRewards.IsValidIndex(CurrentLevel) && LevelUpRewards[CurrentLevel].IsValid())
+						{
+							const UUTProfileItem* RewardItem = Cast<UUTProfileItem>(LevelUpRewards[CurrentLevel].TryLoad());
+							if (RewardItem != NULL)
+							{
+								new(Rewards) FProfileItemEntry(RewardItem, 1);
+								PC->ClientReceiveLevelReward(CurrentLevel, RewardItem);
+							}
+						}
 					}
+					if (Rewards.Num() > 0)
+					{
+						GiveProfileItems(UTPS->UniqueId.GetUniqueNetId(), Rewards);
+					}
+					// set for transmission to backend
+					UTPS->SetStatsValue(NAME_PlayerXP, UTPS->GetXP().Total());
 				}
 				// still send RPC for offline/untrusted server XP
 				PC->ClientReceiveXP(UTPS->GetXP());
 			}
 		}
 	}
-#endif
+}
+
+bool AUTGameMode::PlayerWonChallenge()
+{
+	AUTPlayerState* Winner = NULL;
+	for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
+	{
+		AController* Controller = *Iterator;
+		AUTPlayerState* CPS = Cast<AUTPlayerState>(Controller->PlayerState);
+		if (CPS && ((Winner == NULL) || (CPS->Score >= Winner->Score)))
+		{
+			Winner = CPS;
+		}
+	}
+	return Winner && Cast<AUTPlayerController>(Winner->GetOwner());
 }
 
 void AUTGameMode::EndGame(AUTPlayerState* Winner, FName Reason )
@@ -1595,6 +1737,16 @@ void AUTGameMode::EndGame(AUTPlayerState* Winner, FName Reason )
 			{
 				Winner = CPS;
 			}
+		}
+	}
+
+	if (bOfflineChallenge && PlayerWonChallenge())
+	{
+		APlayerController* LocalPC = GEngine->GetFirstLocalPlayerController(GetWorld());
+		UUTLocalPlayer* LP = LocalPC ? Cast<UUTLocalPlayer>(LocalPC->Player) : NULL;
+		if (LP)
+		{
+			LP->ChallengeCompleted(ChallengeTag, ChallengeDifficulty);
 		}
 	}
 
@@ -1618,17 +1770,24 @@ void AUTGameMode::EndGame(AUTPlayerState* Winner, FName Reason )
 	FTimerHandle TempHandle2;
 	GetWorldTimerManager().SetTimer(TempHandle2, this, &AUTGameMode::ShowFinalScoreboard, EndScoreboardDelay);
 
-	// Setup a timer to continue to the next map.
+	// Setup a timer to continue to the next map.  Need enough time for match summaries
 	EndTime = GetWorld()->TimeSeconds;
+	float TravelDelay = GetTravelDelay();
 	FTimerHandle TempHandle3;
-	GetWorldTimerManager().SetTimer(TempHandle3, this, &AUTGameMode::TravelToNextMap, EndTimeDelay);
+	GetWorldTimerManager().SetTimer(TempHandle3, this, &AUTGameMode::TravelToNextMap, TravelDelay);
 
 	FTimerHandle TempHandle4;
-	float EndReplayDelay = EndTimeDelay - 10.f;
+	float EndReplayDelay = TravelDelay - 10.f;
 	GetWorldTimerManager().SetTimer(TempHandle4, this, &AUTGameMode::StopReplayRecording, EndReplayDelay);
 
 	SendEndOfGameStats(Reason);
 	EndMatch();
+}
+
+float AUTGameMode::GetTravelDelay()
+{
+	UTGameState->NumWinnersToShow = bTeamGame ? FMath::Min(5, (NumPlayers + NumBots) / 2) : FMath::Min(3, NumPlayers + NumBots);
+	return EndScoreboardDelay + MainScoreboardDisplayTime + ScoringPlaysDisplayTime + PersonalSummaryDisplayTime + WinnerSummaryDisplayTime * UTGameState->NumWinnersToShow;
 }
 
 void AUTGameMode::StopReplayRecording()
@@ -1666,7 +1825,7 @@ void AUTGameMode::TravelToNextMap_Implementation()
 	FString CurrentMapName = GetWorld()->GetMapName();
 	UE_LOG(UT,Log,TEXT("TravelToNextMap: %i %i"),bDedicatedInstance,IsGameInstanceServer());
 
-	if (!bDedicatedInstance && IsGameInstanceServer())
+	if (GetWorld()->GetNetMode() != ENetMode::NM_Standalone && (IsGameInstanceServer() || (!bDisableMapVote && UTGameState->MapVoteList.Num() > 0)))
 	{
 		if (UTGameState->MapVoteList.Num() > 0)
 		{
@@ -2444,7 +2603,7 @@ void AUTGameMode::HandlePlayerIntro()
 	if (UUTGameEngine::StaticClass()->GetDefaultObject<UUTGameEngine>()->bShowMatchSummary)
 	{
 		FTimerHandle TempHandle;
-		GetWorldTimerManager().SetTimer(TempHandle, this, &AUTGameMode::EndPlayerIntro, 7.0f, false);
+		GetWorldTimerManager().SetTimer(TempHandle, this, &AUTGameMode::EndPlayerIntro, 8.4f, false);
 	}
 	else
 	{
@@ -2776,7 +2935,7 @@ void AUTGameMode::GetGameURLOptions(const TArray<TSharedPtr<TAttributePropertyBa
 {
 	for (TSharedPtr<TAttributePropertyBase> Prop : MenuProps)
 	{
-		if (Prop.IsValid())
+		if (Prop.IsValid() && Prop->GetURLKey() != TEXT("BotFill"))
 		{
 			OptionsList.Add(Prop->GetURLString());
 		}
@@ -3071,12 +3230,8 @@ void AUTGameMode::BroadcastSpectatorPickup(AUTPlayerState* PS, FName StatsName, 
 {
 	if (PS != nullptr && PickupClass != nullptr && StatsName != NAME_None)
 	{
-		int32 PlayerNumPickups = (int32)PS->GetStatsValue(StatsName);
-		int32 TotalPickups = (int32)UTGameState->GetStatsValue(StatsName);
-
-		//Stats may not have been replicated to the client so pack them in the switch
-		int32 Switch = TotalPickups << 16 | PlayerNumPickups;
-
+		//0 will not show the pickup count numbers
+		int32 Switch = 0;
 		BroadcastSpectator(nullptr, UUTSpectatorPickupMessage::StaticClass(), Switch, PS, nullptr, PickupClass);
 	}
 }
@@ -3254,15 +3409,19 @@ void AUTGameMode::NewPlayerInfoLine(TSharedPtr<SVerticalBox> VBox, FText Display
 				.Text(Stat.ToSharedRef(), &TAttributeStat::GetValueText)
 				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
 			]
+			+ SHorizontalBox::Slot()
+			.HAlign(HAlign_Right)
+			.FillWidth(0.35f)
 		]
 	];
 }
 
-void AUTGameMode::NewWeaponInfoLine(TSharedPtr<SVerticalBox> VBox, FText DisplayName, TSharedPtr<TAttributeStat> KillStat, TSharedPtr<TAttributeStat> DeathStat, TArray<TSharedPtr<TAttributeStat> >& StatList)
+void AUTGameMode::NewWeaponInfoLine(TSharedPtr<SVerticalBox> VBox, FText DisplayName, TSharedPtr<TAttributeStat> KillStat, TSharedPtr<TAttributeStat> DeathStat, TSharedPtr<struct TAttributeStat> AccuracyStat, TArray<TSharedPtr<TAttributeStat> >& StatList)
 {
 	//Add stat in here for layout convenience
 	StatList.Add(KillStat);
 	StatList.Add(DeathStat);
+	StatList.Add(AccuracyStat);
 
 	VBox->AddSlot()
 	.AutoHeight()
@@ -3288,7 +3447,7 @@ void AUTGameMode::NewWeaponInfoLine(TSharedPtr<SVerticalBox> VBox, FText Display
 			.HAlign(HAlign_Fill)
 
 			+ SHorizontalBox::Slot()
-			.FillWidth(0.2f)
+			.FillWidth(0.3f)
 			.HAlign(HAlign_Right)
 			[
 				SNew(STextBlock)
@@ -3297,13 +3456,21 @@ void AUTGameMode::NewWeaponInfoLine(TSharedPtr<SVerticalBox> VBox, FText Display
 				.ColorAndOpacity(FLinearColor(0.6f, 1.0f, 0.6f))
 			]
 			+ SHorizontalBox::Slot()
-			.FillWidth(0.2f)
+			.FillWidth(0.3f)
 			.HAlign(HAlign_Right)
 			[
 				SNew(STextBlock)
 				.Text(DeathStat.ToSharedRef(), &TAttributeStat::GetValueText)
 				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
 				.ColorAndOpacity(FLinearColor(1.0f,0.6f,0.6f))
+			]
+			+ SHorizontalBox::Slot()
+			.FillWidth(0.4f)
+			.HAlign(HAlign_Right)
+			[
+				SNew(STextBlock)
+				.Text(AccuracyStat.ToSharedRef(), &TAttributeStat::GetValueText)
+				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
 			]
 		]
 	];
@@ -3409,6 +3576,45 @@ void AUTGameMode::BuildWeaponInfo(AUTPlayerState* PlayerState, TSharedPtr<class 
 	BuildPaneHelper(TopBox, TopLeftPane, TopRightPane);
 	BuildPaneHelper(BotBox, BotLeftPane, BotRightPane);
 
+	//Add the header
+	TSharedPtr<SVerticalBox> VBox;
+	VBox = TopLeftPane;
+	VBox->AddSlot()
+		.AutoHeight()
+		[
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot()
+			.FillWidth(0.6f)
+			.HAlign(HAlign_Fill)
+
+			+ SHorizontalBox::Slot()
+			.FillWidth(0.3f)
+			.HAlign(HAlign_Right)
+			[
+				SNew(STextBlock)
+				.Text(NSLOCTEXT("AUTGameMode", "KillsAbbrev", "K"))
+				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+				.ColorAndOpacity(FLinearColor(0.6f, 1.0f, 0.6f))
+			]
+			+ SHorizontalBox::Slot()
+				.FillWidth(0.3f)
+				.HAlign(HAlign_Right)
+				[
+					SNew(STextBlock)
+					.Text(NSLOCTEXT("AUTGameMode", "DeathsAbbrev", "D"))
+					.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+					.ColorAndOpacity(FLinearColor(1.0f, 0.6f, 0.6f))
+				]
+			+ SHorizontalBox::Slot()
+				.FillWidth(0.4f)
+				.HAlign(HAlign_Right)
+				[
+					SNew(STextBlock)
+					.Text(NSLOCTEXT("AUTGameMode", "AccuracyAbbrev", "Acc"))
+					.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+				]
+		];
+
 	//4x4 panes
 	TSharedPtr<SVerticalBox> MainBox = SNew(SVerticalBox)
 	+ SVerticalBox::Slot()
@@ -3445,19 +3651,20 @@ void AUTGameMode::BuildWeaponInfo(AUTPlayerState* PlayerState, TSharedPtr<class 
 	//Add weapons to the panes
 	for (int32 i = 0; i < StatsWeapons.Num();i++)
 	{
-		TSharedPtr<SVerticalBox> Pane = (i % 2) ? TopRightPane : TopLeftPane;
+		TSharedPtr<SVerticalBox> Pane = TopLeftPane;
 		NewWeaponInfoLine(Pane, StatsWeapons[i]->DisplayName,
-			MakeShareable(new TAttributeStatWeapon(PlayerState, StatsWeapons[i], true)),
-			MakeShareable(new TAttributeStatWeapon(PlayerState, StatsWeapons[i], false)),
+			MakeShareable(new TAttributeStatWeapon(PlayerState, StatsWeapons[i], TAttributeStatWeapon::WS_KillStat)),
+			MakeShareable(new TAttributeStatWeapon(PlayerState, StatsWeapons[i], TAttributeStatWeapon::WS_DeathStat)),
+			MakeShareable(new TAttributeStatWeapon(PlayerState, StatsWeapons[i], TAttributeStatWeapon::WS_AccuracyStat)),
 			StatList);
 	}
 
-	NewPlayerInfoLine(BotLeftPane, NSLOCTEXT("AUTGameMode", "ShockComboKills", "Shock Combo Kills"), MakeShareable(new TAttributeStat(PlayerState, NAME_ShockComboKills)), StatList);
-	NewPlayerInfoLine(BotLeftPane, NSLOCTEXT("AUTGameMode", "AmazingCombos", "Amazing Combos"), MakeShareable(new TAttributeStat(PlayerState, NAME_AmazingCombos)), StatList);
-	NewPlayerInfoLine(BotLeftPane, NSLOCTEXT("AUTGameMode", "HeadShots", "Sniper Headshots"), MakeShareable(new TAttributeStat(PlayerState, NAME_SniperHeadshotKills)), StatList);
-	NewPlayerInfoLine(BotRightPane, NSLOCTEXT("AUTGameMode", "AirRox", "Air Rocket Kills"), MakeShareable(new TAttributeStat(PlayerState, NAME_AirRox)), StatList);
-	NewPlayerInfoLine(BotRightPane, NSLOCTEXT("AUTGameMode", "FlakShreds", "Flak Shreds"), MakeShareable(new TAttributeStat(PlayerState, NAME_FlakShreds)), StatList);
-	NewPlayerInfoLine(BotRightPane, NSLOCTEXT("AUTGameMode", "AirSnot", "Air Snot Kills"), MakeShareable(new TAttributeStat(PlayerState, NAME_AirSnot)), StatList);
+	NewPlayerInfoLine(TopRightPane, NSLOCTEXT("AUTGameMode", "ShockComboKills", "Shock Combo Kills"), MakeShareable(new TAttributeStat(PlayerState, NAME_ShockComboKills)), StatList);
+	NewPlayerInfoLine(TopRightPane, NSLOCTEXT("AUTGameMode", "AmazingCombos", "Amazing Combos"), MakeShareable(new TAttributeStat(PlayerState, NAME_AmazingCombos)), StatList);
+	NewPlayerInfoLine(TopRightPane, NSLOCTEXT("AUTGameMode", "HeadShots", "Sniper Headshots"), MakeShareable(new TAttributeStat(PlayerState, NAME_SniperHeadshotKills)), StatList);
+	NewPlayerInfoLine(TopRightPane, NSLOCTEXT("AUTGameMode", "AirRox", "Air Rocket Kills"), MakeShareable(new TAttributeStat(PlayerState, NAME_AirRox)), StatList);
+	NewPlayerInfoLine(TopRightPane, NSLOCTEXT("AUTGameMode", "FlakShreds", "Flak Shreds"), MakeShareable(new TAttributeStat(PlayerState, NAME_FlakShreds)), StatList);
+	NewPlayerInfoLine(TopRightPane, NSLOCTEXT("AUTGameMode", "AirSnot", "Air Snot Kills"), MakeShareable(new TAttributeStat(PlayerState, NAME_AirSnot)), StatList);
 }
 
 void AUTGameMode::BuildMovementInfo(AUTPlayerState* PlayerState, TSharedPtr<class SUTTabWidget> TabWidget, TArray<TSharedPtr<TAttributeStat> >& StatList)
@@ -3781,4 +3988,22 @@ bool AUTGameMode::FindInactivePlayer(APlayerController* PC)
 		}
 	}
 	return false;
+}
+
+void AUTGameMode::GameWelcomePlayer(UNetConnection* Connection, FString& RedirectURL)
+{
+	Super::GameWelcomePlayer(Connection, RedirectURL);
+
+	FPackageRedirectReference Redirect;
+	uint8 MessageType = UNMT_Redirect;
+
+	// mutator paks
+	for (TActorIterator<AUTMutator> It(GetWorld()); It; ++It)
+	{	
+		if (FindRedirect(GetModPakFilenameFromPkg(It->GetClass()->GetOutermost()->GetName()), Redirect))
+		{
+			FString RedirectPath = Redirect.ToString();
+			FNetControlMessage<NMT_GameSpecific>::Send(Connection, MessageType, RedirectPath);
+		}
+	}
 }

@@ -21,7 +21,7 @@
 #define SETTING_UTMAXPLAYERS FName(TEXT("UT_MAXPLAYERS"))
 #define SETTING_UTMAXSPECTATORS FName(TEXT("UT_MAXSPECTATORS"))
 
-#define SERVERFLAG_RequiresPassword 0x00000001;
+#define SERVERFLAG_RequiresPassword 0x00000001
 
 class UNREALTOURNAMENT_API FUTOnlineGameSettingsBase : public FOnlineSessionSettings
 {

@@ -2,7 +2,10 @@
 #include "UnrealTournament.h"
 #include "SlateBasics.h"
 #include "Slate/SlateGameResources.h"
+#include "Slate/SUTInGameMenu.h"
 #include "UTGameEngine.h"
+#include "UTGameInstance.h"
+#include "DataChannel.h"
 
 AUTBaseGameMode::AUTBaseGameMode(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -15,6 +18,13 @@ void AUTBaseGameMode::PreInitializeComponents()
 	GetWorldTimerManager().SetTimer(TimerHandle_DefaultTimer, this, &AUTBaseGameMode::DefaultTimer, GetWorldSettings()->GetEffectiveTimeDilation() / GetWorldSettings()->DemoPlayTimeDilation, true);
 }
 
+void AUTBaseGameMode::CreateServerID()
+{
+	// Create a server instance id for this server and save it out to the config file
+	ServerInstanceGUID = FGuid::NewGuid();
+	ServerInstanceID = ServerInstanceGUID.ToString();
+	SaveConfig();
+}
 
 void AUTBaseGameMode::InitGame( const FString& MapName, const FString& Options, FString& ErrorMessage )
 {
@@ -25,16 +35,39 @@ void AUTBaseGameMode::InitGame( const FString& MapName, const FString& Options, 
 
 	// Grab the InstanceID if it's there.
 	LobbyInstanceID = GetIntOption( Options, TEXT("InstanceID"), 0);
-	
-	// Create a server instance id for this server
-	ServerInstanceGUID = FGuid::NewGuid();
+
+	// If we are a lobby instance, then we always want to generate a ServerInstanceID
+	if (LobbyInstanceID > 0)
+	{
+		ServerInstanceGUID = FGuid::NewGuid();
+	}
+	else   // Otherwise, we want to try and load our instance id from the config so we are consistent.
+	{
+		if (ServerInstanceID.IsEmpty())
+		{
+			CreateServerID();
+		}
+		else
+		{
+			if ( !FGuid::Parse(ServerInstanceID, ServerInstanceGUID) )
+			{
+				UE_LOG(UT,Log,TEXT("WARNING: Could to import this server's previous ID.  A new one has been created so older links to this server will not work."));
+				CreateServerID();
+			}
+		}
+	}
+
 
 	Super::InitGame(MapName, Options, ErrorMessage);
 
-	ServerPassword = TEXT("");
-	ServerPassword = ParseOption(Options, TEXT("ServerPassword"));
-	SpectatePassword = TEXT("");
-	SpectatePassword = ParseOption(Options, TEXT("SpectatePassword"));
+	if (HasOption(Options, TEXT("ServerPassword")))
+	{
+		ServerPassword = ParseOption(Options, TEXT("ServerPassword"));
+	}
+	if (HasOption(Options, TEXT("SpectatePassword")))
+	{
+		SpectatePassword = ParseOption(Options, TEXT("SpectatePassword"));
+	}
 
 	bRequirePassword = !ServerPassword.IsEmpty() || !SpectatePassword.IsEmpty();
 	bTrainingGround = EvalBoolOptions(ParseOption(Options, TEXT("TG")), bTrainingGround);
@@ -162,15 +195,27 @@ bool AUTBaseGameMode::FindRedirect(const FString& PackageName, FPackageRedirectR
 	return false;
 }
 
-FString AUTBaseGameMode::GetRedirectURL(const FString& PackageName) const
+void AUTBaseGameMode::GameWelcomePlayer(UNetConnection* Connection, FString& RedirectURL)
 {
-	UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
-	if (UTEngine == NULL) // in PIE this will happen
+	FPackageRedirectReference Redirect;
+	uint8 MessageType = UNMT_Redirect;
+	// map pak
+	if (FindRedirect(GetModPakFilenameFromPkg(GetOutermost()->GetName()), Redirect))
 	{
-		return FString();
+		FString RedirectPath = Redirect.ToString();
+		FNetControlMessage<NMT_GameSpecific>::Send(Connection, MessageType, RedirectPath);
 	}
-	else
+	// game class pak
+	if (FindRedirect(GetModPakFilenameFromPkg(GetClass()->GetOutermost()->GetName()), Redirect))
 	{
+		FString RedirectPath = Redirect.ToString();
+		FNetControlMessage<NMT_GameSpecific>::Send(Connection, MessageType, RedirectPath);
+	}
+
+	UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
+	if (UTEngine != NULL) // in PIE this will happen
+	{
+		FString PackageName = Connection->ClientWorldPackageName.ToString();
 		FString PackageBaseFilename = FPaths::GetBaseFilename(PackageName) + TEXT("-WindowsNoEditor");
 
 		FString PackageChecksum;
@@ -187,11 +232,10 @@ FString AUTBaseGameMode::GetRedirectURL(const FString& PackageName) const
 			if (RedirectReferences[i].PackageName == PackageBaseFilename)
 			{
 				FPackageRedirectReference R = RedirectReferences[i];
-				return R.ToString() + PackageChecksum;
+				RedirectURL = R.ToString() + PackageChecksum;
+				return;
 			}
 		}
-
-		FString RedirectURL;
 
 		FString CloudID = GetCloudID();
 		if (!CloudID.IsEmpty() && !PackageChecksum.IsEmpty())
@@ -206,8 +250,6 @@ FString AUTBaseGameMode::GetRedirectURL(const FString& PackageName) const
 
 			RedirectURL = BaseURL + GetCloudID() + TEXT("/") + PackageBaseFilename + TEXT(".pak") + TEXT(" ") + PackageChecksum;
 		}
-
-		return RedirectURL;
 	}
 }
 
@@ -241,3 +283,14 @@ FString AUTBaseGameMode::GetCloudID() const
 
 	return CloudID;
 }
+
+#if !UE_SERVER
+/**
+	*	Returns the Menu to popup when the user requests a menu
+	**/
+TSharedRef<SUWindowsDesktop> AUTBaseGameMode::GetGameMenu(UUTLocalPlayer* PlayerOwner) const
+{
+	return SNew(SUTInGameMenu).PlayerOwner(PlayerOwner);
+}
+#endif
+

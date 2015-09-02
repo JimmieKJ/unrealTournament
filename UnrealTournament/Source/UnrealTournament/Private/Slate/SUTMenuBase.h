@@ -61,7 +61,7 @@ protected:
 	virtual FReply OnCloseClicked();
 	virtual FReply ToggleFriendsAndChat();
 	virtual FReply OnShowStatsViewer();
-
+	virtual FReply OnShowPlayerCard();
 	virtual FText GetBrowserButtonText() const;
 
 

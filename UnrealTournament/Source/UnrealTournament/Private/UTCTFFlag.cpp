@@ -12,6 +12,7 @@ AUTCTFFlag::AUTCTFFlag(const FObjectInitializer& ObjectInitializer)
 {
 	static ConstructorHelpers::FObjectFinder<USkeletalMesh> FlagMesh (TEXT("SkeletalMesh'/Game/RestrictedAssets/Proto/UT3_Pickups/Flag/S_CTF_Flag_IronGuard.S_CTF_Flag_IronGuard'"));
 
+	Collision->InitCapsuleSize(92.f, 134.0f);
 	Mesh = ObjectInitializer.CreateDefaultSubobject<USkeletalMeshComponent>(this, TEXT("CTFFlag"));
 	GetMesh()->SetSkeletalMesh(FlagMesh.Object);
 	GetMesh()->AlwaysLoadOnClient = true;
@@ -19,9 +20,14 @@ AUTCTFFlag::AUTCTFFlag(const FObjectInitializer& ObjectInitializer)
 	GetMesh()->AttachParent = RootComponent;
 	GetMesh()->SetAbsolute(false, false, true);
 
+	FlagWorldScale = 1.75f;
+	FlagHeldScale = 1.f;
+	GetMesh()->SetWorldScale3D(FVector(FlagWorldScale));
+
 	MovementComponent->ProjectileGravityScale=1.3f;
 	MessageClass = UUTCTFGameMessage::StaticClass();
 	bAlwaysRelevant = true;
+	bTeamPickupSendsHome = true;
 }
 
 void AUTCTFFlag::OnConstruction(const FTransform& Transform)
@@ -43,24 +49,30 @@ bool AUTCTFFlag::CanBePickedUpBy(AUTCharacter* Character)
 			if (CarriedFlag->GetTeamNum() != GetTeamNum())
 			{
 				CarriedFlag->Score(FName(TEXT("FlagCapture")), CarriedFlag->HoldingPawn, CarriedFlag->Holder);
-				CarriedFlag->GetMesh()->SetRelativeScale3D(FVector(1.5f,1.5f,1.5f));
-				CarriedFlag->GetMesh()->SetWorldScale3D(FVector(1.5f,1.5f,1.5f));
 				return false;
 			}
 		}
 	}
-
 	return Super::CanBePickedUpBy(Character);
 }
 
 void AUTCTFFlag::DetachFrom(USkeletalMeshComponent* AttachToMesh)
 {
 	Super::DetachFrom(AttachToMesh);
-	if (AttachToMesh != NULL && Mesh != NULL)
+	if (GetMesh())
 	{
 		GetMesh()->SetAbsolute(false, false, true);
-		GetMesh()->SetRelativeScale3D(FVector(1.0f,1.0f,1.0f));
-		GetMesh()->SetWorldScale3D(FVector(1.0f,1.0f,1.0f));
+		GetMesh()->SetWorldScale3D(FVector(FlagWorldScale));
+	}
+}
+
+void AUTCTFFlag::AttachTo(USkeletalMeshComponent* AttachToMesh)
+{
+	Super::AttachTo(AttachToMesh);
+	if (AttachToMesh && GetMesh())
+	{
+		GetMesh()->SetAbsolute(false, false, true);
+		GetMesh()->SetWorldScale3D(FVector(FlagHeldScale));
 	}
 }
 
@@ -85,13 +97,6 @@ void AUTCTFFlag::SendHomeWithNotify()
 {
 	SendGameMessage(1, NULL, NULL);
 	SendHome();
-}
-
-void AUTCTFFlag::SendHome()
-{
-	GetMesh()->SetRelativeScale3D(FVector(1.5f,1.5f,1.5f));
-	GetMesh()->SetWorldScale3D(FVector(1.5f,1.5f,1.5f));
-	Super::SendHome();
 }
 
 void AUTCTFFlag::Drop(AController* Killer)

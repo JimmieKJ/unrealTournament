@@ -19,6 +19,8 @@ AUTBasePlayerController::AUTBasePlayerController(const FObjectInitializer& Objec
 
 void AUTBasePlayerController::Destroyed()
 {
+	ClientCloseAllUI();
+
 	GetWorldTimerManager().ClearAllTimersForObject(this);
 	if (MyHUD)
 	{
@@ -50,7 +52,7 @@ void AUTBasePlayerController::InitInputSystem()
 void AUTBasePlayerController::SetupInputComponent()
 {
 	Super::SetupInputComponent();
-	InputComponent->BindAction("ShowMenu", IE_Released, this, &AUTBasePlayerController::ShowMenu);
+	InputComponent->BindAction("ShowMenu", IE_Released, this, &AUTBasePlayerController::execShowMenu);
 }
 
 void AUTBasePlayerController::SetName(const FString& S)
@@ -66,12 +68,17 @@ void AUTBasePlayerController::SetName(const FString& S)
 	}
 }
 
-void AUTBasePlayerController::ShowMenu()
+void AUTBasePlayerController::execShowMenu()
+{
+	ShowMenu(TEXT(""));
+}
+
+void AUTBasePlayerController::ShowMenu(const FString& Parameters)
 {
 	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
 	if (LP != NULL)
 	{
-		LP->ShowMenu();
+		LP->ShowMenu(Parameters);
 	}
 }
 
@@ -137,8 +144,8 @@ void AUTBasePlayerController::TeamTalk()
 
 bool AUTBasePlayerController::AllowTextMessage(const FString& Msg)
 {
-	static const float TIME_PER_MSG = 2.0f;
-	static const float MAX_OVERFLOW = 4.0f;
+	const float TIME_PER_MSG = 2.0f;
+	const float MAX_OVERFLOW = 4.0f;
 
 	if (GetNetMode() == NM_Standalone || (GetNetMode() == NM_ListenServer && Role == ROLE_Authority))
 	{
@@ -438,15 +445,22 @@ void AUTBasePlayerController::ClientGenericInitialization_Implementation()
 	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
 	if (LP)
 	{
-		ServerReceiveAverageRank(LP->GetBaseELORank());
+		ServerReceiveRank(LP->GetBaseELORank(), LP->GetRankDuel(), LP->GetRankCTF(), LP->GetRankTDM(), LP->GetRankDM());
 	}
 }
 
-bool AUTBasePlayerController::ServerReceiveAverageRank_Validate(int32 NewAverageRank) { return true; }
-void AUTBasePlayerController::ServerReceiveAverageRank_Implementation(int32 NewAverageRank)
+bool AUTBasePlayerController::ServerReceiveRank_Validate(int32 NewAverageRank, int32 NewDuelRank, int32 NewCTFRank, int32 NewTDMRank, int32 NewDMRank) { return true; }
+void AUTBasePlayerController::ServerReceiveRank_Implementation(int32 NewAverageRank, int32 NewDuelRank, int32 NewCTFRank, int32 NewTDMRank, int32 NewDMRank)
 {
 	AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
-	if (PS) PS->AverageRank = NewAverageRank;
+	if (PS)
+	{
+		PS->AverageRank = NewAverageRank;
+		PS->DuelRank = NewDuelRank;
+		PS->CTFRank = NewCTFRank;
+		PS->TDMRank = NewTDMRank;
+		PS->DMRank = NewDMRank;
+	}
 }
 
 
@@ -604,12 +618,6 @@ void AUTBasePlayerController::ClientCloseAllUI_Implementation()
 	{
 		LocalPlayer->CloseAllUI();
 	}
-}
-
-void AUTBasePlayerController::PreClientTravel(const FString& PendingURL, ETravelType TravelType, bool bIsSeamlessTravel)
-{
-	ClientCloseAllUI();
-	Super::PreClientTravel(PendingURL, TravelType, bIsSeamlessTravel);
 }
 
 #if !UE_SERVER

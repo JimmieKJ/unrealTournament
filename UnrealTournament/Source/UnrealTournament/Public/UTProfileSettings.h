@@ -161,6 +161,12 @@ class UNREALTOURNAMENT_API UUTProfileSettings : public UObject
 	UPROPERTY()
 	FName Avatar;
 
+	UPROPERTY()
+	TArray<FUTChallengeResult> ChallengeResults;
+
+	UPROPERTY()
+	int32 TotalChallengeStars;
+
 protected:
 
 	/**
@@ -195,6 +201,15 @@ protected:
 
 	UPROPERTY()
 	uint32 bInvertMouse;
+
+	UPROPERTY()
+	float MouseAcceleration;
+
+	UPROPERTY()
+	float MouseAccelerationPower;
+
+	UPROPERTY()
+	float MouseAccelerationMax;
 
 	UPROPERTY()
 	float FOVScale;

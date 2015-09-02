@@ -61,6 +61,12 @@ void AUTProj_Redeemer::RedeemerDenied(AController* InstigatedBy)
 
 float AUTProj_Redeemer::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
 {
+	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+	if (GS && GS->OnSameTeam(InstigatorController, EventInstigator))
+	{
+		// no friendly fire
+		return 0;
+	}
 	AUTPlayerController* UTPC = Cast<AUTPlayerController>(EventInstigator);
 	bool bUsingClientSideHits = UTPC && (UTPC->GetPredictionTime() > 0.f);
 	if ((Role == ROLE_Authority) && !bUsingClientSideHits)
@@ -78,6 +84,13 @@ float AUTProj_Redeemer::TakeDamage(float Damage, const FDamageEvent& DamageEvent
 
 void AUTProj_Redeemer::NotifyClientSideHit(AUTPlayerController* InstigatedBy, FVector HitLocation, AActor* DamageCauser)
 {
+	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+	if (GS && GS->OnSameTeam(InstigatorController, InstigatedBy))
+	{
+		// no friendly fire
+		return;
+	}
+
 	Detonate(InstigatedBy);
 	RedeemerDenied(InstigatedBy);
 }

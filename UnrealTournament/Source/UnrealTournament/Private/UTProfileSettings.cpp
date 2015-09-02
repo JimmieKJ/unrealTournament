@@ -116,6 +116,7 @@ void UUTProfileSettings::GatherAllSettings(UUTLocalPlayer* ProfilePlayer)
 		bAllowSlideFromRun = PC->bAllowSlideFromRun;
 		bHearsTaunts = PC->bHearsTaunts;
 		WeaponBob = PC->WeaponBobGlobalScaling;
+		ViewBob = PC->EyeOffsetGlobalScaling;
 		WeaponHand = PC->GetPreferredWeaponHand();
 		FFAPlayerColor = PC->FFAPlayerColor;
 
@@ -129,6 +130,10 @@ void UUTProfileSettings::GatherAllSettings(UUTLocalPlayer* ProfilePlayer)
 		}
 		if (UTPlayerInput)
 		{
+			MouseAccelerationPower = UTPlayerInput->AccelerationPower;
+			MouseAcceleration = UTPlayerInput->Acceleration;
+			MouseAccelerationMax = UTPlayerInput->AccelerationMax;
+
 			CustomBinds.Empty();
 			for (int32 i = 0; i < UTPlayerInput->CustomBinds.Num(); i++)
 			{
@@ -199,6 +204,7 @@ void UUTProfileSettings::ApplyAllSettings(UUTLocalPlayer* ProfilePlayer)
 		PC->bAllowSlideFromRun = bAllowSlideFromRun;
 		PC->bHearsTaunts = bHearsTaunts;
 		PC->WeaponBobGlobalScaling = WeaponBob;
+		PC->EyeOffsetGlobalScaling = ViewBob;
 		PC->SetWeaponHand(WeaponHand);
 		PC->FFAPlayerColor = FFAPlayerColor;
 		PC->ConfigDefaultFOV = PlayerFOV;
@@ -209,6 +215,10 @@ void UUTProfileSettings::ApplyAllSettings(UUTLocalPlayer* ProfilePlayer)
 		if (UTPlayerInput == NULL)
 		{
 			UTPlayerInput = UUTPlayerInput::StaticClass()->GetDefaultObject<UUTPlayerInput>();
+
+			UTPlayerInput->AccelerationPower = MouseAccelerationPower;
+			UTPlayerInput->Acceleration = MouseAcceleration;
+			UTPlayerInput->AccelerationMax = MouseAccelerationMax;
 		}
 		if (UTPlayerInput && CustomBinds.Num() > 0)
 		{

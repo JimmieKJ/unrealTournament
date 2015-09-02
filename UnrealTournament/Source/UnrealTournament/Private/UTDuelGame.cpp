@@ -8,6 +8,8 @@
 #include "Slate/SUWindowsStyle.h"
 #include "SNumericEntryBox.h"
 #include "UTDuelGame.h"
+#include "StatNames.h"
+#include "UTSpectatorPickupMessage.h"
 
 
 AUTDuelGame::AUTDuelGame(const class FObjectInitializer& ObjectInitializer)
@@ -226,7 +228,7 @@ void AUTDuelGame::UpdateSkillRating()
 		AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
 		if (PS != nullptr && !PS->bOnlySpectator)
 		{
-			PS->UpdateTeamSkillRating(FName(TEXT("SkillRating")), UTGameState->WinnerPlayerState == PS, &UTGameState->PlayerArray, &InactivePlayerArray);
+			PS->UpdateTeamSkillRating(NAME_SkillRating, UTGameState->WinnerPlayerState == PS, &UTGameState->PlayerArray, &InactivePlayerArray);
 		}
 	}
 
@@ -235,7 +237,7 @@ void AUTDuelGame::UpdateSkillRating()
 		AUTPlayerState* PS = Cast<AUTPlayerState>(InactivePlayerArray[i]);
 		if (PS != nullptr && !PS->bOnlySpectator)
 		{
-			PS->UpdateTeamSkillRating(FName(TEXT("SkillRating")), UTGameState->WinnerPlayerState == PS, &UTGameState->PlayerArray, &InactivePlayerArray);
+			PS->UpdateTeamSkillRating(NAME_SkillRating, UTGameState->WinnerPlayerState == PS, &UTGameState->PlayerArray, &InactivePlayerArray);
 		}
 	}
 }
@@ -243,4 +245,18 @@ void AUTDuelGame::UpdateSkillRating()
 void AUTDuelGame::FindAndMarkHighScorer()
 {
 	AUTGameMode::FindAndMarkHighScorer();
+}
+
+void AUTDuelGame::BroadcastSpectatorPickup(AUTPlayerState* PS, FName StatsName, UClass* PickupClass)
+{
+	if (PS != nullptr && PickupClass != nullptr && StatsName != NAME_None)
+	{
+		int32 PlayerNumPickups = (int32)PS->GetStatsValue(StatsName);
+		int32 TotalPickups = (int32)UTGameState->GetStatsValue(StatsName);
+
+		//Stats may not have been replicated to the client so pack them in the switch
+		int32 Switch = TotalPickups << 16 | PlayerNumPickups;
+
+		BroadcastSpectator(nullptr, UUTSpectatorPickupMessage::StaticClass(), Switch, PS, nullptr, PickupClass);
+	}
 }

@@ -44,8 +44,15 @@ struct TAttributeStat
 
 struct TAttributeStatWeapon : public TAttributeStat
 {
-	TAttributeStatWeapon(AUTPlayerState* InPlayerState, AUTWeapon* InWeapon, bool InbKills)
-		: TAttributeStat(InPlayerState, NAME_Name, nullptr, nullptr), bKills(InbKills), Weapon(InWeapon)
+	enum EWeaponStat
+	{
+		WS_KillStat,
+		WS_DeathStat,
+		WS_AccuracyStat,
+	};
+
+	TAttributeStatWeapon(AUTPlayerState* InPlayerState, AUTWeapon* InWeapon, EWeaponStat InStatType)
+		: TAttributeStat(InPlayerState, NAME_Name, nullptr, nullptr), StatType(InStatType), Weapon(InWeapon)
 	{
 		checkSlow(PlayerState.IsValid());
 	}
@@ -54,12 +61,29 @@ struct TAttributeStatWeapon : public TAttributeStat
 	{
 		if (PlayerState.IsValid() && Weapon.IsValid())
 		{
-			return bKills ? Weapon->GetWeaponKillStats(PlayerState.Get()) : Weapon->GetWeaponDeathStats(PlayerState.Get());
+			switch (StatType)
+			{
+			case WS_KillStat:		return Weapon->GetWeaponKillStats(PlayerState.Get());
+			case WS_DeathStat:		return Weapon->GetWeaponDeathStats(PlayerState.Get());
+			case WS_AccuracyStat:
+				int32 Kills = Weapon->GetWeaponKillStats(PlayerState.Get());
+				float Shots = Weapon->GetWeaponShotsStats(PlayerState.Get());
+				return (Shots > 0) ? 100.f * Weapon->GetWeaponHitsStats(PlayerState.Get()) / Shots : 0.f;
+			};
 		}
 		return 0.0f;
 	}
 
-	bool bKills;
+	virtual FText GetValueText() const
+	{
+		if (PlayerState.IsValid() && StatType == WS_AccuracyStat)
+		{
+			return FText::FromString(FString::Printf(TEXT("%8.1f%%"), GetValue()));
+		}
+		return TAttributeStat::GetValueText();
+	}
+
+	EWeaponStat StatType;
 	TWeakObjectPtr<AUTWeapon> Weapon;
 };
 
@@ -119,6 +143,7 @@ protected:
 
 	AActor* PreviewEnvironment;
 	UAnimationAsset* PoseAnimation;
+	UAnimationAsset* FemalePoseAnimation;
 
 	int32 OldSSRQuality;
 

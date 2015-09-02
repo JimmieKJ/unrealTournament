@@ -42,7 +42,7 @@ class UNREALTOURNAMENT_API AUTDemoRecSpectator : public AUTPlayerController
 	UFUNCTION(Exec)
 	void ToggleReplayWindow();
 
-	virtual void ShowMenu() override;
+	virtual void ShowMenu(const FString& Parameters) override;
 	virtual void HideMenu() override;
 
 

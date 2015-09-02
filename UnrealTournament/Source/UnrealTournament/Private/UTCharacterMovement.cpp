@@ -1925,7 +1925,7 @@ void UUTCharacterMovement::FindValidLandingSpot(const FVector& CapsuleLocation)
 	bool bHit = GetWorld()->SweepSingleByChannel(Result, PawnLocation, PawnLocation + FVector(0.f, 0.f, LandingStepUp), FQuat::Identity, CollisionChannel, GetPawnCapsuleCollisionShape(SHRINK_None), CapsuleQuery, ResponseParam);
 	FVector HorizontalStart = bHit ? Result.Location : PawnLocation + FVector(0.f, 0.f, LandingStepUp);
 	float ElapsedTime = 0.05f; // FMath::Min(0.05f, remainingTime);
-	FVector HorizontalDir = Acceleration.GetSafeNormal2D() * MaxWalkSpeed * 0.05f;;
+	FVector HorizontalDir = Acceleration.GetSafeNormal2D() * MaxWalkSpeed * 0.05f;
 	bHit = GetWorld()->SweepSingleByChannel(Result, HorizontalStart, HorizontalStart + HorizontalDir, FQuat::Identity, CollisionChannel, GetPawnCapsuleCollisionShape(SHRINK_None), CapsuleQuery, ResponseParam);
 	FVector LandingStart = bHit ? Result.Location : HorizontalStart + HorizontalDir;
 	bHit = GetWorld()->SweepSingleByChannel(Result, LandingStart, LandingStart - FVector(0.f, 0.f, LandingStepUp), FQuat::Identity, CollisionChannel, GetPawnCapsuleCollisionShape(SHRINK_None), CapsuleQuery, ResponseParam);
@@ -1942,4 +1942,8 @@ void UUTCharacterMovement::FindValidLandingSpot(const FVector& CapsuleLocation)
 	}
 }
 
-
+void UUTCharacterMovement::GetSimpleFloorInfo(FVector& ImpactPoint, FVector& Normal) const
+{
+	ImpactPoint = CurrentFloor.HitResult.ImpactPoint;
+	Normal = CurrentFloor.HitResult.Normal;
+}

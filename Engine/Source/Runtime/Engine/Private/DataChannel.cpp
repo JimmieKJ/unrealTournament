@@ -1154,6 +1154,17 @@ void UControlChannel::ReceivedBunch( FInBunch& Bunch )
 				}
 			}
 		}
+		else if (MessageType == NMT_GameSpecific)
+		{
+			// the most common Notify handlers do not support subclasses by default and so we redirect the game specific messaging to the GameInstance instead
+			uint8 MessageByte;
+			FString MessageStr;
+			FNetControlMessage<NMT_GameSpecific>::Receive(Bunch, MessageByte, MessageStr);
+			if (Connection->Driver->World != NULL && Connection->Driver->World->GetGameInstance() != NULL)
+			{
+				Connection->Driver->World->GetGameInstance()->HandleGameNetControlMessage(Connection, MessageByte, MessageStr);
+			}
+		}
 		else
 		{
 			// Process control message on client/server connection
@@ -1476,10 +1487,16 @@ bool UActorChannel::CleanUp( const bool bForDestroy )
 		{
 			if (Actor->bTearOff && !Connection->Driver->ShouldClientDestroyTearOffActors())
 			{
-				Actor->Role = ROLE_Authority;
-				Actor->SetReplicates(false);
-				bTornOff = true;
-				Actor->TornOff();
+				if (!bTornOff)
+				{
+					Actor->Role = ROLE_Authority;
+					Actor->SetReplicates(false);
+					bTornOff = true;
+					if (Actor->GetWorld() != NULL && !GIsRequestingExit)
+					{
+						Actor->TornOff();
+					}
+				}
 			}
 			else if (Dormant && !Actor->bTearOff)
 			{

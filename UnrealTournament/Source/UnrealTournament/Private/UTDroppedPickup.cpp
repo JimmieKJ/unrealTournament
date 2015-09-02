@@ -123,7 +123,8 @@ void AUTDroppedPickup::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* O
 bool AUTDroppedPickup::AllowPickupBy_Implementation(APawn* Other, bool bDefaultAllowPickup)
 {
 	AUTCharacter* UTC = Cast<AUTCharacter>(Other);
-	bool bAllowPickup = bDefaultAllowPickup && UTC != NULL && UTC->bCanPickupItems && !UTC->IsRagdoll();
+	bDefaultAllowPickup = bDefaultAllowPickup && UTC != NULL && UTC->bCanPickupItems && !UTC->IsRagdoll();
+	bool bAllowPickup = bDefaultAllowPickup;
 	AUTGameMode* UTGameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
 	return (UTGameMode == NULL || !UTGameMode->OverridePickupQuery(Other, InventoryType, this, bAllowPickup)) ? bDefaultAllowPickup : bAllowPickup;
 }
