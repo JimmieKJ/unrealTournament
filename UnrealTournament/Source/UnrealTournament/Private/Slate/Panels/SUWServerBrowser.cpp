@@ -1587,7 +1587,6 @@ void SUWServerBrowser::ConnectTo(FServerData ServerData,bool bSpectate)
 	bNeedsRefresh = true;
 	PlayerOwner->JoinSession(ServerData.SearchResult, bSpectate);
 	CleanupQoS();
-	PlayerOwner->HideMenu();
 }
 
 void SUWServerBrowser::FilterAllServers()

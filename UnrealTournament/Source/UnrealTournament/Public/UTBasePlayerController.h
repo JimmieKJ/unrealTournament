@@ -181,9 +181,6 @@ public:
 	UFUNCTION(Client, Reliable)
 	virtual void ClientCloseAllUI();
 
-	virtual void PreClientTravel(const FString& PendingURL, ETravelType TravelType, bool bIsSeamlessTravel);
-
-
 	/**This is overridden to avoid the Slate focus issues occuring with each widget managing their own input mode.
 	Instead of setting this manually, we will update the input mode based on the state of the game in UpdateInputMode()*/
 	virtual void SetInputMode(const FInputModeDataBase& InData) override {}

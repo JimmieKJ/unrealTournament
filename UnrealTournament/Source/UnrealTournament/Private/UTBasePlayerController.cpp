@@ -19,6 +19,8 @@ AUTBasePlayerController::AUTBasePlayerController(const FObjectInitializer& Objec
 
 void AUTBasePlayerController::Destroyed()
 {
+	ClientCloseAllUI();
+
 	GetWorldTimerManager().ClearAllTimersForObject(this);
 	if (MyHUD)
 	{
@@ -616,12 +618,6 @@ void AUTBasePlayerController::ClientCloseAllUI_Implementation()
 	{
 		LocalPlayer->CloseAllUI();
 	}
-}
-
-void AUTBasePlayerController::PreClientTravel(const FString& PendingURL, ETravelType TravelType, bool bIsSeamlessTravel)
-{
-	ClientCloseAllUI();
-	Super::PreClientTravel(PendingURL, TravelType, bIsSeamlessTravel);
 }
 
 #if !UE_SERVER

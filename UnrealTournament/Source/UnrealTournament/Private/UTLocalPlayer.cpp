@@ -1811,7 +1811,7 @@ bool UUTLocalPlayer::JoinSession(const FOnlineSessionSearchResult& SearchResult,
 	{
 		if (OnlineSessionInterface->IsPlayerInSession(GameSessionName, *UniqueId))
 		{
-			UE_LOG(UT, Log, TEXT("--- Alreadyt in a Session -- Deferring while I clean it up"));
+			UE_LOG(UT, Log, TEXT("--- Already in a Session -- Deferring while I clean it up"));
 			bPendingSession = true;
 			PendingSession = SearchResult;
 			LeaveSession();
@@ -1922,8 +1922,11 @@ void UUTLocalPlayer::OnJoinSessionComplete(FName SessionName, EOnJoinSessionComp
 		MessageBox(NSLOCTEXT("MCPMessages", "OnlineError", "Online Error"), NSLOCTEXT("MCPMessages", "SessionFull", "The session you are attempting to join is full."));
 	}
 
-	// Force back to the main menu.
-	ReturnToMainMenu();
+	CloseConnectingDialog();
+	if (GetWorld()->bIsDefaultLevel && !DesktopSlateWidget.IsValid())
+	{
+		ReturnToMainMenu();
+	}
 }
 
 void UUTLocalPlayer::LeaveSession()
