@@ -48,6 +48,7 @@
 #include "Slate/SUWYoutubeConsent.h"
 #include "Slate/SUWMatchSummary.h"
 #include "UTLobbyGameState.h"
+#include "StatNames.h"
 #include "UTChallengeManager.h"
 
 UUTLocalPlayer::UUTLocalPlayer(const class FObjectInitializer& ObjectInitializer)
@@ -1341,15 +1342,15 @@ void UUTLocalPlayer::UpdateBaseELOFromCloudData()
 			FString JsonStatsID;
 			if (StatsJson->TryGetStringField(TEXT("StatsID"), JsonStatsID) && JsonStatsID == UserId->ToString())
 			{
-				StatsJson->TryGetNumberField(TEXT("SkillRating"), DUEL_ELO);
-				StatsJson->TryGetNumberField(TEXT("TDMSkillRating"), TDM_ELO);
-				StatsJson->TryGetNumberField(TEXT("DMSkillRating"), FFA_ELO);
-				StatsJson->TryGetNumberField(TEXT("CTFSkillRating"), CTF_ELO);
-				StatsJson->TryGetNumberField(TEXT("MatchesPlayed"), MatchesPlayed);
-				StatsJson->TryGetNumberField(TEXT("SkillRatingSamples"), DuelMatchesPlayed);
-				StatsJson->TryGetNumberField(TEXT("TDMSkillRatingSamples"), TDMMatchesPlayed);
-				StatsJson->TryGetNumberField(TEXT("DMSkillRatingSamples"), FFAMatchesPlayed);
-				StatsJson->TryGetNumberField(TEXT("CTFSkillRatingSamples"), CTFMatchesPlayed);
+				StatsJson->TryGetNumberField(NAME_SkillRating.ToString(), DUEL_ELO);
+				StatsJson->TryGetNumberField(NAME_TDMSkillRating.ToString(), TDM_ELO);
+				StatsJson->TryGetNumberField(NAME_DMSkillRating.ToString(), FFA_ELO);
+				StatsJson->TryGetNumberField(NAME_CTFSkillRating.ToString(), CTF_ELO);
+				StatsJson->TryGetNumberField(NAME_MatchesPlayed.ToString(), MatchesPlayed);
+				StatsJson->TryGetNumberField(NAME_SkillRatingSamples.ToString(), DuelMatchesPlayed);
+				StatsJson->TryGetNumberField(NAME_TDMSkillRatingSamples.ToString(), TDMMatchesPlayed);
+				StatsJson->TryGetNumberField(NAME_DMSkillRatingSamples.ToString(), FFAMatchesPlayed);
+				StatsJson->TryGetNumberField(NAME_CTFSkillRatingSamples.ToString(), CTFMatchesPlayed);
 			}
 		}
 	}

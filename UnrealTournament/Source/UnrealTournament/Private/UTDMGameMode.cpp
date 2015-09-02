@@ -2,6 +2,7 @@
 
 #include "UnrealTournament.h"
 #include "UTHUD_DM.h"
+#include "StatNames.h"
 #include "UTDMGameMode.h"
 
 
@@ -20,7 +21,7 @@ void AUTDMGameMode::UpdateSkillRating()
 		AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[PlayerIdx]);
 		if (PS && !PS->bOnlySpectator)
 		{
-			PS->UpdateIndividualSkillRating(FName(TEXT("DMSkillRating")), &UTGameState->PlayerArray, &InactivePlayerArray);
+			PS->UpdateIndividualSkillRating(NAME_DMSkillRating, &UTGameState->PlayerArray, &InactivePlayerArray);
 		}
 	}
 
@@ -29,7 +30,7 @@ void AUTDMGameMode::UpdateSkillRating()
 		AUTPlayerState* PS = Cast<AUTPlayerState>(InactivePlayerArray[PlayerIdx]);
 		if (PS && !PS->bOnlySpectator)
 		{
-			PS->UpdateIndividualSkillRating(FName(TEXT("DMSkillRating")), &UTGameState->PlayerArray, &InactivePlayerArray);
+			PS->UpdateIndividualSkillRating(NAME_DMSkillRating, &UTGameState->PlayerArray, &InactivePlayerArray);
 		}
 	}
 }

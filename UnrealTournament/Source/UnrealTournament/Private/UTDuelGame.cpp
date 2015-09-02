@@ -8,6 +8,7 @@
 #include "Slate/SUWindowsStyle.h"
 #include "SNumericEntryBox.h"
 #include "UTDuelGame.h"
+#include "StatNames.h"
 #include "UTSpectatorPickupMessage.h"
 
 
@@ -227,7 +228,7 @@ void AUTDuelGame::UpdateSkillRating()
 		AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
 		if (PS != nullptr && !PS->bOnlySpectator)
 		{
-			PS->UpdateTeamSkillRating(FName(TEXT("SkillRating")), UTGameState->WinnerPlayerState == PS, &UTGameState->PlayerArray, &InactivePlayerArray);
+			PS->UpdateTeamSkillRating(NAME_SkillRating, UTGameState->WinnerPlayerState == PS, &UTGameState->PlayerArray, &InactivePlayerArray);
 		}
 	}
 
@@ -236,7 +237,7 @@ void AUTDuelGame::UpdateSkillRating()
 		AUTPlayerState* PS = Cast<AUTPlayerState>(InactivePlayerArray[i]);
 		if (PS != nullptr && !PS->bOnlySpectator)
 		{
-			PS->UpdateTeamSkillRating(FName(TEXT("SkillRating")), UTGameState->WinnerPlayerState == PS, &UTGameState->PlayerArray, &InactivePlayerArray);
+			PS->UpdateTeamSkillRating(NAME_SkillRating, UTGameState->WinnerPlayerState == PS, &UTGameState->PlayerArray, &InactivePlayerArray);
 		}
 	}
 }

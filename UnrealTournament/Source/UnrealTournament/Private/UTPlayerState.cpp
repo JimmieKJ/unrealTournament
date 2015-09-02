@@ -1040,10 +1040,54 @@ void AUTPlayerState::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 
 					StatManager->InsertDataFromNonBackendJsonObject(StatsJson);
 
-					DuelSkillRatingThisMatch = StatManager->GetStatValueByName(FName((TEXT("SkillRating"))));
-					TDMSkillRatingThisMatch = StatManager->GetStatValueByName(FName((TEXT("TDMSkillRating"))));
-					DMSkillRatingThisMatch = StatManager->GetStatValueByName(FName((TEXT("DMSkillRating"))));
-					CTFSkillRatingThisMatch = StatManager->GetStatValueByName(FName((TEXT("CTFSkillRating"))));
+					DuelSkillRatingThisMatch = StatManager->GetStatValueByName(NAME_SkillRating);
+					TDMSkillRatingThisMatch = StatManager->GetStatValueByName(NAME_TDMSkillRating);
+					DMSkillRatingThisMatch = StatManager->GetStatValueByName(NAME_DMSkillRating);
+					CTFSkillRatingThisMatch = StatManager->GetStatValueByName(NAME_CTFSkillRating);
+
+					// Sanitize the elo rankings
+					const int32 StartingELO = 1500;
+					if (DuelSkillRatingThisMatch <= 0)
+					{
+						DuelSkillRatingThisMatch = StartingELO;
+					}
+					if (TDMSkillRatingThisMatch <= 0)
+					{
+						TDMSkillRatingThisMatch = StartingELO;
+					}
+					if (DMSkillRatingThisMatch <= 0)
+					{
+						DMSkillRatingThisMatch = StartingELO;
+					}
+					if (CTFSkillRatingThisMatch <= 0)
+					{
+						CTFSkillRatingThisMatch = StartingELO;
+					}
+
+					// 3000 should be fairly difficult to achieve
+					// Have some possible bugged profiles with overlarge ELOs
+					const int32 MaximumELO = 3000;
+					if (DuelSkillRatingThisMatch > MaximumELO)
+					{
+						DuelSkillRatingThisMatch = MaximumELO;
+					}
+					if (TDMSkillRatingThisMatch > MaximumELO)
+					{
+						TDMSkillRatingThisMatch = MaximumELO;
+					}
+					if (DMSkillRatingThisMatch > MaximumELO)
+					{
+						DMSkillRatingThisMatch = MaximumELO;
+					}
+					if (CTFSkillRatingThisMatch > MaximumELO)
+					{
+						CTFSkillRatingThisMatch = MaximumELO;
+					}
+
+					StatManager->ModifyStat(NAME_SkillRating, DuelSkillRatingThisMatch, EStatMod::Set);
+					StatManager->ModifyStat(NAME_TDMSkillRating, TDMSkillRatingThisMatch, EStatMod::Set);
+					StatManager->ModifyStat(NAME_DMSkillRating, DMSkillRatingThisMatch, EStatMod::Set);
+					StatManager->ModifyStat(NAME_CTFSkillRating, CTFSkillRatingThisMatch, EStatMod::Set);
 				}
 			}
 		}
@@ -1238,19 +1282,19 @@ int32 AUTPlayerState::GetSkillRating(FName SkillStatName)
 {
 	int32 SkillRating = 0;
 		
-	if (SkillStatName == FName(TEXT("SkillRating")))
+	if (SkillStatName == NAME_SkillRating)
 	{
 		SkillRating = DuelSkillRatingThisMatch;
 	}
-	else if (SkillStatName == FName(TEXT("TDMSkillRating")))
+	else if (SkillStatName == NAME_TDMSkillRating)
 	{
 		SkillRating = TDMSkillRatingThisMatch;
 	}
-	else if (SkillStatName == FName(TEXT("DMSkillRating")))
+	else if (SkillStatName == NAME_DMSkillRating)
 	{
 		SkillRating = DMSkillRatingThisMatch;
 	}
-	else if (SkillStatName == FName(TEXT("CTFSkillRating")))
+	else if (SkillStatName == NAME_CTFSkillRating)
 	{
 		SkillRating = CTFSkillRatingThisMatch;
 	}
