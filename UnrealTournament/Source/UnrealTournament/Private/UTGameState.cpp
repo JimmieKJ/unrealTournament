@@ -170,6 +170,7 @@ AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 	HighlightMap.Add(HighlightNames::BestCombo, NSLOCTEXT("AUTGameMode", "BestCombo", "Most Impressive Shock Combo."));
 	HighlightMap.Add(HighlightNames::MostHeadShots, NSLOCTEXT("AUTGameMode", "MostHeadShots", "Most Headshots (<UT.MatchSummary.HighlightText.Value>{0}</>)."));
 	HighlightMap.Add(HighlightNames::MostAirRockets, NSLOCTEXT("AUTGameMode", "MostAirRockets", "Most Air Rockets (<UT.MatchSummary.HighlightText.Value>{0}</>)."));
+	HighlightMap.Add(HighlightNames::ParticipationAward, NSLOCTEXT("AUTGameMode", "ParticipationAward", "Participation Award."));
 
 	HighlightMap.Add(NAME_AmazingCombos, NSLOCTEXT("AUTGameMode", "AmazingCombos", "Amazing Combos (<UT.MatchSummary.HighlightText.Value>{0}</>)."));
 	HighlightMap.Add(NAME_SniperHeadshotKills, NSLOCTEXT("AUTGameMode", "SniperHeadshotKills", "Headshot Kills (<UT.MatchSummary.HighlightText.Value>{0}</>)."));
@@ -211,6 +212,7 @@ AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 	HighlightPriority.Add(NAME_SpreeKillLevel2, 3.f);
 	HighlightPriority.Add(NAME_SpreeKillLevel3, 3.5f);
 	HighlightPriority.Add(NAME_SpreeKillLevel4, 4.f);
+	HighlightPriority.Add(HighlightNames::ParticipationAward, 0.1f);
 }
 
 void AUTGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLifetimeProps) const
@@ -1400,6 +1402,11 @@ void AUTGameState::UpdateHighlights_Implementation()
 			{
 				PS->MatchHighlights[4] = NAME_None;
 				PS->MatchHighlightData[4] = 0.f;
+			}
+
+			if (PS->MatchHighlights[0] == NAME_None)
+			{
+				PS->MatchHighlights[0] = HighlightNames::ParticipationAward;
 			}
 		}
 	}
