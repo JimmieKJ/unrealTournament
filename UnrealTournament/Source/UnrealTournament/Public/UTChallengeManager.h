@@ -20,6 +20,8 @@ static const FName NAME_ChallengeTDMTwo(TEXT("ChallengeTDM2"));
 static const FName NAME_ChallengeTDMThree(TEXT("ChallengeTDM3"));
 static const FName NAME_ChallengeTDMFour(TEXT("ChallengeTDM4"));
 static const FName NAME_ChallengeTDMFive(TEXT("ChallengeTDM5"));
+static const FName NAME_ChallengeDuel(TEXT("ChallengeDuel"));
+static const FName NAME_ChallengeDuelTwo(TEXT("ChallengeDuel2"));
 
 static const FName NAME_EasyNecrisTeam(TEXT("EasyNecrisTeam"));
 static const FName NAME_MediumNecrisTeam(TEXT("MediumNecrisTeam"));

@@ -4,16 +4,6 @@
 #include "UTBotCharacter.h"
 
 /*
-15 challenges, unlock new character every 5.  Challenges ramp up enemy skill along the way
-
-1v1 
-Kali 1.2
-Harbinger 2.0
-Othello 4.0
-Harbinger 4.5
-Jakob 6.0
-Loque 7.5
-
 rename Kryss (too close to Cryss) - new Solace
 remove Lauren
 Get rid of UTBotConfig ini
@@ -43,19 +33,19 @@ UUTChallengeManager::UUTChallengeManager(const FObjectInitializer& ObjectInitial
 
 	// enemy team rosters
 	FTeamRoster EasyNecrisRoster = FTeamRoster(NSLOCTEXT("Challenges","EasyEnemyNecris","Necris Recruit Team"));
+	EasyNecrisRoster.Roster.Add(NAME_Kali);
 	EasyNecrisRoster.Roster.Add(NAME_Acolyte);
 	EasyNecrisRoster.Roster.Add(NAME_Judas);
-	EasyNecrisRoster.Roster.Add(NAME_Kali);
 	EasyNecrisRoster.Roster.Add(NAME_Harbinger);
 	EasyNecrisRoster.Roster.Add(NAME_Nocturne);
 	EnemyTeamRosters.Add(NAME_EasyNecrisTeam, EasyNecrisRoster);
 
 	FTeamRoster MediumNecrisRoster = FTeamRoster(NSLOCTEXT("Challenges", "MediumEnemyNecris", "Necris Adept Team"));
+	MediumNecrisRoster.Roster.Add(NAME_Malakai);
 	MediumNecrisRoster.Roster.Add(NAME_Cadaver);
 	MediumNecrisRoster.Roster.Add(NAME_Cryss);
 	MediumNecrisRoster.Roster.Add(NAME_Kragoth);
 	MediumNecrisRoster.Roster.Add(NAME_Kryss);
-	MediumNecrisRoster.Roster.Add(NAME_Malakai);
 	EnemyTeamRosters.Add(NAME_MediumNecrisTeam, MediumNecrisRoster);
 
 	FTeamRoster HardNecrisRoster = FTeamRoster(NSLOCTEXT("Challenges", "HardEnemyNecris", "Necris Inhuman Team"));
@@ -67,18 +57,18 @@ UUTChallengeManager::UUTChallengeManager(const FObjectInitializer& ObjectInitial
 	EnemyTeamRosters.Add(NAME_HardNecrisTeam, HardNecrisRoster);
 
 	FTeamRoster MediumMixedRoster = FTeamRoster(NSLOCTEXT("Challenges", "MediumEnemyMixed", "Mixed Adept Team"));
+	MediumMixedRoster.Roster.Add(NAME_Othello);
 	MediumMixedRoster.Roster.Add(NAME_Genghis);
 	MediumMixedRoster.Roster.Add(NAME_Drekorig);
 	MediumMixedRoster.Roster.Add(NAME_Leeb);
-	MediumMixedRoster.Roster.Add(NAME_Othello);
 	MediumMixedRoster.Roster.Add(NAME_Gaargod);
 	EnemyTeamRosters.Add(NAME_MediumMixedTeam, MediumMixedRoster);
 
 	FTeamRoster HardMixedRoster = FTeamRoster(NSLOCTEXT("Challenges", "HardEnemyMixed", "Mixed Inhuman Team"));
+	HardMixedRoster.Roster.Add(NAME_Jakob);
 	HardMixedRoster.Roster.Add(NAME_Clanlord);
 	HardMixedRoster.Roster.Add(NAME_Skakruk);
 	HardMixedRoster.Roster.Add(NAME_Malcolm);
-	HardMixedRoster.Roster.Add(NAME_Jakob);
 	HardMixedRoster.Roster.Add(NAME_Picard);
 	EnemyTeamRosters.Add(NAME_HardMixedTeam, HardMixedRoster);
 
@@ -124,6 +114,12 @@ UUTChallengeManager::UUTChallengeManager(const FObjectInitializer& ObjectInitial
 		TEXT("Team Deathmatch in Outpost 23."),
 		4, 5, NAME_EasyNecrisTeam, NAME_MediumMixedTeam, NAME_HardNecrisTeam, NAME_ChallengeSlateBadgeName_DM));
 
+	Challenges.Add(NAME_ChallengeDuel,
+		FUTChallengeInfo(TEXT("Duel in Lea"), TEXT("/Game/RestrictedAssets/Maps/DM-Lea"),
+		TEXT("Duel"),
+		TEXT("1v1 Duel in Lea."),
+		0, 1, NAME_EasyNecrisTeam, NAME_MediumMixedTeam, NAME_HardMixedTeam, NAME_ChallengeSlateBadgeName_DM));
+
 	Challenges.Add(NAME_ChallengeDMFFATwo,
 		FUTChallengeInfo(TEXT("Deathmatch in Deck 17"), TEXT("/Game/RestrictedAssets/Maps/DM-DeckTest"),
 		TEXT("DM"),
@@ -166,20 +162,30 @@ UUTChallengeManager::UUTChallengeManager(const FObjectInitializer& ObjectInitial
 		TEXT("CTF in the challenging Pistola arena."),
 		4, 5, NAME_EasyNecrisTeam, NAME_MediumMixedTeam, NAME_HardNecrisTeam, NAME_ChallengeSlateBadgeName_CTF));
 
+	Challenges.Add(NAME_ChallengeTDMFour,
+		FUTChallengeInfo(TEXT("2v2 Team Deathmatch in Lea"), TEXT("/Game/RestrictedAssets/Maps/DM-Lea"),
+		TEXT("TDM"),
+		TEXT("2v2 Team Deathmatch in Lea, an arena set in an underwater observatory."),
+		4, 5, NAME_EasyNecrisTeam, NAME_MediumNecrisTeam, NAME_HardMixedTeam, NAME_ChallengeSlateBadgeName_DM));
+
+	Challenges.Add(NAME_ChallengeDuelTwo,
+		FUTChallengeInfo(TEXT("Duel in ASDF"), TEXT("/Game/RestrictedAssets/Maps/DM-ASDF"),
+		TEXT("Duel"),
+		TEXT("1v1 Duel in ASDF."),
+		0, 1, NAME_EasyFFATeam, NAME_MediumNecrisTeam, NAME_HardNecrisTeam, NAME_ChallengeSlateBadgeName_DM));
+
 	Challenges.Add(NAME_ChallengeCTFFive,
 		FUTChallengeInfo(TEXT("Capture the Flag in Blank"), TEXT("/Game/RestrictedAssets/Maps/WIP/CTF-Blank"),
 		TEXT("CTF"),
 		TEXT("This new arena is still not complete, and doesn't even have a working name.  That hasn't stopped some exhibition matches from being staged in the arena currently called 'Blank'."),
 		4, 5, NAME_EasyNecrisTeam, NAME_MediumNecrisTeam, NAME_HardNecrisTeam, NAME_ChallengeSlateBadgeName_CTF));
 
+	Challenges.Add(NAME_ChallengeTDMFive,
+		FUTChallengeInfo(TEXT("Asymmetric Team Deathmatch in Outpost 23"), TEXT("/Game/RestrictedAssets/Maps/DM-Outpost23"),
+		TEXT("TDM"),
+		TEXT("Asymmetric 1v5 Team Deathmatch in Outpost 23."),
+		0, 5, NAME_EasyNecrisTeam, NAME_MediumMixedTeam, NAME_HardMixedTeam, NAME_ChallengeSlateBadgeName_DM));
 }
-
-/*
-DM-Lea 1v1
-DM-Lea 2v2
-DM-Outpost23 1v3
-DM-ASDF 1v1
-*/
 
 UUTBotCharacter* UUTChallengeManager::ChooseBotCharacter(AUTGameMode* CurrentGame, uint8& TeamNum, int32 TotalStars) const
 {
