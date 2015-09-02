@@ -23,6 +23,8 @@ public:
 	int32 NumFriends;
 	uint32 Flags;
 	int32 Rank;
+	bool bJoinableAsPlayer;
+	bool bJoinableAsSpectator;
 
 	bool bPendingKill;
 
@@ -31,7 +33,7 @@ public:
 		MatchInfo.Reset();
 	};
 
-	FTrackedMatch(FGuid inMatchId, const FString& inRuleTitle, const FString& inMapName, const int32 inNumPlayers, const int32 inMaxPlayers, const int32 inNumFriends, const uint32 inFlags, const int32 inRank)
+	FTrackedMatch(FGuid inMatchId, const FString& inRuleTitle, const FString& inMapName, const int32 inNumPlayers, const int32 inMaxPlayers, const int32 inNumFriends, const uint32 inFlags, const int32 inRank, const bool inbJoinableAsPlayer, const bool inbJoinableAsSpectator)
 		: MatchId(inMatchId)
 		, RuleTitle(inRuleTitle)
 		, MapName(inMapName)
@@ -40,6 +42,8 @@ public:
 		, NumFriends(inNumFriends)
 		, Flags(inFlags)
 		, Rank(inRank)
+		, bJoinableAsPlayer(inbJoinableAsPlayer)
+		, bJoinableAsSpectator(inbJoinableAsSpectator)
 	{
 		MatchInfo.Reset();
 		bPendingKill = false;
@@ -51,9 +55,9 @@ public:
 		bPendingKill = false;
 	};
 
-	static TSharedRef<FTrackedMatch> Make(FGuid inMatchId, const FString& inRuleTitle, const FString& inMapName, const int32 inNumPlayers, const int32 inMaxPlayers, const int32 inNumFriends, const uint32 inFlags, const int32 inRank)
+	static TSharedRef<FTrackedMatch> Make(FGuid inMatchId, const FString& inRuleTitle, const FString& inMapName, const int32 inNumPlayers, const int32 inMaxPlayers, const int32 inNumFriends, const uint32 inFlags, const int32 inRank, const bool inbJoinableAsPlayer, const bool inbJoinableAsSpectator)
 	{
-		return MakeShareable( new FTrackedMatch(inMatchId, inRuleTitle, inMapName, inNumPlayers, inMaxPlayers, inNumFriends, inFlags, inRank));
+		return MakeShareable(new FTrackedMatch(inMatchId, inRuleTitle, inMapName, inNumPlayers, inMaxPlayers, inNumFriends, inFlags, inRank, inbJoinableAsPlayer, inbJoinableAsSpectator));
 	}
 
 	static TSharedRef<FTrackedMatch> Make(const TWeakObjectPtr<AUTLobbyMatchInfo> inMatchInfo)

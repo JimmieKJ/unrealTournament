@@ -69,7 +69,7 @@ class UNREALTOURNAMENT_API AUTServerBeaconClient : public AOnlineBeaconClient
 	virtual void ServerRequestNextInstance(int32 LastInstanceIndex);
 
 	UFUNCTION(client, reliable)
-	virtual void ClientReceiveInstance(int32 InInstanceCount, int32 TotalInstances, FGuid InstanceId, const FString& InstanceRuleName, const FString& InstanceMap, int32 InstanceNumPlayers, int32 InstanceMaxPlayers, int32 InstanceNumFriends, uint32 InstanceFlags, int32 InstanceRank, bool bTeamGame);
+		virtual void ClientReceiveInstance(int32 InInstanceCount, int32 TotalInstances, const FServerInstanceData& InstanceInfo);
 
 	UFUNCTION(client, reliable)
 	virtual void ClientReceivedAllInstance(int32 FinalCount);

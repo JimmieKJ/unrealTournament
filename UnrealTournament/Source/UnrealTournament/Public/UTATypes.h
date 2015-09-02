@@ -719,6 +719,11 @@ struct FServerInstanceData
 	bool bTeamGame;
 
 	UPROPERTY()
+	bool bJoinableAsPlayer;
+	UPROPERTY()
+	bool bJoinableAsSpectator;
+
+	UPROPERTY(NotReplicated)
 	TArray<FMatchPlayerListStruct> Players;
 
 	FServerInstanceData()
@@ -730,10 +735,12 @@ struct FServerInstanceData
 		, Flags(0x00)
 		, Rank(1500)
 		, bTeamGame(false)
+		, bJoinableAsPlayer(false)
+		, bJoinableAsSpectator(false)
 	{
 	}
 
-	FServerInstanceData(FGuid inInstanceId, const FString& inRulesTitle, const FString& inMapName, int32 inNumPlayers, int32 inMaxPlayers, int32 inNumFriends, uint32 inFlags, int32 inRank, bool inbTeamGame)
+	FServerInstanceData(FGuid inInstanceId, const FString& inRulesTitle, const FString& inMapName, int32 inNumPlayers, int32 inMaxPlayers, int32 inNumFriends, uint32 inFlags, int32 inRank, bool inbTeamGame, bool inbJoinableAsPlayer, bool inbJoinableAsSpectator)
 		: InstanceId(inInstanceId)
 		, RulesTitle(inRulesTitle)
 		, MapName(inMapName)
@@ -743,14 +750,19 @@ struct FServerInstanceData
 		, Flags(inFlags)
 		, Rank(inRank)
 		, bTeamGame(inbTeamGame)
+		, bJoinableAsPlayer(inbJoinableAsPlayer)
+		, bJoinableAsSpectator(inbJoinableAsSpectator)
 	{
 	}
 
-	static TSharedRef<FServerInstanceData> Make(FGuid inInstanceId, const FString& inRulesTitle, const FString& inMapName, int32 inNumPlayers, int32 inMaxPlayers, int32 inNumFriends, uint32 inFlags, int32 inRank, bool inbTeamGame)
+	static TSharedRef<FServerInstanceData> Make(FGuid inInstanceId, const FString& inRulesTitle, const FString& inMapName, int32 inNumPlayers, int32 inMaxPlayers, int32 inNumFriends, uint32 inFlags, int32 inRank, bool inbTeamGame, bool inbJoinableAsPlayer, bool inbJoinableAsSpectator)
 	{
-		return MakeShareable( new FServerInstanceData( inInstanceId, inRulesTitle, inMapName, inNumPlayers, inMaxPlayers, inNumFriends, inFlags, inRank, inbTeamGame) );
+		return MakeShareable(new FServerInstanceData(inInstanceId, inRulesTitle, inMapName, inNumPlayers, inMaxPlayers, inNumFriends, inFlags, inRank, inbTeamGame, inbJoinableAsPlayer, inbJoinableAsSpectator));
 	}
-
+	static TSharedRef<FServerInstanceData> Make(const FServerInstanceData& Other)
+	{
+		return MakeShareable(new FServerInstanceData(Other));
+	}
 
 };
 
