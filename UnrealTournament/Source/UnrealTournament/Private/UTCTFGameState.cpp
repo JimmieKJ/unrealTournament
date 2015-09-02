@@ -56,14 +56,14 @@ AUTCTFGameState::AUTCTFGameState(const FObjectInitializer& ObjectInitializer)
 	HighlightPriority.Add(HighlightNames::TopFlagCapturesBlue, 4.5f);
 	HighlightPriority.Add(HighlightNames::TopAssistsRed, 3.5f);
 	HighlightPriority.Add(HighlightNames::TopAssistsRed, 3.5f);
-	HighlightPriority.Add(HighlightNames::TopFlagReturnsRed, 3.f);
-	HighlightPriority.Add(HighlightNames::TopFlagReturnsBlue, 3.f);
+	HighlightPriority.Add(HighlightNames::TopFlagReturnsRed, 3.3f);
+	HighlightPriority.Add(HighlightNames::TopFlagReturnsBlue, 3.3f);
 	HighlightPriority.Add(NAME_FCKills, 3.5f);
-	HighlightPriority.Add(NAME_FlagGrabs, 2.f);
+	HighlightPriority.Add(NAME_FlagGrabs, 1.5f);
 	HighlightPriority.Add(NAME_FlagSupportKills, 2.5f);
 	HighlightPriority.Add(HighlightNames::FlagCaptures, 3.5f);
-	HighlightPriority.Add(HighlightNames::Assists, 2.75f);
-	HighlightPriority.Add(HighlightNames::FlagReturns, 2.f);
+	HighlightPriority.Add(HighlightNames::Assists, 3.f);
+	HighlightPriority.Add(HighlightNames::FlagReturns, 1.9f);
 }
 
 void AUTCTFGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
@@ -482,6 +482,10 @@ void AUTCTFGameState::AddMinorHighlights_Implementation(AUTPlayerState* PS)
 		}
 	}
 	Super::AddMinorHighlights_Implementation(PS);
+	if (PS->MatchHighlights[3] != NAME_None)
+	{
+		return;
+	}
 
 	if (PS->GetStatsValue(NAME_FlagGrabs) > 0)
 	{

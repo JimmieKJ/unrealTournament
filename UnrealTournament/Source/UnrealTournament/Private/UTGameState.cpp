@@ -189,7 +189,7 @@ AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 	HighlightPriority.Add(HighlightNames::TopScorer, 10.f);
 	HighlightPriority.Add(HighlightNames::TopScorerRed, 5.f);
 	HighlightPriority.Add(HighlightNames::TopScorerBlue, 5.f);
-	HighlightPriority.Add(HighlightNames::MostKills, 3.f);
+	HighlightPriority.Add(HighlightNames::MostKills, 3.3f);
 	HighlightPriority.Add(HighlightNames::LeastDeaths, 1.f);
 	HighlightPriority.Add(HighlightNames::BestKD, 2.f);
 	HighlightPriority.Add(HighlightNames::MostWeaponKills, 2.f);
@@ -1387,6 +1387,13 @@ void AUTGameState::UpdateHighlights_Implementation()
 		{
 			// only add low priority highlights if not enough high priority highlights
 			AddMinorHighlights(PS);
+
+			// remove fourth highlight if not major
+			if ((PS->MatchHighlights[4] != NAME_None) && (HighlightPriority.FindRef(PS->MatchHighlights[4]) < 2.f))
+			{
+				PS->MatchHighlights[4] = NAME_None;
+				PS->MatchHighlightData[4] = 0.f;
+			}
 
 			// remove fifth highlight if not major
 			if ((PS->MatchHighlights[4] != NAME_None) && (HighlightPriority.FindRef(PS->MatchHighlights[4]) < 3.f))
