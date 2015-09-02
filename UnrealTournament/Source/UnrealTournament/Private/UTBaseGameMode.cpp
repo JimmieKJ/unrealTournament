@@ -2,6 +2,7 @@
 #include "UnrealTournament.h"
 #include "SlateBasics.h"
 #include "Slate/SlateGameResources.h"
+#include "Slate/SUTInGameMenu.h"
 #include "UTGameEngine.h"
 #include "UTGameInstance.h"
 #include "DataChannel.h"
@@ -282,3 +283,14 @@ FString AUTBaseGameMode::GetCloudID() const
 
 	return CloudID;
 }
+
+#if !UE_SERVER
+/**
+	*	Returns the Menu to popup when the user requests a menu
+	**/
+TSharedRef<SUWindowsDesktop> AUTBaseGameMode::GetGameMenu(UUTLocalPlayer* PlayerOwner) const
+{
+	return SNew(SUTInGameMenu).PlayerOwner(PlayerOwner);
+}
+#endif
+

@@ -667,10 +667,18 @@ void SUWPlayerInfoDialog::OnUpdatePlayerState()
 		TargetPlayerState->BuildPlayerInfo(TabWidget, StatList);
 
 		//Draw the game specific stats
-		AUTBaseGameMode* DefaultGameMode = GetPlayerOwner()->GetWorld()->GetGameState()->GameModeClass->GetDefaultObject<AUTBaseGameMode>();
-		if (DefaultGameMode)
+		AGameState* GameState = GetPlayerOwner()->GetWorld()->GetGameState();
+		if (GameState && GameState->GameModeClass)
 		{
-			DefaultGameMode->BuildPlayerInfo(TargetPlayerState.Get(), TabWidget, StatList);
+			AGameMode* DefaultGameMode = GameState->GameModeClass->GetDefaultObject<AGameMode>();
+			if (DefaultGameMode)
+			{
+				AUTBaseGameMode* UTDefaultGameMode = Cast<AUTBaseGameMode>(DefaultGameMode);
+				if (UTDefaultGameMode)
+				{
+					UTDefaultGameMode->BuildPlayerInfo(TargetPlayerState.Get(), TabWidget, StatList);
+				}
+			}
 		}
 
 		FriendStatus = NAME_None;

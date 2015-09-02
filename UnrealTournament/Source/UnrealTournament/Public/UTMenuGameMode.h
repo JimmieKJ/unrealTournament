@@ -2,10 +2,11 @@
 #pragma once
 
 #include "UTPlayerController.h"
+#include "UTBaseGameMode.h"
 #include "UTMenuGameMode.generated.h"
 
 UCLASS(Config = Game)
-class UNREALTOURNAMENT_API AUTMenuGameMode : public AGameMode
+class UNREALTOURNAMENT_API AUTMenuGameMode : public AUTBaseGameMode
 {
 	GENERATED_UCLASS_BODY()
 

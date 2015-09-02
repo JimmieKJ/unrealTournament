@@ -3,6 +3,7 @@
 
 #include "Runtime/NetworkReplayStreaming/NetworkReplayStreaming/Public/NetworkReplayStreaming.h"
 #include "../SUWindowsStyle.h"
+#include "../SUWPanel.h"
 
 #if !UE_SERVER
 

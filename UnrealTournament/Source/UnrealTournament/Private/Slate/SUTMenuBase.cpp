@@ -7,6 +7,7 @@
 #include "SUWindowsDesktop.h"
 #include "SUWindowsStyle.h"
 #include "SUTMenuBase.h"
+#include "SUTStyle.h"
 #include "SUWDialog.h"
 #include "SUWSystemSettingsDialog.h"
 #include "SUWPlayerSettingsDialog.h"
@@ -741,6 +742,29 @@ TSharedRef<SWidget> SUTMenuBase::BuildOnlinePresence()
 			[
 				SNew(SButton)
 				.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button")
+				.OnClicked(this, &SUTMenuBase::OnShowPlayerCard)
+				.ToolTipText(NSLOCTEXT("ToolTips","TPMyPlayerCard","Show this player's player card."))
+				[
+					SNew(SHorizontalBox)
+					+SHorizontalBox::Slot()
+					.VAlign(VAlign_Center)
+					[
+						SNew(SBox)
+						.WidthOverride(48)
+						.HeightOverride(48)
+						[
+							SNew(SImage)
+							.Image(SUTStyle::Get().GetBrush("UT.Icon.PlayerCard"))
+						]
+					]
+				]
+			]
+
+			+SHorizontalBox::Slot()
+			.AutoWidth()
+			[
+				SNew(SButton)
+				.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button")
 				.OnClicked(this, &SUTMenuBase::OnShowStatsViewer)
 				.ToolTipText(NSLOCTEXT("ToolTips","TPMyStats","Show stats for this player, friends, and recent opponents."))
 				[
@@ -1000,6 +1024,19 @@ FReply SUTMenuBase::OpenHUDSettings(TSharedPtr<SComboButton> MenuButton)
 {
 	if (MenuButton.IsValid()) MenuButton->SetIsOpen(false);
 	PlayerOwner->ShowHUDSettings();
+	return FReply::Handled();
+}
+
+FReply SUTMenuBase::OnShowPlayerCard()
+{
+	if (PlayerOwner.IsValid() && PlayerOwner->PlayerController && PlayerOwner->PlayerController->PlayerState)
+	{
+		AUTPlayerState* PlayerState = Cast<AUTPlayerState>(PlayerOwner->PlayerController->PlayerState);
+		if (PlayerState)
+		{
+			PlayerOwner->ShowPlayerInfo(PlayerState);
+		}
+	}
 	return FReply::Handled();
 }
 

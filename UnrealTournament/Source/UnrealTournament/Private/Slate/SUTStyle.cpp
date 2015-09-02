@@ -156,6 +156,7 @@ void SUTStyle::SetCommonStyle(TSharedRef<FSlateStyleSet> StyleRef)
 	Style.Set("UT.Star.Outline", new IMAGE_BRUSH( "StarOutline24x24", FVector2D(24,24), FLinearColor(1.0f, 1.0f, 0.0f, 1.0f) ));
 
 	Style.Set("UT.Icon.Checkmark", new IMAGE_BRUSH( "/UTStyle/Icons/UT.Icon.Checkmark", FVector2D(64,64), FLinearColor(1.0f, 1.0f, 0.0f, 1.0f) ));
+	Style.Set("UT.Icon.PlayerCard", new IMAGE_BRUSH("/UTStyle/Icons/UT.Icon.PlayCard", FVector2D(48,48)));
 
 	Style.Set("UT.TabButton", FButtonStyle()
 		.SetNormal( FSlateColorBrush(FColor(4,4,4,255) ) )
@@ -225,6 +226,7 @@ void SUTStyle::SetCommonStyle(TSharedRef<FSlateStyleSet> StyleRef)
 		.SetTextColor(FLinearColor::White)
 		.SetSelectedTextColor(FLinearColor::Black)
 		);
+
 
 
 	Style.Set("UT.HomePanel.TutorialLogo", new IMAGE_BRUSH("UTStyle/MainPanel/T_TUT_ULogo_Shadow", FVector2D(2048,1024), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));

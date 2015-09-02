@@ -4,8 +4,13 @@
 
 #include "GameFramework/GameMode.h"
 #include "UTPlayerState.h"
-#include "Private/Slate/SUTInGameMenu.h"
 #include "UTBaseGameMode.generated.h"
+
+#if !UE_SERVER
+	class SUWindowsDesktop;
+#endif
+
+class UUTLocalPlayer;
 
 UCLASS()
 class UNREALTOURNAMENT_API AUTBaseGameMode : public AGameMode
@@ -36,10 +41,7 @@ public:
 	/**
 	 *	Returns the Menu to popup when the user requests a menu
 	 **/
-	virtual TSharedRef<SUWindowsDesktop> GetGameMenu(UUTLocalPlayer* PlayerOwner) const
-	{
-		return SNew(SUTInGameMenu).PlayerOwner(PlayerOwner);
-	}
+	virtual TSharedRef<SUWindowsDesktop> GetGameMenu(UUTLocalPlayer* PlayerOwner) const;
 
 #endif
 

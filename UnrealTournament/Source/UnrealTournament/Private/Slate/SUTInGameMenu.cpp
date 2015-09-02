@@ -17,6 +17,7 @@
 #include "SUWMessageBox.h"
 #include "SUWScaleBox.h"
 #include "UTGameEngine.h"
+#include "SUTInGameMenu.h"
 #include "Panels/SUInGameHomePanel.h"
 #include "UTAnalytics.h"
 #include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
