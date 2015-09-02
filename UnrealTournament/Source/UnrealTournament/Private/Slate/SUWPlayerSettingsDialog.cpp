@@ -805,25 +805,28 @@ SUWPlayerSettingsDialog::~SUWPlayerSettingsDialog()
 	SSRQualityCVar->Set(OldSSRQuality, ECVF_SetByCode);
 	SSRQualityCVar->SetFlags(Flags);
 
-	if (PlayerPreviewTexture != NULL)
+	if (!GExitPurge)
 	{
-		PlayerPreviewTexture->OnNonUObjectRenderTargetUpdate.Unbind();
-		PlayerPreviewTexture = NULL;
-	}
-	FlushRenderingCommands();
-	if (PlayerPreviewBrush != NULL)
-	{
-		// FIXME: Slate will corrupt memory if this is deleted. Must be referencing it somewhere that doesn't get cleaned up...
-		//		for now, we'll take the minor memory leak (the texture still gets GC'ed so it's not too bad)
-		//delete PlayerPreviewBrush;
-		PlayerPreviewBrush->SetResourceObject(NULL);
-		PlayerPreviewBrush = NULL;
-	}
-	if (PlayerPreviewWorld != NULL)
-	{
-		PlayerPreviewWorld->DestroyWorld(true);
-		GEngine->DestroyWorldContext(PlayerPreviewWorld);
-		PlayerPreviewWorld = NULL;
+		if (PlayerPreviewTexture != NULL)
+		{
+			PlayerPreviewTexture->OnNonUObjectRenderTargetUpdate.Unbind();
+			PlayerPreviewTexture = NULL;
+		}
+		FlushRenderingCommands();
+		if (PlayerPreviewBrush != NULL)
+		{
+			// FIXME: Slate will corrupt memory if this is deleted. Must be referencing it somewhere that doesn't get cleaned up...
+			//		for now, we'll take the minor memory leak (the texture still gets GC'ed so it's not too bad)
+			//delete PlayerPreviewBrush;
+			PlayerPreviewBrush->SetResourceObject(NULL);
+			PlayerPreviewBrush = NULL;
+		}
+		if (PlayerPreviewWorld != NULL)
+		{
+			PlayerPreviewWorld->DestroyWorld(true);
+			GEngine->DestroyWorldContext(PlayerPreviewWorld);
+			PlayerPreviewWorld = NULL;
+		}
 	}
 	ViewState.Destroy();
 }

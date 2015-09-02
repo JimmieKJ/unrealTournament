@@ -1043,7 +1043,7 @@ AUTCharacter* SUWMatchSummary::RecreatePlayerPreview(AUTPlayerState* NewPS, FVec
 		PlayerPreviewMesh->Health = 100; //Set to 100 so the TacCom Overlay doesn't show damage
 		PlayerPreviewMesh->DeactivateSpawnProtection();
 
-		if (NewPS->GetSelectedCharacter().GetDefaultObject()->bIsFemale)
+		if (NewPS->GetSelectedCharacter() != NULL && NewPS->GetSelectedCharacter().GetDefaultObject()->bIsFemale)
 		{
 			PlayerPreviewAnimBlueprint = LoadObject<UClass>(nullptr, TEXT("/Game/RestrictedAssets/UI/ABP_Female_PlayerPreview.ABP_Female_PlayerPreview_C"));
 		}
