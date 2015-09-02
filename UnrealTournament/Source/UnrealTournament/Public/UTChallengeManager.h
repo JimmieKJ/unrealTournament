@@ -28,5 +28,8 @@ class UNREALTOURNAMENT_API UUTChallengeManager : public UObject
 	FTeamRoster PlayerTeamRoster;
 
 	UPROPERTY()
+	TMap<FName,	FTeamRoster> EnemyTeamRosters;
+
+	UPROPERTY()
 	TMap<FName, FUTChallengeInfo> Challenges;
 };

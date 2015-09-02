@@ -877,24 +877,19 @@ struct FTeamRoster
 	GENERATED_USTRUCT_BODY()
 
 	UPROPERTY()
-	FName TeamTag;
-
-	UPROPERTY()
 	FText TeamName;
 
 	UPROPERTY()
 	TArray<FName> Roster;
 
 	FTeamRoster()
-		: TeamTag(NAME_None)
-		, TeamName(FText::GetEmpty())
+		: TeamName(FText::GetEmpty())
 		, Roster()
 	{
 	}
 
-	FTeamRoster(FName inTeamTag, FText inTeamName)
-		: TeamTag(inTeamTag)
-		, TeamName(inTeamName)
+	FTeamRoster(FText inTeamName)
+		: TeamName(inTeamName)
 	{
 	}
 };
@@ -921,7 +916,10 @@ struct FUTChallengeInfo
 	int32 PlayerTeamSize;
 
 	UPROPERTY()
-	TArray<FTeamRoster> EnemyRosters;
+	int32 EnemyTeamSize;
+
+	UPROPERTY()
+	FName EnemyTeamName[3];
 
 	UPROPERTY()
 	FName SlateUIImageName;
@@ -933,19 +931,27 @@ struct FUTChallengeInfo
 		, GameMode(TEXT(""))
 		, Description(TEXT(""))
 		, PlayerTeamSize(0)
+		, EnemyTeamSize(0)
+		, EnemyTeamName()
 		, SlateUIImageName(NAME_None)
 	{
+		EnemyTeamName[0] = NAME_None;
+		EnemyTeamName[1] = NAME_None;
+		EnemyTeamName[2] = NAME_None;
 	}
 
-	FUTChallengeInfo(FString inTitle, FString inMap, FString inGameMode, FString inDescription, int32 inPlayerTeamSize, const TArray<FTeamRoster> inEnemyRosters, FName inSlateUIImageName)
+	FUTChallengeInfo(FString inTitle, FString inMap, FString inGameMode, FString inDescription, int32 inPlayerTeamSize, int32 inEnemyTeamSize, FName EasyEnemyTeam, FName MediumEnemyTeam, FName HardEnemyTeam, FName inSlateUIImageName)
 		: Title(inTitle)
 		, Map(inMap)
 		, GameMode(inGameMode)
 		, Description(inDescription)
 		, PlayerTeamSize(inPlayerTeamSize)
-		, EnemyRosters(inEnemyRosters)
+		, EnemyTeamSize(inEnemyTeamSize)
 		, SlateUIImageName(inSlateUIImageName)
 	{
+		EnemyTeamName[0] = EasyEnemyTeam;
+		EnemyTeamName[1] = MediumEnemyTeam;
+		EnemyTeamName[2] = HardEnemyTeam;
 	}
 };
 
