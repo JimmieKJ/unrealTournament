@@ -346,6 +346,14 @@ void ProcessCommand(const TCHAR* Cmd, FOutputDevice& Ar)
 
 void SetQualityLevels(const FQualityLevels& QualityLevels)
 {
+	CVarResolutionQuality.AsVariable()->ClearFlags(ECVF_SetByConsoleVariablesIni);
+	CVarViewDistanceQuality.AsVariable()->ClearFlags(ECVF_SetByConsoleVariablesIni);
+	CVarAntiAliasingQuality.AsVariable()->ClearFlags(ECVF_SetByConsoleVariablesIni);
+	CVarShadowQuality.AsVariable()->ClearFlags(ECVF_SetByConsoleVariablesIni);
+	CVarPostProcessQuality.AsVariable()->ClearFlags(ECVF_SetByConsoleVariablesIni);
+	CVarTextureQuality.AsVariable()->ClearFlags(ECVF_SetByConsoleVariablesIni);
+	CVarEffectsQuality.AsVariable()->ClearFlags(ECVF_SetByConsoleVariablesIni);
+
 	CVarResolutionQuality.AsVariable()->Set(QualityLevels.ResolutionQuality, ECVF_SetByScalability);
 	CVarViewDistanceQuality.AsVariable()->Set(QualityLevels.ViewDistanceQuality, ECVF_SetByScalability);
 	CVarAntiAliasingQuality.AsVariable()->Set(QualityLevels.AntiAliasingQuality, ECVF_SetByScalability);
