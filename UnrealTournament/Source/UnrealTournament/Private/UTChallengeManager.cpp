@@ -4,15 +4,6 @@
 #include "UTBotCharacter.h"
 
 /*
-[2015.09.01-21.14.33:684][ 67]UT:Warning: Riker Skill 4.000000 character /Game/EpicInternal/Teams/ThunderCrash/TC_Male03.TC_Male03_C
-[2015.09.01-21.14.33:684][ 67]UT:Warning: Thannis Skill 4.500000 character /Game/EpicInternal/Teams/ThunderCrash/TC_Male02.TC_Male02_C
-[2015.09.01-21.14.33:684][ 67]UT:Warning: Garog Skill 4.500000 character /Game/RestrictedAssets/Character/Skaarji/SkaarjiCharacterContent.SkaarjiCharacterContent_C
-[2015.09.01-21.14.33:684][ 67]UT:Warning: Alanna Skill 5.000000 character /Game/RestrictedAssets/Character/Human/Female/FemaleNecrisCharacter.FemaleNecrisCharacter_C
-[2015.09.01-21.14.33:684][ 67]UT:Warning: Torgr Skill 5.000000 character /Game/RestrictedAssets/Character/Skaarji/SkaarjiCharacterContent.SkaarjiCharacterContent_C
-*/
-/*
-1/3.5/6
-
 15 challenges, unlock new character every 5.  Challenges ramp up enemy skill along the way
 
 1v1 
@@ -23,44 +14,7 @@ Harbinger 4.5
 Jakob 6.0
 Loque 7.5
 
-FFA Easy 
-Genghis 2.5
-Kali 1.2
-Acolyte 0.5
-Judas 1.0
-Guardian 2.0 ++
-
-FFA Medium 
-Genghis  2.5
-Drekorig 3.2
-Cadaver 3.0
-Kryss 4.0
-Othello  4.0
-
-FFA Hard
-Freylis 6.0
-Jakob 6.0
-Picard 5.0
-Skakruk 7.0
-Necroth 6.0
-
-Medium TC/Skaarj
-Genghis  2.5
-Drekorig 3.2
-Leeb     3.5
-Othello  4.0
-Gaargod  4.5
-
-
-Hard Skaarj/TC
-[2015.09.01-21.14.33:685][ 67]UT:Warning: Clanlord Skill 7.500000 character /Game/RestrictedAssets/Character/Skaarji/SkaarjiCharacterContent.SkaarjiCharacterContent_C
-[2015.09.01-21.14.33:685][ 67]UT:Warning: Skakruk Skill 7.000000 character /Game/RestrictedAssets/Character/Skaarji/SkaarjiCharacterContent.SkaarjiCharacterContent_C
-[2015.09.01-21.14.33:685][ 67]UT:Warning: Malcolm Skill 7.900000 character /Game/RestrictedAssets/Character/Malcom_New/Malcolm_New.Malcolm_New_C
-[2015.09.01-21.14.33:685][ 67]UT:Warning: Jakob Skill 6.000000 character /Game/EpicInternal/Teams/ThunderCrash/TC_Male05.TC_Male05_C
-[2015.09.01-21.14.33:684][ 67]UT:Warning: Picard Skill 5.000000 character /Game/EpicInternal/Teams/ThunderCrash/TC_Male02.TC_Male02_C
-
 rename Kryss (too close to Cryss) - new Solace
-
 remove Lauren
 Get rid of UTBotConfig ini
 */
@@ -68,7 +22,7 @@ Get rid of UTBotConfig ini
 UUTChallengeManager::UUTChallengeManager(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
-	// @TODO FIXMESTEVE build fnames for all bots in .h
+	// @TODO FIXMESTEVE make this a blueprint
 
 	// player team roster, includes roster upgrades
 	PlayerTeamRoster = FTeamRoster(NSLOCTEXT("Challenges","PlayersTeamRoster","Players Team"));
@@ -112,17 +66,93 @@ UUTChallengeManager::UUTChallengeManager(const FObjectInitializer& ObjectInitial
 	HardNecrisRoster.Roster.Add(NAME_Malakai);
 	EnemyTeamRosters.Add(NAME_HardNecrisTeam, HardNecrisRoster);
 
-	Challenges.Add(NAME_ChallengeDM, 
+	FTeamRoster MediumMixedRoster = FTeamRoster(NSLOCTEXT("Challenges", "MediumEnemyMixed", "Mixed Adept Team"));
+	MediumMixedRoster.Roster.Add(NAME_Genghis);
+	MediumMixedRoster.Roster.Add(NAME_Drekorig);
+	MediumMixedRoster.Roster.Add(NAME_Leeb);
+	MediumMixedRoster.Roster.Add(NAME_Othello);
+	MediumMixedRoster.Roster.Add(NAME_Gaargod);
+	EnemyTeamRosters.Add(NAME_MediumMixedTeam, MediumMixedRoster);
+
+	FTeamRoster HardMixedRoster = FTeamRoster(NSLOCTEXT("Challenges", "HardEnemyMixed", "Mixed Inhuman Team"));
+	HardMixedRoster.Roster.Add(NAME_Clanlord);
+	HardMixedRoster.Roster.Add(NAME_Skakruk);
+	HardMixedRoster.Roster.Add(NAME_Malcolm);
+	HardMixedRoster.Roster.Add(NAME_Jakob);
+	HardMixedRoster.Roster.Add(NAME_Picard);
+	EnemyTeamRosters.Add(NAME_HardMixedTeam, HardMixedRoster);
+
+	FTeamRoster EasyFFARoster = FTeamRoster(NSLOCTEXT("Challenges", "EasyFFAMixed", "Easy FFA"));
+	EasyFFARoster.Roster.Add(NAME_Genghis);
+	EasyFFARoster.Roster.Add(NAME_Kali);
+	EasyFFARoster.Roster.Add(NAME_Acolyte);
+	EasyFFARoster.Roster.Add(NAME_Judas);
+	EasyFFARoster.Roster.Add(NAME_Guardian);
+	EnemyTeamRosters.Add(NAME_EasyFFATeam, EasyFFARoster);
+
+	FTeamRoster MediumFFARoster = FTeamRoster(NSLOCTEXT("Challenges", "MediumFFAMixed", "Medium FFA"));
+	MediumFFARoster.Roster.Add(NAME_Genghis);
+	MediumFFARoster.Roster.Add(NAME_Drekorig);
+	MediumFFARoster.Roster.Add(NAME_Cadaver);
+	MediumFFARoster.Roster.Add(NAME_Kryss);
+	MediumFFARoster.Roster.Add(NAME_Othello);
+	EnemyTeamRosters.Add(NAME_MediumFFATeam, MediumFFARoster);
+
+	FTeamRoster HardFFARoster = FTeamRoster(NSLOCTEXT("Challenges", "HardFFAMixed", "Hard FFA"));
+	HardFFARoster.Roster.Add(NAME_Freylis);
+	HardFFARoster.Roster.Add(NAME_Jakob);
+	HardFFARoster.Roster.Add(NAME_Picard);
+	HardFFARoster.Roster.Add(NAME_Necroth);
+	HardFFARoster.Roster.Add(NAME_Skakruk);
+	EnemyTeamRosters.Add(NAME_HardFFATeam, HardFFARoster);
+
+	Challenges.Add(NAME_ChallengeDMFFA,
 		FUTChallengeInfo(TEXT("Deathmatch Challenge"), TEXT("/Game/RestrictedAssets/Maps/DM-Outpost23"),
 		TEXT("DM"),
-		TEXT("This is a test of the challenge system.  Steve replace me please with the actual text.  Note you can use various rich text statements in here.\n\nThis is only a test."), 
-		4, 5, NAME_EasyNecrisTeam, NAME_EasyNecrisTeam, NAME_EasyNecrisTeam, NAME_ChallengeSlateBadgeName_DM));
+		TEXT("Free for all Deathmatch in Outpost 23."), 
+		4, 5, NAME_EasyFFATeam, NAME_MediumFFATeam, NAME_HardFFATeam, NAME_ChallengeSlateBadgeName_DM));
+
 	Challenges.Add(NAME_ChallengeCTF, 
 		FUTChallengeInfo(TEXT("CTF Challenge"), TEXT("/Game/RestrictedAssets/Maps/WIP/CTF-Outside"),
 		TEXT("CTF"),
-		TEXT("This is a test of the challenge system part 2.  Steve replace me please with the actual text.  Note you can use various rich text statements in here."), 
-		4, 5, NAME_EasyNecrisTeam, NAME_EasyNecrisTeam, NAME_EasyNecrisTeam, NAME_ChallengeSlateBadgeName_CTF));
+		TEXT("CTF in the newest arena approved for the Liandri Grand Tournament."), 
+		4, 5, NAME_EasyNecrisTeam, NAME_MediumMixedTeam, NAME_HardMixedTeam, NAME_ChallengeSlateBadgeName_CTF));
+
+	Challenges.Add(NAME_ChallengeDMFFATwo,
+		FUTChallengeInfo(TEXT("Deathmatch Challenge"), TEXT("/Game/RestrictedAssets/Maps/DM-DeckTest"),
+		TEXT("DM"),
+		TEXT("Free for all Deathmatch in Deck 17.  Liandri is renovating the legendary Deck 17 arena, but it remains a popular venue even in its unfinished state."),
+		4, 5, NAME_EasyFFATeam, NAME_MediumFFATeam, NAME_HardFFATeam, NAME_ChallengeSlateBadgeName_DM));
+
+	Challenges.Add(NAME_ChallengeCTFTwo,
+		FUTChallengeInfo(TEXT("CTF Challenge"), TEXT("/Game/RestrictedAssets/Maps/WIP/CTF-BigRock"),
+		TEXT("CTF"),
+		TEXT("CTF in the impressive Big Rock asteroid arena, still under construction."),
+		4, 5, NAME_EasyNecrisTeam, NAME_MediumMixedTeam, NAME_HardMixedTeam, NAME_ChallengeSlateBadgeName_CTF));
+
+	Challenges.Add(NAME_ChallengeCTFThree,
+		FUTChallengeInfo(TEXT("CTF Challenge"), TEXT("/Game/RestrictedAssets/Maps/WIP/CTF-FaceTest"),
+		TEXT("CTF"),
+		TEXT("CTF in the legendary Facing Worlds arena."),
+		4, 5, NAME_EasyNecrisTeam, NAME_MediumNecrisTeam, NAME_HardMixedTeam, NAME_ChallengeSlateBadgeName_CTF));
+
+	Challenges.Add(NAME_ChallengeCTFFour,
+		FUTChallengeInfo(TEXT("CTF Challenge"), TEXT("/Game/RestrictedAssets/Maps/WIP/CTF-Pistola"),
+		TEXT("CTF"),
+		TEXT("CTF in the challenging Pistola arena."),
+		4, 5, NAME_EasyNecrisTeam, NAME_MediumMixedTeam, NAME_HardNecrisTeam, NAME_ChallengeSlateBadgeName_CTF));
 }
+/*
+DM-Outpost23 TDM
+DM-Lea 1v1
+DM-Lea 2v2
+CTF-Blank CTF
+DM-Spacer  TDM
+DM-Temple TDM
+DM-Outpost23 1v3
+DM-SidCastle 1v3
+DM-Tuba 1v1
+*/
 
 UUTBotCharacter* UUTChallengeManager::ChooseBotCharacter(AUTGameMode* CurrentGame, uint8& TeamNum, int32 TotalStars) const
 {

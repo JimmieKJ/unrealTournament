@@ -6,12 +6,22 @@
 static const FName NAME_ChallengeSlateBadgeName_DM(TEXT("UT.ChallengeBadges.DM"));
 static const FName NAME_ChallengeSlateBadgeName_CTF(TEXT("UT.ChallengeBadges.CTF"));
 static const FName NAME_PlayerTeamRoster(TEXT("PlayersTeam"));
-static const FName NAME_ChallengeDM(TEXT("InitialDeathmatchChallenge"));
-static const FName NAME_ChallengeCTF(TEXT("InitialCaptureTheFlagChallenge"));
+
+static const FName NAME_ChallengeDMFFA(TEXT("ChallengeDMFFA1"));
+static const FName NAME_ChallengeDMFFATwo(TEXT("ChallengeDMFFA2"));
+static const FName NAME_ChallengeCTF(TEXT("ChallengeCTF1"));
+static const FName NAME_ChallengeCTFTwo(TEXT("ChallengeCTF2"));
+static const FName NAME_ChallengeCTFThree(TEXT("ChallengeCTF3"));
+static const FName NAME_ChallengeCTFFour(TEXT("ChallengeCTF4"));
 
 static const FName NAME_EasyNecrisTeam(TEXT("EasyNecrisTeam"));
 static const FName NAME_MediumNecrisTeam(TEXT("MediumNecrisTeam"));
 static const FName NAME_HardNecrisTeam(TEXT("HardNecrisTeam"));
+static const FName NAME_HardMixedTeam(TEXT("HardMixedTeam"));
+static const FName NAME_MediumMixedTeam(TEXT("MediumMixedTeam"));
+static const FName NAME_EasyFFATeam(TEXT("EasyFFATeam"));
+static const FName NAME_MediumFFATeam(TEXT("MediumFFATeam"));
+static const FName NAME_HardFFATeam(TEXT("HardFFATeam"));
 
 static const FName NAME_Damian(TEXT("Damian"));
 static const FName NAME_Skirge(TEXT("Skirge"));
@@ -42,6 +52,20 @@ static const FName NAME_Loque(TEXT("Loque"));
 static const FName NAME_Freylis(TEXT("Freylis"));
 static const FName NAME_Necroth(TEXT("Necroth"));
 static const FName NAME_Visse(TEXT("Visse"));
+
+static const FName NAME_Genghis(TEXT("Genghis"));
+static const FName NAME_Drekorig(TEXT("Drekorig"));
+static const FName NAME_Leeb(TEXT("Leeb"));
+static const FName NAME_Othello(TEXT("Othello"));
+static const FName NAME_Gaargod(TEXT("Gaargod"));
+
+static const FName NAME_Clanlord(TEXT("Clanlord"));
+static const FName NAME_Skakruk(TEXT("Skakruk"));
+static const FName NAME_Malcolm(TEXT("Malcolm"));
+static const FName NAME_Jakob(TEXT("Jakob"));
+static const FName NAME_Picard(TEXT("Picard"));
+
+static const FName NAME_Guardian(TEXT("Guardian"));
 
 UCLASS(Abstract)
 class UNREALTOURNAMENT_API UUTChallengeManager : public UObject
