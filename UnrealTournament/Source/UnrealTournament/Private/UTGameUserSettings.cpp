@@ -1,6 +1,7 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealTournament.h"
+#include "UTGameEngine.h"
 #include "UTGameUserSettings.h"
 
 namespace EUTGameUserSettingsVersion
@@ -256,6 +257,26 @@ void UUTGameUserSettings::RunSynthBenchmark(bool bSaveSettingsOnceDetected)
 
 	if (bSaveSettingsOnceDetected)
 	{
+		// If monitor refresh rate is under 120, we're going to cap framerate at 60 by default, else 120
+		UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
+		if (UTEngine != NULL)
+		{
+			int32 RefreshRate;
+			if (UTEngine->GetMonitorRefreshRate(RefreshRate))
+			{
+				if (RefreshRate >= 120)
+				{
+					UTEngine->FrameRateCap = 120;
+				}
+				else
+				{
+					UTEngine->FrameRateCap = 60;
+				}
+
+				UTEngine->SaveConfig();
+			}
+		}
+
 		ScalabilityQuality = DetectedLevels;
 		Scalability::SetQualityLevels(ScalabilityQuality);
 		Scalability::SaveState(GGameUserSettingsIni);

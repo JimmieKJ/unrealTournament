@@ -984,6 +984,21 @@ FReply SUWSystemSettingsDialog::OnAutodetectClick()
 	if (ensure(LocalPlayer) && !UserSettings->bBenchmarkInProgress)
 	{
 		UserSettings->BenchmarkDetailSettings(LocalPlayer, false);
+
+		UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
+		if (UTEngine != NULL)
+		{
+			int32 RefreshRate;
+			if (UTEngine->GetMonitorRefreshRate(RefreshRate))
+			{
+				int32 AutoDetectedFramerateCap = 120;
+				if (RefreshRate < 120)
+				{
+					AutoDetectedFramerateCap = 60;
+				}
+				FrameRateCap->SetText(FText::AsNumber(AutoDetectedFramerateCap));
+			}
+		}
 	}
 
 	return FReply::Handled();
