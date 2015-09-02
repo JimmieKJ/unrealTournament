@@ -52,6 +52,7 @@ void SUWPlayerInfoDialog::Construct(const FArguments& InArgs)
 	ZoomOffset = -50;
 
 	PoseAnimation = LoadObject<UAnimationAsset>(NULL, TEXT("/Game/RestrictedAssets/Animations/Universal/Misc_Poses/Pose_E.Pose_E"));
+	FemalePoseAnimation = LoadObject<UAnimationAsset>(NULL, TEXT("/Game/RestrictedAssets/Animations/Universal/Misc_Poses/Pose_E_Female.Pose_E_Female"));
 
 	// allocate a preview scene for rendering
 	PlayerPreviewWorld = UWorld::CreateWorld(EWorldType::Preview, true);
@@ -182,6 +183,7 @@ void SUWPlayerInfoDialog::AddReferencedObjects(FReferenceCollector& Collector)
 	Collector.AddReferencedObject(PlayerPreviewMID);
 	Collector.AddReferencedObject(PlayerPreviewWorld);
 	Collector.AddReferencedObject(PoseAnimation);
+	Collector.AddReferencedObject(FemalePoseAnimation);
 }
 
 FReply SUWPlayerInfoDialog::OnButtonClick(uint16 ButtonID)
@@ -248,10 +250,21 @@ void SUWPlayerInfoDialog::RecreatePlayerPreview()
 			PlayerPreviewMesh->SetEyewearClass(TargetPlayerState->EyewearClass);
 			PlayerPreviewMesh->SetEyewearVariant(TargetPlayerState->EyewearVariant);
 
-			if ( PoseAnimation )
+			if (TargetPlayerState->GetSelectedCharacter().GetDefaultObject()->bIsFemale)
 			{
-				PlayerPreviewMesh->GetMesh()->PlayAnimation(PoseAnimation, true);
-				PlayerPreviewMesh->GetMesh()->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones;
+				if (FemalePoseAnimation)
+				{
+					PlayerPreviewMesh->GetMesh()->PlayAnimation(FemalePoseAnimation, true);
+					PlayerPreviewMesh->GetMesh()->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones;
+				}
+			}
+			else
+			{
+				if (PoseAnimation)
+				{
+					PlayerPreviewMesh->GetMesh()->PlayAnimation(PoseAnimation, true);
+					PlayerPreviewMesh->GetMesh()->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones;
+				}
 			}
 
 			UClass* PreviewAttachmentType = LoadClass<AUTWeaponAttachment>(NULL, TEXT("/Game/RestrictedAssets/Weapons/ShockRifle/ShockAttachment.ShockAttachment_C"), NULL, LOAD_None, NULL);

@@ -143,6 +143,7 @@ protected:
 
 	AActor* PreviewEnvironment;
 	UAnimationAsset* PoseAnimation;
+	UAnimationAsset* FemalePoseAnimation;
 
 	int32 OldSSRQuality;
 
