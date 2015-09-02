@@ -499,7 +499,7 @@ void SUWMatchSummary::BuildInfoPanel()
 	AUTPlayerState* UTPS = ViewedChar.IsValid() ? Cast<AUTPlayerState>(ViewedChar->PlayerState) : nullptr;
 	if (UTPS != nullptr && !UTPS->IsPendingKill() && UTPS->IsValidLowLevel())
 	{
-		AUTGameMode* DefaultGameMode = GameState.IsValid() ? GameState->GameModeClass->GetDefaultObject<AUTGameMode>() : NULL;
+		AUTGameMode* DefaultGameMode = GameState.IsValid() && GameState->GameModeClass ? Cast<AUTGameMode>(GameState->GameModeClass->GetDefaultObject()) : NULL;
 		if (DefaultGameMode != nullptr)
 		{
 			//Build the highlights
@@ -719,7 +719,7 @@ void SUWMatchSummary::Tick(const FGeometry& AllottedGeometry, const double InCur
 
 	//Create the xp widget the first time the info widget is open
 	AUTPlayerState* PS = (PlayerOwner.IsValid() && PlayerOwner->PlayerController != nullptr) ? Cast<AUTPlayerState>(PlayerOwner->PlayerController->PlayerState) : nullptr;
-	if (!XPBar.IsValid() && HasCamFlag(CF_ShowInfoWidget) && GameState->GetMatchState() == MatchState::WaitingPostMatch && (PS != nullptr && PS->CanAwardOnlineXP()))
+	if (!XPBar.IsValid() && HasCamFlag(CF_ShowInfoWidget) && GameState.IsValid() && GameState->GetMatchState() == MatchState::WaitingPostMatch && (PS != nullptr && PS->CanAwardOnlineXP()))
 	{
 		XPOverlay->AddSlot()
 		[
