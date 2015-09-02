@@ -250,7 +250,7 @@ void SUWPlayerInfoDialog::RecreatePlayerPreview()
 			PlayerPreviewMesh->SetEyewearClass(TargetPlayerState->EyewearClass);
 			PlayerPreviewMesh->SetEyewearVariant(TargetPlayerState->EyewearVariant);
 
-			if (TargetPlayerState->GetSelectedCharacter().GetDefaultObject()->bIsFemale)
+			if (TargetPlayerState->GetSelectedCharacter() != NULL && TargetPlayerState->GetSelectedCharacter().GetDefaultObject()->bIsFemale)
 			{
 				if (FemalePoseAnimation)
 				{

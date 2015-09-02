@@ -1188,7 +1188,7 @@ void SUWPlayerSettingsDialog::RecreatePlayerPreview()
 			PlayerPreviewMesh->ApplyCharacterData(CharacterClass);
 
 			bFoundCharacterClass = true;
-			if (CharacterClass.GetDefaultObject()->bIsFemale)
+			if (CharacterClass != NULL && CharacterClass.GetDefaultObject()->bIsFemale)
 			{
 				PlayerPreviewAnimBlueprint = LoadObject<UClass>(nullptr, TEXT("/Game/RestrictedAssets/UI/ABP_Female_PlayerPreview.ABP_Female_PlayerPreview_C"));
 			}
