@@ -417,15 +417,22 @@ void AUTLobbyMatchInfo::ServerStartMatch_Implementation()
 	GetOwnerPlayerState()->ClientMatchError(NSLOCTEXT("LobbyMessage", "TooManyInstances","All available game instances are taken.  Please wait a bit and try starting again."));
 }
 
-void AUTLobbyMatchInfo::LaunchMatch()
+void AUTLobbyMatchInfo::LaunchMatch(bool bQuickPlay)
 {
 	for (int32 i=0;i<Players.Num();i++)
 	{
 		Players[i]->bReadyToPlay = true;
 	}
 
+
 	if (CheckLobbyGameState() && CurrentRuleset.IsValid() && InitialMapInfo.IsValid())
 	{
+		if (bQuickPlay) 
+		{
+			AUTLobbyGameMode* LobbyGame = Cast<AUTLobbyGameMode>(LobbyGameState->AuthorityGameMode);
+			BotSkillLevel = (LobbyGame && LobbyGame->bTrainingGround) ? 1 : 3;
+		}
+
 		// build all of the data needed to launch the map.
 
 		FString GameURL = FString::Printf(TEXT("%s?Game=%s?MaxPlayers=%i"),*InitialMap, *CurrentRuleset->GameMode, CurrentRuleset->MaxPlayers);
