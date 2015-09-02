@@ -469,10 +469,12 @@ void AUTCTFGameMode::PlacePlayersAroundFlagBase(int32 TeamNum)
 					StartAngle = 0.5f * AngleSlices;
 					PlacementCounter = 0;
 				}
+				UTChar->bIsTranslocating = true; // hack to get rid of teleport effect
 				if (UTChar->TeleportTo(PlacementLoc, UTChar->GetActorRotation()))
 				{
 					break;
 				}
+				UTChar->bIsTranslocating = false;
 			}
 			if (PlacementCounter == 8)
 			{
