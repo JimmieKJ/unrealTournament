@@ -1132,6 +1132,10 @@ void SUWPlayerSettingsDialog::Tick(const FGeometry& AllottedGeometry, const doub
 	{
 		PlayerPreviewMesh->PrestreamTextures(1, true);
 	}
+	if (PreviewWeapon)
+	{
+		PreviewWeapon->PrestreamTextures(1, true);
+	}
 
 	if (WeaponConfigDelayFrames > 0)
 	{

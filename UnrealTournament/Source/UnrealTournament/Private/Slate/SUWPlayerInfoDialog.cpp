@@ -203,6 +203,16 @@ void SUWPlayerInfoDialog::Tick(const FGeometry& AllottedGeometry, const double I
 	{
 		PlayerPreviewWorld->Tick(LEVELTICK_All, InDeltaTime);
 	}
+	
+	// Force the preview mesh to put the highest mips into memory
+	if (PlayerPreviewMesh != nullptr)
+	{
+		PlayerPreviewMesh->PrestreamTextures(1, true);
+	}
+	if (PreviewWeapon)
+	{
+		PreviewWeapon->PrestreamTextures(1, true);
+	}
 
 	if ( PlayerPreviewTexture != nullptr )
 	{

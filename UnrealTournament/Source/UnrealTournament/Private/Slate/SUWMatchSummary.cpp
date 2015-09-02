@@ -714,6 +714,16 @@ void SUWMatchSummary::Tick(const FGeometry& AllottedGeometry, const double InCur
 			SAssignNew(XPBar, SUTXPBar).PlayerOwner(PlayerOwner)
 		];
 	}
+
+	for (auto PreviewMesh : PlayerPreviewMeshs)
+	{
+		PreviewMesh->PrestreamTextures(1, true);
+	}
+
+	for (auto Weapon : PreviewWeapons)
+	{
+		Weapon->PrestreamTextures(1, true);
+	}
 }
 
 void SUWMatchSummary::SetCamShot(int32 ShotIndex)
