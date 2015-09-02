@@ -214,7 +214,8 @@ TSharedRef<ITableRow> SUMatchPanel::OnGenerateWidgetForMatchList( TSharedPtr<FTr
 					.VAlign(VAlign_Center)
 					.AutoWidth()
 					[
-						SNew(SBox).HeightOverride(78).WidthOverride(500).Padding(FMargin(5.0f,0.0f,5.0f,0.0f))
+						//SNew(SBox).HeightOverride(78).WidthOverride(500).Padding(FMargin(5.0f,0.0f,5.0f,0.0f))
+						SNew(SBox).HeightOverride(78).WidthOverride(348).Padding(FMargin(5.0f, 0.0f, 5.0f, 0.0f))
 						[
 							SNew(SVerticalBox)
 							+SVerticalBox::Slot()
@@ -362,6 +363,7 @@ TSharedRef<ITableRow> SUMatchPanel::OnGenerateWidgetForMatchList( TSharedPtr<FTr
 								SNew(SButton)
 								.ButtonStyle(SUTStyle::Get(),"UT.SimpleButton.Medium")
 								.OnClicked(this, &SUMatchPanel::JoinMatchButtonClicked, InItem)
+								.IsEnabled(InItem->bJoinableAsPlayer)
 								[
 									SNew(SVerticalBox)
 									+SVerticalBox::Slot().HAlign(HAlign_Center).AutoHeight()
@@ -938,11 +940,14 @@ FReply SUMatchPanel::SpectateMatchButtonClicked(TSharedPtr<FTrackedMatch> InItem
 
 bool SUMatchPanel::CanSpectateGame(TSharedPtr<FTrackedMatch> InItem) const
 {
-	if (InItem.IsValid() && InItem->MatchInfo.IsValid())
+	if (InItem.IsValid())
 	{
-		return (InItem->MatchInfo->bSpectatable);
+		return InItem->MatchInfo.IsValid() ? InItem->MatchInfo->bSpectatable : InItem->bJoinableAsSpectator;
 	}
-	return true;
+	else
+	{
+		return false;
+	}
 }
 
 void SUMatchPanel::SetServerData(TSharedPtr<FServerData> inServerData)
@@ -959,7 +964,7 @@ void SUMatchPanel::SetServerData(TSharedPtr<FServerData> inServerData)
 		TSharedPtr<FServerInstanceData> Instance = ServerData->HUBInstances[i];
 		if (Instance.IsValid())
 		{
-			int32 Index = TrackedMatches.Add(FTrackedMatch::Make(Instance->InstanceId, Instance->RulesTitle, Instance->MapName, Instance->NumPlayers, Instance->MaxPlayers, Instance->NumFriends, Instance->Flags, Instance->Rank));
+			int32 Index = TrackedMatches.Add(FTrackedMatch::Make(Instance->InstanceId, Instance->RulesTitle, Instance->MapName, Instance->NumPlayers, Instance->MaxPlayers, Instance->NumFriends, Instance->Flags, Instance->Rank, Instance->bJoinableAsPlayer, Instance->bJoinableAsSpectator));
 
 			// Count the # of friends....
 			int32 NumFriends = 0;

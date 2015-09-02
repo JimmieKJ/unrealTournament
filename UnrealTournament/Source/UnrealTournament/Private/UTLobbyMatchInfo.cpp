@@ -741,7 +741,7 @@ void AUTLobbyMatchInfo::ServerCreateCustomRule_Implementation(const FString& Gam
 		AUTGameMode* CustomGameModeDefaultObject = NewReplicatedRuleset->GetDefaultGameModeObject();
 		if (CustomGameModeDefaultObject)
 		{
-			NewReplicatedRuleset->Title = FString::Printf(TEXT("Custom Rule - %s"), *CustomGameModeDefaultObject->DisplayName.ToString());
+			NewReplicatedRuleset->Title = FString::Printf(TEXT("Custom %s"), *CustomGameModeDefaultObject->DisplayName.ToString());
 
 			TArray< TSharedPtr<TAttributePropertyBase> > AllowedProps;
 			CustomGameModeDefaultObject->CreateGameURLOptions(AllowedProps);

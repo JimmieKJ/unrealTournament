@@ -121,7 +121,7 @@ void AUTServerBeaconClient::ServerRequestNextInstance_Implementation(int32 LastI
 		UE_LOG(LogBeacon, Verbose, TEXT("<--- Sending Instance [%i]"), LastInstanceIndex);
 
 		TSharedPtr<FServerInstanceData> Instance = Instances[LastInstanceIndex];
-		ClientReceiveInstance(LastInstanceIndex, Instances.Num(), Instance->InstanceId, Instance->RulesTitle, Instance->MapName, Instance->NumPlayers, Instance->MaxPlayers, Instance->NumFriends, Instance->Flags, Instance->Rank, Instance->bTeamGame);
+		ClientReceiveInstance(LastInstanceIndex, Instances.Num(), *Instance.Get());
 	}
 	else
 	{
@@ -131,12 +131,12 @@ void AUTServerBeaconClient::ServerRequestNextInstance_Implementation(int32 LastI
 	}
 }
 
-void AUTServerBeaconClient::ClientReceiveInstance_Implementation(int32 InInstanceCount, int32 TotalInstances, FGuid InstanceId, const FString& InstanceRuleName, const FString& InstanceMap, int32 InstanceNumPlayers, int32 InstanceMaxPlayers, int32 InstanceNumFriends, uint32 InstanceFlags, int32 InstanceRank, bool bTeamGame)
+void AUTServerBeaconClient::ClientReceiveInstance_Implementation(int32 InInstanceCount, int32 TotalInstances, const FServerInstanceData& InstanceInfo)
 {
-	UE_LOG(LogBeacon, Verbose, TEXT("---> Received Instance [%i] Rule Icon[%s] Desc [%s]"), InInstanceCount, *InstanceRuleName, *InstanceMap);
+	UE_LOG(LogBeacon, Verbose, TEXT("---> Received Instance [%i] Rule Icon[%s] Desc [%s]"), InInstanceCount, *InstanceInfo.RulesTitle, *InstanceInfo.MapName);
 	if (InInstanceCount >= 0 && InInstanceCount < TotalInstances)
 	{
-		Instances.Add(FServerInstanceData::Make(InstanceId, InstanceRuleName, InstanceMap, InstanceNumPlayers, InstanceMaxPlayers, InstanceNumFriends, InstanceFlags, InstanceRank, bTeamGame ));
+		Instances.Add(FServerInstanceData::Make(InstanceInfo));
 	}
 
 	ServerRequestNextInstancePlayer(InInstanceCount, -1);
