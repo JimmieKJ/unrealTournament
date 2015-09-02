@@ -1924,10 +1924,12 @@ void UUTLocalPlayer::OnJoinSessionComplete(FName SessionName, EOnJoinSessionComp
 	}
 
 	CloseConnectingDialog();
+#if !UE_SERVER
 	if (GetWorld()->bIsDefaultLevel && !DesktopSlateWidget.IsValid())
 	{
 		ReturnToMainMenu();
 	}
+#endif
 }
 
 void UUTLocalPlayer::LeaveSession()
