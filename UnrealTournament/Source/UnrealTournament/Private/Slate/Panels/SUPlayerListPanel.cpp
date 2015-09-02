@@ -281,6 +281,11 @@ bool SUPlayerListPanel::IsInMatch(AUTPlayerState* PlayerState)
 
 bool SUPlayerListPanel::ShouldShowPlayer(FUniqueNetIdRepl PlayerId, uint8 TeamNum, bool bIsInMatch)
 {
+	if (!PlayerId.IsValid())
+	{
+		return false;
+	}
+
 	if (ConnectedChatPanel.IsValid())
 	{
 		if (ConnectedChatPanel->CurrentChatDestination == ChatDestinations::Friends)
@@ -299,10 +304,6 @@ bool SUPlayerListPanel::ShouldShowPlayer(FUniqueNetIdRepl PlayerId, uint8 TeamNu
 				}
 			}
 
-			return false;
-		}
-		else if (PlayerOwner.IsValid() && PlayerOwner->PlayerController && PlayerOwner->PlayerController->PlayerState && PlayerOwner->PlayerController->PlayerState->bIsABot)
-		{
 			return false;
 		}
 	}
