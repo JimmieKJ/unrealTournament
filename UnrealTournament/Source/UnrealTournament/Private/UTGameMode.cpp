@@ -1825,7 +1825,7 @@ void AUTGameMode::TravelToNextMap_Implementation()
 	FString CurrentMapName = GetWorld()->GetMapName();
 	UE_LOG(UT,Log,TEXT("TravelToNextMap: %i %i"),bDedicatedInstance,IsGameInstanceServer());
 
-	if (IsGameInstanceServer() || (!bDisableMapVote && UTGameState->MapVoteList.Num() > 0))
+	if (GetWorld()->GetNetMode() != ENetMode::NM_Standalone && (IsGameInstanceServer() || (!bDisableMapVote && UTGameState->MapVoteList.Num() > 0)))
 	{
 		if (UTGameState->MapVoteList.Num() > 0)
 		{
