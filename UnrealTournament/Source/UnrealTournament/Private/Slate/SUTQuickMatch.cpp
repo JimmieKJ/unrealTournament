@@ -328,8 +328,17 @@ void SUTQuickMatch::OnServerBeaconResult(AUTServerBeaconClient* Sender, FServerB
 	{
 		if (PingTrackers[i].Beacon == Sender)
 		{
+
+			// Throw out non-epic hubs
+
+			if (PingTrackers[i].Server->ServerTrustLevel > 0)
+			{
+				PingTrackers.RemoveAt(i, 1);
+				break;
+			}
+
 			// Discard training ground hubs if the player isn't a beginner and discard non-training ground hubs if they are one
-			if ( (!bIsBeginner && PingTrackers[i].Server->bServerIsTrainingGround) ||
+			else if ( (!bIsBeginner && PingTrackers[i].Server->bServerIsTrainingGround) ||
 				 (bIsBeginner && !PingTrackers[i].Server->bServerIsTrainingGround) )
 			{
 				PingTrackers.RemoveAt(i, 1);
