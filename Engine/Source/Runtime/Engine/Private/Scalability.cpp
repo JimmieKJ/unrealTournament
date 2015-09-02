@@ -173,30 +173,51 @@ static void SetResolutionQualityLevel(int32 InResolutionQualityLevel)
 
 void OnChangeResolutionQuality(IConsoleVariable* Var)
 {
+	// remove the priority of "ConsoleVariables.ini" from console variables because it causes much logspam
+	IConsoleManager::Get().ForEachConsoleObject(FConsoleObjectVisitor::CreateLambda([](const TCHAR*, IConsoleObject* Obj) { IConsoleVariable* Var = Obj->AsVariable(); if (Var != NULL) { Var->ClearFlags(ECVF_SetByConsoleVariablesIni); } }), TEXT(""));
+
 	SetResolutionQualityLevel(Var->GetInt());
 }
 void OnChangeViewDistanceQuality(IConsoleVariable* Var)
 {
+	// remove the priority of "ConsoleVariables.ini" from console variables because it causes much logspam
+	IConsoleManager::Get().ForEachConsoleObject(FConsoleObjectVisitor::CreateLambda([](const TCHAR*, IConsoleObject* Obj) { IConsoleVariable* Var = Obj->AsVariable(); if (Var != NULL) { Var->ClearFlags(ECVF_SetByConsoleVariablesIni); } }), TEXT(""));
+
 	SetGroupQualityLevel(TEXT("ViewDistanceQuality"), Var->GetInt());
 }
 void OnChangeAntiAliasingQuality(IConsoleVariable* Var)
 {
+	// remove the priority of "ConsoleVariables.ini" from console variables because it causes much logspam
+	IConsoleManager::Get().ForEachConsoleObject(FConsoleObjectVisitor::CreateLambda([](const TCHAR*, IConsoleObject* Obj) { IConsoleVariable* Var = Obj->AsVariable(); if (Var != NULL) { Var->ClearFlags(ECVF_SetByConsoleVariablesIni); } }), TEXT(""));
+
 	SetGroupQualityLevel(TEXT("AntiAliasingQuality"), Var->GetInt());
 }
 void OnChangeShadowQuality(IConsoleVariable* Var)
 {
+	// remove the priority of "ConsoleVariables.ini" from console variables because it causes much logspam
+	IConsoleManager::Get().ForEachConsoleObject(FConsoleObjectVisitor::CreateLambda([](const TCHAR*, IConsoleObject* Obj) { IConsoleVariable* Var = Obj->AsVariable(); if (Var != NULL) { Var->ClearFlags(ECVF_SetByConsoleVariablesIni); } }), TEXT(""));
+
 	SetGroupQualityLevel(TEXT("ShadowQuality"), Var->GetInt());
 }
 void OnChangePostProcessQuality(IConsoleVariable* Var)
 {
+	// remove the priority of "ConsoleVariables.ini" from console variables because it causes much logspam
+	IConsoleManager::Get().ForEachConsoleObject(FConsoleObjectVisitor::CreateLambda([](const TCHAR*, IConsoleObject* Obj) { IConsoleVariable* Var = Obj->AsVariable(); if (Var != NULL) { Var->ClearFlags(ECVF_SetByConsoleVariablesIni); } }), TEXT(""));
+
 	SetGroupQualityLevel(TEXT("PostProcessQuality"), Var->GetInt());
 }
 void OnChangeTextureQuality(IConsoleVariable* Var)
 {
+	// remove the priority of "ConsoleVariables.ini" from console variables because it causes much logspam
+	IConsoleManager::Get().ForEachConsoleObject(FConsoleObjectVisitor::CreateLambda([](const TCHAR*, IConsoleObject* Obj) { IConsoleVariable* Var = Obj->AsVariable(); if (Var != NULL) { Var->ClearFlags(ECVF_SetByConsoleVariablesIni); } }), TEXT(""));
+
 	SetGroupQualityLevel(TEXT("TextureQuality"), Var->GetInt());
 }
 void OnChangeEffectsQuality(IConsoleVariable* Var)
 {
+	// remove the priority of "ConsoleVariables.ini" from console variables because it causes much logspam
+	IConsoleManager::Get().ForEachConsoleObject(FConsoleObjectVisitor::CreateLambda([](const TCHAR*, IConsoleObject* Obj) { IConsoleVariable* Var = Obj->AsVariable(); if (Var != NULL) { Var->ClearFlags(ECVF_SetByConsoleVariablesIni); } }), TEXT(""));
+
 	SetGroupQualityLevel(TEXT("EffectsQuality"), Var->GetInt());
 }
 
