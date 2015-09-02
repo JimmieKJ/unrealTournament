@@ -695,16 +695,6 @@ void SUWMatchSummary::Tick(const FGeometry& AllottedGeometry, const double InCur
 		PlayerPreviewTexture->UpdateResource();
 	}
 
-	// Force the preview mesh and weapons to put the highest mips into memory
-	for (AUTCharacter* PlayerPreview : PlayerPreviewMeshs)
-	{
-		PlayerPreview->PrestreamTextures(1, true);
-	}
-	for (auto Weapon : PreviewWeapons)
-	{
-		Weapon->PrestreamTextures(1, true);
-	}
-
 	UpdateChatText();
 	BuildFriendPanel();
 
@@ -1142,6 +1132,31 @@ void SUWMatchSummary::UpdatePlayerRender(UCanvas* C, int32 Width, int32 Height)
 	// workaround for hacky renderer code that uses GFrameNumber to decide whether to resize render targets
 	--GFrameNumber;
 	GetRendererModule().BeginRenderingViewFamily(C->Canvas, &ViewFamily);
+
+	// Force the preview mesh and weapons to put the highest mips into memory if visible. This assumes each char has a weapon
+	FConvexVolume Frustum;
+	GetViewFrustumBounds(Frustum, PlayerPreviewInitOptions.ComputeViewProjectionMatrix(), true);
+	for (auto Weapon : PreviewWeapons)
+	{
+		AUTCharacter* Holder = Cast<AUTCharacter>(Weapon->Instigator);
+		if (Holder != nullptr)
+		{
+			if (!Holder->bHidden)
+			{
+				FVector Origin, BoxExtent;
+				Holder->GetActorBounds(true, Origin, BoxExtent);
+
+				if (Frustum.IntersectBox(Origin, BoxExtent))
+				{
+					Holder->PrestreamTextures(1, true);
+					Weapon->PrestreamTextures(1, true);
+					continue;
+				}
+			}
+			Holder->PrestreamTextures(0, false);
+			Weapon->PrestreamTextures(0, false);
+		}
+	}
 
 	//Check if the mouse is over a player and apply taccom effect
 	if (HasCamFlag(CF_CanInteract) && !HasCamFlag(CF_Player))
