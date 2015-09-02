@@ -179,7 +179,7 @@ public:
 
 
 	UFUNCTION(Client, Reliable)
-	virtual void ClientCloseAllUI();
+	virtual void ClientCloseAllUI(bool bExceptDialogs = false);
 
 	/**This is overridden to avoid the Slate focus issues occuring with each widget managing their own input mode.
 	Instead of setting this manually, we will update the input mode based on the state of the game in UpdateInputMode()*/
