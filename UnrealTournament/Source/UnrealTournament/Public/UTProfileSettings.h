@@ -203,6 +203,15 @@ protected:
 	uint32 bInvertMouse;
 
 	UPROPERTY()
+	float MouseAcceleration;
+
+	UPROPERTY()
+	float MouseAccelerationPower;
+
+	UPROPERTY()
+	float MouseAccelerationMax;
+
+	UPROPERTY()
 	float FOVScale;
 
 	UPROPERTY()
