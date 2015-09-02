@@ -740,5 +740,10 @@ private:
 	// note: one based
 	UPROPERTY()
 	TArray<FStringAssetReference> LevelUpRewards;
+
+public:
+	UPROPERTY(Config)
+	bool bDisableMapVote;
+
 };
 

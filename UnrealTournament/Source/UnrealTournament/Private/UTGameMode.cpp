@@ -141,6 +141,9 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	LevelUpRewards[40] = FString(TEXT(""));
 	LevelUpRewards[45] = FString(TEXT("/Game/RestrictedAssets/ProfileItems/ThundercrashBeret.ThundercrashBeret"));
 	LevelUpRewards[50] = FString(TEXT("/Game/RestrictedAssets/ProfileItems/ThundercrashMale01.ThundercrashMale01"));
+
+	bDisableMapVote = false;
+
 }
 
 void AUTGameMode::BeginPlayMutatorHack(FFrame& Stack, RESULT_DECL)
@@ -464,6 +467,40 @@ void AUTGameMode::InitGameState()
 			if (UTGameSession->bSessionValid)
 			{
 				NotifyLobbyGameIsReady();
+			}
+		}
+	}
+
+	if (!bDisableMapVote)
+	{
+		// First, fixup the MapRotation array so it only has long names...
+
+		for (int32 i=0; i < MapRotation.Num(); i++)
+		{
+			FString Map = MapRotation[i];
+			if ( FPackageName::IsShortPackageName(Map) )
+			{
+				FPackageName::SearchForPackageOnDisk(Map, &MapRotation[i]); 
+			}
+		}
+
+		TArray<FString> MapPrefixList;
+		TArray<FAssetData> MapList;	
+
+		MapPrefixList.Add(MapPrefix);
+		UTGameState->ScanForMaps(MapPrefixList, MapList);
+		for(int32 i = 0; i < MapList.Num(); i++)
+		{
+			FString PackageName = MapList[i].PackageName.ToString();
+			for (int32 j = 0; j < MapRotation.Num(); j++)
+			{
+				
+				if (PackageName.Equals(MapRotation[j], ESearchCase::IgnoreCase))
+				{
+					const FString* Title = MapList[i].TagsAndValues.Find(NAME_MapInfo_Title); 
+					const FString* Screenshot = MapList[i].TagsAndValues.Find(NAME_MapInfo_ScreenshotReference);
+					UTGameState->CreateMapVoteInfo(PackageName, (Title != NULL && !Title->IsEmpty()) ? *Title : *MapList[i].AssetName.ToString(), *Screenshot);
+				}
 			}
 		}
 	}
@@ -1788,7 +1825,7 @@ void AUTGameMode::TravelToNextMap_Implementation()
 	FString CurrentMapName = GetWorld()->GetMapName();
 	UE_LOG(UT,Log,TEXT("TravelToNextMap: %i %i"),bDedicatedInstance,IsGameInstanceServer());
 
-	if (!bDedicatedInstance && IsGameInstanceServer())
+	if (IsGameInstanceServer() || (!bDisableMapVote && UTGameState->MapVoteList.Num() > 0))
 	{
 		if (UTGameState->MapVoteList.Num() > 0)
 		{
