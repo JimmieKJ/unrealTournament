@@ -9,10 +9,17 @@ static const FName NAME_PlayerTeamRoster(TEXT("PlayersTeam"));
 
 static const FName NAME_ChallengeDMFFA(TEXT("ChallengeDMFFA1"));
 static const FName NAME_ChallengeDMFFATwo(TEXT("ChallengeDMFFA2"));
+static const FName NAME_ChallengeDMFFAThree(TEXT("ChallengeDMFFA3"));
 static const FName NAME_ChallengeCTF(TEXT("ChallengeCTF1"));
 static const FName NAME_ChallengeCTFTwo(TEXT("ChallengeCTF2"));
 static const FName NAME_ChallengeCTFThree(TEXT("ChallengeCTF3"));
 static const FName NAME_ChallengeCTFFour(TEXT("ChallengeCTF4"));
+static const FName NAME_ChallengeCTFFive(TEXT("ChallengeCTF5"));
+static const FName NAME_ChallengeTDM(TEXT("ChallengeTDM"));
+static const FName NAME_ChallengeTDMTwo(TEXT("ChallengeTDM2"));
+static const FName NAME_ChallengeTDMThree(TEXT("ChallengeTDM3"));
+static const FName NAME_ChallengeTDMFour(TEXT("ChallengeTDM4"));
+static const FName NAME_ChallengeTDMFive(TEXT("ChallengeTDM5"));
 
 static const FName NAME_EasyNecrisTeam(TEXT("EasyNecrisTeam"));
 static const FName NAME_MediumNecrisTeam(TEXT("MediumNecrisTeam"));
