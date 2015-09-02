@@ -107,7 +107,7 @@ public:
 
 	virtual void PlayerAdded(class UGameViewportClient* InViewportClient, int32 InControllerID);
 
-	virtual void ShowMenu();
+	virtual void ShowMenu(const FString& Parameters);
 	virtual void HideMenu();
 	virtual void OpenTutorialMenu();
 	virtual void ShowToast(FText ToastText);	// NOTE: Need to add a type/etc so that they can be skinned better.

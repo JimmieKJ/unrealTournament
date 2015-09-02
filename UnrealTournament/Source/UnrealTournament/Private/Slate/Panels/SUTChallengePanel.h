@@ -17,6 +17,7 @@ private:
 	virtual void ConstructPanel(FVector2D ViewportSize);	
 
 protected:
+	int32 PendingDifficulty;
 	FName SelectedChallenge;
 	TSharedPtr<SVerticalBox> ChallengeBox;
 	TSharedPtr<SRichTextBlock> ChallengeDescription;
@@ -35,6 +36,10 @@ protected:
 	virtual FReply ChallengeClicked(FName ChallengeTag);
 	virtual FReply StartClicked(int32 Difficulty);
 	virtual FReply CustomClicked();
+
+	virtual void StartChallenge(int32 Difficulty);
+	void WarningResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
+
 };
 
 #endif

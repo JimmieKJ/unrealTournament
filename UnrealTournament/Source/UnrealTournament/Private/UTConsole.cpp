@@ -35,7 +35,7 @@ void UUTConsole::FakeGotoState(FName NextStateName)
 			UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(GEngine->GetFirstGamePlayer(World));
 			if (LP)
 			{
-				LP->ShowMenu();
+				LP->ShowMenu(TEXT(""));
 			}
 		}
 		bReopenMenus = false;

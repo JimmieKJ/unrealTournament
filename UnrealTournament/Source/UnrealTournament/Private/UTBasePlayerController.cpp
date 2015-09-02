@@ -50,7 +50,7 @@ void AUTBasePlayerController::InitInputSystem()
 void AUTBasePlayerController::SetupInputComponent()
 {
 	Super::SetupInputComponent();
-	InputComponent->BindAction("ShowMenu", IE_Released, this, &AUTBasePlayerController::ShowMenu);
+	InputComponent->BindAction("ShowMenu", IE_Released, this, &AUTBasePlayerController::execShowMenu);
 }
 
 void AUTBasePlayerController::SetName(const FString& S)
@@ -66,12 +66,17 @@ void AUTBasePlayerController::SetName(const FString& S)
 	}
 }
 
-void AUTBasePlayerController::ShowMenu()
+void AUTBasePlayerController::execShowMenu()
+{
+	ShowMenu(TEXT(""));
+}
+
+void AUTBasePlayerController::ShowMenu(const FString& Parameters)
 {
 	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
 	if (LP != NULL)
 	{
-		LP->ShowMenu();
+		LP->ShowMenu(Parameters);
 	}
 }
 

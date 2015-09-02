@@ -617,6 +617,31 @@ FReply SUTChallengePanel::ChallengeClicked(FName ChallengeTag)
 
 FReply SUTChallengePanel::StartClicked(int32 Difficulty)
 {
+
+	if (PlayerOwner->IsLoggedIn())
+	{
+		StartChallenge(Difficulty);
+	}
+	else
+	{
+		PendingDifficulty = Difficulty;
+		PlayerOwner->ShowMessage(NSLOCTEXT("SUTChallengePanel", "NotLoggedInWarningTitle", "WARNING"), NSLOCTEXT("SUTChallengePanel", "NotLoggedInWarning", "You are not logged in.  Any progress you make on this challenge will not be saved.  Continue?"), UTDIALOG_BUTTON_YES | UTDIALOG_BUTTON_NO, FDialogResultDelegate::CreateSP(this, &SUTChallengePanel::WarningResult));
+	}
+
+	return FReply::Handled();
+}
+
+void SUTChallengePanel::WarningResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID)
+{
+	if (ButtonID == UTDIALOG_BUTTON_YES)
+	{
+		StartChallenge(PendingDifficulty);
+	}
+}
+
+void SUTChallengePanel::StartChallenge(int32 Difficulty)
+{
+
 	if (ChallengeManager.IsValid() && ChallengeManager->Challenges.Contains(SelectedChallenge))
 	{
 		const FUTChallengeInfo Challenge = ChallengeManager->Challenges[SelectedChallenge];
@@ -640,7 +665,6 @@ FReply SUTChallengePanel::StartClicked(int32 Difficulty)
 		ConsoleCommand(TEXT("Open ") + Options);
 	}
 		
-	return FReply::Handled();
 }
 
 FReply SUTChallengePanel::CustomClicked()

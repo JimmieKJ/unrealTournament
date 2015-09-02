@@ -272,7 +272,7 @@ bool UUTLocalPlayer::IsMenuGame()
 }
 
 
-void UUTLocalPlayer::ShowMenu()
+void UUTLocalPlayer::ShowMenu(const FString& Parameters)
 {
 #if !UE_SERVER
 	
@@ -325,7 +325,7 @@ void UUTLocalPlayer::ShowMenu()
 	{
 		// Widget is already valid, just make it visible.
 		DesktopSlateWidget->SetVisibility(EVisibility::Visible);
-		DesktopSlateWidget->OnMenuOpened();
+		DesktopSlateWidget->OnMenuOpened(Parameters);
 
 		if (PlayerController)
 		{
@@ -2474,7 +2474,7 @@ void UUTLocalPlayer::OpenLoadout(bool bBuyMenu)
 		{
 			// Widget is already valid, just make it visible.
 			LoadoutMenu->SetVisibility(EVisibility::Visible);
-			LoadoutMenu->OnMenuOpened();
+			LoadoutMenu->OnMenuOpened(TEXT(""));
 		}
 	}
 #endif
@@ -2545,6 +2545,13 @@ void UUTLocalPlayer::OpenMatchSummary(AUTGameState* GameState)
 }
 void UUTLocalPlayer::CloseMatchSummary()
 {
+
+	UE_LOG(UT,Log,TEXT("CLOSEMATCHSUMMARY ====================="));
+	UE_LOG(UT,Log,TEXT("CLOSEMATCHSUMMARY ====================="));
+	UE_LOG(UT,Log,TEXT("CLOSEMATCHSUMMARY ====================="));
+	UE_LOG(UT,Log,TEXT("CLOSEMATCHSUMMARY ====================="));
+	UE_LOG(UT,Log,TEXT("CLOSEMATCHSUMMARY ====================="));
+
 #if !UE_SERVER
 	UUTGameViewportClient* UTGVC = Cast<UUTGameViewportClient>(GEngine->GameViewport);
 	if (MatchSummaryWindow.IsValid() && UTGVC != nullptr)

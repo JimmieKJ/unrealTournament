@@ -86,5 +86,8 @@ public:
 	virtual void ShowLiveGameReplays();
 	virtual void QuickPlay(const FString& QuickMatchType);
 	virtual void DeactivatePanel(TSharedPtr<class SUWPanel> PanelToDeactivate);
+
+	virtual void OnMenuOpened(const FString& Parameters);
+
 };
 #endif

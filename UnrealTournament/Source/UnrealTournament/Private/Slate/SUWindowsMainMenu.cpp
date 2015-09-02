@@ -467,6 +467,11 @@ void SUWindowsMainMenu::ShowGamePanel()
 		TutorialMenu->RemoveFromViewport();
 	}
 
+#if UE_BUILD_SHIPPING
+	ShowCustomGamePanel();
+	return;
+#endif
+
 	if ( !ChallengePanel.IsValid() )
 	{
 		SAssignNew(ChallengePanel, SUTChallengePanel, PlayerOwner);
@@ -1064,6 +1069,15 @@ FReply SUWindowsMainMenu::OnShowServerBrowserPanel()
 
 	return SUTMenuBase::OnShowServerBrowserPanel();
 
+}
+
+void SUWindowsMainMenu::OnMenuOpened(const FString& Parameters)
+{
+	SUWindowsDesktop::OnMenuOpened(Parameters);
+	if (Parameters.Equals(TEXT("showchallenge"), ESearchCase::IgnoreCase))
+	{
+		ShowGamePanel();
+	}
 }
 
 #endif

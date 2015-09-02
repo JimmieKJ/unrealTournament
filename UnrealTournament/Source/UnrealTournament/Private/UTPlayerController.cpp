@@ -2090,10 +2090,10 @@ void AUTPlayerController::ClientReceiveLevelReward_Implementation(int32 Level, c
 	LevelRewards.Add(Level, RewardItem);
 }
 
-void AUTPlayerController::ShowMenu()
+void AUTPlayerController::ShowMenu(const FString& Parameters)
 {
 	ToggleScoreboard(false);
-	Super::ShowMenu();
+	Super::ShowMenu(Parameters);
 	OnStopFire();
 	OnStopAltFire();
 }

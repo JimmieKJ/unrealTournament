@@ -188,6 +188,7 @@ UUTBotCharacter* UUTChallengeManager::ChooseBotCharacter(AUTGameMode* CurrentGam
 			const FTeamRoster* EnemyRoster = EnemyTeamRosters.Find(Challenge->EnemyTeamName[RosterIndex]);
 			for (int32 i = 0; i < CurrentGame->EligibleBots.Num(); i++)
 			{
+				EnemyIndex = FMath::Clamp<int32>(EnemyIndex, 0, EnemyRoster->Roster.Num()-1);
 				if (CurrentGame->EligibleBots[i]->GetFName() == EnemyRoster->Roster[EnemyIndex])
 				{
 					return CurrentGame->EligibleBots[i];

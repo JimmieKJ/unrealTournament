@@ -867,7 +867,7 @@ public:
 	}
 
 	/** Make sure no firing and scoreboard hidden before bringing up menu. */
-	virtual void ShowMenu() override;
+	virtual void ShowMenu(const FString& Parameters) override;
 	
 	AUTCharacter* PreGhostChar;
 

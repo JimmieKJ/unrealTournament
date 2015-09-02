@@ -36,7 +36,9 @@ class UNREALTOURNAMENT_API AUTBasePlayerController : public APlayerController , 
 
 	/**	Will popup the in-game menu	 **/
 	UFUNCTION(exec, BlueprintCallable, Category = "UI")
-	virtual void ShowMenu();
+	virtual void ShowMenu(const FString& Parameters);
+
+	virtual void execShowMenu();
 
 	UFUNCTION(exec)
 	virtual void HideMenu();

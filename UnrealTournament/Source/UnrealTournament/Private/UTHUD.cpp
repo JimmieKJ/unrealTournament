@@ -386,7 +386,7 @@ void AUTHUD::OpenMatchSummary()
 			UTLP->OpenMatchSummary(GS);
 			if (GS->GetMatchState() == MatchState::WaitingToStart)
 			{
-				UTLP->ShowMenu();
+				UTLP->ShowMenu(TEXT(""));
 			}
 		}
 	}

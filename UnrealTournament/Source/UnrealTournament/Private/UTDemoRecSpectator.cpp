@@ -193,12 +193,12 @@ void AUTDemoRecSpectator::ToggleReplayWindow()
 	}
 }
 
-void AUTDemoRecSpectator::ShowMenu()
+void AUTDemoRecSpectator::ShowMenu(const FString& Parameters)
 {
 	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(Player);
 	if (LocalPlayer)
 	{
-		LocalPlayer->ShowMenu();
+		LocalPlayer->ShowMenu(Parameters);
 	}
 }
 

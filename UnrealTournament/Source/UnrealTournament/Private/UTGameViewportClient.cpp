@@ -311,13 +311,13 @@ void UUTGameViewportClient::PeekNetworkFailureMessages(UWorld *World, UNetDriver
 			else if (ErrorString == TEXT("TOOWEAK"))
 			{
 				FirstPlayer->ShowMessage(NSLOCTEXT("UTGameViewportClient","PreLoginError","Login Error"), NSLOCTEXT("UTGameViewportClient","WEAKMSG","You are not skilled enough to play on this server!"), UTDIALOG_BUTTON_OK,FDialogResultDelegate::CreateUObject(this, &UUTGameViewportClient::NetworkFailureDialogResult));	
-				FirstPlayer->ShowMenu();
+				FirstPlayer->ShowMenu(TEXT(""));
 				return;
 			}
 			else if (ErrorString == TEXT("TOOSTRONG"))
 			{
 				FirstPlayer->ShowMessage(NSLOCTEXT("UTGameViewportClient","PreLoginError","Login Error"), NSLOCTEXT("UTGameViewportClient","STRONGMSG","Your skill is too high for this server!"), UTDIALOG_BUTTON_OK,FDialogResultDelegate::CreateUObject(this, &UUTGameViewportClient::NetworkFailureDialogResult));	
-				FirstPlayer->ShowMenu();
+				FirstPlayer->ShowMenu(TEXT(""));
 				return;
 			}
 			else if (ErrorString == TEXT("NOTLOGGEDIN"))
@@ -339,14 +339,14 @@ void UUTGameViewportClient::PeekNetworkFailureMessages(UWorld *World, UNetDriver
 			else if (ErrorString == TEXT("BANNED"))
 			{
 				FirstPlayer->ShowMessage(NSLOCTEXT("UTGameViewportClient", "BannedFromServerTitle", "IMPORTANT"), NSLOCTEXT("UTGameViewportClient", "BannedFromServerMsg", "You have been banned from this server!"), UTDIALOG_BUTTON_OK, FDialogResultDelegate::CreateUObject(this, &UUTGameViewportClient::NetworkFailureDialogResult));
-				FirstPlayer->ShowMenu();
+				FirstPlayer->ShowMenu(TEXT(""));
 				return;
 			}
 
 			// TODO: Explain to the engine team why you can't localize server error strings :(
 			else if (ErrorString == TEXT("Server full."))
 			{
-				FirstPlayer->ShowMenu();
+				FirstPlayer->ShowMenu(TEXT(""));
 				FirstPlayer->ShowMessage(NSLOCTEXT("UTGameViewportClient","PreLoginError","Unable to Join"), NSLOCTEXT("UTGameViewportClient","SERVERFULL","The game you are trying to join is full!"), UTDIALOG_BUTTON_OK,FDialogResultDelegate::CreateUObject(this, &UUTGameViewportClient::NetworkFailureDialogResult));	
 				return;
 			}
