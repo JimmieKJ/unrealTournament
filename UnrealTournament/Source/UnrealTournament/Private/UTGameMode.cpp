@@ -294,7 +294,7 @@ void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FStr
 			BotFillCount = UUTChallengeManager::StaticClass()->GetDefaultObject<UUTChallengeManager>()->GetNumPlayers(this);
 			bOfflineChallenge = UUTChallengeManager::StaticClass()->GetDefaultObject<UUTChallengeManager>()->IsValidChallenge(this, MapName);
 			bForceRespawn = true;
-			TimeLimit = 60 * GetClass()->GetDefaultObject<AUTGameMode>()->TimeLimit;
+			TimeLimit = 900; // always 15 minutes
 			GoalScore = 0;
 		}
 	}

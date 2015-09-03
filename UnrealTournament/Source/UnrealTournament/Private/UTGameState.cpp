@@ -223,7 +223,7 @@ void AUTGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLif
 	DOREPLIFETIME(AUTGameState, WinnerPlayerState);
 	DOREPLIFETIME(AUTGameState, WinningTeam);
 	DOREPLIFETIME(AUTGameState, bStopGameClock);
-	DOREPLIFETIME(AUTGameState, TimeLimit);  // @TODO FIXMESTEVE why not initial only
+	DOREPLIFETIME(AUTGameState, TimeLimit);  
 	DOREPLIFETIME(AUTGameState, RespawnWaitTime);  
 	DOREPLIFETIME_CONDITION(AUTGameState, ForceRespawnTime, COND_InitialOnly);  
 	DOREPLIFETIME_CONDITION(AUTGameState, bTeamGame, COND_InitialOnly);  
