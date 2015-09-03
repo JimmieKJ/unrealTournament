@@ -2575,13 +2575,6 @@ void UUTLocalPlayer::OpenMatchSummary(AUTGameState* GameState)
 }
 void UUTLocalPlayer::CloseMatchSummary()
 {
-
-	UE_LOG(UT,Log,TEXT("CLOSEMATCHSUMMARY ====================="));
-	UE_LOG(UT,Log,TEXT("CLOSEMATCHSUMMARY ====================="));
-	UE_LOG(UT,Log,TEXT("CLOSEMATCHSUMMARY ====================="));
-	UE_LOG(UT,Log,TEXT("CLOSEMATCHSUMMARY ====================="));
-	UE_LOG(UT,Log,TEXT("CLOSEMATCHSUMMARY ====================="));
-
 #if !UE_SERVER
 	UUTGameViewportClient* UTGVC = Cast<UUTGameViewportClient>(GEngine->GameViewport);
 	if (MatchSummaryWindow.IsValid() && UTGVC != nullptr)
