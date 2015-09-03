@@ -72,6 +72,9 @@ void FCharacterCamera::InitCam(class SUWMatchSummary* MatchWidget)
 
 		CameraTransform.SetLocation(Location);
 		CameraTransform.SetRotation(Dir.Quaternion());
+
+		MatchWidget->CameraTransform.SetLocation(Location + 100.f*Dir.Vector());
+		MatchWidget->CameraTransform.SetRotation(Dir.Quaternion());
 	}
 }
 
