@@ -1740,7 +1740,7 @@ void AUTGameMode::EndGame(AUTPlayerState* Winner, FName Reason )
 			}
 		}
 	}
-	UE_LOG(UT, Warning, TEXT("EndGAME OFL %d player won %d"), bOfflineChallenge, PlayerWonChallenge());
+
 	if (bOfflineChallenge && PlayerWonChallenge())
 	{
 		APlayerController* LocalPC = GEngine->GetFirstLocalPlayerController(GetWorld());
@@ -1826,18 +1826,19 @@ void AUTGameMode::TravelToNextMap_Implementation()
 	FString CurrentMapName = GetWorld()->GetMapName();
 	if (bOfflineChallenge)
 	{
-		APlayerController* LocalPC = GEngine->GetFirstLocalPlayerController(GetWorld());
-		UUTLocalPlayer* LP = LocalPC ? Cast<UUTLocalPlayer>(LocalPC->Player) : NULL;
-		if (LP)
+		// Return to offline challenge menu
+		FWorldContext* WorldContext = GEngine->GetWorldContextFromWorld(GetWorld());
+		if (WorldContext)
 		{
-			FWorldContext* WorldContext = GEngine->GetWorldContextFromWorld(GetWorld());
-			if (WorldContext)
+			UE_LOG(UT, Warning, TEXT("ADD showchallenge"));
+			APlayerController* LocalPC = GEngine->GetFirstLocalPlayerController(GetWorld());
+			UUTLocalPlayer* LP = LocalPC ? Cast<UUTLocalPlayer>(LocalPC->Player) : NULL;
+			if (LP)
 			{
-				UE_LOG(UT, Warning, TEXT("ADD showchallenge"));
-				// Return to offline challenge menu
-				WorldContext->LastURL.AddOption(TEXT("ShowChallenge"));
+				LP->HideMenu();
+				LP->CloseReplayWindow();
 			}
-			LP->ReturnToMainMenu();
+			GEngine->SetClientTravel(GetWorld(),TEXT("/Game/RestrictedAssets/Maps/UT-Entry?ShowChallenge"), TRAVEL_Absolute);
 			return;
 		}
 	}
