@@ -1810,7 +1810,7 @@ TSharedRef<SWidget> AUTPlayerState::BuildRankInfo()
 				.WidthOverride(300)
 				[
 					SNew(STextBlock)
-					.Text(NSLOCTEXT("AUTPlayerState", "Progress", "Progress:"))
+					.Text(NSLOCTEXT("AUTPlayerState", "Progress", "Progress to next level:"))
 					.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
 					.ColorAndOpacity(FLinearColor::Gray)
 				]
