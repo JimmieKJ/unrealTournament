@@ -403,7 +403,7 @@ void AUTBasePlayerController::OnFindSessionsComplete(bool bWasSuccessful)
 				{
 					if (LP->JoinSession(Result, GUIDJoinWantsToSpectate, NAME_None, GUIDJoinWantsToFindMatch,GUIDJoinDesiredTeam))
 					{
-						LP->HideMenu();
+						//LP->HideMenu(); // should happen on level change now
 					}
 				}
 
