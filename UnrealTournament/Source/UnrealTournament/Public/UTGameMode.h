@@ -741,6 +741,9 @@ private:
 	UPROPERTY()
 	TArray<FStringAssetReference> LevelUpRewards;
 
+	UPROPERTY(globalconfig)
+	FStringAssetReference EventReward;
+
 public:
 	UPROPERTY(Config)
 	bool bDisableMapVote;

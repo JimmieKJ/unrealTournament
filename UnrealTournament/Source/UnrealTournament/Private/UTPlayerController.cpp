@@ -2856,7 +2856,7 @@ bool AUTPlayerController::ServerReceiveStatsID_Validate(const FString& NewStatsI
 /** Store an id for stats tracking.  Right now we are using the machine ID for this PC until we have have a proper ID available.  */
 void AUTPlayerController::ServerReceiveStatsID_Implementation(const FString& NewStatsID)
 {
-	if (UTPlayerState != NULL && !GetWorld()->IsPlayInEditor() && GetWorld()->GetNetMode() != NM_Standalone)
+	if ( UTPlayerState != NULL && !GetWorld()->IsPlayInEditor() ) // && GetWorld()->GetNetMode() != NM_Standalone)
 	{
 		UTPlayerState->StatsID = NewStatsID;
 		UTPlayerState->ReadStatsFromCloud();

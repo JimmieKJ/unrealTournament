@@ -80,7 +80,7 @@ TSharedRef<ITableRow> SUWProfileItemsDialog::GenerateItemListRow(TSharedPtr<FPro
 			.HAlign(HAlign_Right)
 			[
 				SNew(STextBlock)
-				.Text(FText::AsNumber(TheItem->Count))
+				.Text(/*FText::AsNumber(TheItem->Count)*/FText())
 				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
 			]
 		];

@@ -711,6 +711,20 @@ void UUTLocalPlayer::OnLoginComplete(int32 LocalUserNum, bool bWasSuccessful, co
 				JoinFriendSession(FUniqueNetIdString(FriendId), FUniqueNetIdString(SessionId));
 			}
 		}
+
+		AUTPlayerController* UTPC = Cast<AUTPlayerController>(PlayerController);
+		if (UTPC)
+		{
+			if (OnlineIdentityInterface.IsValid() && OnlineIdentityInterface->GetLoginStatus(GetControllerId()))
+			{
+				TSharedPtr<FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());
+				if (UserId.IsValid())
+				{
+					UTPC->ServerReceiveStatsID(UserId->ToString());
+					UTPC->PlayerState->SetUniqueId(UserId);
+				}
+			}
+		}
 	}
 
 	// We have enough credentials to auto-login.  So try it, but silently fail if we cant.
@@ -1146,6 +1160,10 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 			FString CmdLineSwitch = TEXT("");
 			bool bClearProfile = FParse::Param(FCommandLine::Get(), TEXT("ClearProfile"));
 
+			// Set the ranks/etc so the player card is right.
+			AUTBasePlayerController* UTBasePlayer = Cast<AUTBasePlayerController>(PlayerController);
+			if (UTBasePlayer) UTBasePlayer->ServerReceiveRank(GetBaseELORank(), GetRankDuel(), GetRankCTF(), GetRankTDM(), GetRankDM(), GetTotalChallengeStars());
+
 			// Check to make sure the profile settings are valid and that we aren't forcing them
 			// to be cleared.  If all is OK, then apply these settings.
 			if (CurrentProfileSettings->SettingsRevisionNum >= VALID_PROFILESETTINGS_VERSION && !bClearProfile)
@@ -1157,6 +1175,7 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 			{
 				CurrentProfileSettings->ClearWeaponPriorities();
 			}
+
 		}
 		else if (CurrentProfileSettings == NULL) // Create a new profile settings object
 		{
@@ -2551,13 +2570,6 @@ void UUTLocalPlayer::OpenMatchSummary(AUTGameState* GameState)
 }
 void UUTLocalPlayer::CloseMatchSummary()
 {
-
-	UE_LOG(UT,Log,TEXT("CLOSEMATCHSUMMARY ====================="));
-	UE_LOG(UT,Log,TEXT("CLOSEMATCHSUMMARY ====================="));
-	UE_LOG(UT,Log,TEXT("CLOSEMATCHSUMMARY ====================="));
-	UE_LOG(UT,Log,TEXT("CLOSEMATCHSUMMARY ====================="));
-	UE_LOG(UT,Log,TEXT("CLOSEMATCHSUMMARY ====================="));
-
 #if !UE_SERVER
 	UUTGameViewportClient* UTGVC = Cast<UUTGameViewportClient>(GEngine->GameViewport);
 	if (MatchSummaryWindow.IsValid() && UTGVC != nullptr)
@@ -3016,9 +3028,26 @@ void UUTLocalPlayer::CloseAllUI(bool bExceptDialogs)
 {
 	ChatArchive.Empty();
 
-	GEngine->GameViewport->RemoveAllViewportWidgets();
+	if (GetWorld()->WorldType == EWorldType::Game)
+	{
+		GEngine->GameViewport->RemoveAllViewportWidgets();
+	}
 #if !UE_SERVER
-	if (!bExceptDialogs)
+	if (bExceptDialogs)
+	{
+		if (GetWorld()->WorldType == EWorldType::Game)
+		{
+			// restore dialogs to the viewport
+			for (TSharedPtr<SUWDialog> Dialog : OpenDialogs)
+			{
+				if (Dialog.IsValid())
+				{
+					GEngine->GameViewport->AddViewportWidgetContent(Dialog.ToSharedRef());
+				}
+			}
+		}
+	}
+	else
 	{
 		OpenDialogs.Empty();
 	}

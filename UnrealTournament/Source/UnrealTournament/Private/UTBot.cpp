@@ -3776,7 +3776,7 @@ bool AUTBot::IsImportantEnemyUpdate(APawn* TestEnemy, EAIEnemyUpdateType UpdateT
 
 void AUTBot::UpdateEnemyInfo(APawn* NewEnemy, EAIEnemyUpdateType UpdateType)
 {
-	if (NewEnemy != NULL && !NewEnemy->bTearOff && !NewEnemy->bPendingKillPending && Squad != NULL && (!AreAIIgnoringPlayers() || Cast<APlayerController>(NewEnemy->Controller) == NULL) && !IsTeammate(NewEnemy))
+	if (NewEnemy != NULL && !NewEnemy->bTearOff && !NewEnemy->bPendingKillPending && Squad != NULL && !IsTeammate(NewEnemy)) //  && (!AreAIIgnoringPlayers() || Cast<APlayerController>(NewEnemy->Controller) == NULL || Game->bOfflineChallenge)
 	{
 		bool bImportant = IsImportantEnemyUpdate(NewEnemy, UpdateType);
 

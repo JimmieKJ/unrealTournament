@@ -60,7 +60,10 @@ void UUTProfileSettings::VersionFixup()
 	{
 		bHearsTaunts = true;
 	}
-	
+	if (SettingsRevisionNum <= PAUSEKEY_FIXUP_PROFILESETTINGS_VERSION)
+	{
+		new(CustomBinds) FCustomKeyBinding(EKeys::Pause.GetFName(), IE_Pressed, TEXT("Pause"));
+	}
 }
 
 void UUTProfileSettings::SetWeaponPriority(FString WeaponClassName, float NewPriority)

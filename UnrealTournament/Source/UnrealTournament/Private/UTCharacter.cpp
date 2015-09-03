@@ -510,7 +510,13 @@ FVector AUTCharacter::GetHeadLocation(float PredictionTime)
 	{
 		if (GetMesh()->MeshComponentUpdateFlag > EMeshComponentUpdateFlag::AlwaysTickPose)
 		{
-			GetMesh()->TickAnimation(FMath::Min<float>(GetWorld()->TimeSeconds - GetMesh()->LastRenderTime, 1.0f)); // important to have significant time here so any transitions complete
+			// important to have significant time here so any transitions complete
+			// FIXME: step size needs to be this small due to usage of framerate-dependent FInterpTo() in the anim blueprint
+			const float Step = 0.1f;
+			for (float TickTime = FMath::Min<float>(GetWorld()->TimeSeconds - GetMesh()->LastRenderTime, 1.0f); TickTime > 0.0f; TickTime -= Step)
+			{
+				GetMesh()->TickAnimation(FMath::Min<float>(TickTime, Step));
+			}
 		}
 		GetMesh()->AnimUpdateRateParams->bSkipEvaluation = false;
 		GetMesh()->AnimUpdateRateParams->bInterpolateSkippedFrames = false;
@@ -3414,7 +3420,11 @@ void AUTCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 	
-	if (GetMovementBase() && Cast<AUTLift>(GetMovementBase()->GetOwner()) && (GetMovementBase()->GetOwner()->GetVelocity().Z >= 0.f))
+	if (HeadScale < 0.1f)
+	{
+		GetMesh()->ClothBlendWeight = 0.0f;
+	}
+	else if (GetMovementBase() && Cast<AUTLift>(GetMovementBase()->GetOwner()) && (GetMovementBase()->GetOwner()->GetVelocity().Z >= 0.f))
 	{
 		GetMesh()->ClothBlendWeight = 0.5f;
 	}

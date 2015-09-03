@@ -41,6 +41,8 @@ protected:
 	void ReadBackendStatsComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded);
 	void ShowErrorPage();
 
+	virtual bool QueryReceived(int64 QueryId, FString QueryString, bool Persistent, FJSQueryResultDelegate Delegate);
+
 	TSharedPtr< SComboBox< TSharedPtr<FString> > > FriendListComboBox;
 	TArray<TSharedPtr<FString>> FriendList;
 	TArray<FString> FriendStatIDList;

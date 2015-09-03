@@ -506,7 +506,7 @@ void AUTShowdownGame::DefaultTimer()
 	{
 		RoundElapsedTime++;
 
-		if (!GS->bActivateXRayVision && bXRayBreaker && RoundElapsedTime >= 1)
+		if (!GS->bActivateXRayVision && bXRayBreaker && RoundElapsedTime >= 70)
 		{
 			GS->bActivateXRayVision = true;
 			GS->OnRep_XRayVision();

@@ -294,7 +294,7 @@ void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FStr
 			BotFillCount = UUTChallengeManager::StaticClass()->GetDefaultObject<UUTChallengeManager>()->GetNumPlayers(this);
 			bOfflineChallenge = UUTChallengeManager::StaticClass()->GetDefaultObject<UUTChallengeManager>()->IsValidChallenge(this, MapName);
 			bForceRespawn = true;
-			TimeLimit = 60 * GetClass()->GetDefaultObject<AUTGameMode>()->TimeLimit;
+			TimeLimit = 900; // always 15 minutes
 			GoalScore = 0;
 		}
 	}
@@ -843,26 +843,46 @@ void AUTGameMode::SetUniqueBotName(AUTBot* B, const UUTBotCharacter* BotData)
 
 AUTBot* AUTGameMode::ForceAddBot(uint8 TeamNum)
 {
+	if (bOfflineChallenge)
+	{
+		return NULL;
+	}
 	BotFillCount = FMath::Max<int32>(BotFillCount, NumPlayers + NumBots + 1);
 	return AddBot(TeamNum);
 }
 AUTBot* AUTGameMode::ForceAddNamedBot(const FString& BotName, uint8 TeamNum)
 {
+	if (bOfflineChallenge)
+	{
+		return NULL;
+	}
 	return AddNamedBot(BotName, TeamNum);
 }
 
 void AUTGameMode::SetBotCount(uint8 NewCount)
 {
+	if (bOfflineChallenge)
+	{
+		return;
+	}
 	BotFillCount = NumPlayers + NewCount;
 }
 
 void AUTGameMode::AddBots(uint8 Num)
 {
+	if (bOfflineChallenge)
+	{
+		return;
+	}
 	BotFillCount = FMath::Max(NumPlayers, BotFillCount) + Num;
 }
 
 void AUTGameMode::KillBots()
 {
+	if (bOfflineChallenge)
+	{
+		return;
+	}
 	BotFillCount = 0;
 	for (FConstControllerIterator It = GetWorld()->GetControllerIterator(); It; ++It)
 	{
@@ -877,6 +897,10 @@ void AUTGameMode::KillBots()
 
 bool AUTGameMode::AllowRemovingBot(AUTBot* B)
 {
+	if (bOfflineChallenge)
+	{
+		return false;
+	}
 	AUTPlayerState* PS = Cast<AUTPlayerState>(B->PlayerState);
 	// flag carriers should stay in the game until they lose it
 	if (PS != NULL && PS->CarriedObject != NULL)
@@ -1591,8 +1615,16 @@ void AUTGameMode::EndMatch()
 
 bool AUTGameMode::AllowPausing(APlayerController* PC)
 {
-	// allow pausing even in listen server mode if no remote players are connected
-	return (Super::AllowPausing(PC) || GetWorld()->GetNetDriver() == NULL || GetWorld()->GetNetDriver()->ClientConnections.Num() == 0);
+	AUTPlayerState* PS = (PC != NULL) ? Cast<AUTPlayerState>(PC->PlayerState) : NULL;
+	if (PS != NULL && PS->bIsRconAdmin)
+	{
+		return true;
+	}
+	else
+	{
+		// allow pausing even in listen server mode if no remote players are connected
+		return (Super::AllowPausing(PC) || GetWorld()->GetNetDriver() == NULL || GetWorld()->GetNetDriver()->ClientConnections.Num() == 0);
+	}
 }
 
 void AUTGameMode::UpdateSkillRating()
@@ -1627,7 +1659,7 @@ void AUTGameMode::SendEndOfGameStats(FName Reason)
 			{
 				PS->SetStatsValue(NAME_MatchesPlayed, 1);
 				PS->SetStatsValue(NAME_TimePlayed, UTGameState->ElapsedTime);
-				PS->AddMatchToStats(GetClass()->GetPathName(), nullptr, &GetWorld()->GameState->PlayerArray, &InactivePlayerArray);
+				PS->AddMatchToStats(GetWorld()->GetMapName(), GetClass()->GetPathName(), nullptr, &GetWorld()->GameState->PlayerArray, &InactivePlayerArray);
 				PS->WriteStatsToCloud();
 			}
 		}
@@ -1645,7 +1677,7 @@ void AUTGameMode::SendEndOfGameStats(FName Reason)
 				PS->SetStatsValue(NAME_MatchesPlayed, 1);
 				PS->SetStatsValue(NAME_TimePlayed, UTGameState->ElapsedTime);
 
-				PS->AddMatchToStats(GetClass()->GetPathName(), nullptr, &GetWorld()->GameState->PlayerArray, &InactivePlayerArray);
+				PS->AddMatchToStats(GetWorld()->GetMapName(), GetClass()->GetPathName(), nullptr, &GetWorld()->GameState->PlayerArray, &InactivePlayerArray);
 				if (PS != nullptr)
 				{
 					PS->WriteStatsToCloud();
@@ -1691,6 +1723,14 @@ void AUTGameMode::AwardXP()
 								new(Rewards) FProfileItemEntry(RewardItem, 1);
 								PC->ClientReceiveLevelReward(CurrentLevel, RewardItem);
 							}
+						}
+					}
+					if (EventReward.IsValid())
+					{
+						const UUTProfileItem* RewardItem = Cast<UUTProfileItem>(EventReward.TryLoad());
+						if (RewardItem != NULL)
+						{
+							new(Rewards) FProfileItemEntry(RewardItem, 1);
 						}
 					}
 					if (Rewards.Num() > 0)
@@ -1740,7 +1780,7 @@ void AUTGameMode::EndGame(AUTPlayerState* Winner, FName Reason )
 			}
 		}
 	}
-	UE_LOG(UT, Warning, TEXT("EndGAME OFL %d player won %d"), bOfflineChallenge, PlayerWonChallenge());
+
 	if (bOfflineChallenge && PlayerWonChallenge())
 	{
 		APlayerController* LocalPC = GEngine->GetFirstLocalPlayerController(GetWorld());
@@ -1826,18 +1866,19 @@ void AUTGameMode::TravelToNextMap_Implementation()
 	FString CurrentMapName = GetWorld()->GetMapName();
 	if (bOfflineChallenge)
 	{
-		APlayerController* LocalPC = GEngine->GetFirstLocalPlayerController(GetWorld());
-		UUTLocalPlayer* LP = LocalPC ? Cast<UUTLocalPlayer>(LocalPC->Player) : NULL;
-		if (LP)
+		// Return to offline challenge menu
+		FWorldContext* WorldContext = GEngine->GetWorldContextFromWorld(GetWorld());
+		if (WorldContext)
 		{
-			FWorldContext* WorldContext = GEngine->GetWorldContextFromWorld(GetWorld());
-			if (WorldContext)
+			UE_LOG(UT, Warning, TEXT("ADD showchallenge"));
+			APlayerController* LocalPC = GEngine->GetFirstLocalPlayerController(GetWorld());
+			UUTLocalPlayer* LP = LocalPC ? Cast<UUTLocalPlayer>(LocalPC->Player) : NULL;
+			if (LP)
 			{
-				UE_LOG(UT, Warning, TEXT("ADD showchallenge"));
-				// Return to offline challenge menu
-				WorldContext->LastURL.AddOption(TEXT("ShowChallenge"));
+				LP->HideMenu();
+				LP->CloseReplayWindow();
 			}
-			LP->ReturnToMainMenu();
+			GEngine->SetClientTravel(GetWorld(),TEXT("/Game/RestrictedAssets/Maps/UT-Entry?ShowChallenge"), TRAVEL_Absolute);
 			return;
 		}
 	}

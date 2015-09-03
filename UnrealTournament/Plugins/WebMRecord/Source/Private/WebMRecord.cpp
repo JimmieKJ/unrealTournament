@@ -15,6 +15,7 @@
 #include "vpx/vp8cx.h"
 #include "vpx/video_writer.h"
 #include "vpx/webmenc.h"
+#include "vpx/vpx_mem.h"
 #include "libyuv/convert.h"
 
 #include <Avrt.h>
@@ -550,6 +551,48 @@ void FWebMRecord::MakeAudioPrivateData(const ogg_packet& header, const ogg_packe
 	FMemory::Memcpy(HeaderIterator, header_code.packet, header_code.bytes);
 }
 
+
+void* VPXMalloc(size_t a)
+{
+	return FMemory::Malloc(a);
+}
+
+void* VPXCalloc(size_t a, size_t b)
+{
+	void* NewMemory = FMemory::Malloc(a, b);
+	if (NewMemory)
+	{
+		FMemory::Memset(NewMemory, 0, a);
+	}
+
+	return NewMemory;
+}
+
+void* VPXRealloc(void* OldMemory, size_t a)
+{
+	return FMemory::Realloc(OldMemory, a);
+}
+
+void VPXFree(void* OldMemory)
+{
+	return FMemory::Free(OldMemory);
+}
+
+void* VPXMemcpy(void* a, const void* b, size_t c)
+{
+	return FMemory::Memcpy(a, b, c);
+}
+
+void* VPXMemset(void* a, int b, size_t c)
+{
+	return FMemory::Memset(a, b, c);
+}
+
+void* VPXMemmove(void* a, const void* b, size_t c)
+{
+	return FMemory::Memmove(a, b, c);
+}
+
 void FWebMRecord::EncodeVideoAndAudio(const FString& Filename)
 {
 	bCompressionSuccessful = false;
@@ -602,6 +645,9 @@ void FWebMRecord::EncodeVideoAndAudio(const FString& Filename)
 	const int32 SAMPLE_SIZE = (int32)sizeof(short);
 	short ReadBuffer[SAMPLES_TO_READ * SAMPLE_SIZE * 2];
 	uint64 AudioSampleRate = 44100LL;
+
+	// Hook up to the unreal memory allocators
+	vpx_mem_set_functions(&VPXMalloc, &VPXCalloc, &VPXRealloc, &VPXFree, &VPXMemcpy, &VPXMemset, &VPXMemmove);
 
 #define interface (vpx_codec_vp8_cx())
 

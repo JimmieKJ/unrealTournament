@@ -63,6 +63,7 @@ TSharedRef<FSlateStyleSet> SUTStyle::Create()
 	SetFonts(StyleRef);
 	SetCommonStyle(StyleRef);
 	SetAvatars(StyleRef);
+	SetRankBadges(StyleRef);
 	SetChallengeBadges(StyleRef);
 
 	return StyleRef;
@@ -248,6 +249,12 @@ void SUTStyle::SetCommonStyle(TSharedRef<FSlateStyleSet> StyleRef)
 		.SetHoveredSound(ButtonHoverSound)
 		.SetPressedSound(ButtonPressSound)
 	);
+
+	Style.Set( "UT.ProgressBar", FProgressBarStyle()
+		.SetBackgroundImage( FSlateColorBrush(FColor(4,4,4,255)) )
+		.SetFillImage( FSlateColorBrush(FColor(200,200,200,255)) )
+		.SetMarqueeImage( FSlateColorBrush(FColor(255,255,255,255)) )
+		);
 }
 
 void SUTStyle::SetAvatars(TSharedRef<FSlateStyleSet> StyleRef)
@@ -260,6 +267,21 @@ void SUTStyle::SetAvatars(TSharedRef<FSlateStyleSet> StyleRef)
 	Style.Set("UT.Avatar.3", new IMAGE_BRUSH( "UTStyle/Avatars/UT.Avatar.3", FVector2D(50.0f, 50.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
 	Style.Set("UT.Avatar.4", new IMAGE_BRUSH( "UTStyle/Avatars/UT.Avatar.4", FVector2D(50.0f, 50.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
 }
+
+void SUTStyle::SetRankBadges(TSharedRef<FSlateStyleSet> StyleRef)
+{
+	FSlateStyleSet& Style = StyleRef.Get();
+
+	Style.Set("UT.RankBadge.0", new IMAGE_BRUSH( "UTStyle/RankBadges/UT.RankBadge.Steel.77x77", FVector2D(77.0f, 77.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
+	Style.Set("UT.RankBadge.0.Small", new IMAGE_BRUSH( "UTStyle/RankBadges/UT.RankBadge.Steel.48x48", FVector2D(48.0f, 48.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
+
+	Style.Set("UT.RankBadge.1", new IMAGE_BRUSH( "UTStyle/RankBadges/UT.RankBadge.Gold.77x77", FVector2D(77.0f, 77.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
+	Style.Set("UT.RankBadge.1.Small", new IMAGE_BRUSH( "UTStyle/RankBadges/UT.RankBadge.Gold.48x48", FVector2D(48.0f, 48.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
+
+	Style.Set("UT.RankBadge.2", new IMAGE_BRUSH( "UTStyle/RankBadges/UT.RankBadge.Tarydium.77x77", FVector2D(77.0f, 77.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
+	Style.Set("UT.RankBadge.2.Small", new IMAGE_BRUSH( "UTStyle/RankBadges/UT.RankBadge.Tarydium.48x48", FVector2D(48.0f, 48.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
+}
+
 
 void SUTStyle::SetChallengeBadges(TSharedRef<FSlateStyleSet> StyleRef)
 {

@@ -318,6 +318,7 @@ void FPackageContent::Initialize()
 		ActionList->MapAction(Commands.PackageWeapon, FExecuteAction::CreateSP(this, &FPackageContent::OpenPackageWeaponWindow));
 		ActionList->MapAction(Commands.PackageHat, FExecuteAction::CreateSP(this, &FPackageContent::OpenPackageHatWindow));
 		ActionList->MapAction(Commands.PackageTaunt, FExecuteAction::CreateSP(this, &FPackageContent::OpenPackageTauntWindow));
+		ActionList->MapAction(Commands.PackageMutator, FExecuteAction::CreateSP(this, &FPackageContent::OpenPackageMutatorWindow));
 		ActionList->MapAction(Commands.PackageCharacter, FExecuteAction::CreateSP(this, &FPackageContent::OpenPackageCharacterWindow));
 		ActionList->MapAction(Commands.PackageCrosshair, FExecuteAction::CreateSP(this, &FPackageContent::OpenPackageCrosshairWindow));
 	}
@@ -745,7 +746,17 @@ void FPackageContent::PackageTaunt(UClass* TauntClass)
 	if (UBGC && UBGC->ClassGeneratedBy)
 	{
 		FString TauntName = UBGC->ClassGeneratedBy->GetName();
-		PackageDLC(TauntName, LOCTEXT("PackageWeaponTaskName", "Packaging Taunt"), LOCTEXT("CookingTaskName", "Publishing"));
+		PackageDLC(TauntName, LOCTEXT("PackageTauntTaskName", "Packaging Taunt"), LOCTEXT("CookingTaskName", "Publishing"));
+	}
+}
+
+void FPackageContent::PackageMutator(UClass* MutatorClass)
+{
+	UBlueprintGeneratedClass* UBGC = Cast<UBlueprintGeneratedClass>(MutatorClass);
+	if (UBGC && UBGC->ClassGeneratedBy)
+	{
+		FString MutatorName = UBGC->ClassGeneratedBy->GetName();
+		PackageDLC(MutatorName, LOCTEXT("PackageMutatorTaskName", "Packaging Mutator"), LOCTEXT("CookingTaskName", "Publishing"));
 	}
 }
 
@@ -755,7 +766,7 @@ void FPackageContent::PackageCharacter(UClass* CharacterClass)
 	if (UBGC && UBGC->ClassGeneratedBy)
 	{
 		FString CharacterName = UBGC->ClassGeneratedBy->GetName();
-		PackageDLC(CharacterName, LOCTEXT("PackageWeaponTaskName", "Packaging Character"), LOCTEXT("CookingTaskName", "Publishing"));
+		PackageDLC(CharacterName, LOCTEXT("PackageCharacterTaskName", "Packaging Character"), LOCTEXT("CookingTaskName", "Publishing"));
 	}
 }
 
@@ -792,6 +803,32 @@ void FPackageContent::OpenPackageCharacterWindow()
 
 		// Show the package dialog window as a modal window
 		GEditor->EditorAddModalWindow(EditorPackageCharacterDialogWindowRef);
+	}
+}
+
+void FPackageContent::OpenPackageMutatorWindow()
+{
+	bool bPromptUserToSave = true;
+	bool bSaveMapPackages = false;
+	bool bSaveContentPackages = true;
+	if (FEditorFileUtils::SaveDirtyPackages(bPromptUserToSave, bSaveMapPackages, bSaveContentPackages))
+	{
+		PackageDialogTitle = LOCTEXT("PackageMutatorDialogTitle", "Share A Mutator");
+
+		/** Create the window to host our package dialog widget */
+		TSharedRef< SWindow > EditorPackageMutatorDialogWindowRef = SNew(SWindow)
+			.Title(PackageDialogTitle)
+			.ClientSize(FPackageContent::DEFAULT_WINDOW_SIZE);
+
+		TSharedPtr<class SPackageContentDialog> PackagesDialogWidget = SNew(SPackageContentDialog, EditorPackageMutatorDialogWindowRef)
+			.PackageContent(SharedThis(this))
+			.DialogMode(SPackageContentDialog::EPackageContentDialogMode::PACKAGE_Mutator);
+
+		// Set the content of the window to our package dialog widget
+		EditorPackageMutatorDialogWindowRef->SetContent(PackagesDialogWidget.ToSharedRef());
+
+		// Show the package dialog window as a modal window
+		GEditor->EditorAddModalWindow(EditorPackageMutatorDialogWindowRef);
 	}
 }
 
@@ -919,6 +956,7 @@ TSharedRef<SWidget> FPackageContent::GenerateOpenPackageMenuContent()
 		MenuBuilder.AddMenuEntry(FPackageContentCommands::Get().PackageHat);
 		MenuBuilder.AddMenuEntry(FPackageContentCommands::Get().PackageCharacter);
 		MenuBuilder.AddMenuEntry(FPackageContentCommands::Get().PackageTaunt);
+		MenuBuilder.AddMenuEntry(FPackageContentCommands::Get().PackageMutator);
 		MenuBuilder.AddMenuEntry(FPackageContentCommands::Get().PackageCrosshair);
 #else
 		MenuBuilder.AddMenuEntry(FPackageContentCommands::Get().ComingSoon);
@@ -968,6 +1006,12 @@ void SPackageContentDialog::Construct(const FArguments& InArgs, TSharedPtr<SWind
 		Options.ClassFilter = Filter;
 		Options.ViewerTitleString = FText::FromString(LOCTEXT("CrosshairClassSelect", "Select Crosshair Blueprint").ToString());
 	}
+	else if (DialogMode == PACKAGE_Mutator)
+	{
+		TSharedPtr<FMutatorClassFilter> Filter = MakeShareable(new FMutatorClassFilter);
+		Options.ClassFilter = Filter;
+		Options.ViewerTitleString = FText::FromString(LOCTEXT("MutatorClassSelect", "Select Mutator Blueprint").ToString());		
+	}
 	else
 	{
 		UE_LOG(LogPackageContent, Warning, TEXT("Dialog mode not set for SPackageContentDialog!!"));
@@ -1011,9 +1055,14 @@ void SPackageContentDialog::ClassChosen(UClass* ChosenClass)
 	{
 		PackageContent->PackageCrosshair(ChosenClass);
 	}
+	else if (DialogMode == PACKAGE_Mutator)
+	{
+		PackageContent->PackageMutator(ChosenClass);
+	}
 	else
 	{
 		// unhandled
+		UE_LOG(LogPackageContent, Warning, TEXT("Dialog mode unhandled in ClassChosen!!"));
 	}
 
 	ParentWindow->RequestDestroyWindow();

@@ -259,14 +259,14 @@ protected:
 	UPROPERTY(replicated)
 	int32 PrevXP;
 
-	/** Currently awarded challenge stars. */
-	UPROPERTY(replicated)
-	int32 TotalChallengeStars;
-
 	/** XP awarded to this player so far (server only, replicated to owning client via RPC after end of game) */
 	UPROPERTY()
 	FXPBreakdown XP;
 public:
+	/** Currently awarded challenge stars. */
+	UPROPERTY(replicated)
+	int32 TotalChallengeStars;
+
 	inline int32 GetPrevXP() const
 	{
 		return PrevXP;
@@ -493,7 +493,7 @@ public:
 
 	void WriteStatsToCloud();
 	void StatsWriteComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded);
-	virtual void AddMatchToStats(const FString& GameType, const TArray<class AUTTeamInfo*>* Teams, const TArray<APlayerState*>* ActivePlayerStates, const TArray<APlayerState*>* InactivePlayerStates);
+	virtual void AddMatchToStats(const FString& MapName, const FString& GameType, const TArray<class AUTTeamInfo*>* Teams, const TArray<APlayerState*>* ActivePlayerStates, const TArray<APlayerState*>* InactivePlayerStates);
 
 	int32 BotELOLimit;
 	virtual int32 GetSkillRating(FName SkillStatName);
@@ -588,10 +588,11 @@ public:
 
 #if !UE_SERVER
 public:
-	const FSlateBrush* GetELOBadgeImage(int32 EloRating) const;
+	const FSlateBrush* GetELOBadgeImage(int32 EloRating, bool bSmall = false) const;
 	const FSlateBrush* GetELOBadgeNumberImage(int32 EloRating) const;
 	void BuildPlayerInfo(TSharedPtr<class SUTTabWidget> TabWidget, TArray<TSharedPtr<struct TAttributeStat> >& StatList);
 	TSharedRef<SWidget> BuildRankInfo();
+	TSharedRef<SWidget> BuildStatsInfo();
 	TSharedRef<SWidget> BuildRank(FText RankName, int32 Rank);
 	void EpicIDClicked();
 #endif

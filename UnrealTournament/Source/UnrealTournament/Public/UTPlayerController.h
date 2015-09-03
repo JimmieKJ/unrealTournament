@@ -553,6 +553,12 @@ public:
 	UFUNCTION(Reliable, Server, WithValidation)
 	void ServerStartCastingGuide();
 
+	virtual bool ServerPause_Validate() override
+	{
+		// ignore bad build type check from APlayerController version
+		return true;
+	}
+
 	UFUNCTION(Exec)
 	virtual void RconMap(FString NewMap);
 
@@ -762,14 +768,14 @@ protected:
 
 	virtual void ReceivedPlayer();
 
-	UFUNCTION(Server, Reliable, WithValidation)
-	virtual void ServerReceiveStatsID(const FString& NewStatsID);
-
 	/** stores fire inputs until after movement has been executed (default would be fire -> movement -> render, this causes movement -> fire -> render)
 	 * makes weapons feel a little more responsive while strafing
 	 */
 	TArray< FDeferredFireInput, TInlineAllocator<2> > DeferredFireInputs;
 public:
+	UFUNCTION(Server, Reliable, WithValidation)
+	virtual void ServerReceiveStatsID(const FString& NewStatsID);
+
 	void ApplyDeferredFireInputs();
 
 	bool HasDeferredFireInputs();

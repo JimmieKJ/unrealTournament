@@ -100,7 +100,7 @@ UUTChallengeManager::UUTChallengeManager(const FObjectInitializer& ObjectInitial
 		FUTChallengeInfo(TEXT("Deathmatch in Outpost 23"), TEXT("/Game/RestrictedAssets/Maps/DM-Outpost23"),
 		TEXT("DM"),
 		TEXT("Free for all Deathmatch in Outpost 23."), 
-		4, 5, NAME_EasyFFATeam, NAME_MediumFFATeam, NAME_HardFFATeam, NAME_ChallengeSlateBadgeName_DM));
+		0, 5, NAME_EasyFFATeam, NAME_MediumFFATeam, NAME_HardFFATeam, NAME_ChallengeSlateBadgeName_DM));
 
 	Challenges.Add(NAME_ChallengeCTF, 
 		FUTChallengeInfo(TEXT("Capture the Flag in Titan Pass"), TEXT("/Game/RestrictedAssets/Maps/WIP/CTF-Outside"),
@@ -115,28 +115,10 @@ UUTChallengeManager::UUTChallengeManager(const FObjectInitializer& ObjectInitial
 		4, 5, NAME_EasyNecrisTeam, NAME_MediumMixedTeam, NAME_HardNecrisTeam, NAME_ChallengeSlateBadgeName_DM));
 
 	Challenges.Add(NAME_ChallengeDuel,
-		FUTChallengeInfo(TEXT("Duel in Lea"), TEXT("/Game/RestrictedAssets/Maps/DM-Lea"),
+		FUTChallengeInfo(TEXT("Duel in Lea"), TEXT("/Game/EpicInternal/Lea/DM-Lea"),
 		TEXT("Duel"),
-		TEXT("1v1 Duel in Lea."),
+		TEXT("1v1 Duel in Lea. Be sure to visit the UT Marketplace to gain access to this map."),
 		0, 1, NAME_EasyNecrisTeam, NAME_MediumMixedTeam, NAME_HardMixedTeam, NAME_ChallengeSlateBadgeName_DM));
-
-	Challenges.Add(NAME_ChallengeDMFFATwo,
-		FUTChallengeInfo(TEXT("Deathmatch in Deck 17"), TEXT("/Game/RestrictedAssets/Maps/DM-DeckTest"),
-		TEXT("DM"),
-		TEXT("Free for all Deathmatch in Deck 17.  Liandri is renovating the legendary Deck 17 arena, but it remains a popular venue even in its unfinished state."),
-		4, 5, NAME_EasyFFATeam, NAME_MediumFFATeam, NAME_HardFFATeam, NAME_ChallengeSlateBadgeName_DM));
-
-	Challenges.Add(NAME_ChallengeCTFTwo,
-		FUTChallengeInfo(TEXT("Capture the Flag in Big Rock"), TEXT("/Game/RestrictedAssets/Maps/WIP/CTF-BigRock"),
-		TEXT("CTF"),
-		TEXT("CTF in the impressive Big Rock asteroid arena, still under construction."),
-		4, 5, NAME_EasyNecrisTeam, NAME_MediumMixedTeam, NAME_HardMixedTeam, NAME_ChallengeSlateBadgeName_CTF));
-
-	Challenges.Add(NAME_ChallengeTDMTwo,
-		FUTChallengeInfo(TEXT("Team Deathmatch in Spacer"), TEXT("/Game/RestrictedAssets/Maps/DM-Spacer"),
-		TEXT("TDM"),
-		TEXT("Team Deathmatch in Spacer, a challenging new arena under construction in a space station."),
-		4, 5, NAME_EasyNecrisTeam, NAME_MediumNecrisTeam, NAME_HardMixedTeam, NAME_ChallengeSlateBadgeName_DM));
 
 	Challenges.Add(NAME_ChallengeCTFThree,
 		FUTChallengeInfo(TEXT("Capture the Flag in Facing Worlds"), TEXT("/Game/RestrictedAssets/Maps/WIP/CTF-FaceTest"),
@@ -144,32 +126,50 @@ UUTChallengeManager::UUTChallengeManager(const FObjectInitializer& ObjectInitial
 		TEXT("CTF in the legendary Facing Worlds arena."),
 		4, 5, NAME_EasyNecrisTeam, NAME_MediumNecrisTeam, NAME_HardMixedTeam, NAME_ChallengeSlateBadgeName_CTF));
 
+	Challenges.Add(NAME_ChallengeDMFFATwo,
+		FUTChallengeInfo(TEXT("Deathmatch in Deck 17"), TEXT("/Game/RestrictedAssets/Maps/WIP/DM-DeckTest"),
+		TEXT("DM"),
+		TEXT("Free for all Deathmatch in Deck 17.  Liandri is renovating the legendary Deck 17 arena, but it remains a popular venue even in its unfinished state."),
+		0, 5, NAME_EasyFFATeam, NAME_MediumFFATeam, NAME_HardFFATeam, NAME_ChallengeSlateBadgeName_DM));
+
+	Challenges.Add(NAME_ChallengeTDMTwo,
+		FUTChallengeInfo(TEXT("Team Deathmatch in Spacer"), TEXT("/Game/RestrictedAssets/Maps/WIP/DM-Spacer"),
+		TEXT("TDM"),
+		TEXT("Team Deathmatch in Spacer, a challenging new arena under construction in a space station."),
+		4, 5, NAME_EasyNecrisTeam, NAME_MediumNecrisTeam, NAME_HardMixedTeam, NAME_ChallengeSlateBadgeName_DM));
+
+	Challenges.Add(NAME_ChallengeCTFFour,
+		FUTChallengeInfo(TEXT("Capture the Flag in Pistola"), TEXT("/Game/EpicInternal/Pistola/CTF-Pistola"),
+		TEXT("CTF"),
+		TEXT("CTF in the challenging Pistola arena.  Be sure to visit the UT Marketplace to gain access to this map."),
+		4, 5, NAME_EasyNecrisTeam, NAME_MediumMixedTeam, NAME_HardNecrisTeam, NAME_ChallengeSlateBadgeName_CTF));
+
 	Challenges.Add(NAME_ChallengeDMFFAThree,
-		FUTChallengeInfo(TEXT("Deathmatch in Spaceer"), TEXT("/Game/RestrictedAssets/Maps/DM-Spacer"),
+		FUTChallengeInfo(TEXT("Deathmatch in Spacer"), TEXT("/Game/RestrictedAssets/Maps/WIP/DM-Spacer"),
 		TEXT("DM"),
 		TEXT("Free for all Deathmatch in Spacer, a challenging new arena under construction in a space station."),
-		4, 5, NAME_EasyFFATeam, NAME_MediumFFATeam, NAME_HardFFATeam, NAME_ChallengeSlateBadgeName_DM));
+		0, 5, NAME_EasyFFATeam, NAME_MediumFFATeam, NAME_HardFFATeam, NAME_ChallengeSlateBadgeName_DM));
 
 	Challenges.Add(NAME_ChallengeTDMThree,
-		FUTChallengeInfo(TEXT("Team Deathmatch in Temple"), TEXT("/Game/RestrictedAssets/Maps/DM-Temple"),
+		FUTChallengeInfo(TEXT("Team Deathmatch in Temple"), TEXT("/Game/RestrictedAssets/Maps/WIP/DM-Temple"),
 		TEXT("TDM"),
 		TEXT("Team Deathmatch in Temple, an ancient temple ruin being restored for tournament play."),
 		4, 5, NAME_EasyNecrisTeam, NAME_MediumMixedTeam, NAME_HardMixedTeam, NAME_ChallengeSlateBadgeName_DM));
 
-	Challenges.Add(NAME_ChallengeCTFFour,
-		FUTChallengeInfo(TEXT("Capture the Flag in Pistola"), TEXT("/Game/RestrictedAssets/Maps/WIP/CTF-Pistola"),
+	Challenges.Add(NAME_ChallengeCTFTwo,
+		FUTChallengeInfo(TEXT("Capture the Flag in Big Rock"), TEXT("/Game/RestrictedAssets/Maps/WIP/CTF-BigRock"),
 		TEXT("CTF"),
-		TEXT("CTF in the challenging Pistola arena."),
-		4, 5, NAME_EasyNecrisTeam, NAME_MediumMixedTeam, NAME_HardNecrisTeam, NAME_ChallengeSlateBadgeName_CTF));
+		TEXT("CTF in the impressive Big Rock asteroid arena, still under construction."),
+		4, 5, NAME_EasyNecrisTeam, NAME_MediumMixedTeam, NAME_HardMixedTeam, NAME_ChallengeSlateBadgeName_CTF));
 
 	Challenges.Add(NAME_ChallengeTDMFour,
-		FUTChallengeInfo(TEXT("2v2 Team Deathmatch in Lea"), TEXT("/Game/RestrictedAssets/Maps/DM-Lea"),
+		FUTChallengeInfo(TEXT("2v2 Team Deathmatch in Lea"), TEXT("/Game/EpicInternal/Lea/DM-Lea"),
 		TEXT("TDM"),
-		TEXT("2v2 Team Deathmatch in Lea, an arena set in an underwater observatory."),
+		TEXT("2v2 Team Deathmatch in Lea.  Be sure to visit the UT Marketplace to gain access to this map."),
 		4, 5, NAME_EasyNecrisTeam, NAME_MediumNecrisTeam, NAME_HardMixedTeam, NAME_ChallengeSlateBadgeName_DM));
 
 	Challenges.Add(NAME_ChallengeDuelTwo,
-		FUTChallengeInfo(TEXT("Duel in ASDF"), TEXT("/Game/RestrictedAssets/Maps/DM-ASDF"),
+		FUTChallengeInfo(TEXT("Duel in ASDF"), TEXT("/Game/RestrictedAssets/Maps/WIP/DM-ASDF"),
 		TEXT("Duel"),
 		TEXT("1v1 Duel in ASDF."),
 		0, 1, NAME_EasyFFATeam, NAME_MediumNecrisTeam, NAME_HardNecrisTeam, NAME_ChallengeSlateBadgeName_DM));
@@ -181,9 +181,9 @@ UUTChallengeManager::UUTChallengeManager(const FObjectInitializer& ObjectInitial
 		4, 5, NAME_EasyNecrisTeam, NAME_MediumNecrisTeam, NAME_HardNecrisTeam, NAME_ChallengeSlateBadgeName_CTF));
 
 	Challenges.Add(NAME_ChallengeTDMFive,
-		FUTChallengeInfo(TEXT("Asymmetric Team Deathmatch in Outpost 23"), TEXT("/Game/RestrictedAssets/Maps/DM-Outpost23"),
+		FUTChallengeInfo(TEXT("1v5 Team Deathmatch in Outpost 23"), TEXT("/Game/RestrictedAssets/Maps/DM-Outpost23"),
 		TEXT("TDM"),
-		TEXT("Asymmetric 1v5 Team Deathmatch in Outpost 23."),
+		TEXT("Prove your worth in a 1v5 Team Deathmatch in Outpost 23."),
 		0, 5, NAME_EasyNecrisTeam, NAME_MediumMixedTeam, NAME_HardMixedTeam, NAME_ChallengeSlateBadgeName_DM));
 }
 

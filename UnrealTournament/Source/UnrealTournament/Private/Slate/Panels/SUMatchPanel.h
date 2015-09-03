@@ -3,6 +3,7 @@
 
 #include "Slate/SlateGameResources.h"
 #include "../SUWindowsStyle.h"
+#include "../SUTStyle.h"
 #include "TAttributeProperty.h"
 #include "UTLobbyMatchInfo.h"
 #include "../Widgets/SUTComboButton.h"
@@ -130,16 +131,14 @@ public:
 		return FText::Format(NSLOCTEXT("SUMatchPanel","MaxPlayerFormat","Out of {0}"), FText::AsNumber(MP));
 	}
 
-	FSlateColor GetBadgeColor() const
+	const FSlateBrush* GetBadge() const
 	{
 		int32 Badge;
 		int32 Level;
 		UUTLocalPlayer::GetBadgeFromELO((MatchInfo.IsValid() ? MatchInfo->AverageRank : Rank), Badge, Level);
 		
-		if (Badge == 1) return FSlateColor( FLinearColor(0.363f, 0.363f, 0.363f, 1.0f) );
-		else if (Badge == 2) return FSlateColor( FLinearColor(0.496f, 0.27f, 0.10f, 1.0f) );
-
-		return FSlateColor( FLinearColor(0.49f, 0.41f, 0.10f, 1.0f) );
+		FString BadgeStr = FString::Printf(TEXT("UT.RankBadge.%i"), Badge);
+		return SUTStyle::Get().GetBrush(*BadgeStr);
 	}
 
 

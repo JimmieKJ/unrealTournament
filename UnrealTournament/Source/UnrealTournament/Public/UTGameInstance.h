@@ -19,10 +19,7 @@ class UNREALTOURNAMENT_API UUTGameInstance : public UGameInstance
 
 	virtual void HandleGameNetControlMessage(class UNetConnection* Connection, uint8 MessageByte, const FString& MessageStr) override;
 
-	inline bool IsAutoDownloadingContent() const
-	{
-		return ActiveRedirectDialogs.Num() > 0;
-	}
+	bool IsAutoDownloadingContent();
 
 protected:
 	virtual void DeferredStartGameInstance();
@@ -33,6 +30,6 @@ protected:
 
 	virtual void RedirectResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
 
-	TArray<TSharedRef<class SUWRedirectDialog>> ActiveRedirectDialogs;
+	TArray<TWeakPtr<class SUWRedirectDialog>> ActiveRedirectDialogs;
 };
 
