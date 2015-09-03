@@ -3040,9 +3040,26 @@ void UUTLocalPlayer::CloseAllUI(bool bExceptDialogs)
 {
 	ChatArchive.Empty();
 
-	GEngine->GameViewport->RemoveAllViewportWidgets();
+	if (GetWorld()->WorldType == EWorldType::Game)
+	{
+		GEngine->GameViewport->RemoveAllViewportWidgets();
+	}
 #if !UE_SERVER
-	if (!bExceptDialogs)
+	if (bExceptDialogs)
+	{
+		if (GetWorld()->WorldType == EWorldType::Game)
+		{
+			// restore dialogs to the viewport
+			for (TSharedPtr<SUWDialog> Dialog : OpenDialogs)
+			{
+				if (Dialog.IsValid())
+				{
+					GEngine->GameViewport->AddViewportWidgetContent(Dialog.ToSharedRef());
+				}
+			}
+		}
+	}
+	else
 	{
 		OpenDialogs.Empty();
 	}
