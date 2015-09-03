@@ -116,11 +116,7 @@ APlayerController* AUTTeamGameMode::Login(class UPlayer* NewPlayer, ENetRole Rem
 
 	if (PC != NULL && !PC->PlayerState->bOnlySpectator)
 	{
-		uint8 DesiredTeam = uint8(FMath::Clamp<int32>(GetIntOption(Options, TEXT("Team"), 255), 0, 255));
-		if (bOfflineChallenge)
-		{
-			DesiredTeam = 1;
-		}
+		uint8 DesiredTeam = (GetNetMode() == NM_Standalone) ? 1 : uint8(FMath::Clamp<int32>(GetIntOption(Options, TEXT("Team"), 255), 0, 255));
 		ChangeTeam(PC, DesiredTeam, false);
 	}
 
