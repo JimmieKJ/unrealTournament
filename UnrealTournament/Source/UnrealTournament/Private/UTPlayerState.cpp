@@ -124,6 +124,11 @@ void AUTPlayerState::Destroyed()
 	GetWorldTimerManager().ClearAllTimersForObject(this);
 }
 
+bool AUTPlayerState::IsFemale()
+{
+	return GetSelectedCharacter() && GetSelectedCharacter().GetDefaultObject()->bIsFemale;
+}
+
 void AUTPlayerState::SetPlayerName(const FString& S)
 {
 	PlayerName = S;

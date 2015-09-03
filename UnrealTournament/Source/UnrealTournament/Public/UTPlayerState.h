@@ -372,10 +372,8 @@ public:
 
 	virtual void Tick(float DeltaTime) override;
 
-	inline bool IsFemale()
-	{
-		return false; // TODO
-	}
+	/** Return true if character is female. */
+	virtual bool IsFemale();
 
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerRequestChangeTeam(uint8 NewTeamIndex);
