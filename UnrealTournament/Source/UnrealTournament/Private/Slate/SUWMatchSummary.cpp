@@ -38,7 +38,7 @@ static const float TEAM_CAMERA_OFFSET = 500.0f;
 static const float TEAM_CAMERA_ZOFFSET = 50.0f;
 static const float ALL_CAMERA_OFFSET = 400.0f;
 static const float ALL_CAMERA_ANGLE = -5.0f;
-static const float TEAMANGLE = 12.0f;
+static const float TEAMANGLE = 45.0f;
 
 #if !UE_SERVER
 
