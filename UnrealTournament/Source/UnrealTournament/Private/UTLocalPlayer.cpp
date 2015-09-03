@@ -715,18 +715,13 @@ void UUTLocalPlayer::OnLoginComplete(int32 LocalUserNum, bool bWasSuccessful, co
 		AUTPlayerController* UTPC = Cast<AUTPlayerController>(PlayerController);
 		if (UTPC)
 		{
-			IOnlineSubsystem* OnlineSub = IOnlineSubsystem::Get();
-			if (OnlineSub != nullptr)
+			if (OnlineIdentityInterface.IsValid() && OnlineIdentityInterface->GetLoginStatus(GetControllerId()))
 			{
-				IOnlineIdentityPtr OnlineIdentityInterface = OnlineSub->GetIdentityInterface();
-				if (OnlineIdentityInterface.IsValid() && OnlineIdentityInterface->GetLoginStatus(GetControllerId()))
+				TSharedPtr<FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());
+				if (UserId.IsValid())
 				{
-					TSharedPtr<FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());
-					if (UserId.IsValid())
-					{
-						UTPC->ServerReceiveStatsID(UserId->ToString());
-						UTPC->PlayerState->SetUniqueId(UserId);
-					}
+					UTPC->ServerReceiveStatsID(UserId->ToString());
+					UTPC->PlayerState->SetUniqueId(UserId);
 				}
 			}
 		}
