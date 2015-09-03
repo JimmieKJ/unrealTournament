@@ -225,7 +225,7 @@ void SUWMatchSummary::Construct(const FArguments& InArgs)
 				.Padding(0.0f, 0.0f, 0.0f, 160.0f)
 				[
 					SNew(SBorder)
-					.BorderBackgroundColor(FLinearColor(0.0f, 0.0f, 0.0f, 0.7f))
+					.BorderBackgroundColor(FLinearColor(0.0f, 0.0f, 0.0f, 0.8f))
 					.BorderImage(SUWindowsStyle::Get().GetBrush("UT.Background.Dark"))
 					.Padding(0)
 					.Visibility(this, &SUWMatchSummary::GetSwitcherVisibility)
@@ -548,6 +548,55 @@ void SUWMatchSummary::BuildInfoPanel()
 										[
 											SNew(SRichTextBlock)
 											.Text(Highlights[i])
+											.TextStyle(SUWindowsStyle::Get(), "UT.MatchSummary.HighlightText.Normal")
+											.Justification(ETextJustify::Center)
+											.DecoratorStyleSet(&SUWindowsStyle::Get())
+											.AutoWrapText(false)
+										]
+								]
+							]
+						];
+				}
+
+				AUTGameMode* Game = GameState->GetWorld()->GetAuthGameMode<AUTGameMode>();
+				AUTPlayerState* LocalPS = (GetPlayerOwner().IsValid() && GetPlayerOwner()->PlayerController) ? Cast<AUTPlayerState>(GetPlayerOwner()->PlayerController->PlayerState) : NULL;
+				if ((UTPS == LocalPS) && Game && Game->bOfflineChallenge && GameState->HasMatchEnded())
+				{
+					FText ChallengeResult = NSLOCTEXT("AUTGameMode", "FailedChallenge", "Offline Challenge:  No stars earned.");
+					if (Game->PlayerWonChallenge())
+					{
+						FFormatNamedArguments Args;
+						Args.Add(TEXT("NumStars"), FText::AsNumber(Game->ChallengeDifficulty+1));
+						ChallengeResult = FText::Format(NSLOCTEXT("AUTGameMode", "Won Challenge", "Offline Challenge:  <UT.MatchSummary.HighlightText.Value>{NumStars}</> stars earned."), Args);
+
+						//@TODO FIXMESTEVE CurrentProfileSettings->TotalChallengeStars use to determine roster upgrade
+					}
+
+					VBox->AddSlot()
+						.Padding(100, 20)
+						.AutoHeight()
+						[
+							SNew(SBorder)
+							.BorderImage(SUWindowsStyle::Get().GetBrush("UT.MatchSummary.Highlight.Border"))
+							.Padding(2)
+							.Content()
+							[
+								SNew(SBox)
+								.MinDesiredHeight(100.0f)
+								.Content()
+								[
+									SNew(SOverlay)
+									+ SOverlay::Slot()
+									[
+										SNew(SImage)
+										.Image(SUWindowsStyle::Get().GetBrush("UT.MatchSummary.Highlight.BG"))
+									]
+									+ SOverlay::Slot()
+										.VAlign(VAlign_Center)
+										.HAlign(HAlign_Fill)
+										[
+											SNew(SRichTextBlock)
+											.Text(ChallengeResult)
 											.TextStyle(SUWindowsStyle::Get(), "UT.MatchSummary.HighlightText.Normal")
 											.Justification(ETextJustify::Center)
 											.DecoratorStyleSet(&SUWindowsStyle::Get())
@@ -1497,7 +1546,7 @@ void SUWMatchSummary::ShowTeam(int32 TeamNum)
 		for (int32 i = 0; i< TeamPreviewMeshs.Num(); i++)
 		{
 			TArray<AUTCharacter*> &TeamCharacters = TeamPreviewMeshs[i];
-			bool bViewedTeam = (i == ViewedTeamNum);
+			bool bViewedTeam = (i == TeamNum);
 			for (int32 j = 0; j < TeamCharacters.Num(); j++)
 			{
 				TeamCharacters[j]->HideCharacter(!bViewedTeam);
@@ -1509,6 +1558,13 @@ void SUWMatchSummary::ShowTeam(int32 TeamNum)
 			AUTPlayerState* PS = Holder ? Cast<AUTPlayerState>(Holder->PlayerState) : NULL;
 			bool bSameTeamWeapon = (PS && PS->Team && (PS->Team->TeamIndex == TeamNum)) || TeamNum < 0;
 			Weapon->SetActorHiddenInGame(!bSameTeamWeapon);
+		}
+		for (int32 i = 0; i < PreviewFlags.Num(); i++)
+		{
+			if (PreviewFlags[i])
+			{
+				PreviewFlags[i]->SetActorHiddenInGame(i != TeamNum);
+			}
 		}
 	}
 }
@@ -1550,6 +1606,13 @@ void SUWMatchSummary::ShowAllCharacters()
 		{
 			AUTCharacter* Holder = Cast<AUTCharacter>(Weapon->Instigator);
 			Weapon->SetActorHiddenInGame(false);
+		}
+		for (int32 i = 0; i < PreviewFlags.Num(); i++)
+		{
+			if (PreviewFlags[i])
+			{
+				PreviewFlags[i]->SetActorHiddenInGame(false);
+			}
 		}
 	}
 }
