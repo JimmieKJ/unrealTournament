@@ -3414,7 +3414,11 @@ void AUTCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 	
-	if (GetMovementBase() && Cast<AUTLift>(GetMovementBase()->GetOwner()) && (GetMovementBase()->GetOwner()->GetVelocity().Z >= 0.f))
+	if (HeadScale < 0.1f)
+	{
+		GetMesh()->ClothBlendWeight = 0.0f;
+	}
+	else if (GetMovementBase() && Cast<AUTLift>(GetMovementBase()->GetOwner()) && (GetMovementBase()->GetOwner()->GetVelocity().Z >= 0.f))
 	{
 		GetMesh()->ClothBlendWeight = 0.5f;
 	}
