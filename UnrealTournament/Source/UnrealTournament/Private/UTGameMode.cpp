@@ -295,6 +295,7 @@ void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FStr
 			bOfflineChallenge = UUTChallengeManager::StaticClass()->GetDefaultObject<UUTChallengeManager>()->IsValidChallenge(this, MapName);
 			bForceRespawn = true;
 			TimeLimit = 60 * GetClass()->GetDefaultObject<AUTGameMode>()->TimeLimit;
+			GoalScore = 0;
 		}
 	}
 
@@ -1739,7 +1740,7 @@ void AUTGameMode::EndGame(AUTPlayerState* Winner, FName Reason )
 			}
 		}
 	}
-
+	UE_LOG(UT, Warning, TEXT("EndGAME OFL %d player won %d"), bOfflineChallenge, PlayerWonChallenge());
 	if (bOfflineChallenge && PlayerWonChallenge())
 	{
 		APlayerController* LocalPC = GEngine->GetFirstLocalPlayerController(GetWorld());
@@ -1823,6 +1824,21 @@ void AUTGameMode::InstanceNextMap(const FString& NextMap)
 void AUTGameMode::TravelToNextMap_Implementation()
 {
 	FString CurrentMapName = GetWorld()->GetMapName();
+	if (bOfflineChallenge)
+	{
+		APlayerController* LocalPC = GEngine->GetFirstLocalPlayerController(GetWorld());
+		UUTLocalPlayer* LP = LocalPC ? Cast<UUTLocalPlayer>(LocalPC->Player) : NULL;
+		if (LP)
+		{
+			if (FWorldContext* WorldContext = GEngine->GetWorldContextFromWorld(GetWorld()))
+			{
+				// Return to offline challenge menu
+				WorldContext->LastURL.AddOption(TEXT("ShowChallenge"));
+			}
+			LP->ReturnToMainMenu();
+			return;
+		}
+	}
 	UE_LOG(UT,Log,TEXT("TravelToNextMap: %i %i"),bDedicatedInstance,IsGameInstanceServer());
 
 	if (GetWorld()->GetNetMode() != ENetMode::NM_Standalone && (IsGameInstanceServer() || (!bDisableMapVote && UTGameState->MapVoteList.Num() > 0)))
