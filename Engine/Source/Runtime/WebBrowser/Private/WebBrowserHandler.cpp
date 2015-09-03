@@ -16,6 +16,7 @@ FWebBrowserHandler::FWebBrowserHandler()
     MessageRouterConfig.js_query_function = "ueQuery";
     MessageRouterConfig.js_cancel_function = "ueQueryCancel";
     MessageRouter = CefMessageRouterBrowserSide::Create(MessageRouterConfig);
+	MessageRouter->AddHandler(this, false);
 }
 
 void FWebBrowserHandler::OnTitleChange(CefRefPtr<CefBrowser> Browser, const CefString& Title)
