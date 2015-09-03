@@ -9,6 +9,7 @@
 #include "UTTaunt.h"
 #include "UTCharacterContent.h"
 #include "UTCrosshair.h"
+#include "UTMutator.h"
 
 class FPackageContent : public TSharedFromThis< FPackageContent >
 {
@@ -20,6 +21,7 @@ public:
 	void PackageWeapon(UClass* WeaponClass);
 	void PackageHat(UClass* HatClass);
 	void PackageTaunt(UClass* TauntClass);
+	void PackageMutator(UClass* MutatorClass);
 	void PackageCharacter(UClass* CharacterClass);
 	void PackageCrosshair(UClass* CrosshairClass);
 
@@ -34,6 +36,7 @@ private:
 	void OpenPackageWeaponWindow();
 	void OpenPackageHatWindow();
 	void OpenPackageTauntWindow();
+	void OpenPackageMutatorWindow();
 	void OpenPackageCharacterWindow();
 	void OpenPackageCrosshairWindow();
 	
@@ -83,6 +86,7 @@ public:
 		PACKAGE_Character,
 		PACKAGE_Taunt,
 		PACKAGE_Crosshair,
+		PACKAGE_Mutator,
 	};
 
 	SLATE_BEGIN_ARGS(SPackageContentDialog)
@@ -216,5 +220,28 @@ public:
 		const bool bCrosshairContentBased = InUnloadedClassData->IsChildOf(UUTCrosshair::StaticClass());
 		const bool bBlueprintType = InUnloadedClassData->HasAnyClassFlags(CLASS_CompiledFromBlueprint);
 		return bCrosshairContentBased && bBlueprintType;
+	}
+};
+
+class FMutatorClassFilter : public IClassViewerFilter
+{
+public:
+
+	virtual bool IsClassAllowed(const FClassViewerInitializationOptions& InInitOptions, const UClass* InClass, TSharedRef< FClassViewerFilterFuncs > InFilterFuncs) override
+	{
+		if (NULL != InClass)
+		{
+			const bool bMutatorContentBased = InClass->IsChildOf(AUTMutator::StaticClass());
+			const bool bBlueprintType = InClass->HasAnyClassFlags(CLASS_CompiledFromBlueprint);
+			return bMutatorContentBased && bBlueprintType;
+		}
+		return false;
+	}
+
+	virtual bool IsUnloadedClassAllowed(const FClassViewerInitializationOptions& InInitOptions, const TSharedRef< const IUnloadedBlueprintData > InUnloadedClassData, TSharedRef< FClassViewerFilterFuncs > InFilterFuncs) override
+	{
+		const bool bMutatorContentBased = InUnloadedClassData->IsChildOf(AUTMutator::StaticClass());
+		const bool bBlueprintType = InUnloadedClassData->HasAnyClassFlags(CLASS_CompiledFromBlueprint);
+		return bMutatorContentBased && bBlueprintType;
 	}
 };
