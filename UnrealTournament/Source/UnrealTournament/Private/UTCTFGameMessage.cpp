@@ -16,7 +16,7 @@ UUTCTFGameMessage::UUTCTFGameMessage(const FObjectInitializer& ObjectInitializer
 	KilledMessage = NSLOCTEXT("CTFGameMessage","KilledMessage","{Player1Name} killed the {OptionalTeam} flag carrier!");
 	HasAdvantageMessage = NSLOCTEXT("CTFGameMessage", "HasAdvantage", "{OptionalTeam} Team has Advantage");
 	LosingAdvantageMessage = NSLOCTEXT("CTFGameMessage", "LostAdvantage", "{OptionalTeam} Team is losing advantage");
-	HalftimeMessage = NSLOCTEXT("CTFGameMessage", "Halftime", "HALF TIME!");
+	HalftimeMessage = NSLOCTEXT("CTFGameMessage", "Halftime", "");
 	OvertimeMessage = NSLOCTEXT("CTFGameMessage", "Overtime", "OVERTIME!");
 
 	bIsStatusAnnouncement = true;
