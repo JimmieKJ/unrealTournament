@@ -591,7 +591,7 @@ public:
 	virtual bool IsConsideredABeginnner();
 
 	/** Closes any slate UI elements that are open. **/
-	virtual void CloseAllUI();
+	virtual void CloseAllUI(bool bExceptDialogs = false);
 
 protected:
 	void OnFindSessionByIdComplete(int32 LocalUserNum, bool bWasSucessful, const FOnlineSessionSearchResult& SearchResult);

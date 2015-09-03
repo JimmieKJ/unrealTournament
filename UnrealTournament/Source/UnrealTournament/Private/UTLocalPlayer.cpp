@@ -3012,13 +3012,16 @@ void UUTLocalPlayer::OnFindSessionByIdComplete(int32 LocalUserNum, bool bWasSuce
 	}
 }
 
-void UUTLocalPlayer::CloseAllUI()
+void UUTLocalPlayer::CloseAllUI(bool bExceptDialogs)
 {
 	ChatArchive.Empty();
 
 	GEngine->GameViewport->RemoveAllViewportWidgets();
 #if !UE_SERVER
-	OpenDialogs.Empty();
+	if (!bExceptDialogs)
+	{
+		OpenDialogs.Empty();
+	}
 	DesktopSlateWidget.Reset();
 	ServerBrowserWidget.Reset();
 	ReplayBrowserWidget.Reset();

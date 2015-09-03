@@ -318,6 +318,14 @@ void UUTProfileSettings::ApplyAllSettings(UUTLocalPlayer* ProfilePlayer)
 			Hud->SaveConfig();
 		}
 	}
+
+	ProfilePlayer->SetCharacterPath(CharacterPath);
+	ProfilePlayer->SetHatPath(HatPath);
+	ProfilePlayer->SetEyewearPath(EyewearPath);
+	ProfilePlayer->SetTauntPath(TauntPath);
+	ProfilePlayer->SetTaunt2Path(Taunt2Path);
+	ProfilePlayer->SetHatVariant(HatVariant);
+	ProfilePlayer->SetEyewearVariant(EyewearVariant);
 }
 
 bool UUTProfileSettings::HasTokenBeenPickedUpBefore(FName TokenUniqueID)

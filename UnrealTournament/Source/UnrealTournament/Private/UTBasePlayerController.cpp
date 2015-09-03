@@ -19,7 +19,7 @@ AUTBasePlayerController::AUTBasePlayerController(const FObjectInitializer& Objec
 
 void AUTBasePlayerController::Destroyed()
 {
-	ClientCloseAllUI();
+	ClientCloseAllUI(true); // need to leave dialogs open for connection failures that might already be up
 
 	GetWorldTimerManager().ClearAllTimersForObject(this);
 	if (MyHUD)
@@ -611,7 +611,7 @@ void AUTBasePlayerController::HandleNetworkFailureMessage(enum ENetworkFailure::
 {
 }
 
-void AUTBasePlayerController::ClientCloseAllUI_Implementation()
+void AUTBasePlayerController::ClientCloseAllUI_Implementation(bool bExceptDialogs)
 {
 	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(Player);
 	if (LocalPlayer)
