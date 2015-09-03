@@ -843,26 +843,46 @@ void AUTGameMode::SetUniqueBotName(AUTBot* B, const UUTBotCharacter* BotData)
 
 AUTBot* AUTGameMode::ForceAddBot(uint8 TeamNum)
 {
+	if (bOfflineChallenge)
+	{
+		return NULL;
+	}
 	BotFillCount = FMath::Max<int32>(BotFillCount, NumPlayers + NumBots + 1);
 	return AddBot(TeamNum);
 }
 AUTBot* AUTGameMode::ForceAddNamedBot(const FString& BotName, uint8 TeamNum)
 {
+	if (bOfflineChallenge)
+	{
+		return NULL;
+	}
 	return AddNamedBot(BotName, TeamNum);
 }
 
 void AUTGameMode::SetBotCount(uint8 NewCount)
 {
+	if (bOfflineChallenge)
+	{
+		return;
+	}
 	BotFillCount = NumPlayers + NewCount;
 }
 
 void AUTGameMode::AddBots(uint8 Num)
 {
+	if (bOfflineChallenge)
+	{
+		return;
+	}
 	BotFillCount = FMath::Max(NumPlayers, BotFillCount) + Num;
 }
 
 void AUTGameMode::KillBots()
 {
+	if (bOfflineChallenge)
+	{
+		return;
+	}
 	BotFillCount = 0;
 	for (FConstControllerIterator It = GetWorld()->GetControllerIterator(); It; ++It)
 	{
@@ -877,6 +897,10 @@ void AUTGameMode::KillBots()
 
 bool AUTGameMode::AllowRemovingBot(AUTBot* B)
 {
+	if (bOfflineChallenge)
+	{
+		return false;
+	}
 	AUTPlayerState* PS = Cast<AUTPlayerState>(B->PlayerState);
 	// flag carriers should stay in the game until they lose it
 	if (PS != NULL && PS->CarriedObject != NULL)

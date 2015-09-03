@@ -105,7 +105,7 @@ float AUTCTFGameMode::GetTravelDelay()
 
 void AUTCTFGameMode::CheatScore()
 {
-	if (GetNetMode() == NM_Standalone)
+	if ((GetNetMode() == NM_Standalone) && !bOfflineChallenge)
 	{
 		int32 ScoringTeam = (FMath::FRand() < 0.5f) ? 0 : 1;
 		TArray<AController*> Members = Teams[ScoringTeam]->GetTeamMembers();
