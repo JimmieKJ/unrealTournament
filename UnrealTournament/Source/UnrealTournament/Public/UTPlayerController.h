@@ -553,6 +553,12 @@ public:
 	UFUNCTION(Reliable, Server, WithValidation)
 	void ServerStartCastingGuide();
 
+	virtual bool ServerPause_Validate() override
+	{
+		// ignore bad build type check from APlayerController version
+		return true;
+	}
+
 	UFUNCTION(Exec)
 	virtual void RconMap(FString NewMap);
 
