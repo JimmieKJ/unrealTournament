@@ -66,6 +66,22 @@ void UUTGameInstance::HandleDemoPlaybackFailure( EDemoPlayFailure::Type FailureT
 	}
 }
 
+bool UUTGameInstance::IsAutoDownloadingContent()
+{
+#if !UE_SERVER
+	for (int32 i = ActiveRedirectDialogs.Num() - 1; i >= 0; i--)
+	{
+		if (!ActiveRedirectDialogs[i].IsValid())
+		{
+			ActiveRedirectDialogs.RemoveAt(i);
+		}
+	}
+	return ActiveRedirectDialogs.Num() > 0;
+#else
+	return false;
+#endif
+}
+
 void UUTGameInstance::HandleGameNetControlMessage(class UNetConnection* Connection, uint8 MessageByte, const FString& MessageStr)
 {
 	switch (MessageByte)
@@ -98,7 +114,7 @@ void UUTGameInstance::RedirectResult(TSharedPtr<SCompoundWidget> Widget, uint16 
 #if !UE_SERVER
 	if (Widget.IsValid())
 	{
-		ActiveRedirectDialogs.Remove(StaticCastSharedRef<SUWRedirectDialog>(Widget.ToSharedRef()));
+		ActiveRedirectDialogs.Remove(StaticCastSharedPtr<SUWRedirectDialog>(Widget));
 	}
 	if (ButtonID == UTDIALOG_BUTTON_CANCEL)
 	{
