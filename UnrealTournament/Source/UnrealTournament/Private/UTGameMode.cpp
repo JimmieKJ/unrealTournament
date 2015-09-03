@@ -1747,7 +1747,7 @@ void AUTGameMode::EndGame(AUTPlayerState* Winner, FName Reason )
 		UUTLocalPlayer* LP = LocalPC ? Cast<UUTLocalPlayer>(LocalPC->Player) : NULL;
 		if (LP)
 		{
-			LP->ChallengeCompleted(ChallengeTag, ChallengeDifficulty);
+			LP->ChallengeCompleted(ChallengeTag, ChallengeDifficulty+1);
 		}
 	}
 
@@ -1830,8 +1830,10 @@ void AUTGameMode::TravelToNextMap_Implementation()
 		UUTLocalPlayer* LP = LocalPC ? Cast<UUTLocalPlayer>(LocalPC->Player) : NULL;
 		if (LP)
 		{
-			if (FWorldContext* WorldContext = GEngine->GetWorldContextFromWorld(GetWorld()))
+			FWorldContext* WorldContext = GEngine->GetWorldContextFromWorld(GetWorld());
+			if (WorldContext)
 			{
+				UE_LOG(UT, Warning, TEXT("ADD showchallenge"));
 				// Return to offline challenge menu
 				WorldContext->LastURL.AddOption(TEXT("ShowChallenge"));
 			}
