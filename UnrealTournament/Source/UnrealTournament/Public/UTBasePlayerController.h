@@ -106,7 +106,7 @@ public:
 	virtual void ClientGenericInitialization();
 
 	UFUNCTION(server, reliable, WithValidation)
-	virtual void ServerReceiveRank(int32 NewAverageRank, int32 NewDuelRank, int32 NewCTFRank, int32 NewTDMRank, int32 NewDMRank);
+	virtual void ServerReceiveRank(int32 NewAverageRank, int32 NewDuelRank, int32 NewCTFRank, int32 NewTDMRank, int32 NewDMRank, int32 TotalStars);
 
 	UFUNCTION(client, reliable)
 	virtual void ClientRequireContentItemListBegin(const FString& CloudId);

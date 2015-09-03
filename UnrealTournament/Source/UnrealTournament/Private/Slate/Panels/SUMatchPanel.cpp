@@ -214,8 +214,7 @@ TSharedRef<ITableRow> SUMatchPanel::OnGenerateWidgetForMatchList( TSharedPtr<FTr
 					.VAlign(VAlign_Center)
 					.AutoWidth()
 					[
-						//SNew(SBox).HeightOverride(78).WidthOverride(500).Padding(FMargin(5.0f,0.0f,5.0f,0.0f))
-						SNew(SBox).HeightOverride(78).WidthOverride(348).Padding(FMargin(5.0f, 0.0f, 5.0f, 0.0f))
+						SNew(SBox).HeightOverride(78).WidthOverride(448).Padding(FMargin(5.0f, 0.0f, 5.0f, 0.0f))
 						[
 							SNew(SVerticalBox)
 							+SVerticalBox::Slot()
@@ -250,7 +249,7 @@ TSharedRef<ITableRow> SUMatchPanel::OnGenerateWidgetForMatchList( TSharedPtr<FTr
 					.VAlign(VAlign_Center)
 					.AutoWidth()
 					[
-						SNew(SBox).WidthOverride(185).HeightOverride(78)
+						SNew(SBox).WidthOverride(85).HeightOverride(78)
 						[
 							SNew(SVerticalBox)
 							+SVerticalBox::Slot()
@@ -312,17 +311,18 @@ TSharedRef<ITableRow> SUMatchPanel::OnGenerateWidgetForMatchList( TSharedPtr<FTr
 							[
 								SNew(SVerticalBox)
 								+SVerticalBox::Slot()
+								.VAlign(VAlign_Center)
 								.AutoHeight()
+								.Padding(16.0,0.0,0.0,0.0)
 								[
-									SNew(SBox).WidthOverride(78).HeightOverride(78)
+									SNew(SBox).WidthOverride(64).HeightOverride(64)
 									[
 
 										SNew(SOverlay)
 										+SOverlay::Slot()
 										[
 											SNew(SImage)
-											.Image(SUTStyle::Get().GetBrush("UT.MatchBadge.Circle"))
-											.ColorAndOpacity(TAttribute<FSlateColor>::Create(TAttribute<FSlateColor>::FGetter::CreateSP(InItem.Get(), &FTrackedMatch::GetBadgeColor)))
+											.Image(InItem.Get(), &FTrackedMatch::GetBadge)
 										]
 										+SOverlay::Slot()
 										[
@@ -339,7 +339,8 @@ TSharedRef<ITableRow> SUMatchPanel::OnGenerateWidgetForMatchList( TSharedPtr<FTr
 													SNew(STextBlock)
 													.Text(TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateSP(InItem.Get(), &FTrackedMatch::GetRank)))
 													.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium.Bold")
-													.ColorAndOpacity(FSlateColor(FLinearColor(0.8f,0.8f,0.8f,1.0f)))
+													.ColorAndOpacity(FSlateColor(FLinearColor(1.0f,1.0f,1.0f,1.0f)))
+													.ShadowColorAndOpacity(FLinearColor(0.0f,0.0f,0.0f,1.0f))
 												]
 											]
 										]

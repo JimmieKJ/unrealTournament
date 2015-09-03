@@ -93,10 +93,10 @@ class UNREALTOURNAMENT_API SUWPlayerInfoDialog : public SUWDialog, public FGCObj
 public:
 
 	SLATE_BEGIN_ARGS(SUWPlayerInfoDialog)
-	: _DialogSize(FVector2D(1920.0f, 750))
+	: _DialogSize(FVector2D(1920.0f, 1080))
 	, _bDialogSizeIsRelative(false)
-	, _DialogPosition(FVector2D(0.5f, 0.058f))
-	, _DialogAnchorPoint(FVector2D(0.5f,0.0f))
+	, _DialogPosition(FVector2D(0.5f, 0.5f))
+	, _DialogAnchorPoint(FVector2D(0.5f,0.5f))
 	, _ContentPadding(FVector2D(10.0f, 5.0f))
 	{}
 	SLATE_ARGUMENT(TWeakObjectPtr<class UUTLocalPlayer>, PlayerOwner)												

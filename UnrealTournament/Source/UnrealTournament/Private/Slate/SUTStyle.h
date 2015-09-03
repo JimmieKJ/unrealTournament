@@ -18,6 +18,7 @@ private:
 	static void SetFonts(TSharedRef<FSlateStyleSet> StyleRef);
 	static void SetCommonStyle(TSharedRef<FSlateStyleSet> StyleRef);
 	static void SetAvatars(TSharedRef<FSlateStyleSet> StyleRef);
+	static void SetRankBadges(TSharedRef<FSlateStyleSet> StyleRef);
 	static void SetChallengeBadges(TSharedRef<FSlateStyleSet> StyleRef);
 
 	static FSlateSound ButtonPressSound;

@@ -768,14 +768,14 @@ protected:
 
 	virtual void ReceivedPlayer();
 
-	UFUNCTION(Server, Reliable, WithValidation)
-	virtual void ServerReceiveStatsID(const FString& NewStatsID);
-
 	/** stores fire inputs until after movement has been executed (default would be fire -> movement -> render, this causes movement -> fire -> render)
 	 * makes weapons feel a little more responsive while strafing
 	 */
 	TArray< FDeferredFireInput, TInlineAllocator<2> > DeferredFireInputs;
 public:
+	UFUNCTION(Server, Reliable, WithValidation)
+	virtual void ServerReceiveStatsID(const FString& NewStatsID);
+
 	void ApplyDeferredFireInputs();
 
 	bool HasDeferredFireInputs();
