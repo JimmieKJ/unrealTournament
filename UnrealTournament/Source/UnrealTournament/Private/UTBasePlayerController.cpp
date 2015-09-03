@@ -617,7 +617,7 @@ void AUTBasePlayerController::ClientCloseAllUI_Implementation(bool bExceptDialog
 	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(Player);
 	if (LocalPlayer)
 	{
-		LocalPlayer->CloseAllUI();
+		LocalPlayer->CloseAllUI(bExceptDialogs);
 	}
 }
 

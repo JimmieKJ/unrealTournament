@@ -3042,7 +3042,7 @@ void UUTLocalPlayer::CloseAllUI(bool bExceptDialogs)
 			{
 				if (Dialog.IsValid())
 				{
-					GEngine->GameViewport->AddViewportWidgetContent(Dialog.ToSharedRef());
+					GEngine->GameViewport->AddViewportWidgetContent(Dialog.ToSharedRef(), 255);
 				}
 			}
 		}
