@@ -170,6 +170,7 @@ void SUWStatsViewer::ConstructPanel(FVector2D ViewportSize)
 				[
 					SAssignNew(StatsWebBrowser, SWebBrowser)
 					.InitialURL(TEXT(""))
+					.OnJSQueryReceived(FOnJSQueryReceivedDelegate::CreateSP(this, &SUWStatsViewer::QueryReceived))
 					.ShowControls(false)
 				]
 			]
@@ -431,4 +432,15 @@ void SUWStatsViewer::OnQueryWindowSelected(TSharedPtr<FString> NewSelection, ESe
 	DownloadStats();
 }
 
+bool SUWStatsViewer::QueryReceived(int64 QueryId, FString QueryString, bool Persistent, FJSQueryResultDelegate Delegate)
+{
+	if (!QueryString.IsEmpty())
+	{
+		QueryWindow = TEXT("alltime");
+		StatsID = QueryString;
+		DownloadStats();
+	}
+
+	return true;
+}
 #endif
