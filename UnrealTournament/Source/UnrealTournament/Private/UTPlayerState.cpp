@@ -1900,11 +1900,21 @@ TSharedRef<SWidget> AUTPlayerState::BuildRankInfo()
 
 void AUTPlayerState::BuildPlayerInfo(TSharedPtr<SUTTabWidget> TabWidget, TArray<TSharedPtr<TAttributeStat> >& StatList)
 {
-	UUTFlagInfo* Flag = Cast<UUTGameEngine>(GEngine) ? Cast<UUTGameEngine>(GEngine)->GetFlag(CountryFlag) : nullptr;
-	if ((Avatar == NAME_None) && GetOwner())
+	AUTPlayerController* PC = Cast<AUTPlayerController>(GetOwner());
+	UUTLocalPlayer* LP = PC ? Cast<UUTLocalPlayer>(PC->Player) : NULL;
+
+	if (LP && StatsID.IsEmpty() && OnlineIdentityInterface.IsValid() && OnlineIdentityInterface->GetLoginStatus(LP->GetControllerId()))
 	{
-		AUTPlayerController* PC = Cast<AUTPlayerController>(GetOwner());
-		UUTLocalPlayer* LP = PC ? Cast<UUTLocalPlayer>(PC->Player) : NULL;
+		TSharedPtr<FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(LP->GetControllerId());
+		if (UserId.IsValid())
+		{
+			StatsID = UserId->ToString();
+		}
+	}
+
+	UUTFlagInfo* Flag = Cast<UUTGameEngine>(GEngine) ? Cast<UUTGameEngine>(GEngine)->GetFlag(CountryFlag) : nullptr;
+	if ((Avatar == NAME_None) && PC)
+	{
 		if (LP)
 		{
 			Avatar = LP->GetAvatar();
