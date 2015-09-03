@@ -1898,6 +1898,41 @@ TSharedRef<SWidget> AUTPlayerState::BuildRankInfo()
 	return VBox;
 }
 
+TSharedRef<SWidget> AUTPlayerState::BuildStatsInfo()
+{
+	TSharedRef<SHorizontalBox> HBox = SNew(SHorizontalBox);
+	if (!StatsID.IsEmpty())
+	{
+		HBox->AddSlot()
+		.HAlign(HAlign_Left)
+		.VAlign(VAlign_Center)
+		.AutoWidth()
+		[
+			SNew(SBox)
+			.WidthOverride(300)
+			[
+				SNew(STextBlock)
+				.Text(NSLOCTEXT("Generic", "EpicIDPrompt", "ID :"))
+				.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
+				.ColorAndOpacity(FLinearColor::Gray)
+			]
+		];
+		HBox->AddSlot()
+		.HAlign(HAlign_Left)
+		.VAlign(VAlign_Center)
+		.Padding(5.0, 0.0, 0.0, 0.0)
+		.AutoWidth()
+		[
+			SNew(SHyperlink)
+			.Text(FText::FromString(StatsID))
+			.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
+			.OnNavigate(FSimpleDelegate::CreateUObject(this, &AUTPlayerState::EpicIDClicked))
+		];
+	}
+
+	return HBox;
+}
+
 void AUTPlayerState::BuildPlayerInfo(TSharedPtr<SUTTabWidget> TabWidget, TArray<TSharedPtr<TAttributeStat> >& StatList)
 {
 	AUTPlayerController* PC = Cast<AUTPlayerController>(GetOwner());
@@ -1983,32 +2018,7 @@ void AUTPlayerState::BuildPlayerInfo(TSharedPtr<SUTTabWidget> TabWidget, TArray<
 	.Padding(10.0f, 20.0f, 10.0f, 5.0f)
 	.AutoHeight()
 	[
-		SNew(SHorizontalBox)
-		+ SHorizontalBox::Slot()
-		.HAlign(HAlign_Left)
-		.VAlign(VAlign_Center)
-		.AutoWidth()
-		[
-			SNew(SBox)
-			.WidthOverride(300)
-			[
-				SNew(STextBlock)
-				.Text(NSLOCTEXT("Generic", "EpicIDPrompt", "ID :"))
-				.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
-				.ColorAndOpacity(FLinearColor::Gray)
-			]
-		]
-		+ SHorizontalBox::Slot()
-		.HAlign(HAlign_Left)
-		.VAlign(VAlign_Center)
-		.Padding(5.0, 0.0, 0.0, 0.0)
-		.AutoWidth()
-		[
-			SNew(SHyperlink)
-			.Text(FText::FromString(StatsID))
-			.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
-			.OnNavigate(FSimpleDelegate::CreateUObject(this, &AUTPlayerState::EpicIDClicked))
-		]
+		BuildStatsInfo()
 	]);
 }
 

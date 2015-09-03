@@ -592,6 +592,7 @@ public:
 	const FSlateBrush* GetELOBadgeNumberImage(int32 EloRating) const;
 	void BuildPlayerInfo(TSharedPtr<class SUTTabWidget> TabWidget, TArray<TSharedPtr<struct TAttributeStat> >& StatList);
 	TSharedRef<SWidget> BuildRankInfo();
+	TSharedRef<SWidget> BuildStatsInfo();
 	TSharedRef<SWidget> BuildRank(FText RankName, int32 Rank);
 	void EpicIDClicked();
 #endif
