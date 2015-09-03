@@ -11,7 +11,7 @@
 FWebBrowserHandler::FWebBrowserHandler()
 	: ShowErrorMessage(true)
 {
-    // This has to match the config in UnrealCEFSubpProcess
+    // This has to match the config in UnrealCEFSubprocess
     CefMessageRouterConfig MessageRouterConfig;
     MessageRouterConfig.js_query_function = "ueQuery";
     MessageRouterConfig.js_cancel_function = "ueQueryCancel";
