@@ -1527,6 +1527,14 @@ void AUTGameMode::StartMatch()
 			}
 			FUTAnalytics::GetProvider().RecordEvent( TEXT("NewMatch"), ParamArray );
 		}
+		else if (bOfflineChallenge)
+		{
+			TArray<FAnalyticsEventAttribute> ParamArray;
+			ParamArray.Add(FAnalyticsEventAttribute(TEXT("OfflineChallenge"), bOfflineChallenge));
+			ParamArray.Add(FAnalyticsEventAttribute(TEXT("ChallengeDifficulty"), ChallengeDifficulty));
+			ParamArray.Add(FAnalyticsEventAttribute(TEXT("ChallengeTag"), ChallengeTag.ToString()));
+			FUTAnalytics::GetProvider().RecordEvent(TEXT("NewOfflineChallengeMatch"), ParamArray);
+		}
 		else
 		{
 			UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);
