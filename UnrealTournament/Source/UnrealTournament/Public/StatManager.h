@@ -44,6 +44,7 @@ public:
 	TArray<int32> Teams;
 	TArray<FMatchStatsPlayer> Players;
 	FString GameType;
+	FString MapName;
 };
 
 /** XP awards for a player */
@@ -207,7 +208,7 @@ class UNREALTOURNAMENT_API UStatManager : public UObject
 	virtual void PopulateJsonObjectForNonBackendStats(TSharedPtr<FJsonObject> JsonObject);
 	virtual void InsertDataFromNonBackendJsonObject(const TSharedPtr<FJsonObject> JsonObject);
 
-	virtual void AddMatchToStats(const FString& GameType, const TArray<class AUTTeamInfo*>* Teams, const TArray<APlayerState*>* ActivePlayerStates, const TArray<APlayerState*>* InactivePlayerStates);
+	virtual void AddMatchToStats(const FString& MapName, const FString& GameType, const TArray<class AUTTeamInfo*>* Teams, const TArray<APlayerState*>* ActivePlayerStates, const TArray<APlayerState*>* InactivePlayerStates);
 
 	int32 NumPreviousPlayerNamesToKeep;
 	TArray<FString> PreviousPlayerNames;

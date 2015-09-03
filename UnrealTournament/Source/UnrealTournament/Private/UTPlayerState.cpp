@@ -1269,11 +1269,11 @@ void AUTPlayerState::StatsWriteComplete(FHttpRequestPtr HttpRequest, FHttpRespon
 	}
 }
 
-void AUTPlayerState::AddMatchToStats(const FString& GameType, const TArray<class AUTTeamInfo*>* Teams, const TArray<APlayerState*>* ActivePlayerStates, const TArray<APlayerState*>* InactivePlayerStates)
+void AUTPlayerState::AddMatchToStats(const FString& MapName, const FString& GameType, const TArray<class AUTTeamInfo*>* Teams, const TArray<APlayerState*>* ActivePlayerStates, const TArray<APlayerState*>* InactivePlayerStates)
 {
 	if (StatManager != nullptr && !StatsID.IsEmpty())
 	{
-		StatManager->AddMatchToStats(GameType, Teams, ActivePlayerStates, InactivePlayerStates);
+		StatManager->AddMatchToStats(MapName, GameType, Teams, ActivePlayerStates, InactivePlayerStates);
 	}
 }
 

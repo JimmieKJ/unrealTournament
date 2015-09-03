@@ -671,7 +671,7 @@ void AUTTeamGameMode::SendEndOfGameStats(FName Reason)
 					PS->SetStatsValue(NAME_Losses, 1);
 				}
 
-				PS->AddMatchToStats(GetClass()->GetPathName(), &Teams, &GetWorld()->GameState->PlayerArray, &InactivePlayerArray);
+				PS->AddMatchToStats(GetWorld()->GetMapName(), GetClass()->GetPathName(), &Teams, &GetWorld()->GameState->PlayerArray, &InactivePlayerArray);
 				
 				PS->WriteStatsToCloud();
 			}
@@ -699,7 +699,7 @@ void AUTTeamGameMode::SendEndOfGameStats(FName Reason)
 					PS->SetStatsValue(NAME_Losses, 1);
 				}
 
-				PS->AddMatchToStats(GetClass()->GetPathName(), &Teams, &GetWorld()->GameState->PlayerArray, &InactivePlayerArray);
+				PS->AddMatchToStats(GetWorld()->GetMapName(), GetClass()->GetPathName(), &Teams, &GetWorld()->GameState->PlayerArray, &InactivePlayerArray);
 				
 				PS->WriteStatsToCloud();
 			}
