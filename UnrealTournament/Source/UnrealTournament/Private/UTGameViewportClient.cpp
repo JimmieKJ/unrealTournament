@@ -250,7 +250,15 @@ void UUTGameViewportClient::PeekTravelFailureMessages(UWorld* World, enum ETrave
 		default: NetworkErrorMessage = FText::FromString(ErrorString);
 	}
 
-	if (!ReconnectDialog.IsValid())
+	if (ReconnectDialog.IsValid())
+	{
+		FirstPlayer->CloseDialog(ReconnectDialog.ToSharedRef());
+	}
+	if (FailureType == ETravelFailure::ServerTravelFailure || FailureType == ETravelFailure::ClientTravelFailure)
+	{
+		ReconnectDialog = FirstPlayer->ShowMessage(NSLOCTEXT("UTGameViewportClient", "TravelErrorDialogTitle", "Error"), NetworkErrorMessage, UTDIALOG_BUTTON_OK, FDialogResultDelegate::CreateUObject(this, &UUTGameViewportClient::NetworkFailureDialogResult));
+	}
+	else
 	{
 		ReconnectDialog = FirstPlayer->ShowMessage(NSLOCTEXT("UTGameViewportClient", "NetworkErrorDialogTitle", "Network Error"), NetworkErrorMessage, UTDIALOG_BUTTON_OK | UTDIALOG_BUTTON_RECONNECT, FDialogResultDelegate::CreateUObject(this, &UUTGameViewportClient::NetworkFailureDialogResult));
 	}
