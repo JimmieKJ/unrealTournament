@@ -1701,6 +1701,14 @@ void AUTGameMode::AwardXP()
 							}
 						}
 					}
+					if (EventReward.IsValid())
+					{
+						const UUTProfileItem* RewardItem = Cast<UUTProfileItem>(EventReward.TryLoad());
+						if (RewardItem != NULL)
+						{
+							new(Rewards) FProfileItemEntry(RewardItem, 1);
+						}
+					}
 					if (Rewards.Num() > 0)
 					{
 						GiveProfileItems(UTPS->UniqueId.GetUniqueNetId(), Rewards);
