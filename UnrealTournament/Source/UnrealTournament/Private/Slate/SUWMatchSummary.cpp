@@ -32,10 +32,12 @@
 
 #include "AssetData.h"
 
-static const float PLAYER_SPACING = 180.0f;
+static const float PLAYER_SPACING = 80.0f;
+static const float PLAYER_ALTOFFSET = 80.0f;
 static const float MIN_TEAM_SPACING = 120.f;
 static const float TEAM_CAMERA_OFFSET = 500.0f;
 static const float TEAM_CAMERA_ZOFFSET = 50.0f;
+static const float LARGETEAM_CAMERA_ZOFFSET = 200.0f;
 static const float ALL_CAMERA_OFFSET = 400.0f;
 static const float ALL_CAMERA_ANGLE = -5.0f;
 static const float TEAMANGLE = 45.0f;
@@ -828,29 +830,18 @@ void SUWMatchSummary::SetupIntroCam()
 
 void SUWMatchSummary::GetTeamCamTransforms(int32 TeamNum, FTransform& Start, FTransform& End)
 {
-	if (TeamPreviewMeshs.IsValidIndex(TeamNum))
+	if (TeamAnchors.IsValidIndex(TeamNum))
 	{
 		TArray<AUTCharacter*> &TeamCharacters = TeamPreviewMeshs[TeamNum];
-		if (TeamCharacters.Num() > 0)
-		{
-			AUTCharacter* StartChar = TeamCharacters[TeamCharacters.Num() - 1];
-			FRotator Dir = StartChar->GetActorRotation();
-			FVector Location = StartChar->GetActorLocation() + (Dir.Vector() * TEAM_CAMERA_OFFSET) + FVector(0.0f, 0.0f, TEAM_CAMERA_ZOFFSET);
+		float CamZOffset = (TeamCharacters.Num() > 5) ? LARGETEAM_CAMERA_ZOFFSET : TEAM_CAMERA_ZOFFSET;
 
-			Dir.Yaw += 180.0f;
-			Start.SetLocation(Location);
-			Start.SetRotation(Dir.Quaternion());
-		}
-		if (TeamCharacters.Num() > 0)
-		{
-			AUTCharacter* EndChar = TeamCharacters[0];
-			FRotator Dir = EndChar->GetActorRotation();
-			FVector Location = EndChar->GetActorLocation() + (Dir.Vector() * TEAM_CAMERA_OFFSET) + FVector(0.0f, 0.0f, TEAM_CAMERA_ZOFFSET);
-
-			Dir.Yaw += 180.0f;
-			End.SetLocation(Location);
-			End.SetRotation(Dir.Quaternion());
-		}
+		FVector Dir = TeamAnchors[TeamNum]->GetActorRotation().Vector();
+		FVector Location = TeamAnchors[TeamNum]->GetActorLocation() + (Dir.GetSafeNormal() * TEAM_CAMERA_OFFSET) + FVector(0.0f, 0.0f, CamZOffset);
+		Dir = FVector(0.f, 0.f, 90.f) + TeamAnchors[TeamNum]->GetActorLocation() - Location;
+		Start.SetLocation(Location);
+		Start.SetRotation(Dir.Rotation().Quaternion());
+		End.SetLocation(Location);
+		End.SetRotation(Dir.Rotation().Quaternion());
 	}
 }
 
@@ -1002,7 +993,7 @@ void SUWMatchSummary::RecreateAllPlayers()
 	for (int32 iTeam = 0; iTeam < TeamPlayerStates.Num(); iTeam++)
 	{
 		FVector PlayerLocation(0.0f, 0.0f, 0.0f);
-		FVector TeamCenter = FVector(0.0f,(TeamPlayerStates[iTeam].Num() - 1) * PLAYER_SPACING * 0.5f, 0.0f);
+		FVector TeamCenter = FVector(0.0f,0.f, 0.0f);
 
 		//Create an actor that all team actors will attach to for easy team manipulation
 		AActor* TeamAnchor = PlayerPreviewWorld->SpawnActor<AActor>(ATargetPoint::StaticClass(), TeamCenter, FRotator::ZeroRotator);
@@ -1016,7 +1007,10 @@ void SUWMatchSummary::RecreateAllPlayers()
 				AUTPlayerState* PS = TeamPlayerStates[iTeam][iPlayer];
 				// slightly oppose rotation imposed by teamplayerstate
 				FRotator PlayerRotation = FRotator(0.f); //(iTeam == 0) ? FRotator(0.f, 0.5f * (90.f - TEAMANGLE), 0.0f) : FRotator(0, 0.5f * (TEAMANGLE - 90.f), 0.0f);
-				AUTCharacter* NewCharacter = RecreatePlayerPreview(PS, PlayerLocation, PlayerRotation);
+				float CurrentOffsetX = -2.f * PLAYER_ALTOFFSET * int32(iPlayer / 5);
+				float CurrentOffsetY = PLAYER_SPACING * (iPlayer % 5) - 2.f*PLAYER_SPACING + 0.25f * PLAYER_SPACING * int32(iPlayer/5);
+				FVector PlayerOffset = (iPlayer % 2 == 0) ? FVector(CurrentOffsetX, CurrentOffsetY, 0.f) : FVector(CurrentOffsetX + PLAYER_ALTOFFSET, CurrentOffsetY, 0.f);
+				AUTCharacter* NewCharacter = RecreatePlayerPreview(PS, PlayerLocation + PlayerOffset, PlayerRotation);
 				NewCharacter->AttachRootComponentToActor(TeamAnchor, NAME_None, EAttachLocation::KeepWorldPosition);
 
 				//Add the character to the team list
@@ -1025,26 +1019,13 @@ void SUWMatchSummary::RecreateAllPlayers()
 					TeamPreviewMeshs.SetNum(iTeam + 1);
 				}
 				TeamPreviewMeshs[iTeam].Add(NewCharacter);
-				PlayerLocation.Y += PLAYER_SPACING;
 			}
 		}
 	}
 
 	//Move the teams into position
-	if (TeamAnchors.Num() == 1)
+	if (TeamAnchors.Num() == 2)
 	{
-		TeamAnchors[0]->SetActorLocationAndRotation(FVector::ZeroVector, FRotator::ZeroRotator);
-	}
-	else if (TeamAnchors.Num() == 2)
-	{
-		//Angle the teams a bit.
-		float YDistPerPlayer = 0.5f * PLAYER_SPACING * FMath::Sin(TEAMANGLE * PI / 180.f);
-		float Dist = MIN_TEAM_SPACING + (TeamPlayerStates[0].Num() - 1) * YDistPerPlayer;
-		TeamAnchors[0]->SetActorLocationAndRotation(FVector(0.f, Dist, 0.f), FRotator(0, TEAMANGLE - 90.f, 0.0f));
-
-		Dist = MIN_TEAM_SPACING + (TeamPlayerStates[1].Num() - 1) * YDistPerPlayer;
-		TeamAnchors[1]->SetActorLocationAndRotation(FVector(0.f, -1.f*Dist, 0.f), FRotator(0.f, 90.f - TEAMANGLE, 0.0f));
-
 		if (GameState.IsValid() && Cast<AUTCTFGameState>(GameState.Get()) != nullptr)
 		{
 			for (int32 iTeam = 0; iTeam < 2; iTeam++)
@@ -1270,9 +1251,9 @@ void SUWMatchSummary::UpdatePlayerRender(UCanvas* C, int32 Width, int32 Height)
 		TArray<FPlayerName> PlayerNames;
 		for (AUTCharacter* UTC : PlayerPreviewMeshs)
 		{
-			if (UTC->PlayerState != nullptr && FVector::DotProduct(CameraTransform.Rotator().Vector(), (UTC->GetActorLocation() - CameraTransform.GetLocation())) > 0.0f)
+			if (UTC->PlayerState != nullptr && !UTC->bHidden && FVector::DotProduct(CameraTransform.Rotator().Vector(), (UTC->GetActorLocation() - CameraTransform.GetLocation())) > 0.0f)
 			{
-				FVector ActorLocation = UTC->GetActorLocation() + FVector(0.0f, 0.0f, 140.0f);
+				FVector ActorLocation = UTC->GetActorLocation() + FVector(0.0f, 0.0f, 120.0f);
 				FVector2D ScreenLoc;
 				View->WorldToPixel(ActorLocation, ScreenLoc);
 
