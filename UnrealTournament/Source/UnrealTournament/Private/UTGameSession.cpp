@@ -119,20 +119,23 @@ FString AUTGameSession::ApproveLogin(const FString& Options)
 			return TEXT("");
 		}
 
-		FString Password = UTGameMode->ParseOption(Options, TEXT("Password"));
-		bool bSpectator = FCString::Stricmp(*UTGameMode->ParseOption(Options, TEXT("SpectatorOnly")), TEXT("1")) == 0;
-		if (!bSpectator && !UTGameMode->ServerPassword.IsEmpty())
+		if (GetNetMode() != NM_Standalone && !GetWorld()->IsPlayInEditor())
 		{
-			if (Password.IsEmpty() || !UTGameMode->ServerPassword.Equals(Password, ESearchCase::CaseSensitive))
+			FString Password = UTGameMode->ParseOption(Options, TEXT("Password"));
+			bool bSpectator = FCString::Stricmp(*UTGameMode->ParseOption(Options, TEXT("SpectatorOnly")), TEXT("1")) == 0;
+			if (!bSpectator && !UTGameMode->ServerPassword.IsEmpty())
 			{
-				return TEXT("NEEDPASS");
+				if (Password.IsEmpty() || !UTGameMode->ServerPassword.Equals(Password, ESearchCase::CaseSensitive))
+				{
+					return TEXT("NEEDPASS");
+				}
 			}
-		}
-		else if (bSpectator && !UTGameMode->SpectatePassword.IsEmpty())
-		{
-			if (Password.IsEmpty() || !UTGameMode->SpectatePassword.Equals(Password, ESearchCase::CaseSensitive))
+			else if (bSpectator && !UTGameMode->SpectatePassword.IsEmpty())
 			{
-				return TEXT("NEEDPASS");
+				if (Password.IsEmpty() || !UTGameMode->SpectatePassword.Equals(Password, ESearchCase::CaseSensitive))
+				{
+					return TEXT("NEEDPASS");
+				}
 			}
 		}
 	}
