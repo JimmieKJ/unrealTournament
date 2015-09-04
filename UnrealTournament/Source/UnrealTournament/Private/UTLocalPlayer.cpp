@@ -50,6 +50,7 @@
 #include "UTLobbyGameState.h"
 #include "StatNames.h"
 #include "UTChallengeManager.h"
+#include "UTCharacterContent.h"
 
 UUTLocalPlayer::UUTLocalPlayer(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -3139,6 +3140,37 @@ FString UUTLocalPlayer::GetChallengeDate(FName ChallengeTag)
 	return TEXT("Never");
 }
 
+void UUTLocalPlayer::AwardAchievement(FName AchievementName)
+{
+	static FName NAME_RequiredAchievement(TEXT("RequiredAchievement"));
+	static FName NAME_CosmeticName(TEXT("CosmeticName"));
+	static FName NAME_DisplayName(TEXT("DisplayName"));
+	if (CurrentProfileSettings != NULL && !CurrentProfileSettings->Achievements.Contains(AchievementName))
+	{
+		CurrentProfileSettings->Achievements.Add(AchievementName);
+
+		TArray<FAssetData> PossibleUnlocks;
+		GetAllBlueprintAssetData(AUTCosmetic::StaticClass(), PossibleUnlocks, true);
+		GetAllBlueprintAssetData(AUTCharacterContent::StaticClass(), PossibleUnlocks, true);
+		for (const FAssetData& Item : PossibleUnlocks)
+		{
+			const FString* ReqAchievement = Item.TagsAndValues.Find(NAME_RequiredAchievement);
+			if (ReqAchievement != NULL && FName(**ReqAchievement) == AchievementName)
+			{
+				const FString* DisplayName = Item.TagsAndValues.Find(NAME_DisplayName);
+				if (DisplayName == NULL)
+				{
+					DisplayName = Item.TagsAndValues.Find(NAME_CosmeticName);
+				}
+				if (DisplayName != NULL)
+				{
+					ShowToast(FText::Format(NSLOCTEXT("UT", "AchievementAward", "Unlocked {0}"), FText::FromString(*DisplayName)));
+				}
+			}
+		}
+	}
+}
+
 void UUTLocalPlayer::ChallengeCompleted(FName ChallengeTag, int32 Stars)
 {
 	if (CurrentProfileSettings && Stars > 0)
@@ -3168,6 +3200,26 @@ void UUTLocalPlayer::ChallengeCompleted(FName ChallengeTag, int32 Stars)
 		for (int32 i = 0 ; i < CurrentProfileSettings->ChallengeResults.Num(); i++)
 		{
 			TotalStars += CurrentProfileSettings->ChallengeResults[i].Stars;
+		}
+		if (TotalStars >= 5)
+		{
+			AwardAchievement(AchievementIDs::ChallengeStars5);
+		}
+		if (TotalStars >= 15)
+		{
+			AwardAchievement(AchievementIDs::ChallengeStars15);
+		}
+		if (TotalStars >= 25)
+		{
+			AwardAchievement(AchievementIDs::ChallengeStars25);
+		}
+		if (TotalStars >= 35)
+		{
+			AwardAchievement(AchievementIDs::ChallengeStars35);
+		}
+		if (TotalStars >= 45)
+		{
+			AwardAchievement(AchievementIDs::ChallengeStars45);
 		}
 
 		CurrentProfileSettings->TotalChallengeStars = TotalStars;

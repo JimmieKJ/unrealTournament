@@ -22,6 +22,11 @@ static const uint32 CURRENT_PROFILESETTINGS_VERSION = 12;
 namespace AchievementIDs
 {
 	extern const FName TutorialComplete;
+	extern const FName ChallengeStars5;
+	extern const FName ChallengeStars15;
+	extern const FName ChallengeStars25;
+	extern const FName ChallengeStars35;
+	extern const FName ChallengeStars45;
 };
 
 class UUTLocalPlayer;
