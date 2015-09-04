@@ -757,8 +757,7 @@ void SUWMatchSummary::Tick(const FGeometry& AllottedGeometry, const double InCur
 	}
 
 	//Create the xp widget when on final shot
-	AUTPlayerState* PS = (PlayerOwner.IsValid() && PlayerOwner->PlayerController != nullptr) ? Cast<AUTPlayerState>(PlayerOwner->PlayerController->PlayerState) : nullptr;
-	if (!XPBar.IsValid() && HasCamFlag(CF_ShowXPBar) && GameState.IsValid() && GameState->GetMatchState() == MatchState::WaitingPostMatch && (PS != nullptr && PS->CanAwardOnlineXP()))
+	if (HasCamFlag(CF_ShowXPBar) && !XPBar.IsValid() && PlayerOwner.IsValid() && PlayerOwner->IsOnTrustedServer() && PlayerOwner->IsLoggedIn() && GameState.IsValid() && GameState->GetMatchState() == MatchState::WaitingPostMatch)
 	{
 		XPOverlay->AddSlot()
 		[

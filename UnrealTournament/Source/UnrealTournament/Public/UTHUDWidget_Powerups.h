@@ -10,6 +10,7 @@ class UNREALTOURNAMENT_API UUTHUDWidget_Powerups : public UUTHUDWidget
 
 public:
 	virtual void Draw_Implementation(float DeltaTime);
+	virtual bool ShouldDraw_Implementation(bool bShowScores);
 
 protected:
 
