@@ -92,11 +92,9 @@ class UNREALTOURNAMENT_API UUTAnnouncer : public UObject
 	FTimerHandle PlayNextAnnouncementHandle;
 
 	/** fast lookup to audio we've used previously */
-	UPROPERTY(Transient)
 	TMap<FName, USoundBase*> RewardCachedAudio;
 
 	/** fast lookup to audio we've used previously */
-	UPROPERTY(Transient)
 	TMap<FName, USoundBase*> StatusCachedAudio;
 
 	/** currently playing announcement */
