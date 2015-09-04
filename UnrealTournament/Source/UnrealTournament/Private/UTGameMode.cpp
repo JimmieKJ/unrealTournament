@@ -472,7 +472,7 @@ void AUTGameMode::InitGameState()
 		}
 	}
 
-	if (!bDisableMapVote)
+	if (!IsGameInstanceServer() && !bDisableMapVote)
 	{
 		// First, fixup the MapRotation array so it only has long names...
 
