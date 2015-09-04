@@ -502,6 +502,33 @@ bool AUTPlayerController::InputKey(FKey Key, EInputEvent EventType, float Amount
 		return true;
 	}
 
+	if (PlayerState && PlayerState->bOnlySpectator)
+	{
+		if (InputMode == EInputMode::EIM_GameAndUI && (Key == EKeys::LeftMouseButton || Key == EKeys::RightMouseButton))
+		{
+			if (EventType == EInputEvent::IE_Pressed)
+			{
+				UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(Player);
+				if (LocalPlayer)
+				{
+					FReply& SlateOps = LocalPlayer->GetSlateOperations();
+					SlateOps.UseHighPrecisionMouseMovement(LocalPlayer->ViewportClient->GetGameViewportWidget().ToSharedRef());
+					SavedMouseCursorLocation = FSlateApplication::Get().GetCursorPos();
+					bShowMouseCursor = false;
+				}
+			}
+			else if (EventType == EInputEvent::IE_Released)
+			{
+				UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(Player);
+				if (LocalPlayer)
+				{
+					LocalPlayer->GetSlateOperations().ReleaseMouseCapture().SetMousePos(SavedMouseCursorLocation.IntPoint());
+					bShowMouseCursor = true;
+				}
+			}
+		}
+	}
+
 	// pass mouse events to HUD if requested
 	if (bShowMouseCursor && MyUTHUD != NULL && Key.IsMouseButton() && MyUTHUD->OverrideMouseClick(Key, EventType))
 	{
