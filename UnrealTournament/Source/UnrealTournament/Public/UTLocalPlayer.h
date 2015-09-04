@@ -662,6 +662,10 @@ protected:
 #endif
 
 public:
+	/** Set at end of match if earned roster upgrade. */
+	UPROPERTY()
+		FText RosterUpgradeText;
+
 	// Returns the Total # of stars collected by this player.
 	int32 GetTotalChallengeStars();
 

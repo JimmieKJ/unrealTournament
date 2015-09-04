@@ -472,7 +472,7 @@ void AUTGameMode::InitGameState()
 		}
 	}
 
-	if (!bDisableMapVote)
+	if (!IsGameInstanceServer() && !bDisableMapVote)
 	{
 		// First, fixup the MapRotation array so it only has long names...
 
@@ -1164,23 +1164,26 @@ void AUTGameMode::Killed(AController* Killer, AController* KilledPlayer, APawn* 
 
 		//UE_LOG(UT, Log, TEXT("Player Killed: %s killed %s"), (KillerPlayerState != NULL ? *KillerPlayerState->PlayerName : TEXT("NULL")), (KilledPlayerState != NULL ? *KilledPlayerState->PlayerName : TEXT("NULL")));
 
-		bool const bEnemyKill = IsEnemy(Killer, KilledPlayer);
-		if (!bEnemyKill)
-		{
-			Killer = NULL;
-		}
 		if (KilledPlayerState != NULL)
 		{
+			bool const bEnemyKill = IsEnemy(Killer, KilledPlayer);
 			KilledPlayerState->LastKillerPlayerState = KillerPlayerState;
 			KilledPlayerState->IncrementDeaths(DamageType, KillerPlayerState);
 			TSubclassOf<UUTDamageType> UTDamage(*DamageType);
-			if (UTDamage)
+			if (UTDamage && bEnemyKill)
 			{
 				UTDamage.GetDefaultObject()->ScoreKill(KillerPlayerState, KilledPlayerState, KilledPawn);
 			}
 
 			BroadcastDeathMessage(Killer, KilledPlayer, DamageType);
-			ScoreKill(Killer, KilledPlayer, KilledPawn, DamageType);
+			if (!bEnemyKill && (Killer != KilledPlayer))
+			{
+				ScoreTeamKill(Killer, KilledPlayer, KilledPawn, DamageType);
+			}
+			else
+			{
+				ScoreKill(Killer, KilledPlayer, KilledPawn, DamageType);
+			}
 			
 			if (bHasRespawnChoices)
 			{
@@ -1251,6 +1254,16 @@ void AUTGameMode::ScoreDamage_Implementation(int32 DamageAmount, AController* Vi
 	if (BaseMutator != NULL)
 	{
 		BaseMutator->ScoreDamage(DamageAmount, Victim, Attacker);
+	}
+}
+
+void AUTGameMode::ScoreTeamKill_Implementation(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType)
+{
+	AddKillEventToReplay(Killer, Other, DamageType);
+
+	if (BaseMutator != NULL)
+	{
+		BaseMutator->ScoreKill(Killer, Other, DamageType);
 	}
 }
 
@@ -2239,7 +2252,7 @@ AActor* AUTGameMode::ChoosePlayerStart_Implementation(AController* Player)
 	// Start by choosing a random start
 	int32 RandStart = FMath::RandHelper(PlayerStarts.Num());
 
-	float BestRating = 0.f;
+	float BestRating = -20.f;
 	APlayerStart* BestStart = NULL;
 	for ( int32 i=RandStart; i<PlayerStarts.Num(); i++ )
 	{

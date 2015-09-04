@@ -214,7 +214,7 @@ TSharedRef<ITableRow> SUMatchPanel::OnGenerateWidgetForMatchList( TSharedPtr<FTr
 					.VAlign(VAlign_Center)
 					.AutoWidth()
 					[
-						SNew(SBox).HeightOverride(78).WidthOverride(448).Padding(FMargin(5.0f, 0.0f, 5.0f, 0.0f))
+						SNew(SBox).HeightOverride(78).WidthOverride(408).Padding(FMargin(5.0f, 0.0f, 5.0f, 0.0f))
 						[
 							SNew(SVerticalBox)
 							+SVerticalBox::Slot()
@@ -249,7 +249,7 @@ TSharedRef<ITableRow> SUMatchPanel::OnGenerateWidgetForMatchList( TSharedPtr<FTr
 					.VAlign(VAlign_Center)
 					.AutoWidth()
 					[
-						SNew(SBox).WidthOverride(85).HeightOverride(78)
+						SNew(SBox).WidthOverride(155).HeightOverride(78)
 						[
 							SNew(SVerticalBox)
 							+SVerticalBox::Slot()
@@ -270,7 +270,7 @@ TSharedRef<ITableRow> SUMatchPanel::OnGenerateWidgetForMatchList( TSharedPtr<FTr
 					.VAlign(VAlign_Center)
 					.AutoWidth()
 					[
-						SNew(SBox).WidthOverride(128).HeightOverride(78)
+						SNew(SBox).WidthOverride(103).HeightOverride(78)
 						[
 							SNew(SVerticalBox)
 							+SVerticalBox::Slot()
@@ -364,7 +364,7 @@ TSharedRef<ITableRow> SUMatchPanel::OnGenerateWidgetForMatchList( TSharedPtr<FTr
 								SNew(SButton)
 								.ButtonStyle(SUTStyle::Get(),"UT.SimpleButton.Medium")
 								.OnClicked(this, &SUMatchPanel::JoinMatchButtonClicked, InItem)
-								.IsEnabled(InItem->bJoinableAsPlayer)
+								.IsEnabled(TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateSP(InItem.Get(), &FTrackedMatch::CanJoin)))
 								[
 									SNew(SVerticalBox)
 									+SVerticalBox::Slot().HAlign(HAlign_Center).AutoHeight()
@@ -382,7 +382,7 @@ TSharedRef<ITableRow> SUMatchPanel::OnGenerateWidgetForMatchList( TSharedPtr<FTr
 								SNew(SButton)
 								.ButtonStyle(SUTStyle::Get(),"UT.SimpleButton.Medium")
 								.OnClicked(this, &SUMatchPanel::SpectateMatchButtonClicked, InItem)
-								.IsEnabled(this, &SUMatchPanel::CanSpectateGame, InItem)
+								.IsEnabled(TAttribute<bool>::Create(TAttribute<bool>::FGetter::CreateSP(InItem.Get(), &FTrackedMatch::CanSpectate)))
 								[
 									SNew(SVerticalBox)
 									+SVerticalBox::Slot().HAlign(HAlign_Center).AutoHeight()
@@ -939,17 +939,6 @@ FReply SUMatchPanel::SpectateMatchButtonClicked(TSharedPtr<FTrackedMatch> InItem
 	return FReply::Handled();
 }
 
-bool SUMatchPanel::CanSpectateGame(TSharedPtr<FTrackedMatch> InItem) const
-{
-	if (InItem.IsValid())
-	{
-		return InItem->MatchInfo.IsValid() ? InItem->MatchInfo->bSpectatable : InItem->bJoinableAsSpectator;
-	}
-	else
-	{
-		return false;
-	}
-}
 
 void SUMatchPanel::SetServerData(TSharedPtr<FServerData> inServerData)
 {
@@ -965,7 +954,7 @@ void SUMatchPanel::SetServerData(TSharedPtr<FServerData> inServerData)
 		TSharedPtr<FServerInstanceData> Instance = ServerData->HUBInstances[i];
 		if (Instance.IsValid())
 		{
-			int32 Index = TrackedMatches.Add(FTrackedMatch::Make(Instance->InstanceId, Instance->RulesTitle, Instance->MapName, Instance->NumPlayers, Instance->MaxPlayers, Instance->NumFriends, Instance->Flags, Instance->Rank, Instance->bJoinableAsPlayer, Instance->bJoinableAsSpectator));
+			int32 Index = TrackedMatches.Add(FTrackedMatch::Make(Instance->InstanceId, Instance->RulesTitle, Instance->MapName, Instance->NumPlayers, Instance->MaxPlayers, Instance->NumFriends, Instance->Flags, Instance->Rank));
 
 			// Count the # of friends....
 			int32 NumFriends = 0;

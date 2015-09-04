@@ -62,6 +62,7 @@ UUTLocalPlayer::UUTLocalPlayer(const class FObjectInitializer& ObjectInitializer
 	bSuppressToastsInGame = false;
 	DownloadStatusText = FText::GetEmpty();
 	QuickMatchLimitTime = -60.0;
+	RosterUpgradeText = FText::GetEmpty();
 }
 
 UUTLocalPlayer::~UUTLocalPlayer()
@@ -3142,12 +3143,14 @@ void UUTLocalPlayer::ChallengeCompleted(FName ChallengeTag, int32 Stars)
 	if (CurrentProfileSettings && Stars > 0)
 	{
 		bool bFound = false;
+		int32 EarnedStars = 0;
 		for (int32 i = 0 ; i < CurrentProfileSettings->ChallengeResults.Num(); i++)
 		{
 			if (CurrentProfileSettings->ChallengeResults[i].Tag == ChallengeTag)
 			{
 				if (CurrentProfileSettings->ChallengeResults[i].Stars < Stars)
 				{
+					EarnedStars = Stars - CurrentProfileSettings->ChallengeResults[i].Stars;
 					CurrentProfileSettings->ChallengeResults[i].Update(Stars);
 				}
 
@@ -3155,7 +3158,6 @@ void UUTLocalPlayer::ChallengeCompleted(FName ChallengeTag, int32 Stars)
 				break;
 			}
 		}
-
 		if (!bFound)
 		{
 			CurrentProfileSettings->ChallengeResults.Add(FUTChallengeResult(ChallengeTag,Stars));
@@ -3170,14 +3172,15 @@ void UUTLocalPlayer::ChallengeCompleted(FName ChallengeTag, int32 Stars)
 		CurrentProfileSettings->TotalChallengeStars = TotalStars;
 		SaveProfileSettings();
 
+		bool bEarnedRosterUpgrade = (TotalStars / 5 != (TotalStars - EarnedStars) / 5);
 		FText ChallengeToast = FText::Format(NSLOCTEXT("Challenge", "GainedStars", "Challenge Completed!  You earned {0} stars."), FText::AsNumber(Stars));
 		ShowToast(ChallengeToast);
-		if (TotalStars / 5 != (TotalStars - Stars) / 5)
+		if (bEarnedRosterUpgrade)
 		{
 			FText OldTeammate = FText::FromName(UUTChallengeManager::StaticClass()->GetDefaultObject<UUTChallengeManager>()->PlayerTeamRoster.Roster[(TotalStars - Stars) / 5]);
 			FText NewTeammate = FText::FromName(UUTChallengeManager::StaticClass()->GetDefaultObject<UUTChallengeManager>()->PlayerTeamRoster.Roster[4 + (TotalStars - Stars) / 5]);
-			FText RosterToast = FText::Format(NSLOCTEXT("Challenge", "RosterUpgrade", "Roster Upgrade!  {0} replaces {1}."), OldTeammate, NewTeammate);
-			ShowToast(RosterToast);
+			RosterUpgradeText = FText::Format(NSLOCTEXT("Challenge", "RosterUpgrade", "Roster Upgrade!  {0} replaces {1}."), OldTeammate, NewTeammate);
+			ShowToast(RosterUpgradeText);
 		}
 	}
 }

@@ -447,6 +447,9 @@ public:
 	virtual void SetMouseSensitivityUT(float NewSensitivity);
 
 	UPROPERTY()
+	FVector2D SavedMouseCursorLocation;
+
+	UPROPERTY()
 	class AUTPlayerState* LastSpectatedPlayerState;
 
 	UPROPERTY()

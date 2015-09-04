@@ -13,6 +13,12 @@
 DECLARE_DELEGATE(FOnMatchInfoUpdated);
 DECLARE_DELEGATE(FOnRulesetUpdated);
 
+const uint32 MATCH_FLAG_InProgress = 0x0001;
+const uint32 MATCH_FLAG_Ranked = 0x0002;
+const uint32 MATCH_FLAG_Private = 0x0004;
+const uint32 MATCH_FLAG_NoJoinInProgress = 0x0008;
+const uint32 MATCH_FLAG_NoSpectators = 0x0010;
+
 USTRUCT()
 struct FPlayerListInfo
 {
@@ -336,6 +342,8 @@ public:
 	void GetPlayerData(TArray<FMatchPlayerListStruct>& PlayerData);
 
 	int32 CountFriendsInMatch(const TArray<FUTFriend>& Friends);
+
+	uint32 GetMatchFlags();
 
 protected:
 	UFUNCTION()

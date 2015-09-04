@@ -225,7 +225,7 @@ bool AUTLobbyMatchInfo::MatchIsReadyToJoin(AUTLobbyPlayerState* Joiner)
 	{
 		if (	CurrentState == ELobbyMatchState::WaitingForPlayers || 
 		   (    CurrentState == ELobbyMatchState::Setup && OwnerId == Joiner->UniqueId) ||
-		   (	CurrentState == ELobbyMatchState::Launching && (bJoinAnytime || OwnerId == Joiner->UniqueId) )
+		   (	CurrentState == ELobbyMatchState::Launching && (Joiner->CurrentMatch == this || bJoinAnytime || OwnerId == Joiner->UniqueId) )
 		   )
 		{
 			return ( OwnerId.IsValid() );
@@ -1122,5 +1122,29 @@ int32 AUTLobbyMatchInfo::CountFriendsInMatch(const TArray<FUTFriend>& Friends)
 	}
 
 	return NumFriends;
+}
+
+uint32 AUTLobbyMatchInfo::GetMatchFlags()
+{
+	uint32 Flags = 0x00;
+	if (CurrentState == ELobbyMatchState::Launching || CurrentState == ELobbyMatchState::InProgress)
+	{
+		Flags = Flags | MATCH_FLAG_InProgress;
+	}
+
+	if (bRankLocked)
+	{
+		Flags = MATCH_FLAG_Ranked | 0x02;
+	}
+	if (!bJoinAnytime)
+	{
+		Flags = Flags | MATCH_FLAG_NoJoinInProgress;
+	}
+	if (!bSpectatable)
+	{
+		Flags = Flags | MATCH_FLAG_NoSpectators;
+	}
+
+	return Flags;
 
 }

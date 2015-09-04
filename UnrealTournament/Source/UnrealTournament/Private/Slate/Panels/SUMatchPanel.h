@@ -24,8 +24,6 @@ public:
 	int32 NumFriends;
 	uint32 Flags;
 	int32 Rank;
-	bool bJoinableAsPlayer;
-	bool bJoinableAsSpectator;
 
 	bool bPendingKill;
 
@@ -34,7 +32,7 @@ public:
 		MatchInfo.Reset();
 	};
 
-	FTrackedMatch(FGuid inMatchId, const FString& inRuleTitle, const FString& inMapName, const int32 inNumPlayers, const int32 inMaxPlayers, const int32 inNumFriends, const uint32 inFlags, const int32 inRank, const bool inbJoinableAsPlayer, const bool inbJoinableAsSpectator)
+	FTrackedMatch(FGuid inMatchId, const FString& inRuleTitle, const FString& inMapName, const int32 inNumPlayers, const int32 inMaxPlayers, const int32 inNumFriends, const uint32 inFlags, const int32 inRank)
 		: MatchId(inMatchId)
 		, RuleTitle(inRuleTitle)
 		, MapName(inMapName)
@@ -43,22 +41,31 @@ public:
 		, NumFriends(inNumFriends)
 		, Flags(inFlags)
 		, Rank(inRank)
-		, bJoinableAsPlayer(inbJoinableAsPlayer)
-		, bJoinableAsSpectator(inbJoinableAsSpectator)
 	{
 		MatchInfo.Reset();
 		bPendingKill = false;
+
+		if (MatchInfo.IsValid() && (MatchInfo->CurrentState == ELobbyMatchState::InProgress || MatchInfo->CurrentState == ELobbyMatchState::Launching) && !MatchInfo->bJoinAnytime)
+		{
+			Flags |= 0x08;
+		}
 	}
 
 	FTrackedMatch(const TWeakObjectPtr<AUTLobbyMatchInfo> inMatchInfo)
 	{
 		MatchInfo = inMatchInfo;
 		bPendingKill = false;
+
+		if (MatchInfo.IsValid() && (MatchInfo->CurrentState == ELobbyMatchState::InProgress || MatchInfo->CurrentState == ELobbyMatchState::Launching) && !MatchInfo->bJoinAnytime)
+		{
+			Flags |= 0x08;
+		}
+
 	};
 
-	static TSharedRef<FTrackedMatch> Make(FGuid inMatchId, const FString& inRuleTitle, const FString& inMapName, const int32 inNumPlayers, const int32 inMaxPlayers, const int32 inNumFriends, const uint32 inFlags, const int32 inRank, const bool inbJoinableAsPlayer, const bool inbJoinableAsSpectator)
+	static TSharedRef<FTrackedMatch> Make(FGuid inMatchId, const FString& inRuleTitle, const FString& inMapName, const int32 inNumPlayers, const int32 inMaxPlayers, const int32 inNumFriends, const uint32 inFlags, const int32 inRank)
 	{
-		return MakeShareable(new FTrackedMatch(inMatchId, inRuleTitle, inMapName, inNumPlayers, inMaxPlayers, inNumFriends, inFlags, inRank, inbJoinableAsPlayer, inbJoinableAsSpectator));
+		return MakeShareable(new FTrackedMatch(inMatchId, inRuleTitle, inMapName, inNumPlayers, inMaxPlayers, inNumFriends, inFlags, inRank));
 	}
 
 	static TSharedRef<FTrackedMatch> Make(const TWeakObjectPtr<AUTLobbyMatchInfo> inMatchInfo)
@@ -70,21 +77,18 @@ public:
 	{
 		if (MatchInfo.IsValid())
 		{
-			Flags = 0x00;
-			// We don't have private yet.
-			if (MatchInfo->bRankLocked)
-			{
-				Flags = Flags | 0x02;
-			}
+			Flags = MatchInfo->GetMatchFlags();
 		}
 
 		// TODO: Add icon references
 
-		FString Final;
-		if ((Flags & 0x01) == 0x01) Final = TEXT("<img src=\"UT.Icon.Lock.Small\"/> Passworded");
-		if ((Flags & 0x02) == 0x02) Final = Final + (Final.IsEmpty() ? TEXT("") : TEXT("\n")) + TEXT("<img src=\"UT.Icon.Lock.Small\"/> Ranked");
-		if ((Flags & 0x04) == 0x04) Final = Final + (Final.IsEmpty() ? TEXT("") : TEXT("\n")) + TEXT("<img src=\"UT.Icon.Lock.Small\"/> Private");
+		FString Final = TEXT("");
 
+		if ((Flags & MATCH_FLAG_InProgress) == MATCH_FLAG_InProgress) Final = Final + (Final.IsEmpty() ? TEXT("") : TEXT("\n")) + TEXT("In Progress");
+		if ((Flags & MATCH_FLAG_Ranked) == MATCH_FLAG_Ranked) Final = Final + (Final.IsEmpty() ? TEXT("") : TEXT("\n")) + TEXT("<img src=\"UT.Icon.Lock.Small\"/> Ranked");
+		if ((Flags & MATCH_FLAG_Private) == MATCH_FLAG_Private) Final = Final + (Final.IsEmpty() ? TEXT("") : TEXT("\n")) + TEXT("<img src=\"UT.Icon.Lock.Small\"/> Private");
+		if ((Flags & MATCH_FLAG_NoJoinInProgress) == MATCH_FLAG_NoJoinInProgress) Final = Final + (Final.IsEmpty() ? TEXT("") : TEXT("\n")) + TEXT("<img src=\"UT.Icon.Lock.Small\"/> No Join in Progress");
+		if ((Flags & MATCH_FLAG_NoSpectators) == MATCH_FLAG_NoSpectators) Final = Final + (Final.IsEmpty() ? TEXT("") : TEXT("\n")) + TEXT("<img src=\"UT.Icon.Lock.Small\"/> No Spectators");
 
 		if (NumFriends > 0)
 		{
@@ -150,6 +154,17 @@ public:
 
 		return FText::AsNumber(Level);
 	}
+
+	bool CanJoin()
+	{
+		return ((Flags & MATCH_FLAG_InProgress) != MATCH_FLAG_InProgress) || ((Flags & MATCH_FLAG_NoJoinInProgress) != MATCH_FLAG_NoJoinInProgress);
+	}
+
+	bool CanSpectate()
+	{
+		return (Flags & MATCH_FLAG_NoSpectators) != MATCH_FLAG_NoSpectators;
+	}
+
 };
 
 class FServerData;
@@ -208,8 +223,6 @@ protected:
 
 	FReply JoinMatchButtonClicked(TSharedPtr<FTrackedMatch> InItem);
 	FReply SpectateMatchButtonClicked(TSharedPtr<FTrackedMatch> InItem);
-
-	bool CanSpectateGame(TSharedPtr<FTrackedMatch> InItem) const;
 
 	FMatchPanelJoinMatchDelegate OnJoinMatchDelegate;
 

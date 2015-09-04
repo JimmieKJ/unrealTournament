@@ -620,12 +620,26 @@ FReply SUTChallengePanel::StartClicked(int32 Difficulty)
 
 	if (PlayerOwner->IsLoggedIn())
 	{
+		if (Difficulty > 0)
+		{
+			int32 NumStars = PlayerOwner->GetTotalChallengeStars();
+			if (NumStars < 10)
+			{
+				const FUTChallengeInfo Challenge = ChallengeManager->Challenges[SelectedChallenge];
+				if (Challenge.PlayerTeamSize > 0)
+				{
+					PendingDifficulty = Difficulty;
+					PlayerOwner->ShowMessage(NSLOCTEXT("SUTChallengePanel", "WeakRosterWarningTitle", "WARNING"), NSLOCTEXT("SUTChallengePanel", "WeakRosterWarning", "Your current roster of teammates may not be strong enough to take on this challenge at this skill level.  You will unlock roster upgrades for every 5 stars earned.  Do you wish to continue?"), UTDIALOG_BUTTON_YES | UTDIALOG_BUTTON_NO, FDialogResultDelegate::CreateSP(this, &SUTChallengePanel::WarningResult));
+					return FReply::Handled();
+				}
+			}
+		}
 		StartChallenge(Difficulty);
 	}
 	else
 	{
 		PendingDifficulty = Difficulty;
-		PlayerOwner->ShowMessage(NSLOCTEXT("SUTChallengePanel", "NotLoggedInWarningTitle", "WARNING"), NSLOCTEXT("SUTChallengePanel", "NotLoggedInWarning", "You are not logged in.  Any progress you make on this challenge will not be saved.  Continue?"), UTDIALOG_BUTTON_YES | UTDIALOG_BUTTON_NO, FDialogResultDelegate::CreateSP(this, &SUTChallengePanel::WarningResult));
+		PlayerOwner->ShowMessage(NSLOCTEXT("SUTChallengePanel", "NotLoggedInWarningTitle", "WARNING"), NSLOCTEXT("SUTChallengePanel", "NotLoggedInWarning", "You are not logged in.  Any progress you make on this challenge will not be saved.  Do you wish to continue?"), UTDIALOG_BUTTON_YES | UTDIALOG_BUTTON_NO, FDialogResultDelegate::CreateSP(this, &SUTChallengePanel::WarningResult));
 	}
 
 	return FReply::Handled();
