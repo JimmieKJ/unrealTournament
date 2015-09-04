@@ -502,6 +502,7 @@ bool AUTPlayerController::InputKey(FKey Key, EInputEvent EventType, float Amount
 		return true;
 	}
 
+#if !UE_SERVER
 	if (PlayerState && PlayerState->bOnlySpectator)
 	{
 		if (InputMode == EInputMode::EIM_GameAndUI && (Key == EKeys::LeftMouseButton || Key == EKeys::RightMouseButton))
@@ -528,6 +529,7 @@ bool AUTPlayerController::InputKey(FKey Key, EInputEvent EventType, float Amount
 			}
 		}
 	}
+#endif
 
 	// pass mouse events to HUD if requested
 	if (bShowMouseCursor && MyUTHUD != NULL && Key.IsMouseButton() && MyUTHUD->OverrideMouseClick(Key, EventType))
