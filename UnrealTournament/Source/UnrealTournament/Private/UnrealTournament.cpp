@@ -618,6 +618,7 @@ FHttpRequestPtr ReadBackendStats(const FHttpRequestCompleteDelegate& ResultDeleg
 		StatsReadRequest->SetURL(FinalStatsURL);
 		StatsReadRequest->OnProcessRequestComplete() = ResultDelegate;
 		StatsReadRequest->SetVerb(TEXT("GET"));
+		StatsReadRequest->SetHeader(TEXT("Cache-Control"), TEXT("no-cache"));
 
 		UE_LOG(LogGameStats, Verbose, TEXT("%s"), *FinalStatsURL);
 
