@@ -1427,7 +1427,7 @@ void SUWServerBrowser::AddHub(TSharedPtr<FServerData> Hub)
 
 	if ( !bIsBeginner && ServerIsTrainingGround == 1 )
 	{
-		return;
+		Hub->Flags |= SERVERFLAG_Restricted;
 	}
 
 	for (int32 i=0; i < AllHubServers.Num() ; i++)
@@ -1581,6 +1581,12 @@ FReply SUWServerBrowser::OnJoinClick(bool bSpectate)
 
 void SUWServerBrowser::ConnectTo(FServerData ServerData,bool bSpectate)
 {
+	if ((ServerData.Flags & SERVERFLAG_Restricted) > 0)
+	{
+		PlayerOwner->MessageBox(NSLOCTEXT("SUWServerBrowser","RestrictedServerTitle","Unable to join server"), NSLOCTEXT("SUWServerBrowser","RestrictedServerMsg","Sorry, but you can not join the hub or server you have selected.  Please choose another one."));
+		return;
+	}
+
 	SetBrowserState(EBrowserState::BrowserIdle);	
 
 	// Flag the browser as needing a refresh the next time it is shown
@@ -1918,6 +1924,7 @@ void SUWServerBrowser::ShowHUBs()
 TSharedRef<ITableRow> SUWServerBrowser::OnGenerateWidgetForHUBList(TSharedPtr<FServerData> InItem, const TSharedRef<STableViewBase>& OwnerTable )
 {
 	bool bPassword = (InItem->Flags & SERVERFLAG_RequiresPassword )  > 0;
+	bool bRestricted = (InItem->Flags & SERVERFLAG_Restricted )  > 0;
 
 	return SNew(STableRow<TSharedPtr<FServerData>>, OwnerTable)
 		//.Style(SUWindowsStyle::Get(),"UWindows.Standard.HUBBrowser.Row")
@@ -2022,7 +2029,7 @@ TSharedRef<ITableRow> SUWServerBrowser::OnGenerateWidgetForHUBList(TSharedPtr<FS
 										.WidthOverride(18)
 										[
 											SNew(SImage)
-											.Visibility(bPassword ? EVisibility::HitTestInvisible : EVisibility::Hidden)
+											.Visibility(bPassword || bRestricted ? EVisibility::HitTestInvisible : EVisibility::Hidden)
 											.Image(SUTStyle::Get().GetBrush("UT.Icon.Lock.Small"))
 										]
 									]
@@ -2229,8 +2236,15 @@ FName SUWServerBrowser::GetBrowserState()
 void SUWServerBrowser::JoinQuickInstance(const FString& InstanceGuid, bool bAsSpectator)
 {
 	TArray<TSharedPtr<FServerData>> SelectedHubs = HUBServerList->GetSelectedItems();
+
 	if (SelectedHubs.Num() > 0 && SelectedHubs[0].IsValid())
 	{
+		if ((SelectedHubs[0]->Flags & SERVERFLAG_Restricted) > 0)
+		{
+			PlayerOwner->MessageBox(NSLOCTEXT("SUWServerBrowser","RestrictedServerTitle","Unable to join server"), NSLOCTEXT("SUWServerBrowser","RestrictedServerMsg","Sorry, but you can not join the hub or server you have selected.  Please choose another one."));
+			return;
+		}
+
 		PlayerOwner->AttemptJoinInstance(SelectedHubs[0], InstanceGuid, bAsSpectator);
 	}
 

@@ -21,7 +21,11 @@
 #define SETTING_UTMAXPLAYERS FName(TEXT("UT_MAXPLAYERS"))
 #define SETTING_UTMAXSPECTATORS FName(TEXT("UT_MAXSPECTATORS"))
 
+// Requires a password to join
 #define SERVERFLAG_RequiresPassword 0x00000001
+
+// This server is restricted for some reason.  
+#define SERVERFLAG_Restricted 0x00000002
 
 class UNREALTOURNAMENT_API FUTOnlineGameSettingsBase : public FOnlineSessionSettings
 {
