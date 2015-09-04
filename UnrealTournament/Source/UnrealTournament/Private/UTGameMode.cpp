@@ -82,7 +82,7 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	MaxWaitForPlayers = 90.f;
 	bOnlyTheStrongSurvive = false;
 	EndScoreboardDelay = 4.f;
-	MainScoreboardDisplayTime = 6.f;
+	MainScoreboardDisplayTime = 5.f;
 	ScoringPlaysDisplayTime = 0.f; 
 	PersonalSummaryDisplayTime = 8.f;
 	WinnerSummaryDisplayTime = 3.f;
@@ -1951,7 +1951,7 @@ void AUTGameMode::TravelToNextMap_Implementation()
 
 void AUTGameMode::ShowFinalScoreboard()
 {
-	for( FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator )
+	for (FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator)
 	{
 		AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
 		if (PC != NULL)
@@ -3822,7 +3822,6 @@ void AUTGameMode::BecomeDedicatedInstance(FGuid HubGuid)
 
 void AUTGameMode::HandleMapVote()
 {
-
 	// Force at least 20 seconds of map vote time.
 	if (MapVoteTime < 20) MapVoteTime = 20;
 
