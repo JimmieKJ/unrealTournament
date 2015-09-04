@@ -1579,11 +1579,16 @@ FReply SUWServerBrowser::OnJoinClick(bool bSpectate)
 	return FReply::Handled();
 }
 
+void SUWServerBrowser::RestrictedWarning()
+{
+	PlayerOwner->MessageBox(NSLOCTEXT("SUWServerBrowser","RestrictedServerTitle","Unable to join server"), NSLOCTEXT("SUWServerBrowser","RestrictedServerMsg","Sorry, but you can not join the hub or server you have selected.  Please choose another one."));
+}
+
 void SUWServerBrowser::ConnectTo(FServerData ServerData,bool bSpectate)
 {
 	if ((ServerData.Flags & SERVERFLAG_Restricted) > 0)
 	{
-		PlayerOwner->MessageBox(NSLOCTEXT("SUWServerBrowser","RestrictedServerTitle","Unable to join server"), NSLOCTEXT("SUWServerBrowser","RestrictedServerMsg","Sorry, but you can not join the hub or server you have selected.  Please choose another one."));
+		RestrictedWarning();
 		return;
 	}
 
@@ -2241,7 +2246,7 @@ void SUWServerBrowser::JoinQuickInstance(const FString& InstanceGuid, bool bAsSp
 	{
 		if ((SelectedHubs[0]->Flags & SERVERFLAG_Restricted) > 0)
 		{
-			PlayerOwner->MessageBox(NSLOCTEXT("SUWServerBrowser","RestrictedServerTitle","Unable to join server"), NSLOCTEXT("SUWServerBrowser","RestrictedServerMsg","Sorry, but you can not join the hub or server you have selected.  Please choose another one."));
+			RestrictedWarning();
 			return;
 		}
 

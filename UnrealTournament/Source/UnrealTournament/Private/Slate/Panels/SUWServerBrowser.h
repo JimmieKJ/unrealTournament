@@ -805,6 +805,7 @@ protected:
 
 	void FoundServer(FOnlineSessionSearchResult& Result);
 	void JoinQuickInstance(const FString& InstanceGuid, bool bAsSpectator);
+	void RestrictedWarning();
 };
 
 #endif
