@@ -72,18 +72,18 @@ class UNREALTOURNAMENT_API UUTAnnouncer : public UObject
 
 	/** audio path containing the announcer audio; all audio in this path must match the SoundName used by the various message types in order to be found */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Announcer)
-		FString StatusAudioPath;
+	FString StatusAudioPath;
 
 	/** additional prefix for all sound names (since it needs to be applied twice - to file name and to asset name) */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Announcer)
-		FString StatusAudioNamePrefix;
+	FString StatusAudioNamePrefix;
 
 	/** array allowing manually matching SoundName to sound in case the naming convention wasn't followed */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Announcer)
 	TArray<FAnnouncerSound> RewardAudioList;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Announcer)
-		TArray<FAnnouncerSound> StatusAudioList;
+	TArray<FAnnouncerSound> StatusAudioList;
 
 	/** amount of time between the end of one announcement and the start of the next when there is a queue */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Announcer)
@@ -92,9 +92,11 @@ class UNREALTOURNAMENT_API UUTAnnouncer : public UObject
 	FTimerHandle PlayNextAnnouncementHandle;
 
 	/** fast lookup to audio we've used previously */
+	UPROPERTY(Transient)
 	TMap<FName, USoundBase*> RewardCachedAudio;
 
 	/** fast lookup to audio we've used previously */
+	UPROPERTY(Transient)
 	TMap<FName, USoundBase*> StatusCachedAudio;
 
 	/** currently playing announcement */
@@ -106,6 +108,7 @@ class UNREALTOURNAMENT_API UUTAnnouncer : public UObject
 	TArray<FAnnouncementInfo> QueuedAnnouncements;
 
 	/** Set if the announcement wants a reaction from bots after being played. */
+	UPROPERTY(Transient)
 	FAnnouncementInfo ReactionAnnouncement;
 
 	/** Find best bot to provide reaction. */
@@ -133,7 +136,7 @@ class UNREALTOURNAMENT_API UUTAnnouncer : public UObject
 	}
 
 	UFUNCTION(BlueprintCallable, Category = Announcement)
-		virtual void PlayAnnouncement(TSubclassOf<UUTLocalMessage> MessageClass, int32 Switch, const APlayerState* PlayerState1, const APlayerState* PlayerState2, const UObject* OptionalObject);
+	virtual void PlayAnnouncement(TSubclassOf<UUTLocalMessage> MessageClass, int32 Switch, const APlayerState* PlayerState1, const APlayerState* PlayerState2, const UObject* OptionalObject);
 
 	/** play next announcement in queue (if any)
 	 * cancels any currently playing announcement
