@@ -32,12 +32,12 @@
 
 #include "AssetData.h"
 
-static const float PLAYER_SPACING = 80.0f;
+static const float PLAYER_SPACING = 70.0f;
 static const float PLAYER_ALTOFFSET = 80.0f;
 static const float MIN_TEAM_SPACING = 120.f;
 static const float TEAM_CAMERA_OFFSET = 500.0f;
-static const float TEAM_CAMERA_ZOFFSET = 50.0f;
-static const float LARGETEAM_CAMERA_ZOFFSET = 200.0f;
+static const float TEAM_CAMERA_ZOFFSET = -30.0f;
+static const float LARGETEAM_CAMERA_ZOFFSET = 100.0f;
 static const float ALL_CAMERA_OFFSET = 400.0f;
 static const float ALL_CAMERA_ANGLE = -5.0f;
 static const float TEAMANGLE = 45.0f;
