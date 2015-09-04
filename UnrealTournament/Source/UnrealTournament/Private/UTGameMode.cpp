@@ -2239,7 +2239,7 @@ AActor* AUTGameMode::ChoosePlayerStart_Implementation(AController* Player)
 	// Start by choosing a random start
 	int32 RandStart = FMath::RandHelper(PlayerStarts.Num());
 
-	float BestRating = 0.f;
+	float BestRating = -20.f;
 	APlayerStart* BestStart = NULL;
 	for ( int32 i=RandStart; i<PlayerStarts.Num(); i++ )
 	{
