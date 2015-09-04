@@ -98,6 +98,7 @@ class UNREALTOURNAMENT_API UUTAnnouncer : public UObject
 	TMap<FName, USoundBase*> StatusCachedAudio;
 
 	/** currently playing announcement */
+	UPROPERTY(Transient)
 	FAnnouncementInfo CurrentAnnouncement;
 
 	/** list of queued announcements */
