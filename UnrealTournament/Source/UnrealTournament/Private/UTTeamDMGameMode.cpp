@@ -5,6 +5,7 @@
 #include "UTHUD_TeamDM.h"
 #include "StatNames.h"
 #include "UTCTFGameMessage.h"
+#include "UTMutator.h"
 
 AUTTeamDMGameMode::AUTTeamDMGameMode(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -23,6 +24,26 @@ void AUTTeamDMGameMode::InitGame( const FString& MapName, const FString& Options
 	bOnlyTheStrongSurvive = false;
 }
 
+
+void AUTTeamDMGameMode::ScoreTeamKill_Implementation(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType)
+{
+	AUTPlayerState* KillerState = (Killer != NULL) ? Cast<AUTPlayerState>(Killer->PlayerState) : NULL;
+	AUTPlayerState* VictimState = (Other != NULL) ? Cast<AUTPlayerState>(Other->PlayerState) : NULL;
+	if (VictimState && VictimState->Team && KillerState && KillerState->Team)
+	{
+		int32 ScoreChange = -1;
+		KillerState->AdjustScore(ScoreChange); // @TODO FIXMESTEVE track team kills
+		KillerState->Team->Score += ScoreChange;
+		KillerState->Team->ForceNetUpdate();
+	}
+
+	AddKillEventToReplay(Killer, Other, DamageType);
+
+	if (BaseMutator != NULL)
+	{
+		BaseMutator->ScoreKill(Killer, Other, DamageType);
+	}
+}
 
 void AUTTeamDMGameMode::ScoreKill_Implementation(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType)
 {
