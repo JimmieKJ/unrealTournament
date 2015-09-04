@@ -182,10 +182,10 @@ void AUTBaseGameMode::GenericPlayerInitialization(AController* C)
 
 bool AUTBaseGameMode::FindRedirect(const FString& PackageName, FPackageRedirectReference& Redirect)
 {
-	FString BasePackageName = FPaths::GetCleanFilename(PackageName);
+	FString BasePackageName = FPaths::GetBaseFilename(PackageName);
 	for (int32 i = 0; i < RedirectReferences.Num(); i++)
 	{
-		FString BaseRedirectPackageName = FPaths::GetCleanFilename(RedirectReferences[i].PackageName);
+		FString BaseRedirectPackageName = FPaths::GetBaseFilename(RedirectReferences[i].PackageName);
 		if (BasePackageName.Equals(BaseRedirectPackageName,ESearchCase::IgnoreCase))
 		{
 			Redirect = RedirectReferences[i];
