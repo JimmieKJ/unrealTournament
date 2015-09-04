@@ -158,7 +158,7 @@ FVector AUTJumpPad::CalculateJumpVelocity(AActor* JumpActor)
 	if (GravityZ > AuthoredGravityZ)
 	{
 		// workaround for jump pads that place their target too close to the ground so in low grav the smaller boost can't get the full pawn capsule over ledges
-		Target.Z += GetDefault<AUTCharacter>()->CapsuleComponent->GetUnscaledCapsuleHalfHeight();
+		Target.Z += GetDefault<AUTCharacter>()->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight();
 	}
 
 	float SizeZ = Target.Z / JumpTime + 0.5f * -GravityZ * JumpTime;
