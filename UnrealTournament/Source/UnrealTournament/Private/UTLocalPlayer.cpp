@@ -63,6 +63,7 @@ UUTLocalPlayer::UUTLocalPlayer(const class FObjectInitializer& ObjectInitializer
 	DownloadStatusText = FText::GetEmpty();
 	QuickMatchLimitTime = -60.0;
 	RosterUpgradeText = FText::GetEmpty();
+	CurrentSessionTrustLevel = 2;
 }
 
 UUTLocalPlayer::~UUTLocalPlayer()
