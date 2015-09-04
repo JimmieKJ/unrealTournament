@@ -756,9 +756,9 @@ void SUWMatchSummary::Tick(const FGeometry& AllottedGeometry, const double InCur
 		}
 	}
 
-	//Create the xp widget the first time the info widget is open
+	//Create the xp widget when on final shot
 	AUTPlayerState* PS = (PlayerOwner.IsValid() && PlayerOwner->PlayerController != nullptr) ? Cast<AUTPlayerState>(PlayerOwner->PlayerController->PlayerState) : nullptr;
-	if (!XPBar.IsValid() && HasCamFlag(CF_ShowInfoWidget) && GameState.IsValid() && GameState->GetMatchState() == MatchState::WaitingPostMatch && (PS != nullptr && PS->CanAwardOnlineXP()))
+	if (!XPBar.IsValid() && HasCamFlag(CF_ShowXPBar) && GameState.IsValid() && GameState->GetMatchState() == MatchState::WaitingPostMatch && (PS != nullptr && PS->CanAwardOnlineXP()))
 	{
 		XPOverlay->AddSlot()
 		[
@@ -948,6 +948,7 @@ void SUWMatchSummary::SetupMatchCam()
 			TSharedPtr<FCharacterCamera> PlayerCam = MakeShareable(new FCharacterCamera(LocalChar));
 			PlayerCam->Time = 99.0f;
 			CameraShots.Add(PlayerCam);
+			PlayerCam->CamFlags |= CF_ShowXPBar;
 		}
 	}
 	SetCamShot(0);

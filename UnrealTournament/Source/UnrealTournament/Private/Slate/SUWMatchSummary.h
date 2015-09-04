@@ -15,7 +15,8 @@ enum ECamFlags
 	CF_Intro = 0x0020,
 	CF_Team = 0x0040,
 	CF_Player = 0x0080,
-	CF_All = 0x0100,
+	CF_ShowXPBar = 0x0100,
+	CF_All = 0x0200,
 };
 
 struct FMatchCamera
