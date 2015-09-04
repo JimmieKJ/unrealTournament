@@ -628,7 +628,8 @@ void UUTHUDWidget_SpectatorSlideOut::DrawPlayer(int32 Index, AUTPlayerState* Pla
 	// Draw the Text
 	if (Index >= 0)
 	{
-		FText Position = FText::Format(NSLOCTEXT("UTScoreboard", "PositionFormatText", "{0}"), FText::AsNumber(Index));
+		int32 DisplayNum = (Index < 10) ? Index : 0;
+		FText Position = FText::Format(NSLOCTEXT("UTScoreboard", "PositionFormatText", "{0}"), FText::AsNumber(DisplayNum));
 		DrawText(Position, XOffset + 4.f, YOffset + ColumnY, SlideOutFont, 1.f, 1.f, DrawColor, ETextHorzPos::Left, ETextVertPos::Center);
 	}
 	FVector2D NameSize = DrawText(PlayerName, XOffset + (Width * ColumnHeaderPlayerX), YOffset + ColumnY, SlideOutFont, PlayerState->SpectatorNameScale, PlayerState->SpectatorNameScale, DrawColor, ETextHorzPos::Left, ETextVertPos::Center);

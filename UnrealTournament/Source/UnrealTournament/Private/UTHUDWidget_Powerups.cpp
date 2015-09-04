@@ -76,3 +76,8 @@ void UUTHUDWidget_Powerups::Draw_Implementation(float DeltaTime)
 		}
 	}
 }
+
+bool UUTHUDWidget_Powerups::ShouldDraw_Implementation(bool bShowScores)
+{
+	return !UTHUDOwner->UTPlayerOwner->bShowCameraBinds && Super::ShouldDraw_Implementation(bShowScores);
+}
