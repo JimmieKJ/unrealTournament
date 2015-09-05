@@ -1796,7 +1796,7 @@ TSharedRef<SWidget> AUTPlayerState::BuildRankInfo()
 			.AutoWidth()
 			[
 				SNew(STextBlock)
-				.Text(FText::Format(NSLOCTEXT("AUTPlayerState","LevelFormat","{0} ({1} XP Total)"),FText::AsNumber(Level), FText::AsNumber(PrevXP)))
+				.Text(FText::Format(NSLOCTEXT("AUTPlayerState","LevelFormat","{0} ({1} XP Total)"),FText::AsNumber(Level), FText::AsNumber(FMath::Max(0,PrevXP))))
 				.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
 				.ColorAndOpacity(FLinearColor::Gray)
 			]
