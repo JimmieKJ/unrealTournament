@@ -805,7 +805,7 @@ void SUWMatchSummary::SetupIntroCam()
 		NumViewTeams = 1;
 	}
 	//7 seconds for the team camera pan works well with the current song
-	float TimePerTeam = 7.0f / NumViewTeams;
+	float TimePerTeam = 6.8f / NumViewTeams;
 
 	//Add camera pan for each team
 	for (int32 i = 0; i < NumViewTeams; i++)
@@ -1007,6 +1007,10 @@ void SUWMatchSummary::RecreateAllPlayers()
 				FRotator PlayerRotation = FRotator(0.f); //(iTeam == 0) ? FRotator(0.f, 0.5f * (90.f - TEAMANGLE), 0.0f) : FRotator(0, 0.5f * (TEAMANGLE - 90.f), 0.0f);
 				float CurrentOffsetX = -2.f * PLAYER_ALTOFFSET * int32(iPlayer / 5);
 				float CurrentOffsetY = PLAYER_SPACING * (iPlayer % 5) - 2.f*PLAYER_SPACING;
+				if ((iPlayer % 7 == 0) || (iPlayer > 9))
+				{
+					CurrentOffsetY -= 0.5f*PLAYER_SPACING;
+				}
 				FVector PlayerOffset = (iPlayer % 2 == 0) ? FVector(CurrentOffsetX, CurrentOffsetY, 0.f) : FVector(CurrentOffsetX + PLAYER_ALTOFFSET, CurrentOffsetY, 0.f);
 				AUTCharacter* NewCharacter = RecreatePlayerPreview(PS, PlayerLocation + PlayerOffset, PlayerRotation);
 				NewCharacter->AttachRootComponentToActor(TeamAnchor, NAME_None, EAttachLocation::KeepWorldPosition);
