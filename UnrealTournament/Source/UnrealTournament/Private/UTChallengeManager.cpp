@@ -166,7 +166,7 @@ UUTChallengeManager::UUTChallengeManager(const FObjectInitializer& ObjectInitial
 		FUTChallengeInfo(TEXT("2v2 Team Deathmatch in Lea"), TEXT("/Game/EpicInternal/Lea/DM-Lea"),
 		TEXT("TDM"),
 		TEXT("2v2 Team Deathmatch in Lea.  Be sure to visit the UT Marketplace to gain access to this map."),
-		4, 5, NAME_EasyNecrisTeam, NAME_MediumNecrisTeam, NAME_HardMixedTeam, NAME_ChallengeSlateBadgeName_DM));
+		1, 2, NAME_EasyNecrisTeam, NAME_MediumNecrisTeam, NAME_HardMixedTeam, NAME_ChallengeSlateBadgeName_DM));
 
 	Challenges.Add(NAME_ChallengeDuelTwo,
 		FUTChallengeInfo(TEXT("Duel in ASDF"), TEXT("/Game/RestrictedAssets/Maps/WIP/DM-ASDF"),
