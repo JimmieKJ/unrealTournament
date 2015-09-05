@@ -36,7 +36,7 @@ static const float PLAYER_SPACING = 70.0f;
 static const float PLAYER_ALTOFFSET = 80.0f;
 static const float MIN_TEAM_SPACING = 120.f;
 static const float TEAM_CAMERA_OFFSET = 500.0f;
-static const float TEAM_CAMERA_ZOFFSET = -30.0f;
+static const float TEAM_CAMERA_ZOFFSET = 0.0f;
 static const float LARGETEAM_CAMERA_ZOFFSET = 100.0f;
 static const float ALL_CAMERA_OFFSET = 400.0f;
 static const float ALL_CAMERA_ANGLE = -5.0f;
@@ -52,6 +52,10 @@ void FTeamCamera::InitCam(class SUWMatchSummary* MatchWidget)
 	CamFlags |= CF_ShowSwitcher | CF_ShowPlayerNames | CF_Team;
 	MatchWidget->ViewedTeamNum = TeamNum;
 	MatchWidget->GetTeamCamTransforms(TeamNum, CamStart, CamEnd);
+
+	MatchWidget->CameraTransform.SetLocation(CamStart.GetLocation());
+	MatchWidget->CameraTransform.SetRotation(CamStart.Rotator().Quaternion());
+
 	MatchWidget->ShowTeam(MatchWidget->ViewedTeamNum);
 	MatchWidget->TeamCamAlpha = 0.5f;
 }
@@ -794,20 +798,14 @@ void SUWMatchSummary::SetupIntroCam()
 {
 	CameraShots.Empty();
 
-	//Start with viewing team
-	TSharedPtr<FAllCamera> AllCam = MakeShareable(new FAllCamera);
-	AllCam->CamFlags |= CF_Intro;
-	AllCam->Time = 0.1f;
-	CameraShots.Add(AllCam);
-
 	//View teams
 	int32 NumViewTeams = GameState->Teams.Num();
 	if (NumViewTeams == 0)
 	{
 		NumViewTeams = 1;
 	}
-	//6 seconds for the team camera pan works well with the current song
-	float TimePerTeam = 6.0f / NumViewTeams;
+	//7 seconds for the team camera pan works well with the current song
+	float TimePerTeam = 7.0f / NumViewTeams;
 
 	//Add camera pan for each team
 	for (int32 i = 0; i < NumViewTeams; i++)
@@ -837,8 +835,8 @@ void SUWMatchSummary::GetTeamCamTransforms(int32 TeamNum, FTransform& Start, FTr
 
 		FVector Dir = TeamAnchors[TeamNum]->GetActorRotation().Vector();
 		FVector Location = TeamAnchors[TeamNum]->GetActorLocation() + (Dir.GetSafeNormal() * TEAM_CAMERA_OFFSET) + FVector(0.0f, 0.0f, CamZOffset);
-		Dir = FVector(0.f, 0.f, 90.f) + TeamAnchors[TeamNum]->GetActorLocation() - Location;
-		Start.SetLocation(Location);
+		Dir = FVector(0.f, 0.f, 45.f) + TeamAnchors[TeamNum]->GetActorLocation() - Location;
+		Start.SetLocation(Location - 100.f * Dir.GetSafeNormal());
 		Start.SetRotation(Dir.Rotation().Quaternion());
 		End.SetLocation(Location);
 		End.SetRotation(Dir.Rotation().Quaternion());
@@ -1008,7 +1006,7 @@ void SUWMatchSummary::RecreateAllPlayers()
 				// slightly oppose rotation imposed by teamplayerstate
 				FRotator PlayerRotation = FRotator(0.f); //(iTeam == 0) ? FRotator(0.f, 0.5f * (90.f - TEAMANGLE), 0.0f) : FRotator(0, 0.5f * (TEAMANGLE - 90.f), 0.0f);
 				float CurrentOffsetX = -2.f * PLAYER_ALTOFFSET * int32(iPlayer / 5);
-				float CurrentOffsetY = PLAYER_SPACING * (iPlayer % 5) - 2.f*PLAYER_SPACING + 0.25f * PLAYER_SPACING * int32(iPlayer/5);
+				float CurrentOffsetY = PLAYER_SPACING * (iPlayer % 5) - 2.f*PLAYER_SPACING;
 				FVector PlayerOffset = (iPlayer % 2 == 0) ? FVector(CurrentOffsetX, CurrentOffsetY, 0.f) : FVector(CurrentOffsetX + PLAYER_ALTOFFSET, CurrentOffsetY, 0.f);
 				AUTCharacter* NewCharacter = RecreatePlayerPreview(PS, PlayerLocation + PlayerOffset, PlayerRotation);
 				NewCharacter->AttachRootComponentToActor(TeamAnchor, NAME_None, EAttachLocation::KeepWorldPosition);
@@ -1031,8 +1029,8 @@ void SUWMatchSummary::RecreateAllPlayers()
 			for (int32 iTeam = 0; iTeam < 2; iTeam++)
 			{
 				//Spawn a flag if its a ctf game TODO: Let the gamemode pick the mesh
-				FVector FlagLocation = TeamAnchors[iTeam]->GetActorLocation() - 120.f * TeamAnchors[iTeam]->GetActorRotation().Vector();
-				FlagLocation.Z = -20.f;
+				FVector FlagLocation = TeamAnchors[iTeam]->GetActorLocation() - 120.f * TeamAnchors[iTeam]->GetActorRotation().Vector() - FVector(2.f * PLAYER_ALTOFFSET * int32(TeamPlayerStates[iTeam].Num() / 5), 0.f, 0.f);
+				FlagLocation.Z = 0.f;
 				FRotator FlagRotation = (iTeam == 0) ? FRotator(0.0f, 90.0f, 0.0f) : FRotator(0.0f, -90.0f, 0.0f);
 				USkeletalMesh* const FlagMesh = Cast<USkeletalMesh>(StaticLoadObject(USkeletalMesh::StaticClass(), NULL, TEXT("SkeletalMesh'/Game/RestrictedAssets/Proto/UT3_Pickups/Flag/S_CTF_Flag_IronGuard.S_CTF_Flag_IronGuard'"), NULL, LOAD_None, NULL));
 				ASkeletalMeshActor* NewFlag = PlayerPreviewWorld->SpawnActor<ASkeletalMeshActor>(ASkeletalMeshActor::StaticClass(), FlagLocation, FlagRotation);
@@ -1050,7 +1048,7 @@ void SUWMatchSummary::RecreateAllPlayers()
 
 					NewFlag->GetSkeletalMeshComponent()->SetSkeletalMesh(FlagMesh);
 					NewFlag->GetSkeletalMeshComponent()->SetMaterial(1, FlagMat);
-					NewFlag->SetActorScale3D(FVector(1.8f));
+					NewFlag->SetActorScale3D(FVector(2.2f));
 					NewFlag->AttachRootComponentToActor(TeamAnchors[iTeam], NAME_None, EAttachLocation::KeepWorldPosition);
 					PreviewFlags.Add(NewFlag);
 				}
