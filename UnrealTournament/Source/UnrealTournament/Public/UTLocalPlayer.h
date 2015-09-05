@@ -420,7 +420,6 @@ public:
 
 	// Does the player have pending social notifications - should the social bang be shown?
 	bool IsPlayerShowingSocialNotification() const;
-
 protected:
 	virtual void JoinPendingSession();
 	virtual void OnJoinSessionComplete(FName SessionName, EOnJoinSessionCompleteResult::Type Result);
@@ -685,4 +684,6 @@ public:
 
 	// Marks a challenge as completed.
 	void ChallengeCompleted(FName ChallengeTag, int32 Stars);
+
+	void AwardAchievement(FName AchievementName);
 };

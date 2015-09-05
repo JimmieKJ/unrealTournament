@@ -2,6 +2,8 @@
 #pragma once
 
 #include "EngineBuildSettings.h"
+#include "UTCharacterContent.h"
+#include "UTCosmetic.h"
 
 #include "UTProfileItem.generated.h"
 
@@ -82,6 +84,44 @@ public:
 	/** when this item is in the player's inventory, they have access to these BOT characters */
 	UPROPERTY(EditAnywhere, Meta = (AllowedClasses = "UTBotCharacter"))
 	TArray<FStringAssetReference> GrantedBots;
+
+#if WITH_EDITOR
+	virtual void PreSave() override
+	{
+		Super::PreSave();
+
+		// if there's only one granted item, match names
+		if (GIsEditor && !IsTemplate() && GrantedCosmeticItems.Num() + GrantedCharacters.Num() + GrantedBots.Num() == 1)
+		{
+			if (GrantedCosmeticItems.Num() == 1)
+			{
+				TSubclassOf<AUTCosmetic> CosmeticClass = GrantedCosmeticItems[0].Item.TryLoadClass<AUTCosmetic>();
+				if (CosmeticClass != NULL && !CosmeticClass.GetDefaultObject()->CosmeticName.IsEmpty())
+				{
+					DisplayName = FText::FromString(CosmeticClass.GetDefaultObject()->CosmeticName);
+				}
+			}
+			else if (GrantedCharacters.Num() == 1)
+			{
+				TSubclassOf<AUTCharacterContent> CharClass = GrantedCharacters[0].TryLoadClass<AUTCharacterContent>();
+				if (CharClass != NULL && !CharClass.GetDefaultObject()->DisplayName.IsEmpty())
+				{
+					DisplayName = CharClass.GetDefaultObject()->DisplayName;
+				}
+			}
+			else if (GrantedBots.Num() == 1)
+			{
+				UObject* BotPkg = NULL;
+				FString BotPathname = GrantedBots[0].AssetLongPathname;
+				ResolveName(BotPkg, BotPathname, true, false);
+				if (BotPkg != NULL)
+				{
+					DisplayName = FText::FromString(BotPkg->GetName());
+				}
+			}
+		}
+	}
+#endif
 
 	virtual void PostLoad() override
 	{

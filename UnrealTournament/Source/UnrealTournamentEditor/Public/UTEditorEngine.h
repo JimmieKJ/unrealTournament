@@ -36,7 +36,10 @@ class UUTEditorEngine : public UEditorEngine
 						{
 							FString ContentPath;
 							PropIt->ExportTextItem(ContentPath, PropIt->ContainerPtrToValuePtr<void>(It->GetDefaultObject()), NULL, NULL, 0, NULL);
-							FCoreUObjectDelegates::StringAssetReferenceLoaded.Execute(ContentPath);
+							if (!ContentPath.IsEmpty() && ContentPath != TEXT("None"))
+							{
+								FCoreUObjectDelegates::StringAssetReferenceLoaded.Execute(ContentPath);
+							}
 						}
 					}
 					for (TFieldIterator<UAssetObjectProperty> PropIt(*It, EFieldIteratorFlags::IncludeSuper); PropIt; ++PropIt)
@@ -45,7 +48,10 @@ class UUTEditorEngine : public UEditorEngine
 						{
 							FString ContentPath;
 							PropIt->ExportTextItem(ContentPath, PropIt->ContainerPtrToValuePtr<void>(It->GetDefaultObject()), NULL, NULL, 0, NULL);
-							FCoreUObjectDelegates::StringAssetReferenceLoaded.Execute(ContentPath);
+							if (!ContentPath.IsEmpty() && ContentPath != TEXT("None"))
+							{
+								FCoreUObjectDelegates::StringAssetReferenceLoaded.Execute(ContentPath);
+							}
 						}
 					}
 				}

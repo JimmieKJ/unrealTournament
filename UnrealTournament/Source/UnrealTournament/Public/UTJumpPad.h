@@ -53,7 +53,21 @@ class UNREALTOURNAMENT_API AUTJumpPad : public AActor, public IUTPathBuilderInte
 	UFUNCTION(BlueprintCallable, Category = JumpPad)
 	FVector CalculateJumpVelocity(AActor* JumpActor);
 
+	virtual void PostInitProperties() override
+	{
+		Super::PostInitProperties();
+
+		// compatibility
+		if (AuthoredGravityZ == 0.0f)
+		{
+			AuthoredGravityZ = GetDefault<UWorld>()->GetDefaultGravityZ();
+		}
+	}
 protected:
+
+	/** used to detect low grav mods */
+	UPROPERTY()
+	float AuthoredGravityZ;
 
 #if WITH_EDITORONLY_DATA
 	UPROPERTY()
@@ -61,10 +75,22 @@ protected:
 #endif
 
 #if WITH_EDITOR
+public:
 	virtual void PostEditChangeProperty(FPropertyChangedEvent& PropertyChangedEvent) override;
 	virtual void CheckForErrors() override;
+	virtual void PreSave() override
+	{
+		Super::PreSave();
+
+		if (GIsEditor && !IsTemplate() && !IsRunningCommandlet())
+		{
+			AuthoredGravityZ = GetLocationGravityZ(GetWorld(), GetActorLocation(), TriggerBox->GetCollisionShape());
+		}
+	}
+protected:
 #endif // WITH_EDITOR
 
+public:
 	virtual void GetSimpleCollisionCylinder(float& CollisionRadius, float& CollisionHalfHeight) const override
 	{
 		if (TriggerBox != NULL)

@@ -36,7 +36,7 @@ public:
 		DisplayName = NSLOCTEXT("UT", "UntitledCharacter", "Untitled Character");
 	}
 
-	UPROPERTY(EditDefaultsOnly)
+	UPROPERTY(EditDefaultsOnly, AssetRegistrySearchable)
 	FText DisplayName;
 
 	/** character gender */
@@ -50,7 +50,11 @@ public:
 	/** if set a UTProfileItem is required for this character to be available */
 	UPROPERTY(EditAnywhere, AssetRegistrySearchable)
 	bool bRequiresItem;
-
+	/** if set this achievement is required for this character to be available
+	 * (note: achievements are currently client side only and not validated by server)
+	 */
+	UPROPERTY(EditDefaultsOnly, AssetRegistrySearchable)
+	FName RequiredAchievement;
 protected:
 	UPROPERTY(VisibleDefaultsOnly)
 	USkeletalMeshComponent* Mesh;

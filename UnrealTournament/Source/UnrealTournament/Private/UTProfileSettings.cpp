@@ -5,6 +5,11 @@
 #include "GameFramework/InputSettings.h"
 
 const FName AchievementIDs::TutorialComplete(TEXT("TutorialComplete"));
+const FName AchievementIDs::ChallengeStars5(TEXT("ChallengeStars5"));
+const FName AchievementIDs::ChallengeStars15(TEXT("ChallengeStars15"));
+const FName AchievementIDs::ChallengeStars25(TEXT("ChallengeStars25"));
+const FName AchievementIDs::ChallengeStars35(TEXT("ChallengeStars35"));
+const FName AchievementIDs::ChallengeStars45(TEXT("ChallengeStars45"));
 
 UUTProfileSettings::UUTProfileSettings(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -365,31 +370,31 @@ void UUTProfileSettings::TokensCommit()
 			Options.MinimumIntegralDigits = 3;
 			for (int32 i = 0; i < 15; i++)
 			{
-				List.Add(FName(*FString::Printf(TEXT("movementtraining_token_%i"), *FText::AsNumber(i).ToString())));
+				List.Add(FName(*FString::Printf(TEXT("movementtraining_token_%i"), *FText::AsNumber(i, &Options).ToString())));
 			}
 			for (int32 i = 0; i < 15; i++)
 			{
-				List.Add(FName(*FString::Printf(TEXT("weapontraining_token_%i"), *FText::AsNumber(i).ToString())));
+				List.Add(FName(*FString::Printf(TEXT("weapontraining_token_%i"), *FText::AsNumber(i, &Options).ToString())));
 			}
 			for (int32 i = 0; i < 10; i++)
 			{
-				List.Add(FName(*FString::Printf(TEXT("pickuptraining_token_%i"), *FText::AsNumber(i).ToString())));
+				List.Add(FName(*FString::Printf(TEXT("pickuptraining_token_%i"), *FText::AsNumber(i, &Options).ToString())));
 			}
 			for (int32 i = 0; i < 5; i++)
 			{
-				List.Add(FName(*FString::Printf(TEXT("tuba_token_%i"), *FText::AsNumber(i).ToString())));
+				List.Add(FName(*FString::Printf(TEXT("tuba_token_%i"), *FText::AsNumber(i, &Options).ToString())));
 			}
 			for (int32 i = 0; i < 5; i++)
 			{
-				List.Add(FName(*FString::Printf(TEXT("outpost23_token_%i"), *FText::AsNumber(i).ToString())));
+				List.Add(FName(*FString::Printf(TEXT("outpost23_token_%i"), *FText::AsNumber(i, &Options).ToString())));
 			}
 			for (int32 i = 0; i < 5; i++)
 			{
-				List.Add(FName(*FString::Printf(TEXT("face_token_%i"), *FText::AsNumber(i).ToString())));
+				List.Add(FName(*FString::Printf(TEXT("face_token_%i"), *FText::AsNumber(i, &Options).ToString())));
 			}
 			for (int32 i = 0; i < 5; i++)
 			{
-				List.Add(FName(*FString::Printf(TEXT("asdf_token_%i"), *FText::AsNumber(i).ToString())));
+				List.Add(FName(*FString::Printf(TEXT("asdf_token_%i"), *FText::AsNumber(i, &Options).ToString())));
 			}
 			return List;
 		}();

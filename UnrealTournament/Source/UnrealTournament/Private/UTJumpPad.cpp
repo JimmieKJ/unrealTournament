@@ -154,8 +154,14 @@ void AUTJumpPad::TriggerBeginOverlap(AActor* OtherActor, UPrimitiveComponent* Ot
 FVector AUTJumpPad::CalculateJumpVelocity(AActor* JumpActor)
 {
 	FVector Target = ActorToWorld().TransformPosition(JumpTarget) - JumpActor->GetActorLocation();
+	const float GravityZ = GetLocationGravityZ(GetWorld(), GetActorLocation(), TriggerBox->GetCollisionShape());
+	if (GravityZ > AuthoredGravityZ)
+	{
+		// workaround for jump pads that place their target too close to the ground so in low grav the smaller boost can't get the full pawn capsule over ledges
+		Target.Z += GetDefault<AUTCharacter>()->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight();
+	}
 
-	float SizeZ = Target.Z / JumpTime + 0.5f * -GetWorld()->GetGravityZ() * JumpTime;
+	float SizeZ = Target.Z / JumpTime + 0.5f * -GravityZ * JumpTime;
 	float SizeXY = Target.Size2D() / JumpTime;
 
 	FVector Velocity = Target.GetSafeNormal2D() * SizeXY + FVector(0.0f, 0.0f, SizeZ);

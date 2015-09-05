@@ -127,9 +127,9 @@ UUTChallengeManager::UUTChallengeManager(const FObjectInitializer& ObjectInitial
 		4, 5, NAME_EasyNecrisTeam, NAME_MediumNecrisTeam, NAME_HardMixedTeam, NAME_ChallengeSlateBadgeName_CTF));
 
 	Challenges.Add(NAME_ChallengeDMFFATwo,
-		FUTChallengeInfo(TEXT("Deathmatch in Deck 17"), TEXT("/Game/RestrictedAssets/Maps/WIP/DM-DeckTest"),
+		FUTChallengeInfo(TEXT("Deathmatch in Deck 16"), TEXT("/Game/RestrictedAssets/Maps/WIP/DM-DeckTest"),
 		TEXT("DM"),
-		TEXT("Free for all Deathmatch in Deck 17.  Liandri is renovating the legendary Deck 17 arena, but it remains a popular venue even in its unfinished state."),
+		TEXT("Free for all Deathmatch in Deck 16.  Liandri is renovating the legendary Deck 17 arena, but it remains a popular venue even in its unfinished state."),
 		0, 5, NAME_EasyFFATeam, NAME_MediumFFATeam, NAME_HardFFATeam, NAME_ChallengeSlateBadgeName_DM));
 
 	Challenges.Add(NAME_ChallengeTDMTwo,
@@ -166,7 +166,7 @@ UUTChallengeManager::UUTChallengeManager(const FObjectInitializer& ObjectInitial
 		FUTChallengeInfo(TEXT("2v2 Team Deathmatch in Lea"), TEXT("/Game/EpicInternal/Lea/DM-Lea"),
 		TEXT("TDM"),
 		TEXT("2v2 Team Deathmatch in Lea.  Be sure to visit the UT Marketplace to gain access to this map."),
-		4, 5, NAME_EasyNecrisTeam, NAME_MediumNecrisTeam, NAME_HardMixedTeam, NAME_ChallengeSlateBadgeName_DM));
+		1, 2, NAME_EasyNecrisTeam, NAME_MediumNecrisTeam, NAME_HardMixedTeam, NAME_ChallengeSlateBadgeName_DM));
 
 	Challenges.Add(NAME_ChallengeDuelTwo,
 		FUTChallengeInfo(TEXT("Duel in ASDF"), TEXT("/Game/RestrictedAssets/Maps/WIP/DM-ASDF"),

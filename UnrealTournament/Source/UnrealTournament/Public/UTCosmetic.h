@@ -30,7 +30,7 @@ class UNREALTOURNAMENT_API AUTCosmetic : public AActor
 	UPROPERTY(EditDefaultsOnly, AssetRegistrySearchable)
 	FName RequiredAchievement;
 
-	UPROPERTY(EditDefaultsOnly)
+	UPROPERTY(EditDefaultsOnly, AssetRegistrySearchable)
 	FString CosmeticName;
 
 	UPROPERTY(EditDefaultsOnly)

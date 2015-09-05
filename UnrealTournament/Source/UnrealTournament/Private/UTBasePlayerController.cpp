@@ -640,8 +640,8 @@ void AUTBasePlayerController::UpdateInputMode()
 		{
 			NewInputMode = EInputMode::EIM_UIOnly;
 		}
-		else if (GetWorld()->DemoNetDriver != nullptr
-			|| LocalPlayer->ViewportClient->ViewportConsole->ConsoleState != NAME_None) //Console has some focus issues with UI Only
+		else if ((PlayerState && PlayerState->bOnlySpectator)
+			     || LocalPlayer->ViewportClient->ViewportConsole->ConsoleState != NAME_None) //Console has some focus issues with UI Only
 		{
 			NewInputMode = EInputMode::EIM_GameAndUI;
 		}
