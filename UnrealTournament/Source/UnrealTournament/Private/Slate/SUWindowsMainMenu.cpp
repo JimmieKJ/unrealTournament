@@ -467,7 +467,7 @@ void SUWindowsMainMenu::ShowGamePanel()
 		TutorialMenu->RemoveFromViewport();
 	}
 
-#if UE_BUILD_SHIPPING
+#if (UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	ShowCustomGamePanel();
 	return;
 #endif
