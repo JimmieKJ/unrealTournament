@@ -799,7 +799,6 @@ void UUTLocalPlayer::OnLoginStatusChanged(int32 LocalUserNum, ELoginStatus::Type
 		{
 			ReturnToMainMenu();		
 		}
-
 	}
 	else if (LoginStatus == ELoginStatus::LoggedIn)
 	{
@@ -813,6 +812,12 @@ void UUTLocalPlayer::OnLoginStatusChanged(int32 LocalUserNum, ELoginStatus::Type
 			EntitlementsInterface->QueryEntitlements(UniqueID, TEXT("ut"));
 		}
 		FUTAnalytics::LoginStatusChanged(UniqueID.ToString());
+
+		AUTBasePlayerController* PC = Cast<AUTBasePlayerController>(PlayerController);
+		if (PC)
+		{
+			PC->ClientGenericInitialization();
+		}
 
 		// If we have a pending session, then join it.
 		JoinPendingSession();
