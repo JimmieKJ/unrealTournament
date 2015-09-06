@@ -1176,7 +1176,7 @@ void AUTGameMode::Killed(AController* Killer, AController* KilledPlayer, APawn* 
 			}
 
 			BroadcastDeathMessage(Killer, KilledPlayer, DamageType);
-			if (!bEnemyKill && (Killer != KilledPlayer))
+			if (!bEnemyKill && (Killer != KilledPlayer) && (Killer != NULL))
 			{
 				ScoreTeamKill(Killer, KilledPlayer, KilledPawn, DamageType);
 			}
