@@ -998,7 +998,7 @@ void SUWMatchSummary::RecreateAllPlayers()
 		if (TeamAnchor != nullptr)
 		{
 			TeamAnchors.Add(TeamAnchor);
-
+			float BaseOffsetY = 0.5f * FMath::Min(float(TeamPlayerStates[iTeam].Num() - 1), 4.f) * PLAYER_SPACING;
 			//Spawn all of the characters for this team
 			for (int32 iPlayer = 0; iPlayer < TeamPlayerStates[iTeam].Num(); iPlayer++)
 			{
@@ -1006,7 +1006,7 @@ void SUWMatchSummary::RecreateAllPlayers()
 				// slightly oppose rotation imposed by teamplayerstate
 				FRotator PlayerRotation = FRotator(0.f); //(iTeam == 0) ? FRotator(0.f, 0.5f * (90.f - TEAMANGLE), 0.0f) : FRotator(0, 0.5f * (TEAMANGLE - 90.f), 0.0f);
 				float CurrentOffsetX = -2.f * PLAYER_ALTOFFSET * int32(iPlayer / 5);
-				float CurrentOffsetY = PLAYER_SPACING * (iPlayer % 5) - 2.f*PLAYER_SPACING;
+				float CurrentOffsetY = PLAYER_SPACING * (iPlayer % 5) - BaseOffsetY;
 				if ((iPlayer % 7 == 0) || (iPlayer > 9))
 				{
 					CurrentOffsetY -= 0.5f*PLAYER_SPACING;
@@ -1613,7 +1613,7 @@ float SUWMatchSummary::GetAllCameraOffset()
 	MaxSize += 1.f;
 	if (TeamPreviewMeshs.Num() < 2)
 	{
-		// players are across rather than angled  @FIXMESTEVE use actual FOV if can change in this view
+		// players are across rather than angled.
 		return ALL_CAMERA_OFFSET + (MaxSize * PLAYER_SPACING) / FMath::Tan(45.f * PI / 180.f);
 	}
 	float BaseCameraOffset = ALL_CAMERA_OFFSET + 0.5f * MaxSize * PLAYER_SPACING * FMath::Sin(TEAMANGLE * PI / 180.f);
