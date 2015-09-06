@@ -251,10 +251,9 @@ bool UUTChallengeManager::IsValidChallenge(AUTGameMode* CurrentGame, const FStri
 	if (CurrentGame->ChallengeTag != NAME_None && Challenges.Contains(CurrentGame->ChallengeTag))
 	{
 		const FUTChallengeInfo* Challenge = Challenges.Find(CurrentGame->ChallengeTag);
-
-		/** @TODO FIXMESTEVE
-		// verify gametype and map matches challenge
-		UE_LOG(UT, Warning, TEXT("Challenge in %s should be %s"), *MapName, *Challenge->Map);
+		/*
+		// @TODO FIXMESTEVE verify gametype and map matches challenge
+		UE_LOG(UT, Warning, TEXT("Challenge in %s should be %s"), *MapName, *(Challenge->Map.Right(MapName.Len())));
 
 		if (CurrentGame->GetClass()->GetFullName() != CurrentGame->StaticGetFullGameClassName(Challenge->GameMode))
 		{
@@ -266,4 +265,3 @@ bool UUTChallengeManager::IsValidChallenge(AUTGameMode* CurrentGame, const FStri
 	UE_LOG(UT, Warning, TEXT("FAILED TO FIND MATCHING CHALLENGE"));
 	return false;
 }
-
