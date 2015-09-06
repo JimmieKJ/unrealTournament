@@ -326,22 +326,21 @@ void AUTLobbyGameState::JoinMatch(AUTLobbyMatchInfo* MatchInfo, AUTLobbyPlayerSt
 	}
 	else if (MatchInfo->CurrentState == ELobbyMatchState::InProgress)
 	{
-		AUTLobbyGameMode* GM = GetWorld()->GetAuthGameMode<AUTLobbyGameMode>();
-		if (GM)
+		if (!MatchInfo->bJoinAnytime)
 		{
-			if (MatchInfo->bJoinAnytime || bAsSpectator)
-			{
-				 if ( MatchInfo->MatchHasRoom(bAsSpectator) )
-				 {
-					MatchInfo->AddPlayer(NewPlayer);
-					NewPlayer->ClientConnectToInstance(MatchInfo->GameInstanceGUID, bAsSpectator);
-					return;
-				 }
-			}
-
-			NewPlayer->ClientMatchError(NSLOCTEXT("LobbyMessage","MatchIsFull","The match you are trying to join is full."));	
+			NewPlayer->ClientMatchError(NSLOCTEXT("LobbyMessage", "MatchIsNotJoinable", "The match you are trying to join is does not allow join in progress."));
 			return;
 		}
+		AUTLobbyGameMode* GM = GetWorld()->GetAuthGameMode<AUTLobbyGameMode>();
+		if (GM && MatchInfo->MatchHasRoom(bAsSpectator) )
+		{
+			MatchInfo->AddPlayer(NewPlayer);
+			NewPlayer->ClientConnectToInstance(MatchInfo->GameInstanceGUID, bAsSpectator);
+			return;
+		}
+
+		NewPlayer->ClientMatchError(NSLOCTEXT("LobbyMessage","MatchIsFull","The match you are trying to join is full."));	
+		return;
 	}
 
 	if (!MatchInfo->SkillTest(NewPlayer->AverageRank)) // MAKE THIS CONFIG
