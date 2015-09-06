@@ -85,10 +85,9 @@ public:
 		FString Final = TEXT("");
 
 		if ((Flags & MATCH_FLAG_InProgress) == MATCH_FLAG_InProgress) Final = Final + (Final.IsEmpty() ? TEXT("") : TEXT("\n")) + TEXT("In Progress");
-		if ((Flags & MATCH_FLAG_Ranked) == MATCH_FLAG_Ranked) Final = Final + (Final.IsEmpty() ? TEXT("") : TEXT("\n")) + TEXT("<img src=\"UT.Icon.Lock.Small\"/> Ranked");
 		if ((Flags & MATCH_FLAG_Private) == MATCH_FLAG_Private) Final = Final + (Final.IsEmpty() ? TEXT("") : TEXT("\n")) + TEXT("<img src=\"UT.Icon.Lock.Small\"/> Private");
+		else if ((Flags & MATCH_FLAG_Ranked) == MATCH_FLAG_Ranked) Final = Final + (Final.IsEmpty() ? TEXT("") : TEXT("\n")) + TEXT("<img src=\"UT.Icon.Lock.Small\"/> Ranked");
 		if ((Flags & MATCH_FLAG_NoJoinInProgress) == MATCH_FLAG_NoJoinInProgress) Final = Final + (Final.IsEmpty() ? TEXT("") : TEXT("\n")) + TEXT("<img src=\"UT.Icon.Lock.Small\"/> No Join in Progress");
-		if ((Flags & MATCH_FLAG_NoSpectators) == MATCH_FLAG_NoSpectators) Final = Final + (Final.IsEmpty() ? TEXT("") : TEXT("\n")) + TEXT("<img src=\"UT.Icon.Lock.Small\"/> No Spectators");
 
 		if (NumFriends > 0)
 		{

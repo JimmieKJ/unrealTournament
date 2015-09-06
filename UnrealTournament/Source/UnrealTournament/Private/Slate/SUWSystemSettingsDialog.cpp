@@ -830,7 +830,7 @@ TSharedRef<SWidget> SUWSystemSettingsDialog::BuildAudioTab()
 		+ SHorizontalBox::Slot()
 			.AutoWidth()
 			[
-				SAssignNew(HRTFCheckBox, SCheckBox)
+				SAssignNew(BotSpeechCheckBox, SCheckBox)
 				.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
 				.IsChecked(UserSettings->IsBotSpeechEnabled() ? ESlateCheckBoxState::Checked : ESlateCheckBoxState::Unchecked)
 			]
@@ -855,7 +855,7 @@ TSharedRef<SWidget> SUWSystemSettingsDialog::BuildAudioTab()
 		+ SHorizontalBox::Slot()
 		.AutoWidth()
 		[
-			SAssignNew(BotSpeechCheckBox, SCheckBox)
+			SAssignNew(HRTFCheckBox, SCheckBox)
 			.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
 			.IsChecked(UserSettings->IsHRTFEnabled() ? ESlateCheckBoxState::Checked : ESlateCheckBoxState::Unchecked)
 		]

@@ -70,9 +70,6 @@ public:
 	UPROPERTY(config)
 	bool bAllowClientNetProfile;
 
-	UPROPERTY(config)
-		bool bShowMatchSummary;
-
 	/* Frame rate cap */
 	UPROPERTY(config)
 	float FrameRateCap;

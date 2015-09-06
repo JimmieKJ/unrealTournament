@@ -789,7 +789,7 @@ int32 GetLevelForXP(int32 XPValue)
 	{
 		if (XPValue < LevelTable[i])
 		{
-			return i;
+			return i+1;
 		}
 	}
 

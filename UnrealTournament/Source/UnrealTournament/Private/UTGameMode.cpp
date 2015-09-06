@@ -2686,15 +2686,8 @@ void AUTGameMode::HandleMatchInOvertime()
 
 void AUTGameMode::HandlePlayerIntro()
 {
-	if (UUTGameEngine::StaticClass()->GetDefaultObject<UUTGameEngine>()->bShowMatchSummary)
-	{
-		FTimerHandle TempHandle;
-		GetWorldTimerManager().SetTimer(TempHandle, this, &AUTGameMode::EndPlayerIntro, 8.4f, false);
-	}
-	else
-	{
-		EndPlayerIntro();
-	}
+	FTimerHandle TempHandle;
+	GetWorldTimerManager().SetTimer(TempHandle, this, &AUTGameMode::EndPlayerIntro, 8.4f, false);
 }
 
 void AUTGameMode::EndPlayerIntro()

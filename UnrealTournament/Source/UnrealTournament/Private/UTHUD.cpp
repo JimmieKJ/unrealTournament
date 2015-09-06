@@ -383,13 +383,10 @@ void AUTHUD::OpenMatchSummary()
 	if (UTLP && GS && !GS->IsPendingKillPending())
 	{
 		// temp check for testing, until match summary is ready.  Make sure same setting for client and server
-		if (UUTGameEngine::StaticClass()->GetDefaultObject<UUTGameEngine>()->bShowMatchSummary)
+		UTLP->OpenMatchSummary(GS);
+		if (GS->GetMatchState() == MatchState::WaitingToStart)
 		{
-			UTLP->OpenMatchSummary(GS);
-			if (GS->GetMatchState() == MatchState::WaitingToStart)
-			{
-				UTLP->ShowMenu(TEXT(""));
-			}
+			UTLP->ShowMenu(TEXT(""));
 		}
 	}
 }

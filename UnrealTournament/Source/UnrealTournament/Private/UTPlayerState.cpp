@@ -1762,7 +1762,7 @@ TSharedRef<SWidget> AUTPlayerState::BuildRankInfo()
 		int32 LevelXPEnd = GetXPForLevel(Level);
 		int32 LevelXPRange = LevelXPEnd - LevelXPStart;
 
-		FText TooltipXP = FText::Format(NSLOCTEXT("AUTPlayerState", "XPTooltipCap", " {0} XP"), FText::AsNumber(PrevXP));
+		FText TooltipXP = FText::Format(NSLOCTEXT("AUTPlayerState", "XPTooltipCap", " {0} XP"), FText::AsNumber(FMath::Max(0,PrevXP)));
 		float LevelAlpha = 1.0f;
 
 		if (LevelXPRange > 0)
@@ -1796,7 +1796,7 @@ TSharedRef<SWidget> AUTPlayerState::BuildRankInfo()
 			.AutoWidth()
 			[
 				SNew(STextBlock)
-				.Text(FText::Format(NSLOCTEXT("AUTPlayerState","LevelFormat","{0} ({1} XP Total)"),FText::AsNumber(Level), FText::AsNumber(PrevXP)))
+				.Text(FText::Format(NSLOCTEXT("AUTPlayerState","LevelFormat","{0} ({1} XP Total)"),FText::AsNumber(Level), FText::AsNumber(FMath::Max(0,PrevXP))))
 				.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
 				.ColorAndOpacity(FLinearColor::Gray)
 			]

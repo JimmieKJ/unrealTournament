@@ -62,7 +62,6 @@ UUTGameEngine::UUTGameEngine(const FObjectInitializer& ObjectInitializer)
 
 	ServerMaxPredictionPing = 160.f;
 	VideoRecorder = nullptr;
-	bShowMatchSummary = true;
 
 #if !UE_SERVER
 	ConstructorHelpers::FObjectFinder<UClass> TutorialMenuFinder(TEXT("/Game/RestrictedAssets/Tutorials/Blueprints/TutMainMenuWidget.TutMainMenuWidget_C"));
