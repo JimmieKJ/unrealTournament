@@ -129,7 +129,7 @@ UUTChallengeManager::UUTChallengeManager(const FObjectInitializer& ObjectInitial
 	Challenges.Add(NAME_ChallengeDMFFATwo,
 		FUTChallengeInfo(TEXT("Deathmatch in Deck 16"), TEXT("/Game/RestrictedAssets/Maps/WIP/DM-DeckTest"),
 		TEXT("DM"),
-		TEXT("Free for all Deathmatch in Deck 16.  Liandri is renovating the legendary Deck 17 arena, but it remains a popular venue even in its unfinished state."),
+		TEXT("Free for all Deathmatch in Deck 16.  Liandri is renovating the legendary Deck 16 arena, but it remains a popular venue even in its unfinished state."),
 		0, 5, NAME_EasyFFATeam, NAME_MediumFFATeam, NAME_HardFFATeam, NAME_ChallengeSlateBadgeName_DM));
 
 	Challenges.Add(NAME_ChallengeTDMTwo,
