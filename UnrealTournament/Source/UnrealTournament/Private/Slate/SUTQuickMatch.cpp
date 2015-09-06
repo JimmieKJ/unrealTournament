@@ -267,7 +267,7 @@ void SUTQuickMatch::OnFindSessionsComplete(bool bWasSuccessful)
 void SUTQuickMatch::NoAvailableMatches()
 {
 	PlayerOwner->CloseQuickMatch();
-	PlayerOwner->MessageBox(NSLOCTEXT("QuickMatch", "NoServersTitle", "ONLINE FAILURE"), NSLOCTEXT("QuickMatch", "NoServerTitle", "The Online System is down for maintenance, please try again in a few minutes."));
+	PlayerOwner->MessageBox(NSLOCTEXT("QuickMatch", "NoServersTitle", "ONLINE FAILURE"), NSLOCTEXT("QuickMatch", "NoServerTitle", "No quickmatch instances were found.  Try finding a game using the hub browser."));
 }
 
 void SUTQuickMatch::PingNextBatch()
