@@ -714,37 +714,45 @@ void SUWPlayerInfoDialog::OnUpdatePlayerState()
 
 TSharedRef<class SWidget> SUWPlayerInfoDialog::BuildTitleBar(FText InDialogTitle)
 {
-	return SNew(SHorizontalBox)
-	+ SHorizontalBox::Slot()
-	.Padding(20.0f,0.0f,0.0f,0.0f)
-	.AutoWidth()
-	[
-		SNew(SButton)
-		.HAlign(HAlign_Left)
-		.ButtonStyle(SUWindowsStyle::Get(), "UT.BottomMenu.Button")
-		.ContentPadding(FMargin(5.0f, 5.0f, 5.0f, 5.0f))
-		.Text(NSLOCTEXT("SUWPlayerInfoDialog", "PreviousPlayer", "<- Previous"))
-		.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.SmallTextStyle")
-		.OnClicked(this, &SUWPlayerInfoDialog::PreviousPlayer)
-	]
-	+ SHorizontalBox::Slot()
-	.HAlign(HAlign_Fill)
-	.FillWidth(1.0f)
-	[
-		SUWDialog::BuildTitleBar(InDialogTitle)
-	]
-	+ SHorizontalBox::Slot()
-	.Padding(0.0f, 0.0f, 20.0f, 0.0f)
-	.AutoWidth()
-	[
-		SNew(SButton)
-		.HAlign(HAlign_Right)
-		.ButtonStyle(SUWindowsStyle::Get(), "UT.BottomMenu.Button")
-		.ContentPadding(FMargin(5.0f, 5.0f, 5.0f, 5.0f))
-		.Text(NSLOCTEXT("SUWPlayerInfoDialog", "NextPlayer", "Next ->"))
-		.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.SmallTextStyle")
-		.OnClicked(this, &SUWPlayerInfoDialog::NextPlayer)
-	];
+	if (TargetPlayerState.IsValid())
+	{
+		UWorld* World = TargetPlayerState->GetWorld();
+		if (World && (World->GameState->PlayerArray.Num() > 1))
+		{
+			return SNew(SHorizontalBox)
+				+ SHorizontalBox::Slot()
+				.Padding(20.0f, 0.0f, 0.0f, 0.0f)
+				.AutoWidth()
+				[
+					SNew(SButton)
+					.HAlign(HAlign_Left)
+					.ButtonStyle(SUWindowsStyle::Get(), "UT.BottomMenu.Button")
+					.ContentPadding(FMargin(5.0f, 5.0f, 5.0f, 5.0f))
+					.Text(NSLOCTEXT("SUWPlayerInfoDialog", "PreviousPlayer", "<- Previous"))
+					.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.SmallTextStyle")
+					.OnClicked(this, &SUWPlayerInfoDialog::PreviousPlayer)
+				]
+			+ SHorizontalBox::Slot()
+				.HAlign(HAlign_Fill)
+				.FillWidth(1.0f)
+				[
+					SUWDialog::BuildTitleBar(InDialogTitle)
+				]
+			+ SHorizontalBox::Slot()
+				.Padding(0.0f, 0.0f, 20.0f, 0.0f)
+				.AutoWidth()
+				[
+					SNew(SButton)
+					.HAlign(HAlign_Right)
+					.ButtonStyle(SUWindowsStyle::Get(), "UT.BottomMenu.Button")
+					.ContentPadding(FMargin(5.0f, 5.0f, 5.0f, 5.0f))
+					.Text(NSLOCTEXT("SUWPlayerInfoDialog", "NextPlayer", "Next ->"))
+					.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.SmallTextStyle")
+					.OnClicked(this, &SUWPlayerInfoDialog::NextPlayer)
+				];
+		}
+	}
+	return SUWDialog::BuildTitleBar(InDialogTitle);
 }
 
 #endif
