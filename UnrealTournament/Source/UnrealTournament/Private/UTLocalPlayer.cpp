@@ -1472,7 +1472,7 @@ int32 UUTLocalPlayer::GetBaseELORank()
 		}
 	}
 
-	// FFA Elo is the least accurate, weighted lower @TODO FIXMESTEVE show badge based on current game type
+	// FFA Elo is the least accurate, weighted lower
 	// max rating of 2400 based on FFA 
 	if ((FFA_ELO > CurrentRating) && ((CurrentRating < 2400) || (DuelMatchesPlayed + TDMMatchesPlayed + CTFMatchesPlayed < MatchThreshold)))
 	{
