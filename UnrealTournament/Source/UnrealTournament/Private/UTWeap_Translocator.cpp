@@ -304,7 +304,7 @@ float AUTWeap_Translocator::GetAISelectRating_Implementation()
 		{
 			return 9.1f;
 		}
-		else if (UTOwner->GetWeapon() == this && B->TranslocInterval < 1.0f && !B->IsStopped() && (B->GetEnemy() == NULL || !B->LineOfSightTo(B->GetEnemy())))
+		else if (UTOwner->GetWeapon() == this && B->TranslocInterval < 1.0f && !B->IsStopped() && (B->GetTarget() == NULL || B->GetFocusActor() != B->GetTarget()))
 		{
 			// leave translocator out for now so bot can spam teleports if desired
 			return 1.0f;

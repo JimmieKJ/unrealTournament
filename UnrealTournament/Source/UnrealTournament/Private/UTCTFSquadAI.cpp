@@ -54,7 +54,7 @@ bool AUTCTFSquadAI::ShouldUseTranslocator(AUTBot* B)
 	else
 	{
 		// prioritize translocator when chasing enemy flag carrier
-		return ( B->RouteCache.Num() > 0 && (B->RouteCache.Last().Actor == FriendlyBase->GetCarriedObject() || B->RouteCache.Last().Actor == FriendlyBase->GetCarriedObject()->HoldingPawn) &&
+		return ( B->RouteCache.Num() > 0 && (B->RouteCache.Last().Actor == FriendlyBase->GetCarriedObject() || (B->RouteCache.Last().Actor == FriendlyBase->GetCarriedObject()->HoldingPawn && B->RouteCache.Num() > 2)) &&
 				(B->GetEnemy() != FriendlyBase->GetCarriedObject()->HoldingPawn || !B->IsEnemyVisible(B->GetEnemy()) || (B->CurrentAggression > 0.0f && (B->GetPawn()->GetActorLocation() - B->GetEnemy()->GetActorLocation()).Size() > 3000.0f)) );
 	}
 }
@@ -129,7 +129,7 @@ bool AUTCTFSquadAI::SetFlagCarrierAction(AUTBot* B)
 		else if (HideTarget.IsValid() || (B->GetPawn()->GetActorLocation() - FriendlyBase->GetActorLocation()).Size() < 3000.0f)
 		{
 			float EnemyStrength = B->RelativeStrength(B->GetEnemy());
-			if (B->GetEnemy() != NULL && EnemyStrength < 0.0f)
+			if (B->GetEnemy() != NULL && EnemyStrength < 0.0f && (B->IsEnemyVisible(B->GetEnemy()) || (B->Skill + B->Personality.Alertness >= 4.0f && B->MayBecomeVisible(B->GetEnemy(), 2.0f))))
 			{
 				// fight enemy
 				return false;

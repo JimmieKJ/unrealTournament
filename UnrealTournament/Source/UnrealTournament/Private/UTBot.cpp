@@ -710,6 +710,12 @@ void AUTBot::Tick(float DeltaTime)
 				UE_LOG(UT, Warning, TEXT("%s (%s) failed to get an action from ExecuteWhatToDoNext()"), *GetName(), *PlayerState->PlayerName);
 			}
 			SetDefaultFocus();
+			// switch to best weapon after deciding what we want to do
+			// if we have a new movement destination, init that first before deciding (may want to use translocator, etc)
+			if (!MoveTarget.IsValid() || MoveTargetPoints.Num() > 0)
+			{
+				SwitchToBestWeapon();
+			}
 		}
 
 		if (MoveTarget.IsValid() && GetPawn() != NULL)
@@ -739,6 +745,7 @@ void AUTBot::Tick(float DeltaTime)
 						ClearMoveTarget();
 					}
 				}
+				SwitchToBestWeapon();
 			}
 			if (MoveTarget.IsValid())
 			{
@@ -2288,8 +2295,6 @@ void AUTBot::ExecuteWhatToDoNext()
 		GetCharacter()->GetCharacterMovement()->bWantsToCrouch = false;
 	}
 
-	SwitchToBestWeapon();
-
 	if (GetCharacter() != NULL && GetCharacter()->GetCharacterMovement()->MovementMode == MOVE_Falling)
 	{
 		StartNewAction(WaitForLandingAction);
@@ -3160,7 +3165,7 @@ public:
 	}
 };
 
-void AUTBot::GuessAppearancePoints(AActor* InTarget, const FVector& TargetLoc, bool bDoSkillChecks, TArray<FVector>& FoundPoints)
+void AUTBot::GuessAppearancePoints(AActor* InTarget, FVector TargetLoc, bool bDoSkillChecks, TArray<FVector>& FoundPoints)
 {
 	FoundPoints.Reset();
 	if (NavData != NULL && InTarget != NULL && GetPawn() != NULL)
@@ -3171,6 +3176,7 @@ void AUTBot::GuessAppearancePoints(AActor* InTarget, const FVector& TargetLoc, b
 		if (MyEnemyInfo != NULL)
 		{
 			const FBotEnemyInfo* TeamEnemyInfo = GetEnemyInfo(P, true);
+			TargetLoc = TeamEnemyInfo->LastKnownLoc;
 			// if last seen loc is still valid, start with that
 			if ( !MyEnemyInfo->LastSeenLoc.IsZero() && (MyEnemyInfo->LastSeenLoc - TargetLoc).Size() < (GetPawn()->GetActorLocation() - TargetLoc).Size() &&
 				!GetWorld()->LineTraceTestByChannel(GetPawn()->GetActorLocation(), MyEnemyInfo->LastSeenLoc, ECC_Visibility, FCollisionQueryParams(FName(TEXT("AppearanceLastSeen")), false, GetPawn()), WorldResponseParams))
@@ -3195,6 +3201,27 @@ void AUTBot::GuessAppearancePoints(AActor* InTarget, const FVector& TargetLoc, b
 			TArray<FRouteCacheItem> UnusedRoute;
 			NavData->FindBestPath(GetPawn(), GetPawn()->GetNavAgentPropertiesRef(), NodeEval, TargetLoc - FVector(0.0f, 0.0f, InTarget->GetSimpleCollisionHalfHeight()), UnusedWeight, false, UnusedRoute);
 		}
+	}
+}
+
+bool AUTBot::MayBecomeVisible(APawn* TestEnemy, float MaxWaitTime)
+{
+	const FBotEnemyInfo* EnemyInfo = GetEnemyInfo(TestEnemy, true);
+	if (EnemyInfo == NULL || GetWorld()->TimeSeconds - EnemyInfo->LastFullUpdateTime >= MaxWaitTime)
+	{
+		// no data or too stale, so assume not
+		return false;
+	}
+	else
+	{
+		UPawnMovementComponent* EnemyMovementComp = TestEnemy->GetMovementComponent();
+		const float EnemySpeed = (EnemyMovementComp != NULL) ? EnemyMovementComp->GetMaxSpeed() : TestEnemy->GetVelocity().Size();
+		TArray<FVector> FoundPoints;
+		FAppearancePointEval NodeEval(TestEnemy, FoundPoints, FMath::TruncToInt(EnemySpeed * MaxWaitTime));
+		float UnusedWeight = 0.0f;
+		TArray<FRouteCacheItem> UnusedRoute;
+		NavData->FindBestPath(GetPawn(), GetPawn()->GetNavAgentPropertiesRef(), NodeEval, EnemyInfo->LastKnownLoc - FVector(0.0f, 0.0f, TestEnemy->GetSimpleCollisionHalfHeight()), UnusedWeight, false, UnusedRoute);
+		return FoundPoints.Num() > 0;
 	}
 }
 

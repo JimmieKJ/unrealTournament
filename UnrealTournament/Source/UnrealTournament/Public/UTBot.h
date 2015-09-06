@@ -854,7 +854,10 @@ public:
 	 * @param bDoSkillChecks - if true, low skill bots may not return all potential results (some checks skipped)
 	 * @param FoundPoints (out) - list of appearance points to consider for targeting
 	 */
-	virtual void GuessAppearancePoints(AActor* InTarget, const FVector& TargetLoc, bool bDoSkillChecks, TArray<FVector>& FoundPoints);
+	virtual void GuessAppearancePoints(AActor* InTarget, FVector TargetLoc, bool bDoSkillChecks, TArray<FVector>& FoundPoints);
+
+	/** returns whether the given enemy Pawn may become visible within MaxWaitTime if it continues to move towards us and we remain stationary */
+	virtual bool MayBecomeVisible(APawn* TestEnemy, float MaxWaitTime);
 
 	/** call to send a voice message of the given type
 	 * this function does spam protection so you don't have to!
