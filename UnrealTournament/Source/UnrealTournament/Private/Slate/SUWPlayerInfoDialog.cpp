@@ -208,6 +208,10 @@ void SUWPlayerInfoDialog::Tick(const FGeometry& AllottedGeometry, const double I
 	if (PlayerPreviewMesh != nullptr)
 	{
 		PlayerPreviewMesh->PrestreamTextures(1, true);
+		if (PlayerPreviewMesh->Hat)
+		{
+			PlayerPreviewMesh->Hat->PrestreamTextures(1, true);
+		}
 	}
 	if (PreviewWeapon)
 	{
