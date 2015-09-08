@@ -33,7 +33,7 @@ void AUTMenuGameMode::GenericPlayerInitialization(AController* C)
 		FURL& LastURL = GEngine->GetWorldContextFromWorld(GetWorld())->LastURL;
 
 		PC->ClientReturnedToMenus();
-		bool bReturnedFromChallenge = LastURL.HasOption(TEXT("challengemenu"));
+		bool bReturnedFromChallenge = LastURL.HasOption(TEXT("showchallenge"));
 		PC->ShowMenu((bReturnedFromChallenge ? TEXT("showchallenge") : TEXT("")));
 #if !UE_SERVER
 		// start with tutorial menu if requested
