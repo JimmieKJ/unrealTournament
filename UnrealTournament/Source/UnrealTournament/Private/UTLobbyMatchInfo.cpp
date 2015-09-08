@@ -934,6 +934,9 @@ bool AUTLobbyMatchInfo::SkillTest(int32 Rank, bool bForceLock)
 {
 	if (bRankLocked || bForceLock)
 	{
+		// Beginners should always join a beginner match
+		if (Rank < 1400 && AverageRank < 1400) return true;
+
 		return (Rank >= AverageRank - 400) && (Rank <= AverageRank + 400);
 	}
 
