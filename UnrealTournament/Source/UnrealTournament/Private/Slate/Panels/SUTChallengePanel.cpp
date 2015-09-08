@@ -630,7 +630,8 @@ FReply SUTChallengePanel::ChallengeClicked(FName ChallengeTag)
 	{
 		FString Description = ChallengeManager->Challenges[ChallengeTag].Description;
 		FString Map = ChallengeManager->Challenges[ChallengeTag].Map;
-		ChallengeDescription->SetText(FText::FromString(Description));
+
+	
 		SelectedChallenge = ChallengeTag;
 
 		for (auto It = ButtonMap.CreateConstIterator(); It; ++It)
@@ -657,6 +658,13 @@ FReply SUTChallengePanel::ChallengeClicked(FName ChallengeTag)
 			if (MapPackageName == Map)
 			{
 				const FString* Screenshot = Asset.TagsAndValues.Find(NAME_MapInfo_ScreenshotReference);
+				const FString* MapDescription = Asset.TagsAndValues.Find(NAME_MapInfo_Description);
+
+				if (MapDescription != NULL)
+				{
+					Description = Description + TEXT("\n\n<UT.Font.NormalText.Small.Bold>[Map Description]</>\n") + *MapDescription;
+				}
+
 				if (Screenshot != NULL)
 				{
 					LevelShot = LoadObject<UTexture2D>(nullptr, **Screenshot);
@@ -678,6 +686,9 @@ FReply SUTChallengePanel::ChallengeClicked(FName ChallengeTag)
 		{
 			*LevelScreenshot = FSlateDynamicImageBrush(Cast<UUTGameEngine>(GEngine)->DefaultLevelScreenshot, LevelScreenshot->ImageSize, LevelScreenshot->GetResourceName());
 		}
+
+		ChallengeDescription->SetText(FText::FromString(Description));
+
 
 	}
 
