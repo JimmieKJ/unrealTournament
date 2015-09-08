@@ -339,8 +339,7 @@ TSharedRef<ITableRow> SUMatchPanel::OnGenerateWidgetForMatchList( TSharedPtr<FTr
 													SNew(STextBlock)
 													.Text(TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateSP(InItem.Get(), &FTrackedMatch::GetRank)))
 													.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium.Bold")
-													.ColorAndOpacity(FSlateColor(FLinearColor(1.0f,1.0f,1.0f,1.0f)))
-													.ShadowColorAndOpacity(FLinearColor(0.0f,0.0f,0.0f,1.0f))
+													.ColorAndOpacity(FSlateColor(FLinearColor(0.0f,0.0f,0.0f,1.0f)))
 												]
 											]
 										]
