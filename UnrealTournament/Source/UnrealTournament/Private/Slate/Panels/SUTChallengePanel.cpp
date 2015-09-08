@@ -12,12 +12,24 @@
 #include "Runtime/Analytics/Analytics/Public/Analytics.h"
 #include "Runtime/Analytics/Analytics/Public/Interfaces/IAnalyticsProvider.h"
 #include "../SUWindowsMainMenu.h"
+#include "UTLevelSummary.h"
+#include "UTGameEngine.h"
 
 #if !UE_SERVER
 
+SUTChallengePanel::~SUTChallengePanel()
+{
+	if (LevelScreenshot != NULL)
+	{
+		delete LevelScreenshot;
+		LevelScreenshot = NULL;
+	}
+}
 void SUTChallengePanel::ConstructPanel(FVector2D ViewportSize)
 {
 	SelectedChallenge = NAME_None;
+
+	LevelScreenshot = new FSlateDynamicImageBrush(GEngine->DefaultTexture, FVector2D(256.0f, 128.0f), NAME_None);
 
 	this->ChildSlot
 	.VAlign(VAlign_Fill)
@@ -104,25 +116,35 @@ void SUTChallengePanel::ConstructPanel(FVector2D ViewportSize)
 								]
 
 								+SVerticalBox::Slot()
-								.Padding(0.0,0.0,0.0,16.0)
 								.AutoHeight()
 								[
-									SNew(SBorder)
-									.BorderImage(SUTStyle::Get().GetBrush("UT.HeaderBackground.Dark"))
+									SNew(SVerticalBox)
+									+SVerticalBox::Slot()
+									.FillHeight(1.0)
+									.VAlign(VAlign_Center)
 									[
 										SNew(SButton)
 										.ButtonStyle(SUTStyle::Get(), "UT.HomePanel.Button")
 										.OnClicked(this, &SUTChallengePanel::CustomClicked)
 										[
-											SNew(SHorizontalBox)
-											+SHorizontalBox::Slot()
-											.HAlign(HAlign_Center)
+											SNew(SBox).HeightOverride(96)
 											[
-												SNew(STextBlock)
-												.Text(NSLOCTEXT("SUTChallengePanel","CustomChallenge","Create your own custom match."))
-												.TextStyle(SUTStyle::Get(),"UT.Font.NormalText.Medium")
+												SNew(SBorder)
+												.BorderImage(SUTStyle::Get().GetBrush("UT.HeaderBackground.Dark"))
+												[
+													SNew(SHorizontalBox)
+													+SHorizontalBox::Slot()
+													.HAlign(HAlign_Center)
+													.VAlign(VAlign_Center)
+													[
+														SNew(STextBlock)
+														.Text(NSLOCTEXT("SUTChallengePanel","CustomChallenge","Create your own custom match."))
+														.TextStyle(SUTStyle::Get(),"UT.Font.NormalText.Medium")
+													]
+												]									
+
 											]
-										]									
+										]
 									]
 								]
 
@@ -162,6 +184,17 @@ void SUTChallengePanel::ConstructPanel(FVector2D ViewportSize)
 								]
 								+SVerticalBox::Slot()
 								.Padding(0.0,0.0,0.0,16.0)
+								.AutoHeight()
+								[
+									SNew(SBox).HeightOverride(438)
+									[
+										SNew(SImage)
+										.Image(LevelScreenshot)
+									]
+								]
+
+								+SVerticalBox::Slot()
+								.Padding(0.0,0.0,0.0,16.0)
 								.FillHeight(1.0)
 								[
 									SNew(SBorder)
@@ -195,6 +228,8 @@ void SUTChallengePanel::ConstructPanel(FVector2D ViewportSize)
 													SNew(STextBlock)
 													.Text(this,&SUTChallengePanel::GetCurrentScoreText)
 													.TextStyle(SUTStyle::Get(),"UT.Font.NormalText.Medium.Bold")
+													.ColorAndOpacity(FLinearColor(0.5f,0.5f,0.5f))
+
 												]
 												+SVerticalBox::Slot()
 												.AutoHeight()
@@ -202,6 +237,7 @@ void SUTChallengePanel::ConstructPanel(FVector2D ViewportSize)
 													SNew(STextBlock)
 													.Text(this,&SUTChallengePanel::GetCurrentChallengeData)
 													.TextStyle(SUTStyle::Get(),"UT.Font.NormalText.Small.Bold")
+													.ColorAndOpacity(FLinearColor(0.5f,0.5f,0.5f))
 												]
 											
 											]
@@ -211,196 +247,195 @@ void SUTChallengePanel::ConstructPanel(FVector2D ViewportSize)
 								+SVerticalBox::Slot()
 								.AutoHeight()
 								[
-
-									SNew(SBox).HeightOverride(148)
+									SNew(SBorder)
+									.BorderImage(SUTStyle::Get().GetBrush("UT.HeaderBackground.SuperDark"))
 									[
-										SNew(SBorder)
-										.BorderImage(SUTStyle::Get().GetBrush("UT.HeaderBackground.SuperDark"))
+										SNew(SVerticalBox)
+										+SVerticalBox::Slot()
+										.AutoHeight()
 										[
-											SNew(SVerticalBox)
-											+SVerticalBox::Slot()
+											SNew(SHorizontalBox)
+											+SHorizontalBox::Slot()
 											.HAlign(HAlign_Center)
-											.Padding(0.0,5.0)
+											.VAlign(VAlign_Center)
 											[
 												SNew(STextBlock)
 												.Text(NSLOCTEXT("SUTChallengePanel","DifficultyText","Select Difficulty"))
 												.TextStyle(SUTStyle::Get(),"UT.Font.NormalText.Small.Bold")
 											]
-											+SVerticalBox::Slot()
-											.HAlign(HAlign_Fill)
-											.Padding(0.0,5.0)
-											.AutoHeight()
+										]
+										+SVerticalBox::Slot()
+										.HAlign(HAlign_Fill)
+										.AutoHeight()
+										[
+											SNew(SBox).HeightOverride(96)
 											[
-												SNew(SBox).HeightOverride(96)
+												SNew(SHorizontalBox)
+												+SHorizontalBox::Slot()
 												[
-													SNew(SHorizontalBox)
-													+SHorizontalBox::Slot()
-													.Padding(0.0,0.0,3.0,0.0)
+													SNew(SBorder)
+													.BorderImage(SUTStyle::Get().GetBrush("UT.HeaderBackground.Dark"))
 													[
-														SNew(SBorder)
-														.BorderImage(SUTStyle::Get().GetBrush("UT.HeaderBackground.Dark"))
+														SNew(SButton)
+														.ButtonStyle(SUTStyle::Get(), "UT.HomePanel.Button")
+														.OnClicked(this, &SUTChallengePanel::StartClicked, 0)
 														[
-															SNew(SButton)
-															.ButtonStyle(SUTStyle::Get(), "UT.HomePanel.Button")
-															.OnClicked(this, &SUTChallengePanel::StartClicked, 0)
+															SNew(SVerticalBox)
+															+SVerticalBox::Slot()
+															.AutoHeight()
+															.HAlign(HAlign_Center)
 															[
-																SNew(SVerticalBox)
-																+SVerticalBox::Slot()
-																.AutoHeight()
-																.HAlign(HAlign_Center)
-																[
-																	SNew(STextBlock)
-																	.Text(NSLOCTEXT("SUTChallengePanel","Level_Easy","Easy"))
-																	.TextStyle(SUTStyle::Get(),"UT.Font.NormalText.Medium")
+																SNew(STextBlock)
+																.Text(NSLOCTEXT("SUTChallengePanel","Level_Easy","Easy"))
+																.TextStyle(SUTStyle::Get(),"UT.Font.NormalText.Medium")
 
-																]
-																+SVerticalBox::Slot()
-																.AutoHeight()
-																.HAlign(HAlign_Center)
+															]
+															+SVerticalBox::Slot()
+															.AutoHeight()
+															.HAlign(HAlign_Center)
+															[
+																SNew(SHorizontalBox)
+																+SHorizontalBox::Slot()
+																.AutoWidth()
 																[
-																	SNew(SHorizontalBox)
-																	+SHorizontalBox::Slot()
-																	.AutoWidth()
+																	SNew(SBox).WidthOverride(32).HeightOverride(32)
 																	[
-																		SNew(SBox).WidthOverride(32).HeightOverride(32)
-																		[
-																			SNew(SImage)
-																			.Image(SUTStyle::Get().GetBrush("UT.Star"))
-																		]
+																		SNew(SImage)
+																		.Image(SUTStyle::Get().GetBrush("UT.Star"))
 																	]
-																	+SHorizontalBox::Slot()
-																	.AutoWidth()
+																]
+																+SHorizontalBox::Slot()
+																.AutoWidth()
+																[
+																	SNew(SBox).WidthOverride(32).HeightOverride(32)
 																	[
-																		SNew(SBox).WidthOverride(32).HeightOverride(32)
-																		[
-																			SNew(SImage)
-																			.Image(SUTStyle::Get().GetBrush("UT.Star.Outline"))
-																		]
+																		SNew(SImage)
+																		.Image(SUTStyle::Get().GetBrush("UT.Star.Outline"))
 																	]
-																	+SHorizontalBox::Slot()
-																	.AutoWidth()
+																]
+																+SHorizontalBox::Slot()
+																.AutoWidth()
+																[
+																	SNew(SBox).WidthOverride(32).HeightOverride(32)
 																	[
-																		SNew(SBox).WidthOverride(32).HeightOverride(32)
-																		[
-																			SNew(SImage)
-																			.Image(SUTStyle::Get().GetBrush("UT.Star.Outline"))
-																		]
+																		SNew(SImage)
+																		.Image(SUTStyle::Get().GetBrush("UT.Star.Outline"))
 																	]
 																]
 															]
 														]
 													]
-													+SHorizontalBox::Slot()
-													.Padding(0.0,0.0,3.0,0.0)
+												]
+												+SHorizontalBox::Slot()
+												.Padding(3.0,0.0,3.0,0.0)
+												[
+													SNew(SBorder)
+													.BorderImage(SUTStyle::Get().GetBrush("UT.HeaderBackground.Dark"))
 													[
-														SNew(SBorder)
-														.BorderImage(SUTStyle::Get().GetBrush("UT.HeaderBackground.Dark"))
+														SNew(SButton)
+														.ButtonStyle(SUTStyle::Get(), "UT.HomePanel.Button")
+														.OnClicked(this, &SUTChallengePanel::StartClicked, 1)
 														[
-															SNew(SButton)
-															.ButtonStyle(SUTStyle::Get(), "UT.HomePanel.Button")
-															.OnClicked(this, &SUTChallengePanel::StartClicked, 1)
+															SNew(SVerticalBox)
+															+SVerticalBox::Slot()
+															.AutoHeight()
+															.HAlign(HAlign_Center)
 															[
-																SNew(SVerticalBox)
-																+SVerticalBox::Slot()
-																.AutoHeight()
-																.HAlign(HAlign_Center)
-																[
-																	SNew(STextBlock)
-																	.Text(NSLOCTEXT("SUTChallengePanel","Level_Medium","Medium"))
-																	.TextStyle(SUTStyle::Get(),"UT.Font.NormalText.Medium")
+																SNew(STextBlock)
+																.Text(NSLOCTEXT("SUTChallengePanel","Level_Medium","Medium"))
+																.TextStyle(SUTStyle::Get(),"UT.Font.NormalText.Medium")
 
-																]
-																+SVerticalBox::Slot()
-																.AutoHeight()
-																.HAlign(HAlign_Center)
+															]
+															+SVerticalBox::Slot()
+															.AutoHeight()
+															.HAlign(HAlign_Center)
+															[
+																SNew(SHorizontalBox)
+																+SHorizontalBox::Slot()
+																.AutoWidth()
 																[
-																	SNew(SHorizontalBox)
-																	+SHorizontalBox::Slot()
-																	.AutoWidth()
+																	SNew(SBox).WidthOverride(32).HeightOverride(32)
 																	[
-																		SNew(SBox).WidthOverride(32).HeightOverride(32)
-																		[
-																			SNew(SImage)
-																			.Image(SUTStyle::Get().GetBrush("UT.Star"))
-																		]
+																		SNew(SImage)
+																		.Image(SUTStyle::Get().GetBrush("UT.Star"))
 																	]
-																	+SHorizontalBox::Slot()
-																	.AutoWidth()
+																]
+																+SHorizontalBox::Slot()
+																.AutoWidth()
+																[
+																	SNew(SBox).WidthOverride(32).HeightOverride(32)
 																	[
-																		SNew(SBox).WidthOverride(32).HeightOverride(32)
-																		[
-																			SNew(SImage)
-																			.Image(SUTStyle::Get().GetBrush("UT.Star"))
-																		]
+																		SNew(SImage)
+																		.Image(SUTStyle::Get().GetBrush("UT.Star"))
 																	]
-																	+SHorizontalBox::Slot()
-																	.AutoWidth()
+																]
+																+SHorizontalBox::Slot()
+																.AutoWidth()
+																[
+																	SNew(SBox).WidthOverride(32).HeightOverride(32)
 																	[
-																		SNew(SBox).WidthOverride(32).HeightOverride(32)
-																		[
-																			SNew(SImage)
-																			.Image(SUTStyle::Get().GetBrush("UT.Star.Outline"))
-																		]
+																		SNew(SImage)
+																		.Image(SUTStyle::Get().GetBrush("UT.Star.Outline"))
 																	]
 																]
 															]
-														]										
-													]
-													+SHorizontalBox::Slot()
+														]
+													]										
+												]
+												+SHorizontalBox::Slot()
+												[
+													SNew(SBorder)
+													.BorderImage(SUTStyle::Get().GetBrush("UT.HeaderBackground.Dark"))
 													[
-														SNew(SBorder)
-														.BorderImage(SUTStyle::Get().GetBrush("UT.HeaderBackground.Dark"))
+														SNew(SButton)
+														.ButtonStyle(SUTStyle::Get(), "UT.HomePanel.Button")
+														.OnClicked(this, &SUTChallengePanel::StartClicked, 2)
 														[
-															SNew(SButton)
-															.ButtonStyle(SUTStyle::Get(), "UT.HomePanel.Button")
-															.OnClicked(this, &SUTChallengePanel::StartClicked, 2)
+															SNew(SVerticalBox)
+															+SVerticalBox::Slot()
+															.AutoHeight()
+															.HAlign(HAlign_Center)
 															[
-																SNew(SVerticalBox)
-																+SVerticalBox::Slot()
-																.AutoHeight()
-																.HAlign(HAlign_Center)
-																[
-																	SNew(STextBlock)
-																	.Text(NSLOCTEXT("SUTChallengePanel","Level_Hard","Hard"))
-																	.TextStyle(SUTStyle::Get(),"UT.Font.NormalText.Medium")
+																SNew(STextBlock)
+																.Text(NSLOCTEXT("SUTChallengePanel","Level_Hard","Hard"))
+																.TextStyle(SUTStyle::Get(),"UT.Font.NormalText.Medium")
 
-																]
-																+SVerticalBox::Slot()
-																.AutoHeight()
-																.HAlign(HAlign_Center)
+															]
+															+SVerticalBox::Slot()
+															.AutoHeight()
+															.HAlign(HAlign_Center)
+															[
+																SNew(SHorizontalBox)
+																+SHorizontalBox::Slot()
+																.AutoWidth()
 																[
-																	SNew(SHorizontalBox)
-																	+SHorizontalBox::Slot()
-																	.AutoWidth()
+																	SNew(SBox).WidthOverride(32).HeightOverride(32)
 																	[
-																		SNew(SBox).WidthOverride(32).HeightOverride(32)
-																		[
-																			SNew(SImage)
-																			.Image(SUTStyle::Get().GetBrush("UT.Star"))
-																		]
+																		SNew(SImage)
+																		.Image(SUTStyle::Get().GetBrush("UT.Star"))
 																	]
-																	+SHorizontalBox::Slot()
-																	.AutoWidth()
+																]
+																+SHorizontalBox::Slot()
+																.AutoWidth()
+																[
+																	SNew(SBox).WidthOverride(32).HeightOverride(32)
 																	[
-																		SNew(SBox).WidthOverride(32).HeightOverride(32)
-																		[
-																			SNew(SImage)
-																			.Image(SUTStyle::Get().GetBrush("UT.Star"))
-																		]
+																		SNew(SImage)
+																		.Image(SUTStyle::Get().GetBrush("UT.Star"))
 																	]
-																	+SHorizontalBox::Slot()
-																	.AutoWidth()
+																]
+																+SHorizontalBox::Slot()
+																.AutoWidth()
+																[
+																	SNew(SBox).WidthOverride(32).HeightOverride(32)
 																	[
-																		SNew(SBox).WidthOverride(32).HeightOverride(32)
-																		[
-																			SNew(SImage)
-																			.Image(SUTStyle::Get().GetBrush("UT.Star"))
-																		]
+																		SNew(SImage)
+																		.Image(SUTStyle::Get().GetBrush("UT.Star"))
 																	]
 																]
 															]
-														]										
-													]
+														]
+													]										
 												]
 											]
 										]
@@ -594,6 +629,7 @@ FReply SUTChallengePanel::ChallengeClicked(FName ChallengeTag)
 	if (ChallengeManager.IsValid() && ChallengeManager->Challenges.Contains(ChallengeTag))
 	{
 		FString Description = ChallengeManager->Challenges[ChallengeTag].Description;
+		FString Map = ChallengeManager->Challenges[ChallengeTag].Map;
 		ChallengeDescription->SetText(FText::FromString(Description));
 		SelectedChallenge = ChallengeTag;
 
@@ -610,6 +646,39 @@ FReply SUTChallengePanel::ChallengeClicked(FName ChallengeTag)
 				Button->UnPressed();
 			}
 		}
+
+		bool bReset = true;
+
+		TArray<FAssetData> MapAssets;
+		GetAllAssetData(UWorld::StaticClass(), MapAssets);
+		for (const FAssetData& Asset : MapAssets)
+		{
+			FString MapPackageName = Asset.PackageName.ToString();
+			if (MapPackageName == Map)
+			{
+				const FString* Screenshot = Asset.TagsAndValues.Find(NAME_MapInfo_ScreenshotReference);
+				if (Screenshot != NULL)
+				{
+					LevelShot = LoadObject<UTexture2D>(nullptr, **Screenshot);
+					if (LevelShot)
+					{
+						*LevelScreenshot = FSlateDynamicImageBrush(LevelShot, LevelScreenshot->ImageSize, LevelScreenshot->GetResourceName());
+					}
+					else
+					{
+						*LevelScreenshot = FSlateDynamicImageBrush(Cast<UUTGameEngine>(GEngine)->DefaultLevelScreenshot, LevelScreenshot->ImageSize, LevelScreenshot->GetResourceName());
+					}
+					bReset = false;
+					break;
+				}
+			}
+		}
+
+		if (bReset )
+		{
+			*LevelScreenshot = FSlateDynamicImageBrush(Cast<UUTGameEngine>(GEngine)->DefaultLevelScreenshot, LevelScreenshot->ImageSize, LevelScreenshot->GetResourceName());
+		}
+
 	}
 
 	return FReply::Handled();
