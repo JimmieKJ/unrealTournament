@@ -124,7 +124,7 @@ class UNREALTOURNAMENT_API AUTLobbyGameState : public AUTGameState
 	/**
 	 *	Called when a Game Instance is up and ready for players to join.
 	 **/
-	void GameInstance_Ready(uint32 GameInstanceID, FGuid GameInstanceGUID);
+	void GameInstance_Ready(uint32 GameInstanceID, FGuid GameInstanceGUID, const FString& MapName);
 
 	/**
 	 *	Called when an instance needs to update it's match information

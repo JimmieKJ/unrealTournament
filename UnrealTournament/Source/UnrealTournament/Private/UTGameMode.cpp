@@ -3361,7 +3361,7 @@ void AUTGameMode::NotifyLobbyGameIsReady()
 {
 	if (IsGameInstanceServer() && LobbyBeacon)
 	{
-		LobbyBeacon->Lobby_NotifyInstanceIsReady(LobbyInstanceID, ServerInstanceGUID);
+		LobbyBeacon->Lobby_NotifyInstanceIsReady(LobbyInstanceID, ServerInstanceGUID, GetWorld()->GetMapName());
 	}
 }
 

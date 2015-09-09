@@ -517,13 +517,14 @@ void AUTLobbyGameState::TerminateGameInstance(AUTLobbyMatchInfo* MatchOwner, boo
 }
 
 
-void AUTLobbyGameState::GameInstance_Ready(uint32 InGameInstanceID, FGuid GameInstanceGUID)
+void AUTLobbyGameState::GameInstance_Ready(uint32 InGameInstanceID, FGuid GameInstanceGUID, const FString& MapName)
 {
 	for (int32 i=0; i < GameInstances.Num(); i++)
 	{
 		if (GameInstances[i].MatchInfo->GameInstanceID == InGameInstanceID)
 		{
 			GameInstances[i].MatchInfo->GameInstanceReady(GameInstanceGUID);
+			GameInstances[i].MatchInfo->InitialMap = MapName;
 			break;
 		}
 	}

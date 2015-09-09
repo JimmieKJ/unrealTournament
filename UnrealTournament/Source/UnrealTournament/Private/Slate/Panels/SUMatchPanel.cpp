@@ -73,6 +73,7 @@ void SUMatchPanel::Construct(const FArguments& InArgs)
 					.HAlign(HAlign_Right)
 					[
 						SNew(SHorizontalBox)
+/*
 						+SHorizontalBox::Slot()
 						.Padding(0.0,0.0,10.0,0.0)
 						.AutoWidth()
@@ -95,6 +96,7 @@ void SUMatchPanel::Construct(const FArguments& InArgs)
 								.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small")
 							]
 						]
+*/
 						+SHorizontalBox::Slot()
 						.AutoWidth()
 						.Padding(10.0,5.0,21.0,5.0)
