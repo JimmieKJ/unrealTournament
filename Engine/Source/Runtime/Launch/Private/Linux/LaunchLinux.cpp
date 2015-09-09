@@ -112,8 +112,30 @@ static bool IncreasePerProcessLimits()
 		}
 	}
 
-#if !UE_BUILD_SHIPPING
-	if (!FParse::Param(*GSavedCommandLine, TEXT("nocore")))
+	// core dump policy:
+	// - Shipping and Test disable by default (unless -core is passed)
+	// - The rest set it to infinity unless -nocore is passed
+	// (in all scenarios user wish as expressed with -core or -nocore takes priority)
+	bool bDisableCore = (UE_BUILD_SHIPPING || UE_BUILD_TEST);
+	if (FParse::Param(*GSavedCommandLine, TEXT("nocore")))
+	{
+		bDisableCore = true;
+	}
+	if (FParse::Param(*GSavedCommandLine, TEXT("core")))
+	{
+		bDisableCore = false;
+	}
+
+	if (bDisableCore)
+	{
+		printf("Disabling core dumps.\n");
+		if (!SetResourceLimit(RLIMIT_CORE, 0, false))
+		{
+			fprintf(stderr, "Could not set core file size to 0, error(%d): %s\n", errno, strerror(errno));
+			return false;
+		}
+	}
+	else
 	{
 		printf("Increasing per-process limit of core file size to infinity.\n");
 		if (!IncreaseLimit(RLIMIT_CORE, RLIM_INFINITY))
@@ -123,7 +145,6 @@ static bool IncreasePerProcessLimits()
 			return false;
 		}
 	}
-#endif // !UE_BUILD_SHIPPING
 
 	return true;
 }
