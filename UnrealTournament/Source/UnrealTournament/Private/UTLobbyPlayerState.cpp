@@ -34,7 +34,9 @@ void AUTLobbyPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty >
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(AUTLobbyPlayerState, CurrentMatch);
+	DOREPLIFETIME(AUTLobbyPlayerState, LastInvitedMatch);
 	DOREPLIFETIME(AUTLobbyPlayerState, DesiredTeamNum);
+	DOREPLIFETIME(AUTLobbyPlayerState, MatchInviteKeys);
 }
 
 void AUTLobbyPlayerState::MatchButtonPressed()
@@ -229,6 +231,26 @@ void AUTLobbyPlayerState::Client_ReceiveBlock_Implementation(int32 Block, FAllow
 	}	
 }
 
+void AUTLobbyPlayerState::InviteToMatch(AUTLobbyMatchInfo* Match)
+{
+	if (Match) 
+	{
+		MatchInviteKeys.Add(Match->PrivateKey);
+		LastInvitedMatch = Match;
+	}
+}
+
+void AUTLobbyPlayerState::UninviteFromMatch(AUTLobbyMatchInfo* Match)
+{
+	if (Match) 
+	{
+		MatchInviteKeys.Remove(Match->PrivateKey);
+		if (LastInvitedMatch == Match)
+		{
+			LastInvitedMatch = NULL;
+		}
+	}
+}
 
 
 

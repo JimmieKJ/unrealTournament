@@ -831,6 +831,7 @@ namespace EPlayerListContentCommand
 	const FName Kick = FName(TEXT("Kick"));
 	const FName Ban = FName(TEXT("Ban"));
 	const FName Invite = FName(TEXT("Invite"));
+	const FName UnInvite = FName(TEXT("Uninvite"));
 }
 
 UENUM()

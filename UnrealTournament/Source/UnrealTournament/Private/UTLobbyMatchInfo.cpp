@@ -58,6 +58,7 @@ void AUTLobbyMatchInfo::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > &
 	DOREPLIFETIME_CONDITION(AUTLobbyMatchInfo, DedicatedServerName, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTLobbyMatchInfo, bDedicatedMatch, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTLobbyMatchInfo, bQuickPlayMatch, COND_InitialOnly);
+	DOREPLIFETIME_CONDITION(AUTLobbyMatchInfo, PrivateKey, COND_InitialOnly);
 }
 
 void AUTLobbyMatchInfo::PreInitializeComponents()
@@ -66,7 +67,7 @@ void AUTLobbyMatchInfo::PreInitializeComponents()
 	SetLobbyMatchState(ELobbyMatchState::Initializing);
 
 	UniqueMatchID = FGuid::NewGuid();
-
+	PrivateKey = FGuid::NewGuid();
 	MatchBadge = TEXT("Loading...");
 }
 
@@ -347,6 +348,7 @@ void AUTLobbyMatchInfo::ServerManageUser_Implementation(int32 CommandID, AUTLobb
 	{
 		// Right now we only have kicks and bans.
 		RemovePlayer(Target);
+		Target->UninviteFromMatch(this);
 		if (CommandID == 3)
 		{
 			BannedIDs.Add(Target->UniqueId);
@@ -561,6 +563,13 @@ void AUTLobbyMatchInfo::ServerSetRankLocked_Implementation(bool bLocked)
 {
 	bRankLocked = bLocked;
 }
+
+bool AUTLobbyMatchInfo::ServerSetPrivateMatch_Validate(bool bIsPrivate) { return true; }
+void AUTLobbyMatchInfo::ServerSetPrivateMatch_Implementation(bool bIsPrivate)
+{
+	bPrivateMatch = bIsPrivate;
+}
+
 
 
 FText AUTLobbyMatchInfo::GetDebugInfo()
@@ -1135,19 +1144,38 @@ uint32 AUTLobbyMatchInfo::GetMatchFlags()
 		Flags = Flags | MATCH_FLAG_InProgress;
 	}
 
+	if (bPrivateMatch)
+	{
+		Flags = Flags | MATCH_FLAG_Private;
+	}
+
 	if (bRankLocked)
 	{
-		Flags = MATCH_FLAG_Ranked | 0x02;
+		Flags = Flags | MATCH_FLAG_Ranked;
 	}
+
 	if (!bJoinAnytime)
 	{
 		Flags = Flags | MATCH_FLAG_NoJoinInProgress;
 	}
+
 	if (!bSpectatable)
 	{
 		Flags = Flags | MATCH_FLAG_NoSpectators;
 	}
 
 	return Flags;
+}
 
+bool AUTLobbyMatchInfo::ServerInvitePlayer_Validate(AUTLobbyPlayerState* Who, bool bInvite) { return true; }
+void AUTLobbyMatchInfo::ServerInvitePlayer_Implementation(AUTLobbyPlayerState* Who, bool bInvite)
+{
+	if (bInvite)
+	{
+		Who->InviteToMatch(this);
+	}
+	else
+	{
+		Who->UninviteFromMatch(this);
+	}
 }

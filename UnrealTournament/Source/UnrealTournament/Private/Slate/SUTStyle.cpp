@@ -45,6 +45,8 @@ const int32 FONT_SIZE_Huge = 64;
 
 FSlateSound SUTStyle::ButtonPressSound;
 FSlateSound SUTStyle::ButtonHoverSound;
+FSlateSound SUTStyle::MessageSound;
+
 FSlateColor SUTStyle::DefaultForeground;
 
 TSharedRef<FSlateStyleSet> SUTStyle::Create()
@@ -59,6 +61,7 @@ TSharedRef<FSlateStyleSet> SUTStyle::Create()
 
 	ButtonHoverSound = FSlateSound::FromName_DEPRECATED(FName("SoundCue'/Game/RestrictedAssets/UI/UT99UI_LittleSelect_Cue.UT99UI_LittleSelect_Cue'"));
 	ButtonPressSound = FSlateSound::FromName_DEPRECATED(FName("SoundCue'/Game/RestrictedAssets/UI/UT99UI_BigSelect_Cue.UT99UI_BigSelect_Cue'"));
+	MessageSound = FSlateSound::FromName_DEPRECATED(FName("SoundCue'/Game/RestrictedAssets/Audio/UI/A_UI_Attention02_Cue.A_UI_Attention02_Cue'"));
 
 	SetFonts(StyleRef);
 	SetCommonStyle(StyleRef);
@@ -75,6 +78,7 @@ void SUTStyle::SetFonts(TSharedRef<FSlateStyleSet> StyleRef)
 
 	Style.Set("UT.Font.NormalText.Tiny", FTextBlockStyle().SetFont(TTF_FONT("/UTStyle/Fonts/Lato/Lato-Regular", FONT_SIZE_Tiny)).SetColorAndOpacity(FLinearColor::White));
 	Style.Set("UT.Font.NormalText.Tiny.Bold", FTextBlockStyle().SetFont(TTF_FONT("/UTStyle/Fonts/Lato/Lato-Bold", FONT_SIZE_Tiny)).SetColorAndOpacity(FLinearColor::White));
+	Style.Set("UT.Font.NormalText.Tiny.Bold.Gold", FTextBlockStyle().SetFont(TTF_FONT("/UTStyle/Fonts/Lato/Lato-Bold", FONT_SIZE_Tiny)).SetColorAndOpacity(FLinearColor::Yellow));
 
 	Style.Set("UT.Font.NormalText.Small", FTextBlockStyle().SetFont(TTF_FONT("/UTStyle/Fonts/Lato/Lato-Regular", FONT_SIZE_Small)).SetColorAndOpacity(FLinearColor::White));
 	Style.Set("UT.Font.NormalText.Small.Bold", FTextBlockStyle().SetFont(TTF_FONT("/UTStyle/Fonts/Lato/Lato-Bold", FONT_SIZE_Small)).SetColorAndOpacity(FLinearColor::White));
@@ -148,6 +152,7 @@ void SUTStyle::SetCommonStyle(TSharedRef<FSlateStyleSet> StyleRef)
 	Style.Set("UT.HeaderBackground.Dark", new FSlateColorBrush(FColor(4,4,4,255)));
 	Style.Set("UT.HeaderBackground.Navy", new FSlateColorBrush(FColor(0,0,4,255)));
 	Style.Set("UT.HeaderBackground.Light", new FSlateColorBrush(FColor(14,14,14,255)));
+	Style.Set("UT.HeaderBackground.SuperLight", new FSlateColorBrush(FColor(32,32,32,255)));
 	Style.Set("UT.HeaderBackground.Medium", new FSlateColorBrush(FColor(10,10,10,255)));
 	Style.Set("UT.HeaderBackground.Shaded", new FSlateColorBrush(FColor(4,4,4,200)));
 	Style.Set("UT.Box", new FSlateColorBrush(FColor(13,13,13,153)));

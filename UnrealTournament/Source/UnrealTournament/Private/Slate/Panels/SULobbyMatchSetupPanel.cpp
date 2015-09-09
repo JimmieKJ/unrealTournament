@@ -363,6 +363,26 @@ TSharedRef<SWidget> SULobbyMatchSetupPanel::BuildHostOptionWidgets()
 				.Text(NSLOCTEXT("SULobbySetup", "AllowJoininProgress", "Allow Join-In-Progress"))
 			]
 		];
+
+		Container->AddSlot()
+		.AutoWidth()
+		.VAlign(VAlign_Center)
+		.Padding(0.0f, 0.0f, 20.0f, 0.0f )
+		[
+			SNew(SCheckBox)
+			.IsChecked(this, &SULobbyMatchSetupPanel::GetFriendsOnlyState)
+			.IsEnabled(bIsHost)
+			.OnCheckStateChanged(this, &SULobbyMatchSetupPanel::FriendsOnlyChanged)
+			.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
+			.Content()
+			[
+				SNew(STextBlock)
+				.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small")
+				.Text(NSLOCTEXT("SULobbySetup", "FriendsOnly", "Private Match"))
+			]
+		];
+
+
 	}
 
 	return OuterContainer.ToSharedRef();
@@ -598,6 +618,15 @@ void SULobbyMatchSetupPanel::JoinAnyTimeChanged(ECheckBoxState NewState)
 	}
 }
 
+void SULobbyMatchSetupPanel::FriendsOnlyChanged(ECheckBoxState NewState)
+{
+	if (MatchInfo.IsValid())
+	{
+		MatchInfo->SetPrivateMatch(NewState == ESlateCheckBoxState::Checked);
+	}
+}
+
+
 void SULobbyMatchSetupPanel::AllowSpectatorChanged(ECheckBoxState NewState)
 {
 	if (MatchInfo.IsValid())
@@ -710,6 +739,10 @@ ECheckBoxState SULobbyMatchSetupPanel::GetAllowJIPState() const
 	return (MatchInfo.IsValid() && MatchInfo->bJoinAnytime) ? ESlateCheckBoxState::Checked : ESlateCheckBoxState::Unchecked;
 }
 
+ECheckBoxState SULobbyMatchSetupPanel::GetFriendsOnlyState() const
+{
+	return (MatchInfo.IsValid() && MatchInfo->IsPrivateMatch() ) ? ESlateCheckBoxState::Checked : ESlateCheckBoxState::Unchecked;
+}
 
 void SULobbyMatchSetupPanel::OnGameChangeDialogResult(TSharedPtr<SCompoundWidget> Dialog, uint16 ButtonPressed)
 {

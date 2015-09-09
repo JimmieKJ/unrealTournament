@@ -149,6 +149,7 @@ public:
 DECLARE_DELEGATE_OneParam(FPlayerClicked, FUniqueNetIdRepl);
 
 class SUTextChatPanel;
+class AUTLobbyMatchInfo;
 
 class UNREALTOURNAMENT_API SUPlayerListPanel : public SCompoundWidget
 {
@@ -173,6 +174,11 @@ protected:
 	TSharedPtr<FTrackedPlayer> MatchHeader;
 	TSharedPtr<FTrackedPlayer> EveryoneHeader;
 	TSharedPtr<FTrackedPlayer> InstanceHeader;
+
+	TSharedPtr<SOverlay> InviteOverlay;
+	TSharedPtr<SVerticalBox> InviteBox;
+
+	TWeakObjectPtr<AUTLobbyMatchInfo> InviteInfo;
 
 	bool bNeedsRefresh;
 
@@ -206,6 +212,11 @@ protected:
 	void GetMenuContent(FString SearchTag, TArray<FMenuOptionData>& MenuOptions);
 
 	void OnSubMenuSelect(FName Tag, TSharedPtr<FTrackedPlayer> InItem);
+
+	void BuildInvite();
+
+	FReply OnMatchInviteAction(bool bAccept);
+
 };
 
 #endif

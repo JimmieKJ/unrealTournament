@@ -319,6 +319,17 @@ void AUTLobbyGameState::JoinMatch(AUTLobbyMatchInfo* MatchInfo, AUTLobbyPlayerSt
 		return;
 	}
 
+	if (MatchInfo->IsPrivateMatch())
+	{
+		// Look to see if this player has the key to the match
+	
+		if (NewPlayer->MatchInviteKeys.Find(MatchInfo->PrivateKey) == INDEX_NONE)
+		{
+			NewPlayer->ClientMatchError(NSLOCTEXT("LobbyMessage","Private","Sorry, but the match you are trying to join is private."));
+			return;
+		}
+	}
+
 	if (MatchInfo->CurrentState == ELobbyMatchState::Launching)
 	{
 		NewPlayer->ClientMatchError(NSLOCTEXT("LobbyMessage","MatchIsStarting","The match you are trying to join is starting.  Please wait for it to begin before trying to spectate it."));	

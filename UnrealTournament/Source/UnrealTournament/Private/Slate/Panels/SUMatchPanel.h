@@ -73,21 +73,31 @@ public:
 		return MakeShareable( new FTrackedMatch( inMatchInfo ) );
 	}
 
-	FText GetFlags()
+	FText GetFlags(TWeakObjectPtr<UUTLocalPlayer> PlayerOwner)
 	{
 		if (MatchInfo.IsValid())
 		{
 			Flags = MatchInfo->GetMatchFlags();
 		}
 
+		AUTLobbyPlayerState* OwnerPlayerState = Cast<AUTLobbyPlayerState>(PlayerOwner->PlayerController->PlayerState);
+		bool bInvited = (OwnerPlayerState && OwnerPlayerState->MatchInviteKeys.Find(MatchInfo->PrivateKey) != INDEX_NONE);
+
 		// TODO: Add icon references
 
 		FString Final = TEXT("");
 
 		if ((Flags & MATCH_FLAG_InProgress) == MATCH_FLAG_InProgress) Final = Final + (Final.IsEmpty() ? TEXT("") : TEXT("\n")) + TEXT("In Progress");
-		if ((Flags & MATCH_FLAG_Private) == MATCH_FLAG_Private) Final = Final + (Final.IsEmpty() ? TEXT("") : TEXT("\n")) + TEXT("<img src=\"UT.Icon.Lock.Small\"/> Private");
+		if ((Flags & MATCH_FLAG_Private) == MATCH_FLAG_Private) 
+		{
+			if (!bInvited)
+			{
+				Final = Final + (Final.IsEmpty() ? TEXT("") : TEXT("\n")) + TEXT("<img src=\"UT.Icon.Lock.Small\"/> Private");
+			}
+		}
 		else if ((Flags & MATCH_FLAG_Ranked) == MATCH_FLAG_Ranked) Final = Final + (Final.IsEmpty() ? TEXT("") : TEXT("\n")) + TEXT("<img src=\"UT.Icon.Lock.Small\"/> Ranked");
 		if ((Flags & MATCH_FLAG_NoJoinInProgress) == MATCH_FLAG_NoJoinInProgress) Final = Final + (Final.IsEmpty() ? TEXT("") : TEXT("\n")) + TEXT("<img src=\"UT.Icon.Lock.Small\"/> No Join in Progress");
+		if (bInvited) Final = Final + (Final.IsEmpty() ? TEXT("") : TEXT("\n")) + TEXT("<UT.Font.NormalText.Tiny.Bold.Gold>!!Invited!!</>");
 
 		if (NumFriends > 0)
 		{

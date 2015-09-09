@@ -263,7 +263,7 @@ TSharedRef<ITableRow> SUMatchPanel::OnGenerateWidgetForMatchList( TSharedPtr<FTr
 								.Justification(ETextJustify::Left)
 								.DecoratorStyleSet( &SUTStyle::Get() )
 								.AutoWrapText( true )
-								.Text(TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateSP(InItem.Get(), &FTrackedMatch::GetFlags)))
+								.Text(TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateSP(InItem.Get(), &FTrackedMatch::GetFlags, PlayerOwner)))
 								+ SRichTextBlock::ImageDecorator()
 							]
 						]
