@@ -5,6 +5,7 @@
 #include "UTDroppedPickup.h"
 #include "UnrealNetwork.h"
 #include "UTPickupMessage.h"
+#include "UTWorldSettings.h"
 
 AUTDroppedPickup::AUTDroppedPickup(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -216,6 +217,26 @@ void AUTDroppedPickup::PlayTakenEffects_Implementation(APawn* TakenBy)
 	if (PickupSound != NULL)
 	{
 		UUTGameplayStatics::UTPlaySound(GetWorld(), PickupSound, TakenBy, SRT_All, false, GetActorLocation(), NULL, NULL, false);
+	}
+	if (GetNetMode() != NM_DedicatedServer)
+	{
+		UParticleSystem* ParticleTemplate = NULL;
+		if (Inventory != NULL)
+		{
+			ParticleTemplate = Inventory->PickupEffect;
+		}
+		else if (InventoryType != NULL)
+		{
+			ParticleTemplate = InventoryType.GetDefaultObject()->PickupEffect;
+		}
+		if (ParticleTemplate != NULL)
+		{
+			AUTWorldSettings* WS = Cast<AUTWorldSettings>(GetWorld()->GetWorldSettings());
+			if (WS == NULL || WS->EffectIsRelevant(this, GetActorLocation(), true, false, 10000.0f, 1000.0f))
+			{
+				UGameplayStatics::SpawnEmitterAtLocation(this, ParticleTemplate, GetActorLocation(), GetActorRotation());
+			}
+		}
 	}
 }
 

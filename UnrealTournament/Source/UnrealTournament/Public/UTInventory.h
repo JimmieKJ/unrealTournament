@@ -85,7 +85,7 @@ public:
 
 	/** Human readable localized name for the item. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Pickup")
-		FText DisplayName;
+	FText DisplayName;
 
 	/** respawn time for level placed pickups of this type */
 	UPROPERTY(EditDefaultsOnly, Category = Pickup)
@@ -96,7 +96,10 @@ public:
 	/** if set, item is always dropped when its holder dies if uses/charges/etc remain */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Inventory)
 	bool bAlwaysDropOnDeath;
-	/** sound played on pickup */
+	/** particles played when picked up */
+	UPROPERTY(EditDefaultsOnly, Category = Pickup)
+	UParticleSystem* PickupEffect;
+	/** sound played when picked up */
 	UPROPERTY(EditDefaultsOnly, Category = Pickup)
 	USoundBase* PickupSound;
 	/** sound played when owner takes damage (armor hit sound, for example) */
@@ -142,7 +145,7 @@ public:
 
 	/** return true to display armor hit effects */
 	UFUNCTION(BlueprintNativeEvent)
-		bool ShouldDisplayHitEffect(int32 AttemptedDamage, int32 DamageAmount, int32 FinalHealth, int32 FinalArmor);
+	bool ShouldDisplayHitEffect(int32 AttemptedDamage, int32 DamageAmount, int32 FinalHealth, int32 FinalArmor);
 
 	/** return effective change in owner's health due to carrying this item
 	 * for example, armor would return the amount of damage it could be expected to block
@@ -191,7 +194,7 @@ public:
 
 	/** Whether to show timer for this on spectator slide out HUD. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = HUD)
-		bool bShowPowerupTimer;
+	bool bShowPowerupTimer;
 
 	/** How important is this inventory item when rendering a group of them */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = HUD)
@@ -211,13 +214,13 @@ public:
 
 	/** Used to initially flash icon if HUD rendered */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
-		float InitialFlashTime;
+	float InitialFlashTime;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
-		float InitialFlashScale;
+	float InitialFlashScale;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
-		FLinearColor InitialFlashColor;
+	FLinearColor InitialFlashColor;
 
 	float FlashTimer;
 
