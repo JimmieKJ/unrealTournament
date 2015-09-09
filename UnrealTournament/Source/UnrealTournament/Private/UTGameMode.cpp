@@ -3738,6 +3738,7 @@ void AUTGameMode::BuildWeaponInfo(AUTPlayerState* PlayerState, TSharedPtr<class 
 			StatList);
 	}
 
+	TopRightPane->AddSlot().AutoHeight()[SNew(SBox).HeightOverride(40.0f)];
 	NewPlayerInfoLine(TopRightPane, NSLOCTEXT("AUTGameMode", "ShockComboKills", "Shock Combo Kills"), MakeShareable(new TAttributeStat(PlayerState, NAME_ShockComboKills)), StatList);
 	NewPlayerInfoLine(TopRightPane, NSLOCTEXT("AUTGameMode", "AmazingCombos", "Amazing Combos"), MakeShareable(new TAttributeStat(PlayerState, NAME_AmazingCombos)), StatList);
 	NewPlayerInfoLine(TopRightPane, NSLOCTEXT("AUTGameMode", "HeadShots", "Sniper Headshots"), MakeShareable(new TAttributeStat(PlayerState, NAME_SniperHeadshotKills)), StatList);
