@@ -24,10 +24,7 @@ void AUTTimedPowerup::GivenTo(AUTCharacter* NewOwner, bool bAutoActivate)
 	Super::GivenTo(NewOwner, bAutoActivate);
 
 	ClientSetTimeRemaining(TimeRemaining);
-	if (OverlayMaterial != NULL)
-	{
-		NewOwner->SetWeaponOverlay(OverlayMaterial, true);
-	}
+	NewOwner->SetWeaponOverlayEffect(OverlayEffect.IsValid() ? OverlayEffect : FOverlayEffect(OverlayMaterial), true);
 	GetWorld()->GetTimerManager().SetTimer(PlayFadingSoundHandle, this, &AUTTimedPowerup::PlayFadingSound, FMath::Max<float>(0.1f, TimeRemaining - 3.0f), false);
 	StatCountTime = GetWorld()->GetTimeSeconds();
 }
@@ -51,10 +48,7 @@ void AUTTimedPowerup::UpdateStatsCounter(float Amount)
 void AUTTimedPowerup::Removed()
 {
 	UpdateStatsCounter(GetWorld()->GetTimeSeconds() - StatCountTime);
-	if (OverlayMaterial != NULL)
-	{
-		GetUTOwner()->SetWeaponOverlay(OverlayMaterial, false);
-	}
+	GetUTOwner()->SetWeaponOverlayEffect(OverlayEffect.IsValid() ? OverlayEffect : FOverlayEffect(OverlayMaterial), false);
 	GetWorld()->GetTimerManager().ClearTimer(PlayFadingSoundHandle);
 	Super::Removed();
 }

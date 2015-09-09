@@ -22,6 +22,8 @@ class UNREALTOURNAMENT_API AUTArmor : public AUTInventory
 
 	/** character overlay applied while this armor is equipped */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Effects)
+	FOverlayEffect OverlayEffect;
+	UPROPERTY(VisibleDefaultsOnly, Category = Effects)
 	UMaterialInterface* OverlayMaterial;
 
 	/** Hold a descriptive tag that describes what type of armor this is.   Used by the paper doll to display the various icons for this armor */
@@ -29,7 +31,7 @@ class UNREALTOURNAMENT_API AUTArmor : public AUTInventory
 	FName ArmorType;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Powerup)
-		FName StatsName;
+	FName StatsName;
 
 	/** Effect to spawn on armor hit. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Effects)
@@ -37,7 +39,14 @@ class UNREALTOURNAMENT_API AUTArmor : public AUTInventory
 
 	virtual void AddOverlayMaterials_Implementation(AUTGameState* GS) const override
 	{
-		GS->AddOverlayMaterial(OverlayMaterial);
+		if (OverlayEffect.IsValid())
+		{
+			GS->AddOverlayEffect(OverlayEffect);
+		}
+		else
+		{
+			GS->AddOverlayEffect(FOverlayEffect(OverlayMaterial));
+		}
 	}
 
 	/** Handles any C++ generated effects, calls blueprint PlayArmorEffects */

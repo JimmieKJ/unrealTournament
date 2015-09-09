@@ -3152,15 +3152,19 @@ void AUTCharacter::OnRagdollCollision(AActor* OtherActor, UPrimitiveComponent* O
 
 void AUTCharacter::SetCharacterOverlay(UMaterialInterface* NewOverlay, bool bEnabled)
 {
-	if (Role == ROLE_Authority && NewOverlay != NULL)
+	SetCharacterOverlayEffect(FOverlayEffect(NewOverlay), bEnabled);
+}
+void AUTCharacter::SetCharacterOverlayEffect(const struct FOverlayEffect& NewOverlay, bool bEnabled)
+{
+	if (Role == ROLE_Authority && NewOverlay.IsValid())
 	{
 		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 		if (GS != NULL)
 		{
-			int32 Index = GS->FindOverlayMaterial(NewOverlay);
+			int32 Index = GS->FindOverlayEffect(NewOverlay);
 			if (Index == INDEX_NONE)
 			{
-				UE_LOG(UT, Warning, TEXT("Overlay material %s was not registered"), *NewOverlay->GetFullName());
+				UE_LOG(UT, Warning, TEXT("Overlay effect %s was not registered"), *NewOverlay.ToString());
 			}
 			else
 			{
@@ -3183,15 +3187,19 @@ void AUTCharacter::SetCharacterOverlay(UMaterialInterface* NewOverlay, bool bEna
 }
 void AUTCharacter::SetWeaponOverlay(UMaterialInterface* NewOverlay, bool bEnabled)
 {
-	if (Role == ROLE_Authority && NewOverlay != NULL)
+	SetWeaponOverlayEffect(FOverlayEffect(NewOverlay), bEnabled);
+}
+void AUTCharacter::SetWeaponOverlayEffect(const FOverlayEffect& NewOverlay, bool bEnabled)
+{
+	if (Role == ROLE_Authority && NewOverlay.IsValid())
 	{
 		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 		if (GS != NULL)
 		{
-			int32 Index = GS->FindOverlayMaterial(NewOverlay);
+			int32 Index = GS->FindOverlayEffect(NewOverlay);
 			if (Index == INDEX_NONE)
 			{
-				UE_LOG(UT, Warning, TEXT("Overlay material %s was not registered"), *NewOverlay->GetFullName());
+				UE_LOG(UT, Warning, TEXT("Overlay effect %s was not registered"), *NewOverlay.ToString());
 			}
 			else
 			{
@@ -3246,6 +3254,21 @@ void AUTCharacter::UpdateCharOverlays()
 		{
 			OverlayMesh->DetachFromParent();
 			OverlayMesh->UnregisterComponent();
+			TArray<USceneComponent*> ChildrenCopy = OverlayMesh->AttachChildren;
+			for (USceneComponent* Child : ChildrenCopy)
+			{
+				UParticleSystemComponent* PSC = Cast<UParticleSystemComponent>(Child);
+				if (PSC != NULL && PSC->IsActive())
+				{
+					PSC->bAutoDestroy = true;
+					PSC->DeactivateSystem();
+					PSC->DetachFromParent(true);
+				}
+				else
+				{
+					Child->DestroyComponent(false);
+				}
+			}
 		}
 	}
 	else if (GS != NULL)
@@ -3268,9 +3291,9 @@ void AUTCharacter::UpdateCharOverlays()
 			OverlayMesh->SetRelativeScale3D(FVector(1.0f, 1.0f, 1.0f));
 			OverlayMesh->SetRenderCustomDepth(true);
 		}
-		UMaterialInterface* FirstOverlay = GS->GetFirstOverlay(CharOverlayFlags, false);
+		FOverlayEffect FirstOverlay = GS->GetFirstOverlay(CharOverlayFlags, false);
 		// note: MID doesn't have any safe way to change Parent at runtime, so we need to make a new one every time...
-		UMaterialInstanceDynamic* MID = UMaterialInstanceDynamic::Create(FirstOverlay, OverlayMesh);
+		UMaterialInstanceDynamic* MID = UMaterialInstanceDynamic::Create(FirstOverlay.Material, OverlayMesh);
 		// apply team color, if applicable
 		AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
 		if (PS != NULL && PS->Team != NULL)
@@ -3281,6 +3304,46 @@ void AUTCharacter::UpdateCharOverlays()
 		for (int32 i = 0; i < OverlayMesh->GetNumMaterials(); i++)
 		{
 			OverlayMesh->SetMaterial(i, MID);
+		}
+		if (FirstOverlay.Particles != NULL)
+		{
+			UParticleSystemComponent* PSC = NULL;
+			for (USceneComponent* Child : OverlayMesh->AttachChildren)
+			{
+				UParticleSystemComponent* PSC = Cast<UParticleSystemComponent>(Child);
+				if (PSC != NULL)
+				{
+					break;
+				}
+			}
+			if (PSC == NULL)
+			{
+				PSC = NewObject<UParticleSystemComponent>(OverlayMesh);
+				PSC->RegisterComponent();
+			}
+			PSC->AttachTo(OverlayMesh, FirstOverlay.ParticleAttachPoint);
+			PSC->SetTemplate(FirstOverlay.Particles);
+		}
+		else
+		{
+			for (USceneComponent* Child : OverlayMesh->AttachChildren)
+			{
+				UParticleSystemComponent* PSC = Cast<UParticleSystemComponent>(Child);
+				if (PSC != NULL)
+				{
+					if (PSC->IsActive())
+					{
+						PSC->bAutoDestroy = true;
+						PSC->DeactivateSystem();
+						PSC->DetachFromParent(true);
+					}
+					else
+					{
+						PSC->DestroyComponent();
+					}
+					break;
+				}
+			}
 		}
 	}
 }
