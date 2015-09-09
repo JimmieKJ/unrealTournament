@@ -298,6 +298,11 @@ void AUTWeapon::DropFrom(const FVector& StartLocation, const FVector& TossVeloci
 		else
 		{
 			Super::DropFrom(StartLocation, TossVelocity);
+			if (UTOwner == NULL && CurrentState != InactiveState)
+			{
+				UE_LOG(UT, Warning, TEXT("Weapon %s wasn't properly sent to Inactive state after being dropped!"), *GetName());
+				GotoState(InactiveState);
+			}
 		}
 	}
 }
