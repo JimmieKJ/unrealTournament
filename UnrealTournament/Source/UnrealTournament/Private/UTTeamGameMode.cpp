@@ -324,7 +324,7 @@ uint8 AUTTeamGameMode::PickBalancedTeam(AUTPlayerState* PS, uint8 RequestedTeam)
 	return BestTeams[FMath::RandHelper(BestTeams.Num())]->TeamIndex;
 }
 
-void AUTTeamGameMode::HandleCountdownToBegin()
+void AUTTeamGameMode::HandlePlayerIntro()
 {
 	// we ignore balancing when applying players' URL specified value during prematch
 	// make sure we're balanced now before the game begins
@@ -350,7 +350,7 @@ void AUTTeamGameMode::HandleCountdownToBegin()
 		}
 	}
 
-	Super::HandleCountdownToBegin();
+	Super::HandlePlayerIntro();
 }
 
 void AUTTeamGameMode::CheckBotCount()
