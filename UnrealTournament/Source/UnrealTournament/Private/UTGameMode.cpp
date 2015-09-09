@@ -471,40 +471,6 @@ void AUTGameMode::InitGameState()
 			}
 		}
 	}
-
-	if (!IsGameInstanceServer() && !bDisableMapVote)
-	{
-		// First, fixup the MapRotation array so it only has long names...
-
-		for (int32 i=0; i < MapRotation.Num(); i++)
-		{
-			FString Map = MapRotation[i];
-			if ( FPackageName::IsShortPackageName(Map) )
-			{
-				FPackageName::SearchForPackageOnDisk(Map, &MapRotation[i]); 
-			}
-		}
-
-		TArray<FString> MapPrefixList;
-		TArray<FAssetData> MapList;	
-
-		MapPrefixList.Add(MapPrefix);
-		UTGameState->ScanForMaps(MapPrefixList, MapList);
-		for(int32 i = 0; i < MapList.Num(); i++)
-		{
-			FString PackageName = MapList[i].PackageName.ToString();
-			for (int32 j = 0; j < MapRotation.Num(); j++)
-			{
-				
-				if (PackageName.Equals(MapRotation[j], ESearchCase::IgnoreCase))
-				{
-					const FString* Title = MapList[i].TagsAndValues.Find(NAME_MapInfo_Title); 
-					const FString* Screenshot = MapList[i].TagsAndValues.Find(NAME_MapInfo_ScreenshotReference);
-					UTGameState->CreateMapVoteInfo(PackageName, (Title != NULL && !Title->IsEmpty()) ? *Title : *MapList[i].AssetName.ToString(), *Screenshot);
-				}
-			}
-		}
-	}
 }
 
 void AUTGameMode::UpdateOnlineServer()
@@ -1904,6 +1870,48 @@ void AUTGameMode::TravelToNextMap_Implementation()
 		}
 	}
 	UE_LOG(UT,Log,TEXT("TravelToNextMap: %i %i"),bDedicatedInstance,IsGameInstanceServer());
+
+	if (!IsGameInstanceServer() && !bDisableMapVote && GetWorld()->GetNetMode() != NM_Standalone)
+	{
+		// gather maps for map vote
+		TArray<FString> MapPrefixList;
+		TArray<FAssetData> MapList;
+
+		MapPrefixList.Add(MapPrefix);
+		UTGameState->ScanForMaps(MapPrefixList, MapList);
+
+		// First, fixup the MapRotation array so it only has long names...
+		for (FString& Map : MapRotation)
+		{
+			if (FPackageName::IsShortPackageName(Map))
+			{
+				for (const FAssetData& MapAsset : MapList)
+				{
+					FString PackageName = MapAsset.PackageName.ToString();
+					PackageName = PackageName.Right(PackageName.Len() - PackageName.Find(TEXT("/") - 1, ESearchCase::IgnoreCase, ESearchDir::FromEnd));
+					if (Map == PackageName)
+					{
+						Map = MapAsset.PackageName.ToString();
+						break;
+					}
+				}
+			}
+		}
+
+		for (int32 i = 0; i < MapList.Num(); i++)
+		{
+			FString PackageName = MapList[i].PackageName.ToString();
+			for (int32 j = 0; j < MapRotation.Num(); j++)
+			{
+				if (PackageName.Equals(MapRotation[j], ESearchCase::IgnoreCase))
+				{
+					const FString* Title = MapList[i].TagsAndValues.Find(NAME_MapInfo_Title);
+					const FString* Screenshot = MapList[i].TagsAndValues.Find(NAME_MapInfo_ScreenshotReference);
+					UTGameState->CreateMapVoteInfo(PackageName, (Title != NULL && !Title->IsEmpty()) ? *Title : *MapList[i].AssetName.ToString(), *Screenshot);
+				}
+			}
+		}
+	}
 
 	if (GetWorld()->GetNetMode() != ENetMode::NM_Standalone && (IsGameInstanceServer() || (!bDisableMapVote && UTGameState->MapVoteList.Num() > 0)))
 	{
