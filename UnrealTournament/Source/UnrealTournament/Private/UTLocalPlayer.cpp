@@ -3048,7 +3048,7 @@ void UUTLocalPlayer::CloseAllUI(bool bExceptDialogs)
 			// restore dialogs to the viewport
 			for (TSharedPtr<SUWDialog> Dialog : OpenDialogs)
 			{
-				if (Dialog.IsValid())
+				if ( Dialog.IsValid() && (MapVoteMenu.IsValid() && Dialog.Get() != MapVoteMenu.Get()) )
 				{
 					GEngine->GameViewport->AddViewportWidgetContent(Dialog.ToSharedRef(), 255);
 				}
