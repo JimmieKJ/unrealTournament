@@ -1876,9 +1876,9 @@ void AUTWeapon::UpdateOverlaysShared(AActor* WeaponActor, AUTCharacter* InOwner,
 			if (TopOverlay.Particles != NULL)
 			{
 				UParticleSystemComponent* PSC = NULL;
-				for (USceneComponent* Child : InOverlayMesh->AttachChildren)
+				for (USceneComponent* Child : InOverlayMesh->AttachChildren) 
 				{
-					UParticleSystemComponent* PSC = Cast<UParticleSystemComponent>(Child);
+					PSC = Cast<UParticleSystemComponent>(Child);
 					if (PSC != NULL)
 					{
 						break;

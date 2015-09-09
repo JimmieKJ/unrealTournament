@@ -3310,7 +3310,7 @@ void AUTCharacter::UpdateCharOverlays()
 			UParticleSystemComponent* PSC = NULL;
 			for (USceneComponent* Child : OverlayMesh->AttachChildren)
 			{
-				UParticleSystemComponent* PSC = Cast<UParticleSystemComponent>(Child);
+				PSC = Cast<UParticleSystemComponent>(Child);
 				if (PSC != NULL)
 				{
 					break;
