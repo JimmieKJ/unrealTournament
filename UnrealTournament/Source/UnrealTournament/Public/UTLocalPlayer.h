@@ -649,15 +649,7 @@ public:
 
 	bool IsOnTrustedServer() const
 	{
-#if UE_BUILD_SHIPPING
-		return false;
-#else
-		if (!FEngineBuildSettings::IsInternalBuild())
-		{
-			return false;
-		}
 		return GetWorld()->GetNetMode() == NM_Client && IsLoggedIn() && CurrentSessionTrustLevel == 0;
-#endif
 	}
 
 	virtual void AttemptJoinInstance(TSharedPtr<FServerData> ServerData, FString InstanceId, bool bSpectate);

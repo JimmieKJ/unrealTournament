@@ -1713,11 +1713,6 @@ void AUTGameMode::SendEndOfGameStats(FName Reason)
 
 void AUTGameMode::AwardXP()
 {
-#if !UE_BUILD_SHIPPING
-	if (!FEngineBuildSettings::IsInternalBuild())
-	{
-		return;
-	}
 	// TODO: ideally we wouldn't execute this if the server isn't approved for XP/items, but servers can't easily get their own status...
 	// client does a redundant check anyway so not a huge deal
 	static const bool bXPCheatEnabled = FParse::Param(FCommandLine::Get(), TEXT("XPGiveaway"));
@@ -1771,7 +1766,6 @@ void AUTGameMode::AwardXP()
 			}
 		}
 	}
-#endif
 }
 
 bool AUTGameMode::PlayerWonChallenge()
