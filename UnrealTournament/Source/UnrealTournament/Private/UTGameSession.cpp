@@ -101,7 +101,20 @@ bool AUTGameSession::BanPlayer(class APlayerController* BannedPlayer, const FTex
 	return Super::BanPlayer(BannedPlayer, BanReason);
 }
 
-
+bool AUTGameSession::KickPlayer(APlayerController* KickedPlayer, const FText& KickReason)
+{
+	// Do not kick logged admins
+	if (KickedPlayer != NULL && Cast<UNetConnection>(KickedPlayer->Player) != NULL)
+	{
+		KickedPlayer->ClientWasKicked(KickReason);
+		KickedPlayer->Destroy();
+		return true;
+	}
+	else
+	{
+		return false;
+	}
+}
 
 FString AUTGameSession::ApproveLogin(const FString& Options)
 {

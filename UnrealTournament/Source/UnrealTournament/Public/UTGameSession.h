@@ -72,6 +72,7 @@ public:
 	virtual bool BanPlayer(APlayerController* BannedPlayer, const FText& BanReason);
 	virtual void HandleMatchHasStarted();
 	virtual void HandleMatchHasEnded();
+	virtual bool KickPlayer(APlayerController* KickedPlayer, const FText& KickReason) override;
 
 protected:
 	UPROPERTY(Config)
