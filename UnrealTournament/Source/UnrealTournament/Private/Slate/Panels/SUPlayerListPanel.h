@@ -42,6 +42,9 @@ public:
 	// Will be true if this player is in the same match as the owner
 	bool bIsInMatch;
 
+	// Will be true if this player is in any match
+	bool bIsInAnyMatch;
+
 	// Will be true if this player is the host of a match (only useful in hubs)
 	bool bIsHost;
 

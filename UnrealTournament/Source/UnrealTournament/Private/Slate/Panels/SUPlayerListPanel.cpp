@@ -337,7 +337,7 @@ void SUPlayerListPanel::Tick( const FGeometry& AllottedGeometry, const double In
 			AUTLobbyPlayerState* OwnerPlayerState = Cast<AUTLobbyPlayerState>(PlayerOwner->PlayerController->PlayerState);
 			if (OwnerPlayerState && OwnerPlayerState->CurrentMatch)
 			{
-				// Owner is in a match.. add trhe headers...
+				// Owner is in a match.. add the headers...
 
 				if (!MatchHeader.IsValid())
 				{
@@ -383,6 +383,7 @@ void SUPlayerListPanel::Tick( const FGeometry& AllottedGeometry, const double In
 
 				AUTLobbyPlayerState* LobbyPlayerState = Cast<AUTLobbyPlayerState>(PlayerState);
 				bool bIsHost = (LobbyPlayerState && LobbyPlayerState->CurrentMatch && LobbyPlayerState->CurrentMatch->OwnerId == LobbyPlayerState->UniqueId);
+				bool bIsInAnyMatch = (LobbyPlayerState && LobbyPlayerState->CurrentMatch);
 
 				// Update the player's team info...
 
@@ -402,6 +403,12 @@ void SUPlayerListPanel::Tick( const FGeometry& AllottedGeometry, const double In
 							TrackedPlayers[Idx]->bIsInMatch = bIsInMatch;
 						}
 						
+						if (TrackedPlayers[Idx]->bIsInAnyMatch != bIsInAnyMatch)
+						{
+							bListNeedsUpdate = true;
+							TrackedPlayers[Idx]->bIsInAnyMatch = bIsInAnyMatch;
+						}
+
 						if (TrackedPlayers[Idx]->TeamNum != TeamNum)
 						{
 							bListNeedsUpdate = true;
@@ -422,8 +429,6 @@ void SUPlayerListPanel::Tick( const FGeometry& AllottedGeometry, const double In
 						// This is a new player.. Add them.
 						TrackedPlayers.Add(FTrackedPlayer::Make(PlayerState, PlayerState->UniqueId, PlayerState->PlayerName, TeamNum, PlayerState->Avatar, PlayerState == PlayerOwner->PlayerController->PlayerState,bIsHost));
 					}
-
-
 				}
 			}
 		}
