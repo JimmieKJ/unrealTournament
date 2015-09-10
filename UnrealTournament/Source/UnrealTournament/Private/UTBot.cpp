@@ -114,8 +114,8 @@ AUTBot::AUTBot(const FObjectInitializer& ObjectInitializer)
 	SightRadius = 20000.0f;
 	RotationRate = FRotator(300.0f, 300.0f, 0.0f);
 	PeripheralVision = 0.7f;
-	TrackingReactionTime = 0.25f;
-	MaxTrackingPredictionError = 0.2f;
+	TrackingReactionTime = 0.28f;
+	MaxTrackingPredictionError = 0.22f;
 	MaxTrackingOffsetError = 0.15f;
 	TrackingErrorUpdateInterval = 0.4f;
 	TrackingErrorUpdateTime = 0.f;
@@ -2005,7 +2005,7 @@ bool AUTBot::NeedToTurn(const FVector& TargetLoc, bool bForcePrecise)
 		// we're intentionally disregarding the weapon's start position here, since it may change based on its firing offset, nearby geometry if that offset is outside the cylinder, etc
 		// we'll correct for the discrepancy in GetAdjustedAim() while firing
 		const FVector StartLoc = GetPawn()->GetActorLocation();
-		return ((TargetLoc - StartLoc).GetSafeNormal() | GetControlRotation().Vector()) < (bForcePrecise ? 0.997f : (0.93f + 0.0085 * FMath::Clamp<float>(Skill + Personality.Accuracy, 0.0f, 7.0f)));
+		return ((TargetLoc - StartLoc).GetSafeNormal() | GetControlRotation().Vector()) < (bForcePrecise ? 0.997f : (0.92f + 0.01f * FMath::Clamp<float>(Skill + Personality.Accuracy, 0.0f, 7.0f)));
 	}
 }
 
