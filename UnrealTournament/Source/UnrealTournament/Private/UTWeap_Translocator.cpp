@@ -448,6 +448,7 @@ bool AUTWeap_Translocator::DoAssistedJump()
 		// look at target
 		FVector LookPoint = B->TranslocTarget;
 		// account for projectile toss
+		B->NextFireMode = 0; // make sure bot uses the right mode for arc detection
 		B->ApplyWeaponAimAdjust(LookPoint, LookPoint);
 		if (B->NeedToTurn(LookPoint, true))
 		{
@@ -479,6 +480,7 @@ bool AUTWeap_Translocator::CanAttack_Implementation(AActor* Target, const FVecto
 	else
 	{
 		// when using translocator for movement other code will handle firing, don't use normal path
+		BestFireMode = 0;
 		return false;
 	}
 }
