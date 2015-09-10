@@ -316,7 +316,10 @@ FRotator AUTCharacter::GetDelayedShotRotation()
 void AUTCharacter::PositionUpdated(bool bShotSpawned)
 {
 	const float WorldTime = GetWorld()->GetTimeSeconds();
-	new(SavedPositions) FSavedPosition(GetActorLocation(), GetViewRotation(), GetCharacterMovement()->Velocity, GetCharacterMovement()->bJustTeleported, bShotSpawned, WorldTime, (UTCharacterMovement ? UTCharacterMovement->GetCurrentSynchTime() : 0.f));
+	if (GetCharacterMovement())
+	{
+		new(SavedPositions)FSavedPosition(GetActorLocation(), GetViewRotation(), GetCharacterMovement()->Velocity, GetCharacterMovement()->bJustTeleported, bShotSpawned, WorldTime, (UTCharacterMovement ? UTCharacterMovement->GetCurrentSynchTime() : 0.f));
+	}
 
 	// maintain one position beyond MaxSavedPositionAge for interpolation
 	if (SavedPositions.Num() > 1 && SavedPositions[1].Time < WorldTime - MaxSavedPositionAge)
