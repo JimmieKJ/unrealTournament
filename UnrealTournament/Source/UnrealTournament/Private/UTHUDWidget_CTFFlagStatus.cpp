@@ -204,7 +204,9 @@ void UUTHUDWidget_CTFFlagStatus::Draw_Implementation(float DeltaTime)
 	// Draw the Flag Status Message
 	if (GS->IsMatchInProgress() && UTHUDOwner != NULL && UTHUDOwner->PlayerOwner != NULL)
 	{
-		AUTPlayerState* OwnerPS = UTHUDOwner->UTPlayerOwner->UTPlayerState;
+		APawn* ViewedPawn = Cast<APawn>(UTHUDOwner->UTPlayerOwner->GetViewTarget());
+		AUTPlayerState* ViewedPS = ViewedPawn ? Cast<AUTPlayerState>(ViewedPawn->PlayerState) : NULL;
+		AUTPlayerState* OwnerPS = ViewedPS ? ViewedPS : UTHUDOwner->UTPlayerOwner->UTPlayerState;
 		if (OwnerPS != NULL && OwnerPS->Team != NULL)
 		{
 			uint8 MyTeamNum = OwnerPS->GetTeamNum();
