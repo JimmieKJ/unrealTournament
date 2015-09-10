@@ -1040,6 +1040,7 @@ void SUWMatchSummary::RecreateAllPlayers()
 				ASkeletalMeshActor* NewFlag = PlayerPreviewWorld->SpawnActor<ASkeletalMeshActor>(ASkeletalMeshActor::StaticClass(), FlagLocation, FlagRotation);
 				if (NewFlag != nullptr && FlagMesh != nullptr)
 				{
+					UMaterial* PoleMat = NULL; // FIXMESTEVE Cast<UMaterial>(StaticLoadObject(UMaterial::StaticClass(), NULL, TEXT("Material'/Game/RestrictedAssets/Proto/UT3_Pickups/Flag/M_Flag_Poster.M_Flag_Poster'"), NULL, LOAD_None, NULL));
 					UMaterialInstanceConstant* FlagMat = nullptr;
 					if (iTeam == 0)
 					{
@@ -1051,7 +1052,9 @@ void SUWMatchSummary::RecreateAllPlayers()
 					}
 
 					NewFlag->GetSkeletalMeshComponent()->SetSkeletalMesh(FlagMesh);
+					NewFlag->GetSkeletalMeshComponent()->SetMaterial(0, PoleMat);
 					NewFlag->GetSkeletalMeshComponent()->SetMaterial(1, FlagMat);
+					NewFlag->GetSkeletalMeshComponent()->SetMaterial(3, FlagMat);
 					NewFlag->SetActorScale3D(FVector(2.2f));
 					NewFlag->AttachRootComponentToActor(TeamAnchors[iTeam], NAME_None, EAttachLocation::KeepWorldPosition);
 					PreviewFlags.Add(NewFlag);
