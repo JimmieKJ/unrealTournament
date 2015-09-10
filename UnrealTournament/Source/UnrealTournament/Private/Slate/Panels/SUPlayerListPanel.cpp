@@ -417,6 +417,12 @@ void SUPlayerListPanel::Tick( const FGeometry& AllottedGeometry, const double In
 
 				uint8 TeamNum = PlayerState->GetTeamNum();
 
+				if (LobbyPlayerState && LobbyPlayerState->CurrentMatch && LobbyPlayerState->CurrentMatch->CurrentRuleset.IsValid() && !LobbyPlayerState->CurrentMatch->CurrentRuleset->bTeamGame)
+				{
+					TeamNum = 255;
+				}
+
+
 				if (ShouldShowPlayer(PlayerState->UniqueId, TeamNum, bIsInMatch))
 				{
 					int32 Idx = IsTracked(GameState->PlayerArray[i]->UniqueId);
