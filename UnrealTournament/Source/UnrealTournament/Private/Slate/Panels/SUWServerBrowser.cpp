@@ -1978,6 +1978,7 @@ TSharedRef<ITableRow> SUWServerBrowser::OnGenerateWidgetForHUBList(TSharedPtr<FS
 								.AutoHeight()
 								[
 									SNew(SHorizontalBox)
+/*
 									+SHorizontalBox::Slot()
 									.Padding(0.0,0.0,20.0,0.0)
 									.VAlign(VAlign_Center)
@@ -1990,7 +1991,7 @@ TSharedRef<ITableRow> SUWServerBrowser::OnGenerateWidgetForHUBList(TSharedPtr<FS
 											AddStars(InItem)
 										]
 									]
-
+*/
 									+SHorizontalBox::Slot()
 									.Padding(0.0,0.0,20.0,0.0)
 									.AutoWidth()
