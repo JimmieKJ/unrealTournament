@@ -12,6 +12,7 @@ public:
 	static FName GetStyleSetName();
 
 	static FSlateSound MessageSound;
+	static FSlateSound PauseSound;
 
 private:
 	static TSharedRef<class FSlateStyleSet> Create();

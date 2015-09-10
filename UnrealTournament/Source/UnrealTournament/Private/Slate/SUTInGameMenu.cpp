@@ -7,6 +7,7 @@
 #include "SUWindowsDesktop.h"
 #include "SUWindowsMainMenu.h"
 #include "SUWindowsStyle.h"
+#include "SUTStyle.h"
 #include "SUWDialog.h"
 #include "SUWSystemSettingsDialog.h"
 #include "SUWPlayerSettingsDialog.h"
@@ -127,6 +128,9 @@ void SUTInGameMenu::BuildLeftMenuBar()
 			PlayerOwner->OpenMapVote(NULL);
 		}
 	}
+	
+	FSlateApplication::Get().PlaySound(SUTStyle::PauseSound,0);
+
 }
 
 void SUTInGameMenu::BuildExitMenu(TSharedPtr<SComboButton> ExitButton, TSharedPtr<SVerticalBox> MenuSpace)

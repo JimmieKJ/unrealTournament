@@ -46,6 +46,7 @@ const int32 FONT_SIZE_Huge = 64;
 FSlateSound SUTStyle::ButtonPressSound;
 FSlateSound SUTStyle::ButtonHoverSound;
 FSlateSound SUTStyle::MessageSound;
+FSlateSound SUTStyle::PauseSound;
 
 FSlateColor SUTStyle::DefaultForeground;
 
@@ -62,6 +63,7 @@ TSharedRef<FSlateStyleSet> SUTStyle::Create()
 	ButtonHoverSound = FSlateSound::FromName_DEPRECATED(FName("SoundCue'/Game/RestrictedAssets/UI/UT99UI_LittleSelect_Cue.UT99UI_LittleSelect_Cue'"));
 	ButtonPressSound = FSlateSound::FromName_DEPRECATED(FName("SoundCue'/Game/RestrictedAssets/UI/UT99UI_BigSelect_Cue.UT99UI_BigSelect_Cue'"));
 	MessageSound = FSlateSound::FromName_DEPRECATED(FName("SoundCue'/Game/RestrictedAssets/Audio/UI/A_UI_Attention02_Cue.A_UI_Attention02_Cue'"));
+	PauseSound = FSlateSound::FromName_DEPRECATED(FName("SoundCue'/Game/RestrictedAssets/Audio/UI/A_UI_Pause01_Cue.A_UI_Pause01_Cue'"));
 
 	SetFonts(StyleRef);
 	SetCommonStyle(StyleRef);
