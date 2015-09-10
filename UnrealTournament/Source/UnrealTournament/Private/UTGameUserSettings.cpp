@@ -199,7 +199,7 @@ bool UUTGameUserSettings::IsHRTFEnabled()
 void UUTGameUserSettings::SetHRTFEnabled(bool NewHRTFEnabled)
 {
 	bHRTFEnabled = NewHRTFEnabled;
-#if PLATFORM_WINDOWS
+#if 0
 	FAudioDevice* AudioDevice = GEngine->GetMainAudioDevice();
 	if (AudioDevice)
 	{
