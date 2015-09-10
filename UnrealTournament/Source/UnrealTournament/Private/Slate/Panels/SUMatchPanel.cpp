@@ -17,7 +17,7 @@
 #include "SUWServerBrowser.h"
 #if !UE_SERVER
 
-struct FComparePlayersByScore {FORCEINLINE bool operator()( const FMatchPlayerListStruct A, const FMatchPlayerListStruct B ) const { return ( A.PlayerScore > B.PlayerScore);}};
+struct FMatchComparePlayersByScore {FORCEINLINE bool operator()( const FMatchPlayerListStruct A, const FMatchPlayerListStruct B ) const { return ( A.PlayerScore > B.PlayerScore);}};
 
 void SUMatchPanel::Construct(const FArguments& InArgs)
 {
@@ -607,7 +607,7 @@ TSharedRef<SWidget> SUMatchPanel::OnGetPopupContent(TSharedPtr<SUTPopOverAnchor>
 		}
 		else
 		{
-			Instance->Players.Sort(FComparePlayersByScore());
+			Instance->Players.Sort(FMatchComparePlayersByScore());
 			for (int32 i = 0; i < Instance->Players.Num(); i++)
 			{
 				if (Instance->bTeamGame)
