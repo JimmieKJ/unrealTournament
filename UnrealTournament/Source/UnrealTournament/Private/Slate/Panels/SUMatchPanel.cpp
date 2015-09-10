@@ -17,6 +17,8 @@
 #include "SUWServerBrowser.h"
 #if !UE_SERVER
 
+struct FComparePlayersByScore {FORCEINLINE bool operator()( const FMatchPlayerListStruct A, const FMatchPlayerListStruct B ) const { return ( A.PlayerScore > B.PlayerScore);}};
+
 void SUMatchPanel::Construct(const FArguments& InArgs)
 {
 	PlayerOwner = InArgs._PlayerOwner;
@@ -42,7 +44,7 @@ void SUMatchPanel::Construct(const FArguments& InArgs)
 		.VAlign(VAlign_Center)
 		.AutoHeight()
 		[
-			SNew(SBox)												
+			SNew(SBox)												 
 			.HeightOverride(75)
 			.WidthOverride(954)
 			[
@@ -561,6 +563,9 @@ TSharedRef<SWidget> SUMatchPanel::OnGetPopupContent(TSharedPtr<SUTPopOverAnchor>
 	TArray<FMatchPlayerListStruct> ColumnB;
 	FString Spectators;
 
+	// Holds a list of mutators running on this map.
+	FString RulesList = TEXT("");
+
 	bool bTeamGame = false;
 
 	if (bExpectServerData)
@@ -602,6 +607,7 @@ TSharedRef<SWidget> SUMatchPanel::OnGetPopupContent(TSharedPtr<SUTPopOverAnchor>
 		}
 		else
 		{
+			Instance->Players.Sort(FComparePlayersByScore());
 			for (int32 i = 0; i < Instance->Players.Num(); i++)
 			{
 				if (Instance->bTeamGame)
@@ -622,6 +628,7 @@ TSharedRef<SWidget> SUMatchPanel::OnGetPopupContent(TSharedPtr<SUTPopOverAnchor>
 				}
 			}
 			bTeamGame = Instance->bTeamGame;
+			RulesList = Instance->MutatorList;
 		}
 	}
 	else
@@ -636,6 +643,8 @@ TSharedRef<SWidget> SUMatchPanel::OnGetPopupContent(TSharedPtr<SUTPopOverAnchor>
 					MatchInfo->FillPlayerColumnsForDisplay(ColumnA, ColumnB, Spectators);
 					bTeamGame = MatchInfo->CurrentRuleset->bTeamGame;
 				}
+
+				RulesList = MatchInfo->CurrentRuleset->Description;
 			}
 		}
 	}
@@ -693,6 +702,7 @@ TSharedRef<SWidget> SUMatchPanel::OnGetPopupContent(TSharedPtr<SUTPopOverAnchor>
 			VertBox->AddSlot()
 			.Padding(0.0,0.0,0.0,5.0)
 			.HAlign(HAlign_Center)
+			.AutoHeight()
 			[
 				SNew(STextBlock)
 				.Text(NSLOCTEXT("SUMatchPanel","Players","Players in Match"))
@@ -832,7 +842,35 @@ TSharedRef<SWidget> SUMatchPanel::OnGetPopupContent(TSharedPtr<SUTPopOverAnchor>
 					.AutoWrapText(true)
 				]
 			];
-				
+		}
+
+
+		if (!RulesList.IsEmpty())
+		{
+			VertBox->AddSlot().AutoHeight().Padding(0.0,0.0,0.0,5.0).HAlign(HAlign_Fill)
+			[
+				SNew(SBorder)
+				.BorderImage(SUTStyle::Get().GetBrush("UT.HeaderBackground.SuperLight"))
+				[
+					SNew(SVerticalBox)
+					+SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Center)
+					[
+						SNew(STextBlock)
+						.Text(NSLOCTEXT("SUMatchPanel","RulesTitle","Game Rules"))
+						.TextStyle(SUTStyle::Get(),"UT.Font.NormalText.Tiny.Bold")
+					]
+				]
+			];
+
+			VertBox->AddSlot().AutoHeight().Padding(5.0,0.0,5.0,5.0)
+			[
+				SNew(SRichTextBlock)
+				.TextStyle(SUTStyle::Get(),"UT.Font.NormalText.Tiny")
+				.Justification(ETextJustify::Left)
+				.DecoratorStyleSet( &SUWindowsStyle::Get() )
+				.AutoWrapText( true )
+				.Text(FText::FromString(RulesList))
+			];
 		}
 
 	}

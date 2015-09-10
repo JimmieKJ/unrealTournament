@@ -370,6 +370,9 @@ protected:
 	UFUNCTION()
 	void OnRep_RedirectsChanged();
 
+	// Moves players to set teams depending on the ruleset.
+	void AssignTeams();
+
 };
 
 

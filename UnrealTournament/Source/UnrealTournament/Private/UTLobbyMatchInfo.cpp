@@ -668,9 +668,33 @@ void AUTLobbyMatchInfo::SetRedirects()
 	}
 }
 
+void AUTLobbyMatchInfo::AssignTeams()
+{
+	if (CurrentRuleset.IsValid())
+	{
+		for (int32 i = 0 ; i < Players.Num(); i++)
+		{
+			if (!Players[i]->bIsSpectator)
+			{
+				if (CurrentRuleset->bTeamGame)
+				{
+					Players[i]->DesiredTeamNum = i % 2;
+				}
+				else 
+				{
+					Players[i]->DesiredTeamNum = 0;
+				}
+			}
+		}
+	}
+}
+
 void AUTLobbyMatchInfo::SetRules(TWeakObjectPtr<AUTReplicatedGameRuleset> NewRuleset, const FString& StartingMap)
 {
+	bool bOldTeamGame = CurrentRuleset.IsValid() ? CurrentRuleset->bTeamGame : false;
 	CurrentRuleset = NewRuleset;
+
+	if (bOldTeamGame != CurrentRuleset->bTeamGame) AssignTeams();
 
 	InitialMap = StartingMap;
 	GetMapInformation();
@@ -724,6 +748,8 @@ void AUTLobbyMatchInfo::OnRep_MatchStats()
 bool AUTLobbyMatchInfo::ServerCreateCustomRule_Validate(const FString& GameMode, const FString& StartingMap, const FString& Description, const TArray<FString>& GameOptions, int32 DesiredSkillLevel, int32 DesiredPlayerCount, bool bTeamGame) { return true; }
 void AUTLobbyMatchInfo::ServerCreateCustomRule_Implementation(const FString& GameMode, const FString& StartingMap, const FString& Description, const TArray<FString>& GameOptions, int32 DesiredSkillLevel, int32 DesiredPlayerCount, bool bTeamGame)
 {
+	bool bOldTeamGame = CurrentRuleset.IsValid() ? CurrentRuleset->bTeamGame : false;
+
 	// We need to build a one off custom replicated ruleset just for this hub.  :)
 	AUTLobbyGameState* GameState = GetWorld()->GetGameState<AUTLobbyGameState>();
 
@@ -807,8 +833,10 @@ void AUTLobbyMatchInfo::ServerCreateCustomRule_Implementation(const FString& Gam
 
 		// Add code to setup the required packages array
 		CurrentRuleset = NewReplicatedRuleset;
-
 		NewReplicatedRuleset->bTeamGame = bTeamGame;
+
+		if (CurrentRuleset->bTeamGame != bOldTeamGame) AssignTeams();
+
 
 		if (!InitialMapInfo.IsValid())
 		{
