@@ -903,6 +903,9 @@ TSharedRef<SWidget> SUMatchPanel::OnGetPopup(TSharedPtr<SUTPopOverAnchor> Anchor
 
 void SUMatchPanel::OnListMouseButtonDoubleClick(TSharedPtr<FTrackedMatch> SelectedMatch)
 {
+
+	if (!SelectedMatch->CanJoin()) return;
+
 	if (bExpectServerData)
 	{
 		if (OnJoinMatchDelegate.IsBound())
@@ -928,7 +931,7 @@ void SUMatchPanel::OnListMouseButtonDoubleClick(TSharedPtr<FTrackedMatch> Select
 
 FReply SUMatchPanel::JoinMatchButtonClicked(TSharedPtr<FTrackedMatch> InItem)
 {
-	if (InItem.IsValid())
+	if (InItem.IsValid() && InItem->CanJoin() )
 	{
 		if (bExpectServerData)
 		{
@@ -953,7 +956,7 @@ FReply SUMatchPanel::JoinMatchButtonClicked(TSharedPtr<FTrackedMatch> InItem)
 }
 FReply SUMatchPanel::SpectateMatchButtonClicked(TSharedPtr<FTrackedMatch> InItem)
 {
-	if (InItem.IsValid())
+	if (InItem.IsValid() && InItem->CanSpectate())
 	{
 		if (bExpectServerData)
 		{

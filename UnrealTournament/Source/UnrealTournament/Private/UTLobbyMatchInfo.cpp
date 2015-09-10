@@ -456,6 +456,9 @@ void AUTLobbyMatchInfo::LaunchMatch(bool bQuickPlay)
 			}
 		}
 
+		if (!bSpectatable) GameURL += TEXT("?MaxSpectators=0");
+		if (!bJoinAnytime) GameURL += TEXT("?NoJIP");
+
 		LobbyGameState->LaunchGameInstance(this, GameURL);
 	}
 }

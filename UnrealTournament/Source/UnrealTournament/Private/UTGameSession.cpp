@@ -14,6 +14,7 @@ AUTGameSession::AUTGameSession(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
 	bSessionValid = false;
+	bNoJoinInProgress = false;
 }
 
 void AUTGameSession::Destroyed()
@@ -28,6 +29,7 @@ void AUTGameSession::InitOptions( const FString& Options )
 
 	// Cache the GameMode for later.
 	UTGameMode = Cast<AUTBaseGameMode>(GetWorld()->GetAuthGameMode());
+	bNoJoinInProgress = UTGameMode->HasOption(Options,"NoJIP");
 }
 
 void AUTGameSession::ValidatePlayer(const FString& Address, const TSharedPtr<class FUniqueNetId>& UniqueId, FString& ErrorMessage)
@@ -37,6 +39,13 @@ void AUTGameSession::ValidatePlayer(const FString& Address, const TSharedPtr<cla
 	{
 		NetDriver = GetWorld()->GetNetDriver();
 	}
+
+	if ( bNoJoinInProgress && UTGameMode->HasMatchStarted() )
+	{
+		ErrorMessage = TEXT("CANTJOININPROGRESS");
+		return;
+	}
+
 
 	FString LocalAddress = NetDriver->LowLevelGetNetworkNumber();
 

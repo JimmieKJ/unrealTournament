@@ -79,5 +79,8 @@ protected:
 	TArray<FString> BannedUsers;
 
 
+public:
+	UPROPERTY()
+	bool bNoJoinInProgress;
 
 };

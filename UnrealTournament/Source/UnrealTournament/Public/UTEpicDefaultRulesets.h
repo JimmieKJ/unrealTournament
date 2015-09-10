@@ -104,7 +104,7 @@ public:
 
 			NewRuleset->Title = TEXT("Big Deathmatch");
 			NewRuleset->Tooltip = TEXT("Deathmatch with large player counts on big maps.");
-			NewRuleset->Description = TEXT("Deathmatch with large player counts on big maps.\n\n<UT.Hub.RulesText_Small>TimeLimit : 20 minutes</>\n<UT.Hub.RulesText_Small>Maximum players: 16</>");
+			NewRuleset->Description = TEXT("Deathmatch with large player counts on big maps.\n\n<UT.Hub.RulesText_Small>TimeLimit : 10 minutes</>\n<UT.Hub.RulesText_Small>Maximum players: 16</>");
 			NewRuleset->MinPlayersToStart = 2;
 			NewRuleset->MaxPlayers = 16;
 			NewRuleset->DisplayTexture = TEXT("Texture2D'/Game/RestrictedAssets/UI/GameModeBadges/GB_LargeDM.GB_LargeDM'");
