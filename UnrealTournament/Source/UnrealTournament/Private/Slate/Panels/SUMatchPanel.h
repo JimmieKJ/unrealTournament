@@ -75,13 +75,17 @@ public:
 
 	FText GetFlags(TWeakObjectPtr<UUTLocalPlayer> PlayerOwner)
 	{
+		bool bInvited = false;
+		AUTLobbyPlayerState* OwnerPlayerState = Cast<AUTLobbyPlayerState>(PlayerOwner->PlayerController->PlayerState);
+
 		if (MatchInfo.IsValid())
 		{
 			Flags = MatchInfo->GetMatchFlags();
+			if (OwnerPlayerState)
+			{
+				bInvited = MatchInfo->AllowedPlayerList.Find(OwnerPlayerState->UniqueId.ToString()) != INDEX_NONE;
+			}
 		}
-
-		AUTLobbyPlayerState* OwnerPlayerState = Cast<AUTLobbyPlayerState>(PlayerOwner->PlayerController->PlayerState);
-		bool bInvited = (OwnerPlayerState && OwnerPlayerState->MatchInviteKeys.Find(MatchInfo->PrivateKey) != INDEX_NONE);
 
 		// TODO: Add icon references
 

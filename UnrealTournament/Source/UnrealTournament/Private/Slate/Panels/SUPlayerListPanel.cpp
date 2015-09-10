@@ -263,7 +263,7 @@ void SUPlayerListPanel::GetMenuContent(FString SearchTag, TArray<FMenuOptionData
 			AUTLobbyPlayerState* LobbyPlayerState = Cast<AUTLobbyPlayerState>(TrackedPlayers[Idx]->PlayerState.Get());
 			if (OwnerLobbyPlayerState && LobbyPlayerState && OwnerLobbyPlayerState->CurrentMatch)
 			{
-				if ( LobbyPlayerState->MatchInviteKeys.Find(OwnerLobbyPlayerState->CurrentMatch->PrivateKey) == INDEX_NONE )
+				if ( OwnerLobbyPlayerState->CurrentMatch->AllowedPlayerList.Find(LobbyPlayerState->UniqueId.ToString()) == INDEX_NONE)
 				{
 					MenuOptions.Add(FMenuOptionData(NSLOCTEXT("PlayerListSubMenu","Invite","Invite to Match"), EPlayerListContentCommand::Invite));
 				}

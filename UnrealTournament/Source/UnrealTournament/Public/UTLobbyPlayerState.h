@@ -123,10 +123,6 @@ public:
 		return DesiredTeamNum;
 	}
 
-	// Holds a list of keys for this player.  When a player is invited in to a private match, the key for the match will be added here.  
-	UPROPERTY(Replicated)
-	TArray<FGuid> MatchInviteKeys;
-
 	virtual void InviteToMatch(AUTLobbyMatchInfo* Match);
 	virtual void UninviteFromMatch(AUTLobbyMatchInfo* Match);
 

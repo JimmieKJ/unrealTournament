@@ -36,7 +36,6 @@ void AUTLobbyPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty >
 	DOREPLIFETIME(AUTLobbyPlayerState, CurrentMatch);
 	DOREPLIFETIME(AUTLobbyPlayerState, LastInvitedMatch);
 	DOREPLIFETIME(AUTLobbyPlayerState, DesiredTeamNum);
-	DOREPLIFETIME(AUTLobbyPlayerState, MatchInviteKeys);
 }
 
 void AUTLobbyPlayerState::MatchButtonPressed()
@@ -235,7 +234,6 @@ void AUTLobbyPlayerState::InviteToMatch(AUTLobbyMatchInfo* Match)
 {
 	if (Match) 
 	{
-		MatchInviteKeys.Add(Match->PrivateKey);
 		LastInvitedMatch = Match;
 	}
 }
@@ -244,7 +242,6 @@ void AUTLobbyPlayerState::UninviteFromMatch(AUTLobbyMatchInfo* Match)
 {
 	if (Match) 
 	{
-		MatchInviteKeys.Remove(Match->PrivateKey);
 		if (LastInvitedMatch == Match)
 		{
 			LastInvitedMatch = NULL;

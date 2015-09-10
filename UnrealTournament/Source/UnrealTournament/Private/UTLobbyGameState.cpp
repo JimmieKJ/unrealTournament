@@ -323,7 +323,7 @@ void AUTLobbyGameState::JoinMatch(AUTLobbyMatchInfo* MatchInfo, AUTLobbyPlayerSt
 	{
 		// Look to see if this player has the key to the match
 	
-		if (NewPlayer->MatchInviteKeys.Find(MatchInfo->PrivateKey) == INDEX_NONE)
+		if (MatchInfo->AllowedPlayerList.Find(NewPlayer->UniqueId.ToString()) == INDEX_NONE)
 		{
 			NewPlayer->ClientMatchError(NSLOCTEXT("LobbyMessage","Private","Sorry, but the match you are trying to join is private."));
 			return;

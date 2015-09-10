@@ -373,6 +373,10 @@ protected:
 	// Moves players to set teams depending on the ruleset.
 	void AssignTeams();
 
+public:
+	UPROPERTY(Replicated)
+	TArray<FString> AllowedPlayerList;
+
 };
 
 

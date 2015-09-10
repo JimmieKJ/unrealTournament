@@ -54,6 +54,7 @@ void AUTLobbyMatchInfo::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > &
 	DOREPLIFETIME(AUTLobbyMatchInfo, BotSkillLevel);
 	DOREPLIFETIME(AUTLobbyMatchInfo, AverageRank);
 	DOREPLIFETIME(AUTLobbyMatchInfo, Redirects);
+	DOREPLIFETIME(AUTLobbyMatchInfo, AllowedPlayerList);
 
 	DOREPLIFETIME_CONDITION(AUTLobbyMatchInfo, DedicatedServerName, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTLobbyMatchInfo, bDedicatedMatch, COND_InitialOnly);
@@ -1203,10 +1204,18 @@ void AUTLobbyMatchInfo::ServerInvitePlayer_Implementation(AUTLobbyPlayerState* W
 {
 	if (bInvite)
 	{
-		Who->InviteToMatch(this);
+		if (AllowedPlayerList.Find(Who->UniqueId.ToString()) == INDEX_NONE)
+		{
+			AllowedPlayerList.Add(Who->UniqueId.ToString());
+			Who->InviteToMatch(this);
+		}
 	}
 	else
 	{
-		Who->UninviteFromMatch(this);
+		if (AllowedPlayerList.Find(Who->UniqueId.ToString()) != INDEX_NONE)
+		{
+			AllowedPlayerList.Remove(Who->UniqueId.ToString());
+			Who->UninviteFromMatch(this);
+		}
 	}
 }
