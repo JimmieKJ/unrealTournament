@@ -29,6 +29,8 @@ AUTLobbyGameMode::AUTLobbyGameMode(const class FObjectInitializer& ObjectInitial
 	DefaultPlayerName = FText::FromString(TEXT("Player"));
 	GameMessageClass = UUTGameMessage::StaticClass();
 
+	MaxPlayersInLobby=200;
+
 	DisplayName = NSLOCTEXT("UTLobbyGameMode", "HUB", "HUB");
 }
 
@@ -42,6 +44,15 @@ void AUTLobbyGameMode::InitGame( const FString& MapName, const FString& Options,
 	GetWorld()->bShouldSimulatePhysics = false;
 
 	Super::InitGame(MapName, Options, ErrorMessage);
+
+	if (GameSession)
+	{
+		AUTGameSession* UTGameSession = Cast<AUTGameSession>(GameSession);
+		if (UTGameSession)
+		{
+			UTGameSession->MaxPlayers = MaxPlayersInLobby;
+		}
+	}
 
 	MinPlayersToStart = FMath::Max(1, GetIntOption(Options, TEXT("MinPlayers"), MinPlayersToStart));
 
