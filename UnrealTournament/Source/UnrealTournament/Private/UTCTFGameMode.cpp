@@ -61,6 +61,10 @@ void AUTCTFGameMode::InitGame(const FString& MapName, const FString& Options, FS
 	}
 
 	Super::InitGame(MapName, Options, ErrorMessage);
+	if (bOfflineChallenge)
+	{
+		TimeLimit = 900;
+	}
 
 	bSuddenDeath = EvalBoolOptions(ParseOption(Options, TEXT("SuddenDeath")), bSuddenDeath);
 
