@@ -4,6 +4,7 @@
 #include "../Public/UTLocalPlayer.h"
 #include "SlateBasics.h"
 #include "Slate/SlateGameResources.h"
+#include "Slate/SlateBrushAsset.h"
 #include "FriendsAndChatStyle.h"
 #include "SUTStyle.h"
 
@@ -237,11 +238,32 @@ void SUTStyle::SetCommonStyle(TSharedRef<FSlateStyleSet> StyleRef)
 
 
 
-	Style.Set("UT.HomePanel.TutorialLogo", new IMAGE_BRUSH("UTStyle/MainPanel/T_TUT_ULogo_Shadow", FVector2D(2048,1024), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
+	FStringAssetReference T_TUT_ULogo_Shadow(TEXT("/Game/RestrictedAssets/Slate/LargeImages/T_TUT_ULogo_Shadow_Brush.T_TUT_ULogo_Shadow_Brush"));
+	USlateBrushAsset* T_TUT_ULogo_ShadowBrushAsset = Cast<USlateBrushAsset>(T_TUT_ULogo_Shadow.TryLoad());
+	if (T_TUT_ULogo_ShadowBrushAsset)
+	{
+		T_TUT_ULogo_ShadowBrushAsset->AddToRoot();
+		Style.Set("UT.HomePanel.TutorialLogo", &T_TUT_ULogo_ShadowBrushAsset->Brush);
+	}
+
+	FStringAssetReference Background(TEXT("/Game/RestrictedAssets/Slate/LargeImages/Background_Brush.Background_Brush"));
+	USlateBrushAsset* BackgroundBrushAsset = Cast<USlateBrushAsset>(Background.TryLoad());
+	if (BackgroundBrushAsset)
+	{
+		BackgroundBrushAsset->AddToRoot();
+		Style.Set("UT.HomePanel.Background", &BackgroundBrushAsset->Brush);
+	}
+
+	FStringAssetReference IABadge(TEXT("/Game/RestrictedAssets/Slate/LargeImages/IABadge_Brush.IABadge_Brush"));
+	USlateBrushAsset* IABadgeBrushAsset = Cast<USlateBrushAsset>(IABadge.TryLoad());
+	if (IABadgeBrushAsset)
+	{
+		IABadgeBrushAsset->AddToRoot();
+		Style.Set("UT.HomePanel.IABadge", &IABadgeBrushAsset->Brush);
+	}
+
 	Style.Set("UT.HomePanel.FragCenterLogo", new IMAGE_BRUSH("UTStyle/MainPanel/FragCenterEmblem", FVector2D(644, 644), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
-	Style.Set("UT.HomePanel.Background", new IMAGE_BRUSH( "UTStyle/MainPanel/Background", FVector2D(1920,1016), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
 	Style.Set("UT.HomePanel.Flak", new IMAGE_BRUSH( "UTStyle/MainPanel/Flak", FVector2D(180,180), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
-	Style.Set("UT.HomePanel.IABadge", new IMAGE_BRUSH( "UTStyle/MainPanel/IABadge", FVector2D(380,270), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
 	Style.Set("UT.HomePanel.FMBadge", new IMAGE_BRUSH( "UTStyle/MainPanel/FMBadge", FVector2D(380,270), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
 	Style.Set("UT.HomePanel.DMBadge", new IMAGE_BRUSH( "UTStyle/MainPanel/DMBadge", FVector2D(380,270), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
 	Style.Set("UT.HomePanel.CTFBadge", new IMAGE_BRUSH( "UTStyle/MainPanel/CTFBadge", FVector2D(380,270), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));

@@ -4,6 +4,7 @@
 #include "../Public/UTLocalPlayer.h"
 #include "SlateBasics.h"
 #include "Slate/SlateGameResources.h"
+#include "Slate/SlateBrushAsset.h"
 #include "FriendsAndChatStyle.h"
 #include "SUWindowsStyle.h"
 #include "UTGameEngine.h"
@@ -98,12 +99,47 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 	//Style.Set("OldSchool.AnniLogo", new IMAGE_BRUSH( "OldSchool.AnniLogo", FVector2D(1024,768), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
 	//Style.Set("OldSchool.Background", new IMAGE_BRUSH( "OldSchool.Background", FVector2D(1920,1080), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
 
-	Style.Set("LoadingScreen", new IMAGE_BRUSH( "LoadingScreen", FVector2D(1920,1080), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
+	FStringAssetReference LoadingScreen(TEXT("/Game/RestrictedAssets/Slate/LargeImages/LoadingScreen_Brush.LoadingScreen_Brush"));
+	USlateBrushAsset* LoadingScreenBrushAsset = Cast<USlateBrushAsset>(LoadingScreen.TryLoad());
+	if (LoadingScreenBrushAsset)
+	{
+		LoadingScreenBrushAsset->AddToRoot();
+		Style.Set("LoadingScreen", &LoadingScreenBrushAsset->Brush);
+	}
+	
+	FStringAssetReference UT15Overlay(TEXT("/Game/RestrictedAssets/Slate/LargeImages/UT15Overlay_Brush.UT15Overlay_Brush"));
+	USlateBrushAsset* UT15OverlayBrushAsset = Cast<USlateBrushAsset>(UT15Overlay.TryLoad());
+	if (UT15OverlayBrushAsset)
+	{
+		UT15OverlayBrushAsset->AddToRoot();
+		Style.Set("UT15.Logo.Overlay", &UT15OverlayBrushAsset->Brush);
+	}
 
-	Style.Set("UT15.Logo.Overlay", new IMAGE_BRUSH("UT15Overlay", FVector2D(1920, 1080), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+	FStringAssetReference NewSchool_Background(TEXT("/Game/RestrictedAssets/Slate/LargeImages/NewSchool_Background_Brush.NewSchool_Background_Brush"));
+	USlateBrushAsset* NewSchool_BackgroundBrushAsset = Cast<USlateBrushAsset>(NewSchool_Background.TryLoad());
+	if (NewSchool_BackgroundBrushAsset)
+	{
+		NewSchool_BackgroundBrushAsset->AddToRoot();
+		Style.Set("NewSchool.Background", &NewSchool_BackgroundBrushAsset->Brush);
+	}
+
+	FStringAssetReference UT_Backgrounds_BK01(TEXT("/Game/RestrictedAssets/Slate/LargeImages/UT_Backgrounds_BK01_Brush.UT_Backgrounds_BK01_Brush"));
+	USlateBrushAsset* UT_Backgrounds_BK01BrushAsset = Cast<USlateBrushAsset>(UT_Backgrounds_BK01.TryLoad());
+	if (UT_Backgrounds_BK01BrushAsset)
+	{
+		UT_Backgrounds_BK01BrushAsset->AddToRoot();
+		Style.Set("UT.Backgrounds.BK01", &UT_Backgrounds_BK01BrushAsset->Brush);
+	}
+
+	FStringAssetReference UT_Backgrounds_Overlay(TEXT("/Game/RestrictedAssets/Slate/LargeImages/UT_Backgrounds_Overlay_Brush.UT_Backgrounds_Overlay_Brush"));
+	USlateBrushAsset* UT_Backgrounds_OverlayBrushAsset = Cast<USlateBrushAsset>(UT_Backgrounds_Overlay.TryLoad());
+	if (UT_Backgrounds_OverlayBrushAsset)
+	{
+		UT_Backgrounds_OverlayBrushAsset->AddToRoot();
+		Style.Set("UT.Backgrounds.Overlay", &UT_Backgrounds_OverlayBrushAsset->Brush);
+	}
 
 	//Style.Set("NewSchool.AnniLogo", new IMAGE_BRUSH( "NewSchool.AnniLogo", FVector2D(1141,431), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
-	Style.Set("NewSchool.Background", new IMAGE_BRUSH( "NewSchool.Background", FVector2D(1920,1080), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
 	//Style.Set("BadSchool.Background", new IMAGE_BRUSH( "BadSchool.Background", FVector2D(1920,1080), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
 	Style.Set("UWindows.Match.ReadyImage", new IMAGE_BRUSH( "Match/UWindows.Match.ReadyImage", FVector2D(102.0f, 128.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
 	Style.Set("UWindows.Match.HostImage", new IMAGE_BRUSH( "Match/UWindows.Match.HostImage", FVector2D(102.0f, 128.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
@@ -113,9 +149,6 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 
 	Style.Set("UWindows.Lobby.MatchBadge", new IMAGE_BRUSH( "UWindows.Lobby.MatchBadge", FVector2D(256.0f, 256.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
 
-	Style.Set("UT.Backgrounds.BK01", new IMAGE_BRUSH( "Backgrounds/UT.Backgrounds.BK01", FVector2D(1920,1080), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
-	//Style.Set("UT.Backgrounds.BK02", new IMAGE_BRUSH( "Backgrounds/UT.Backgrounds.BK02", FVector2D(1920,1080), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
-	Style.Set("UT.Backgrounds.Overlay", new IMAGE_BRUSH( "Backgrounds/UT.Backgrounds.Overlay", FVector2D(1920,1080), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
 
 
 	Style.Set("UT.Background.Dark", new FSlateColorBrush(FLinearColor(0, 0, 0, .5f)));
