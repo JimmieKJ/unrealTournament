@@ -99,7 +99,7 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 	//Style.Set("OldSchool.AnniLogo", new IMAGE_BRUSH( "OldSchool.AnniLogo", FVector2D(1024,768), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
 	//Style.Set("OldSchool.Background", new IMAGE_BRUSH( "OldSchool.Background", FVector2D(1920,1080), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
 
-	FStringAssetReference LoadingScreen(TEXT("/Game/RestrictedAssets/Slate/LargeImages/LoadingScreen_Brush.LoadingScreen_Brush"));
+	FStringAssetReference LoadingScreen(TEXT("/Game/RestrictedAssets/SlateLargeImages/LoadingScreen_Brush.LoadingScreen_Brush"));
 	USlateBrushAsset* LoadingScreenBrushAsset = Cast<USlateBrushAsset>(LoadingScreen.TryLoad());
 	if (LoadingScreenBrushAsset)
 	{
@@ -107,7 +107,7 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 		Style.Set("LoadingScreen", &LoadingScreenBrushAsset->Brush);
 	}
 	
-	FStringAssetReference UT15Overlay(TEXT("/Game/RestrictedAssets/Slate/LargeImages/UT15Overlay_Brush.UT15Overlay_Brush"));
+	FStringAssetReference UT15Overlay(TEXT("/Game/RestrictedAssets/SlateLargeImages/UT15Overlay_Brush.UT15Overlay_Brush"));
 	USlateBrushAsset* UT15OverlayBrushAsset = Cast<USlateBrushAsset>(UT15Overlay.TryLoad());
 	if (UT15OverlayBrushAsset)
 	{
@@ -115,7 +115,7 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 		Style.Set("UT15.Logo.Overlay", &UT15OverlayBrushAsset->Brush);
 	}
 
-	FStringAssetReference NewSchool_Background(TEXT("/Game/RestrictedAssets/Slate/LargeImages/NewSchool_Background_Brush.NewSchool_Background_Brush"));
+	FStringAssetReference NewSchool_Background(TEXT("/Game/RestrictedAssets/SlateLargeImages/NewSchool_Background_Brush.NewSchool_Background_Brush"));
 	USlateBrushAsset* NewSchool_BackgroundBrushAsset = Cast<USlateBrushAsset>(NewSchool_Background.TryLoad());
 	if (NewSchool_BackgroundBrushAsset)
 	{
@@ -123,7 +123,7 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 		Style.Set("NewSchool.Background", &NewSchool_BackgroundBrushAsset->Brush);
 	}
 
-	FStringAssetReference UT_Backgrounds_BK01(TEXT("/Game/RestrictedAssets/Slate/LargeImages/UT_Backgrounds_BK01_Brush.UT_Backgrounds_BK01_Brush"));
+	FStringAssetReference UT_Backgrounds_BK01(TEXT("/Game/RestrictedAssets/SlateLargeImages/UT_Backgrounds_BK01_Brush.UT_Backgrounds_BK01_Brush"));
 	USlateBrushAsset* UT_Backgrounds_BK01BrushAsset = Cast<USlateBrushAsset>(UT_Backgrounds_BK01.TryLoad());
 	if (UT_Backgrounds_BK01BrushAsset)
 	{
@@ -131,7 +131,7 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 		Style.Set("UT.Backgrounds.BK01", &UT_Backgrounds_BK01BrushAsset->Brush);
 	}
 
-	FStringAssetReference UT_Backgrounds_Overlay(TEXT("/Game/RestrictedAssets/Slate/LargeImages/UT_Backgrounds_Overlay_Brush.UT_Backgrounds_Overlay_Brush"));
+	FStringAssetReference UT_Backgrounds_Overlay(TEXT("/Game/RestrictedAssets/SlateLargeImages/UT_Backgrounds_Overlay_Brush.UT_Backgrounds_Overlay_Brush"));
 	USlateBrushAsset* UT_Backgrounds_OverlayBrushAsset = Cast<USlateBrushAsset>(UT_Backgrounds_Overlay.TryLoad());
 	if (UT_Backgrounds_OverlayBrushAsset)
 	{

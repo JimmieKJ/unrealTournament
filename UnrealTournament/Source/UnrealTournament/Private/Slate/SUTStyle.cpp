@@ -247,7 +247,7 @@ void SUTStyle::SetCommonStyle(TSharedRef<FSlateStyleSet> StyleRef)
 
 
 
-	FStringAssetReference T_TUT_ULogo_Shadow(TEXT("/Game/RestrictedAssets/Slate/LargeImages/T_TUT_ULogo_Shadow_Brush.T_TUT_ULogo_Shadow_Brush"));
+	FStringAssetReference T_TUT_ULogo_Shadow(TEXT("/Game/RestrictedAssets/SlateLargeImages/T_TUT_ULogo_Shadow_Brush.T_TUT_ULogo_Shadow_Brush"));
 	USlateBrushAsset* T_TUT_ULogo_ShadowBrushAsset = Cast<USlateBrushAsset>(T_TUT_ULogo_Shadow.TryLoad());
 	if (T_TUT_ULogo_ShadowBrushAsset)
 	{
@@ -255,7 +255,7 @@ void SUTStyle::SetCommonStyle(TSharedRef<FSlateStyleSet> StyleRef)
 		Style.Set("UT.HomePanel.TutorialLogo", &T_TUT_ULogo_ShadowBrushAsset->Brush);
 	}
 
-	FStringAssetReference Background(TEXT("/Game/RestrictedAssets/Slate/LargeImages/Background_Brush.Background_Brush"));
+	FStringAssetReference Background(TEXT("/Game/RestrictedAssets/SlateLargeImages/Background_Brush.Background_Brush"));
 	USlateBrushAsset* BackgroundBrushAsset = Cast<USlateBrushAsset>(Background.TryLoad());
 	if (BackgroundBrushAsset)
 	{
@@ -263,7 +263,7 @@ void SUTStyle::SetCommonStyle(TSharedRef<FSlateStyleSet> StyleRef)
 		Style.Set("UT.HomePanel.Background", &BackgroundBrushAsset->Brush);
 	}
 
-	FStringAssetReference IABadge(TEXT("/Game/RestrictedAssets/Slate/LargeImages/IABadge_Brush.IABadge_Brush"));
+	FStringAssetReference IABadge(TEXT("/Game/RestrictedAssets/SlateLargeImages/IABadge_Brush.IABadge_Brush"));
 	USlateBrushAsset* IABadgeBrushAsset = Cast<USlateBrushAsset>(IABadge.TryLoad());
 	if (IABadgeBrushAsset)
 	{
