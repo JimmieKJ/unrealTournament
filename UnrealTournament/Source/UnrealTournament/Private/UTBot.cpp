@@ -709,12 +709,15 @@ void AUTBot::Tick(float DeltaTime)
 			{
 				UE_LOG(UT, Warning, TEXT("%s (%s) failed to get an action from ExecuteWhatToDoNext()"), *GetName(), *PlayerState->PlayerName);
 			}
-			SetDefaultFocus();
-			// switch to best weapon after deciding what we want to do
-			// if we have a new movement destination, init that first before deciding (may want to use translocator, etc)
-			if (!MoveTarget.IsValid() || MoveTargetPoints.Num() > 0)
+			if (GetPawn() != NULL)
 			{
-				SwitchToBestWeapon();
+				SetDefaultFocus();
+				// switch to best weapon after deciding what we want to do
+				// if we have a new movement destination, init that first before deciding (may want to use translocator, etc)
+				if (!MoveTarget.IsValid() || MoveTargetPoints.Num() > 0)
+				{
+					SwitchToBestWeapon();
+				}
 			}
 		}
 
@@ -2593,7 +2596,7 @@ void AUTBot::FightEnemy(bool bCanCharge, float EnemyStrength)
 			if (Squad->MustKeepEnemy(Enemy))
 			{
 				GoalString = "Hunt priority enemy";
-				DoHunt();
+				DoHunt(Enemy);
 			}
 			else if (!bCanCharge)
 			{
@@ -2621,7 +2624,7 @@ void AUTBot::FightEnemy(bool bCanCharge, float EnemyStrength)
 			else
 			{
 				GoalString = "Hunt";
-				DoHunt();
+				DoHunt(Enemy);
 			}
 		}
 		else
@@ -2772,22 +2775,161 @@ void AUTBot::DoRangedAttackOn(AActor* NewTarget)
 	StartNewAction(RangedAttackAction);
 }
 
-void AUTBot::DoHunt()
+void AUTBot::DoHunt(APawn* NewHuntTarget)
 {
-	if (Enemy == NULL)
+	if (NewHuntTarget == NULL)
+	{
+		NewHuntTarget = Enemy;
+	}
+	if (NewHuntTarget == NULL || GetEnemyInfo(NewHuntTarget, false) == NULL)
 	{
 		UE_LOG(UT, Warning, TEXT("Bot %s in DoHunt() with no enemy"), *PlayerState->PlayerName);
 		DoTacticalMove();
 	}
 	else
 	{
-		// TODO: guess future destination, intercept path, try to find high ground, etc
-		FSingleEndpointEval NodeEval(GetEnemyLocation(Enemy, true));
-		float Weight = 0.0f;
-		if (NavData->FindBestPath(GetPawn(), GetPawn()->GetNavAgentPropertiesRef(), NodeEval, GetPawn()->GetNavAgentLocation(), Weight, true, RouteCache))
+		if (HuntingTarget != NewHuntTarget)
 		{
-			SetMoveTarget(RouteCache[0]);
-			StartNewAction(ChargeAction); // TODO: hunting action
+			HuntingCheckedSpots.Empty();
+		}
+		const FBotEnemyInfo* EnemyInfo = GetEnemyInfo(NewHuntTarget, true);
+		TArray<FVector> CheckSpots;
+		Squad->GetPossibleEnemyGoals(this, EnemyInfo, CheckSpots);
+		// eliminate spots we've checked already or have visibility to now
+		TArray<FVector> RemainingSpots = CheckSpots;
+		for (int32 i = RemainingSpots.Num() - 1; i >= 0; i--)
+		{
+			bool bRemoved = false;
+			for (const FVector& CheckedSpot : HuntingCheckedSpots)
+			{
+				if ((CheckedSpot - RemainingSpots[i]).Size() < GetPawn()->GetSimpleCollisionRadius() + GetPawn()->GetSimpleCollisionHalfHeight())
+				{
+					RemainingSpots.RemoveAt(i);
+					bRemoved = true;
+					break;
+				}
+			}
+			if (!bRemoved && !GetWorld()->LineTraceTestByChannel(GetPawn()->GetActorLocation() + FVector(0.0f, 0.0f, GetPawn()->BaseEyeHeight), RemainingSpots[i], ECC_Visibility, FCollisionQueryParams(true), WorldResponseParams))
+			{
+				HuntingCheckedSpots.Add(RemainingSpots[i]);
+				RemainingSpots.RemoveAt(i);
+			}
+		}
+		TArray<FRouteCacheItem> HuntEndpoints;
+		if (RemainingSpots.Num() == 0 && GetWorld()->TimeSeconds - EnemyInfo->LastFullUpdateTime < 2.0f)
+		{
+			// we know where the enemy is or was recently, just go with that for now
+			NavNodeRef Poly = NavData->FindNearestPoly(EnemyInfo->LastKnownLoc, NavData->GetPOIExtent(EnemyInfo->GetPawn()));
+			if (Poly != INVALID_NAVNODEREF)
+			{
+				new(HuntEndpoints) FRouteCacheItem(NavData->GetNodeFromPoly(Poly), EnemyInfo->LastKnownLoc, Poly);
+			}
+		}
+		else
+		{
+			if (RemainingSpots.Num() == 0)
+			{
+				// start over
+				RemainingSpots = CheckSpots;
+				HuntingCheckedSpots.Empty();
+			}
+			if (RemainingSpots.Num() == 0)
+			{
+				// use existing route goal if we have one
+				if (RouteCache.Num() > 1 && !NavData->HasReachedTarget(GetPawn(), GetPawn()->GetNavAgentPropertiesRef(), RouteCache.Last()))
+				{
+					HuntEndpoints.Add(RouteCache.Last());
+				}
+				else
+				{
+					// pick a random point for now
+					// TODO
+				}
+			}
+			else
+			{
+				for (const FVector& TestSpot : RemainingSpots)
+				{
+					NavNodeRef Poly = NavData->FindNearestPoly(TestSpot, NavData->GetPOIExtent(EnemyInfo->GetPawn()));
+					if (Poly != INVALID_NAVNODEREF)
+					{
+						new(HuntEndpoints) FRouteCacheItem(NavData->GetNodeFromPoly(Poly), TestSpot, Poly);
+					}
+				}
+				// pathfind as the target towards any of the predicted goals
+				// add the path found to the list of intercept endpoints
+				FMultiPathNodeEval NodeEval(HuntEndpoints);
+				float Weight = 0.0f;
+				TArray<FRouteCacheItem> EnemyRouteCache;
+				TArray<int32> EnemyRouteCosts;
+				// TODO: better would be to pass in enemy Pawn for correct capabilities but currently there are too many assumption about bot controller, etc
+				if (NavData->FindBestPath(GetPawn(), EnemyInfo->GetPawn()->GetNavAgentPropertiesRef(), NodeEval, EnemyInfo->LastKnownLoc, Weight, false, EnemyRouteCache, &EnemyRouteCosts))
+				{
+					// remove those points that the enemy is predicted to have or will have passed by the time we could get there
+					// note: this is an optimization, more correct would be to evaluate in the below pathfinding step
+					const float MoveSpeed = FMath::Max<float>(1.0f, GetPawn()->GetMovementComponent()->GetMaxSpeed());
+					float SkipTime = GetWorld()->TimeSeconds - EnemyInfo->LastFullUpdateTime + (GetPawn()->GetActorLocation() - EnemyInfo->LastKnownLoc).Size() / MoveSpeed;
+					
+					// the last item is the target we already have, so ignore that
+					EnemyRouteCache.Pop();
+					EnemyRouteCosts.Pop();
+					for (int32 i = 0; i < EnemyRouteCosts.Num(); i++)
+					{
+						SkipTime -= float(EnemyRouteCosts[i]) / MoveSpeed;
+						if (SkipTime <= 0.0f)
+						{
+							// if we're already on the enemy's predicted route, close in by moving to the start point
+							bool bOnEnemyRoute = false;
+							const UUTPathNode* Node = NavData->GetNodeFromPoly(NavData->FindAnchorPoly(GetPawn()->GetNavAgentLocation(), GetPawn(), GetPawn()->GetNavAgentPropertiesRef()));
+							if (Node != NULL)
+							{
+								for (int32 j = i; j < EnemyRouteCache.Num(); j++)
+								{
+									if (EnemyRouteCache[j].Node == Node)
+									{
+										bOnEnemyRoute = true;
+										break;
+									}
+								}
+							}
+							if (bOnEnemyRoute)
+							{
+								HuntEndpoints.Add(EnemyRouteCache[i]);
+							}
+							else
+							{
+								for (int32 j = i; j < EnemyRouteCache.Num(); j++)
+								{
+									HuntEndpoints.Add(EnemyRouteCache[j]);
+								}
+							}
+							break;
+						}
+					}
+				}
+			}
+		}
+		if (HuntEndpoints.Num() > 0)
+		{
+			HuntingTarget = NewHuntTarget;
+			// path to first found possible enemy location
+			FMultiPathNodeEval NodeEval(HuntEndpoints);
+			float Weight = 0.0f;
+			if (NavData->FindBestPath(GetPawn(), GetPawn()->GetNavAgentPropertiesRef(), NodeEval, GetPawn()->GetNavAgentLocation(), Weight, true, RouteCache))
+			{
+				SetMoveTarget(RouteCache[0]);
+				StartNewAction(ChargeAction); // TODO: hunting action
+			}
+			else
+			{
+				HuntingTarget = NULL;
+				HuntingCheckedSpots.Empty();
+			}
+		}
+		else
+		{
+			HuntingTarget = NULL;
+			HuntingCheckedSpots.Empty();
 		}
 	}
 }

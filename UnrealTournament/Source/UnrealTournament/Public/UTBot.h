@@ -349,6 +349,13 @@ class UNREALTOURNAMENT_API AUTBot : public AAIController, public IUTTeamInterfac
 	UPROPERTY()
 	FRouteCacheItem SquadRouteGoal;
 
+	/** set when hunting to target enemy */
+	UPROPERTY()
+	APawn* HuntingTarget;
+	/** when hunting, list of possible enemy goals that we've checked and confirmed the enemy is not there */
+	UPROPERTY()
+	TArray<FVector> HuntingCheckedSpots;
+
 	/** debugging string set during decision logic */
 	UPROPERTY()
 	FString GoalString;
@@ -765,8 +772,13 @@ public:
 	virtual void DoTacticalMove();
 	/** do a stationary (or minor strafing, if skilled enough) attack on the given target. Priority is accuracy, not evasion */
 	virtual void DoRangedAttackOn(AActor* NewTarget);
-	/** hunt current enemy (assumed not currently attackable), attempting to predict its path and intercept it at an advantageous position */
-	virtual void DoHunt();
+	/** hunt specified enemy (assumed not currently attackable), attempting to predict its path and intercept it at an advantageous position */
+	virtual void DoHunt(APawn* NewHuntTarget);
+
+	inline bool IsHunting(APawn* PossibleTarget) const
+	{
+		return (PossibleTarget != NULL && HuntingTarget == PossibleTarget); // TODO: and is in hunting action
+	}
 
 	// action accessors
 	inline void StartWaitForMove()

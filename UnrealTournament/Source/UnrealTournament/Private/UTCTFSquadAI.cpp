@@ -54,7 +54,7 @@ bool AUTCTFSquadAI::ShouldUseTranslocator(AUTBot* B)
 	else
 	{
 		// prioritize translocator when chasing enemy flag carrier
-		return ( B->RouteCache.Num() > 0 && (B->RouteCache.Last().Actor == FriendlyBase->GetCarriedObject() || (B->RouteCache.Last().Actor == FriendlyBase->GetCarriedObject()->HoldingPawn && B->RouteCache.Num() > 2)) &&
+		return ( B->RouteCache.Num() > 0 && (B->RouteCache.Last().Actor == FriendlyBase->GetCarriedObject() || ((B->RouteCache.Last().Actor == FriendlyBase->GetCarriedObject()->HoldingPawn || B->IsHunting(FriendlyBase->GetCarriedObject()->HoldingPawn)) && B->RouteCache.Num() > 2)) &&
 				(B->GetEnemy() != FriendlyBase->GetCarriedObject()->HoldingPawn || !B->IsEnemyVisible(B->GetEnemy()) || (B->CurrentAggression > 0.0f && (B->GetPawn()->GetActorLocation() - B->GetEnemy()->GetActorLocation()).Size() > 3000.0f)) );
 	}
 }
@@ -252,6 +252,75 @@ bool AUTCTFSquadAI::SetFlagCarrierAction(AUTBot* B)
 	return TryPathTowardObjective(B, FriendlyBase, bAllowDetours, "Return to base with enemy flag");
 }
 
+void AUTCTFSquadAI::GetPossibleEnemyGoals(AUTBot* B, const FBotEnemyInfo* EnemyInfo, TArray<FVector>& Goals)
+{
+	if (FriendlyBase != NULL && FriendlyBase->GetCarriedObject() != NULL && FriendlyBase->GetCarriedObject()->HoldingPawn == EnemyInfo->GetPawn())
+	{
+		// enemy flag carrier
+		if (EnemyBase != NULL && EnemyBase->GetCarriedObjectState() == CarriedObjectState::Home)
+		{
+			// enemy flag is home so clearly he's going there
+			Goals.Add(EnemyBase->GetActorLocation());
+		}
+		else
+		{
+			if (EnemyBase != NULL)
+			{
+				// still might camp on the stand
+				Goals.Add(EnemyBase->GetActorLocation());
+				// predict a hiding spot
+				FHideLocEval NodeEval(FMath::FRand() < (0.07f * B->Skill + 0.5f * B->Personality.MapAwareness), FSphere(EnemyBase->GetActorLocation(), (FriendlyBase->GetActorLocation() - EnemyBase->GetActorLocation()).Size()));
+				float Weight = 0.0f;
+				TArray<FRouteCacheItem> EnemyHidingRoute;
+				// TODO: Would be better to pass enemy pawn; need to fix bot controller assumptions in places
+				if (NavData->FindBestPath(B->GetPawn(), B->GetPawn()->GetNavAgentPropertiesRef(), NodeEval, EnemyInfo->LastKnownLoc, Weight, false, EnemyHidingRoute))
+				{
+					Goals.Add(EnemyHidingRoute.Last().GetLocation(NULL));
+				}
+			}
+			Super::GetPossibleEnemyGoals(B, EnemyInfo, Goals);
+		}
+	}
+	else
+	{
+		// possibly headed to friendly flag
+		if (FriendlyBase != NULL && FriendlyBase->GetCarriedObject() != NULL)
+		{
+			if (FriendlyBase->GetCarriedObjectState() == CarriedObjectState::Home)
+			{
+				Goals.Add(FriendlyBase->GetActorLocation());
+			}
+			else if (FriendlyBase->GetCarriedObject()->HoldingPawn != NULL)
+			{
+				const FBotEnemyInfo* FCInfo = B->GetEnemyInfo(FriendlyBase->GetCarriedObject()->HoldingPawn, true);
+				if (FCInfo != NULL)
+				{
+					Goals.Add(FCInfo->LastKnownLoc);
+				}
+			}
+			else
+			{
+				// TODO: model of where flag might be, search around for it
+				Goals.Add(FriendlyBase->GetCarriedObject()->GetActorLocation());
+			}
+		}
+		// possibly headed to my team's flag carrier
+		if (EnemyBase != NULL && EnemyBase->GetCarriedObject() != NULL && EnemyBase->GetCarriedObjectState() != CarriedObjectState::Home)
+		{
+			if (EnemyBase->GetCarriedObject()->HoldingPawn != NULL)
+			{
+				Goals.Add(EnemyBase->GetCarriedObject()->HoldingPawn->GetNavAgentLocation());
+			}
+			else
+			{
+				Goals.Add(EnemyBase->GetCarriedObject()->GetActorLocation());
+			}
+		}
+
+		Super::GetPossibleEnemyGoals(B, EnemyInfo, Goals);
+	}
+}
+
 bool AUTCTFSquadAI::RecoverFriendlyFlag(AUTBot* B)
 {
 	bool bEnemyFlagOut = (EnemyBase == NULL || EnemyBase->GetCarriedObjectState() == CarriedObjectState::Home);
@@ -267,8 +336,9 @@ bool AUTCTFSquadAI::RecoverFriendlyFlag(AUTBot* B)
 		}
 		else
 		{
-			// TODO: FindPathToIntercept()? Maybe adjust hunting logic to not require hunting target == enemy and use that?
-			return B->TryPathToward(EnemyCarrier, bEnemyFlagOut, "Hunt flag carrier");
+			B->GoalString = "Hunt down enemy flag carrier";
+			B->DoHunt(EnemyCarrier);
+			return true;
 		}
 	}
 	else

@@ -242,6 +242,9 @@ public:
 		return false;
 	}
 
+	/** pick potential goal locations enemy might want to go to, used by bot hunting/tracking logic */
+	virtual void GetPossibleEnemyGoals(AUTBot* B, const FBotEnemyInfo* EnemyInfo, TArray<FVector>& Goals);
+
 	/** debug drawing of squad route for B, if applicable */
 	virtual void DrawDebugSquadRoute(AUTBot* B) const
 	{
