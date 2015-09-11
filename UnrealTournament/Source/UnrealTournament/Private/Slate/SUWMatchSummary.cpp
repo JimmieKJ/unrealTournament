@@ -1204,6 +1204,10 @@ void SUWMatchSummary::UpdatePlayerRender(UCanvas* C, int32 Width, int32 Height)
 
 				if (Frustum.IntersectBox(Origin, BoxExtent))
 				{
+					if (Holder->Hat)
+					{
+						Holder->Hat->PrestreamTextures(1, true);
+					}
 					Holder->PrestreamTextures(1, true);
 					Weapon->PrestreamTextures(1, true);
 					continue;
@@ -1211,6 +1215,10 @@ void SUWMatchSummary::UpdatePlayerRender(UCanvas* C, int32 Width, int32 Height)
 			}
 			Holder->PrestreamTextures(0, false);
 			Weapon->PrestreamTextures(0, false);
+			if (Holder->Hat)
+			{
+				Holder->Hat->PrestreamTextures(0, false);
+			}
 		}
 	}
 
