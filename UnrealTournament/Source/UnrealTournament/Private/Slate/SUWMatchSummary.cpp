@@ -1581,6 +1581,9 @@ void SUWMatchSummary::ShowCharacter(AUTCharacter* UTC)
 
 void SUWMatchSummary::ShowAllCharacters()
 {
+	// @TODO FIXMESTEVE TEMP return - just keep visible whoever is currently visible.
+	return;
+
 	if (TeamPreviewMeshs.Num() > 1)
 	{
 		for (int32 i = 0; i< TeamPreviewMeshs.Num(); i++)
