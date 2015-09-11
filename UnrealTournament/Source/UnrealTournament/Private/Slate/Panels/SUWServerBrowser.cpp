@@ -1438,7 +1438,7 @@ void SUWServerBrowser::AddHub(TSharedPtr<FServerData> Hub)
 			{
 				// Same session id, so see if they are the same
 
-				if (AllHubServers[i] != Hub)
+				if (AllHubServers[i] == Hub)
 				{
 					AllHubServers[i]->Update(Hub);
 
@@ -1454,7 +1454,6 @@ void SUWServerBrowser::AddHub(TSharedPtr<FServerData> Hub)
 							}
 						}
 					}
-
 				}
 
 				return; 

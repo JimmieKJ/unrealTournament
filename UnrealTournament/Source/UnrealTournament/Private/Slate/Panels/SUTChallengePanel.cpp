@@ -81,41 +81,9 @@ void SUTChallengePanel::ConstructPanel(FVector2D ViewportSize)
 							SNew(SBox).WidthOverride(900)
 							[
 								SNew(SVerticalBox)
-								+SVerticalBox::Slot()
-								.Padding(0.0,0.0,0.0,16.0)
-								.AutoHeight()
-								[
-									SNew(SBorder)
-									.BorderImage(SUTStyle::Get().GetBrush("UT.HeaderBackground.Dark"))
-									[
-										SNew(SVerticalBox)
-										+SVerticalBox::Slot()
-										.HAlign(HAlign_Center)
-										[
-											SNew(STextBlock)
-											.Text(NSLOCTEXT("SUTChallengePanel","AvailableChallenges","AVAILABLE CHALLENGES"))
-											.TextStyle(SUTStyle::Get(),"UT.Font.NormalText.Medium.Bold")
-										]
-									]
-								]
 
 								+SVerticalBox::Slot()
 								.Padding(0.0,0.0,0.0,16.0)
-								.FillHeight(1.0)
-								[
-									SNew(SBorder)
-									.BorderImage(SUTStyle::Get().GetBrush("UT.HeaderBackground.Dark"))
-									[
-										SNew(SScrollBox)
-										.Style(SUWindowsStyle::Get(),"UT.ScrollBox.Borderless")
-										+SScrollBox::Slot()
-										[
-											SAssignNew(ChallengeBox,SVerticalBox)
-										]
-									]
-								]
-
-								+SVerticalBox::Slot()
 								.AutoHeight()
 								[
 									SNew(SVerticalBox)
@@ -142,11 +110,44 @@ void SUTChallengePanel::ConstructPanel(FVector2D ViewportSize)
 														.TextStyle(SUTStyle::Get(),"UT.Font.NormalText.Medium")
 													]
 												]									
-
 											]
 										]
 									]
 								]
+
+								+SVerticalBox::Slot()
+								.Padding(0.0,0.0,0.0,16.0)
+								.AutoHeight()
+								[
+									SNew(SBorder)
+									.BorderImage(SUTStyle::Get().GetBrush("UT.HeaderBackground.SuperDark"))
+									[
+										SNew(SVerticalBox)
+										+SVerticalBox::Slot()
+										.HAlign(HAlign_Center)
+										[
+											SNew(STextBlock)
+											.Text(NSLOCTEXT("SUTChallengePanel","AvailableChallenges","AVAILABLE CHALLENGES"))
+											.TextStyle(SUTStyle::Get(),"UT.Font.NormalText.Medium.Bold")
+										]
+									]
+								]
+
+								+SVerticalBox::Slot()
+								.FillHeight(1.0)
+								[
+									SNew(SBorder)
+									.BorderImage(SUTStyle::Get().GetBrush("UT.HeaderBackground.Dark"))
+									[
+										SNew(SScrollBox)
+										.Style(SUWindowsStyle::Get(),"UT.ScrollBox.Borderless")
+										+SScrollBox::Slot()
+										[
+											SAssignNew(ChallengeBox,SVerticalBox)
+										]
+									]
+								]
+
 
 							]
 						]

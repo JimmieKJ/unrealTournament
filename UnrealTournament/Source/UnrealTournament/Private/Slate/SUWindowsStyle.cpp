@@ -409,7 +409,7 @@ TSharedRef<FSlateStyleSet> SUWindowsStyle::Create()
 		Style.Set("UT.Toast.Background", new BOX_BRUSH("Toasts/UT.Toast.Background", FMargin(16.0f / 370.0f, 16.0f / 110.0f, 16.0f / 370.0f, 16.0f / 110.0f)));
 		Style.Set("UT.Toast.TextStyle", FTextBlockStyle()
 			.SetFont(TTF_FONT("Play-Bold", 34))
-			.SetColorAndOpacity(FLinearColor(FColor(33, 93, 220, 255)))
+			.SetColorAndOpacity(FLinearColor::White)
 			);
 	
 	}

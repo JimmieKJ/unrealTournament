@@ -51,11 +51,169 @@ void SUHomePanel::ConstructPanel(FVector2D ViewportSize)
 		]
 	];
 
+	AnnouncmentTimer = 3.0;
+
+}
+
+void SUHomePanel::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
+{
+	if (AnnouncmentTimer > 0)
+	{
+		AnnouncmentTimer -= InDeltaTime;
+		if (AnnouncmentTimer <= 0.0)
+		{
+			BuildAnnouncement();
+		}
+	}
+
+	if (AnnouncmentFadeTimer > 0)
+	{
+		AnnouncmentFadeTimer -= InDeltaTime;
+	}
+}
+
+FLinearColor SUHomePanel::GetFadeColor() const
+{
+	FLinearColor Color = FLinearColor::White;
+	Color.A = FMath::Clamp<float>(1.0 - (AnnouncmentFadeTimer / 0.8f),0.0f, 1.0f);
+	return Color;
+}
+
+FSlateColor SUHomePanel::GetFadeBKColor() const
+{
+	FLinearColor Color = FLinearColor::White;
+	Color.A = FMath::Clamp<float>(1.0 - (AnnouncmentFadeTimer / 0.8f),0.0f, 1.0f);
+	return Color;
+}
+
+
+void SUHomePanel::BuildAnnouncement()
+{
+	TSharedPtr<SVerticalBox> SlotBox;
+	int32 Day = 0;
+	int32 Month = 0;
+	int32 Year = 0;
+
+	FDateTime Now = FDateTime::UtcNow();
+	Now.GetDate(Year, Month, Day);
+
+	if (Year == 2015 && Month <= 9 && Day <= 19)
+	{
+		AnnouncmentFadeTimer = 0.8;
+		AnnouncementBox->AddSlot().FillHeight(1.0)
+		[
+			SNew(SCanvas)
+		];
+
+		AnnouncementBox->AddSlot().AutoHeight()
+		[
+			SNew(SBorder)
+			.BorderImage(SUTStyle::Get().GetBrush("UT.HeaderBackground.Dark"))
+			.ColorAndOpacity(this, &SUHomePanel::GetFadeColor)
+			.BorderBackgroundColor(this, &SUHomePanel::GetFadeBKColor)
+			[
+				SAssignNew(SlotBox,SVerticalBox)
+				+SVerticalBox::Slot()
+				.Padding(5.0,5.0,5.0,5.0)
+				.AutoHeight()
+				[
+					SNew(SRichTextBlock)
+					.Text(NSLOCTEXT("CTFExhibition", "CTFExhibitionMessage", "Join us Saturday <UT.Font.Notice.Gold>September 19th</> for our <UT.Font.Notice.Gold>CTF Exhibition tournament</> featuring top players from around the world!  We’ll be streaming LIVE on Twitch and YouTube starting at <UT.Font.Notice.Gold>1 PM EST</>. Watch for a chance to <UT.Font.Notice.Gold>win fantastic prizes</> donated by NVIDIA, Corsair, Logitech and more!"))	
+					.TextStyle(SUTStyle::Get(), "UT.Font.Notice")
+					.DecoratorStyleSet(&SUTStyle::Get())
+					.AutoWrapText(true)
+				]
+			]
+		];
+
+		int32 Hour = Now.GetHour();
+		if (Year == 2015 && Month == 9 && Day == 19 && Hour >= 3 && Hour <= 21)
+		{
+			SlotBox->AddSlot()
+			.Padding(0.0,0.0,0.0,5.0)
+			.HAlign(HAlign_Right)
+			.AutoHeight()
+			[
+				SNew(SHorizontalBox)
+
+				+SHorizontalBox::Slot()
+				.AutoWidth()
+				.Padding(10.0,5.0,21.0,5.0)
+				.HAlign(HAlign_Right)
+				[
+					SNew(SVerticalBox)
+					+SVerticalBox::Slot()
+					.VAlign(VAlign_Center)
+					.AutoHeight()
+					[
+						SNew(SButton)
+						.ButtonStyle(SUTStyle::Get(),"UT.SimpleButton")
+						.OnClicked(this, &SUHomePanel::ViewTournament,0)
+						.ContentPadding(FMargin(32.0,5.0,32.0,5.0))
+						[
+							SNew(STextBlock)
+							.Text(NSLOCTEXT("CTFExhibition", "CTFExhibitionWatchOnYouTube", "Watch on Youtube"))
+							.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small")
+						]
+					]
+				]
+				+SHorizontalBox::Slot()
+				.AutoWidth()
+				.Padding(10.0,5.0,21.0,5.0)
+				.HAlign(HAlign_Right)
+				[
+					SNew(SVerticalBox)
+					+SVerticalBox::Slot()
+					.VAlign(VAlign_Center)
+					.AutoHeight()
+					[
+						SNew(SButton) 
+						.ButtonStyle(SUTStyle::Get(),"UT.SimpleButton")
+						.OnClicked(this, &SUHomePanel::ViewTournament,1)
+						.ContentPadding(FMargin(32.0,5.0,32.0,5.0))
+						[
+							SNew(STextBlock)
+							.Text(NSLOCTEXT("CTFExhibition", "CTFExhibitionWatchOnTwitch", "Watch on Twitch"))
+							.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small")
+						]
+					]
+				]
+			];
+		}
+	}
+}
+
+FReply SUHomePanel::ViewTournament(int32 Which)
+{
+	FString Error;
+	if (Which == 0) FPlatformProcess::LaunchURL(TEXT("https://gaming.youtube.com/unrealtournament"), NULL, &Error);
+	if (Which == 1) FPlatformProcess::LaunchURL(TEXT("http://www.twitch.tv/unrealtournament"), NULL, &Error);
+	return FReply::Handled();
 }
 
 TSharedRef<SWidget> SUHomePanel::BuildHomePanel()
 {
 	return SNew(SOverlay)
+
+		+SOverlay::Slot()
+		.Padding(920.0,32.0,0.0,0.0)
+		[
+			SNew(SVerticalBox)
+			+SVerticalBox::Slot()
+			.AutoHeight()
+			[
+				SNew(SHorizontalBox)
+				+SHorizontalBox::Slot()
+				.AutoWidth()
+				[
+					SNew(SBox).WidthOverride(940).HeightOverride(940)
+					[
+						SAssignNew(AnnouncementBox, SVerticalBox)
+					]
+				]
+			]
+		]
+
 		+SOverlay::Slot()
 		.Padding(64.0,32.0,6.0,32.0)
 		[
