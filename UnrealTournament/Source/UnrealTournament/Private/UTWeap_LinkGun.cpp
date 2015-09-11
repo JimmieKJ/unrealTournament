@@ -55,7 +55,7 @@ AUTWeap_LinkGun::AUTWeap_LinkGun(const FObjectInitializer& OI)
 	HitsStatsName = NAME_LinkHits;
 	ShotsStatsName = NAME_LinkShots;
 
-	ScreenMaterialID = 5;
+	ScreenMaterialID = 2;
 	LastClientKillTime = -100000.0f;
 }
 
