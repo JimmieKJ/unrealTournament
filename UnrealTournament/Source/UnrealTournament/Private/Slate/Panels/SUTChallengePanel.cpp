@@ -662,7 +662,7 @@ FReply SUTChallengePanel::ChallengeClicked(FName ChallengeTag)
 
 				if (MapDescription != NULL)
 				{
-					Description = Description + TEXT("\n\n<UT.Font.NormalText.Small.Bold>[Map Description]</>\n") + *MapDescription;
+					Description = Description + TEXT("\n\n<UT.Font.NormalText.Small.Bold>") + *MapDescription + TEXT("</>\n");
 				}
 
 				if (Screenshot != NULL)
