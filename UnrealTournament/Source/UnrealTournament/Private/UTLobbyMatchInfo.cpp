@@ -665,7 +665,7 @@ void AUTLobbyMatchInfo::SetRedirects()
 			}
 		}
 
-		if (InitialMapInfo->Redirect.PackageName != TEXT(""))
+		if (InitialMapInfo.IsValid() && InitialMapInfo->Redirect.PackageName != TEXT(""))
 		{
 			Redirects.Add(InitialMapInfo->Redirect);
 		}
