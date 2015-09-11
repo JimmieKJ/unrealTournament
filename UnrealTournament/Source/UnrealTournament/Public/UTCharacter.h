@@ -1270,6 +1270,9 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category = Effects)
 	virtual UMaterialInstanceDynamic* GetCharOverlayMI();
+	
+	UPROPERTY()
+	TSubclassOf<AUTCharacterContent> DefaultCharContent;
 
 	/** sets weapon overlay effect; effect must be added to the UTGameState's OverlayEffects at level startup to work correctly (for replication reasons)
 	 * multiple overlays can be active at once, but the default in the weapon code is to only display one at a time
