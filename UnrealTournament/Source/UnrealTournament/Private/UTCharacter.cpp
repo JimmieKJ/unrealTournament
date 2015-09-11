@@ -3123,7 +3123,7 @@ void AUTCharacter::CheckRagdollFallingDamage(const FHitResult& Hit)
 	{
 		FVector SavedVelocity = GetCharacterMovement()->Velocity;
 		GetCharacterMovement()->Velocity = MeshVelocity;
-		TakeFallingDamage(Hit, GetCharacterMovement()->Velocity.Z);
+		TakeFallingDamage(Hit, -GetCharacterMovement()->Velocity.Size());
 		GetCharacterMovement()->Velocity = SavedVelocity;
 		// clear Z velocity on the mesh so that this collision won't happen again unless there's a new fall
 		for (int32 i = 0; i < GetMesh()->Bodies.Num(); i++)
