@@ -3059,6 +3059,8 @@ void UUTLocalPlayer::CloseAllUI(bool bExceptDialogs)
 	{
 		OpenDialogs.Empty();
 	}
+	
+	// These should all be proper closes
 	DesktopSlateWidget.Reset();
 	ServerBrowserWidget.Reset();
 	ReplayBrowserWidget.Reset();
@@ -3071,10 +3073,11 @@ void UUTLocalPlayer::CloseAllUI(bool bExceptDialogs)
 	FriendsMenu.Reset();
 	RedirectDialog.Reset();
 	LoadoutMenu.Reset();
-	MapVoteMenu.Reset();
 	ReplayWindow.Reset();
 	YoutubeDialog.Reset();
 	YoutubeConsentDialog.Reset();
+
+	CloseMapVote();
 	CloseMatchSummary();
 #endif
 }
