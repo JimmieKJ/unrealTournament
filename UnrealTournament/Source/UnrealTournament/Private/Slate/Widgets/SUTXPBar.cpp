@@ -314,10 +314,10 @@ void SUTXPBar::OnLevelUp(int32 NewLevel)
 			}
 
 			//show the toast
-			if (UTPC->LevelRewards.Contains(NewLevel) && UTPC->LevelRewards[NewLevel] != nullptr && PlayerOwner->IsOnTrustedServer() && PlayerOwner->IsLoggedIn())
+			if (UTPC->LevelRewards.IsValidIndex(NewLevel) && UTPC->LevelRewards[NewLevel] != nullptr && PlayerOwner->IsOnTrustedServer() && PlayerOwner->IsLoggedIn())
 			{
 				PlayerOwner->ShowToast(FText::Format(NSLOCTEXT("UT", "ItemReward", "You earned {0} for reaching level {1}!"), UTPC->LevelRewards[NewLevel]->DisplayName, FText::AsNumber(NewLevel)));
-				UTPC->LevelRewards.Remove(NewLevel);
+				UTPC->LevelRewards[NewLevel] = nullptr;
 			}
 		}
 	}
