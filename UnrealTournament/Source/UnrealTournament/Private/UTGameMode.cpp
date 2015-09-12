@@ -1708,6 +1708,7 @@ void AUTGameMode::AwardXP()
 							// award if player just gained this level, or retroactively should have at least one but doesn't
 							if (RewardItem != NULL && (CurrentLevel > PrevLevel || !UTPS->OwnsItem(RewardItem)))
 							{
+								UE_LOG(UT, Verbose, TEXT("%s has earned item %s for reaching level %i"), *UTPS->PlayerName, *RewardItem->GetName(), CurrentLevel);
 								new(Rewards) FProfileItemEntry(RewardItem, 1);
 								PC->ClientReceiveLevelReward(CurrentLevel, RewardItem);
 							}
@@ -1718,6 +1719,7 @@ void AUTGameMode::AwardXP()
 						const UUTProfileItem* RewardItem = Cast<UUTProfileItem>(EventReward.TryLoad());
 						if (RewardItem != NULL)
 						{
+							UE_LOG(UT, Log, TEXT("Granting event item %s to %s "), *RewardItem->GetName(), *UTPS->PlayerName);
 							new(Rewards) FProfileItemEntry(RewardItem, 1);
 						}
 					}
