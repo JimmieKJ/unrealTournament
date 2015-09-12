@@ -119,8 +119,8 @@ void AUTSquadAI::SetDefensePointFor(AUTBot* B)
 	{
 		if ( B->GetDefensePoint() == NULL || GameObjective != B->GetDefensePoint()->Objective/* || (B.DefensePoint.bOnlyOnFoot && Vehicle(B.Pawn) != None)*/ ||
 			// don't change defensepoints if fighting, recently fought, or if haven't reached it yet
-			(B->GetEnemy() == NULL && GetWorld()->TimeSeconds - B->GetLastAnyEnemySeenTime() < 5.0 || (NavData != NULL && !NavData->HasReachedTarget(B->GetPawn(), B->GetPawn()->GetNavAgentPropertiesRef(), FRouteCacheItem(B->GetDefensePoint())))))
-		{
+			(B->GetEnemy() == NULL && (GetWorld()->TimeSeconds - B->GetLastAnyEnemySeenTime() < 5.0 || (NavData != NULL && !NavData->HasReachedTarget(B->GetPawn(), B->GetPawn()->GetNavAgentPropertiesRef(), FRouteCacheItem(B->GetDefensePoint()))))))
+		{ 
 			TArray<AUTDefensePoint*> DefensePoints = GameObjective->DefensePoints;
 			// remove points in use
 			for (int32 i = DefensePoints.Num() - 1; i >= 0; i--)
