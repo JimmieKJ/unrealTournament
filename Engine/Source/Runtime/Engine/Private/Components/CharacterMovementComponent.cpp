@@ -1362,7 +1362,6 @@ void UCharacterMovementComponent::UpdateBasedMovement(float DeltaSeconds)
 	// only if base moved
 	if (bRotationChanged || (OldBaseLocation != NewBaseLocation))
 	{
-		FVector BaseMoveDelta = NewBaseLocation - OldBaseLocation;
 		// Calculate new transform matrix of base actor (ignoring scale).
 		const FQuatRotationTranslationMatrix OldLocalToWorld(OldBaseQuat, OldBaseLocation);
 		const FQuatRotationTranslationMatrix NewLocalToWorld(NewBaseQuat, NewBaseLocation);
