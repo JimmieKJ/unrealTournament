@@ -45,4 +45,6 @@ class UNREALTOURNAMENT_API AUTCTFFlag : public AUTCarriedObject
 
 	/** Broadcast delayed flag drop announcement. */
 	virtual void DelayedDropMessage();
+
+	virtual void PostInitializeComponents() override;
 };

@@ -23,7 +23,7 @@ AUTCTFFlag::AUTCTFFlag(const FObjectInitializer& ObjectInitializer)
 	FlagWorldScale = 1.75f;
 	FlagHeldScale = 1.f;
 	GetMesh()->SetWorldScale3D(FVector(FlagWorldScale));
-
+	GetMesh()->bEnablePhysicsOnDedicatedServer = false;
 	MovementComponent->ProjectileGravityScale=1.3f;
 	MessageClass = UUTCTFGameMessage::StaticClass();
 	bAlwaysRelevant = true;
@@ -37,6 +37,18 @@ void AUTCTFFlag::OnConstruction(const FTransform& Transform)
 	// backwards compatibility; force values on existing instances
 	GetMesh()->SetAbsolute(false, false, true);
 	GetMesh()->SetWorldRotation(FRotator(0.0f, 0.f, 0.f));
+}
+
+void AUTCTFFlag::PostInitializeComponents()
+{
+	Super::PostInitializeComponents();
+	if ((GetNetMode() == NM_DedicatedServer) || (GetCachedScalabilityCVars().DetailMode == 0))
+	{
+		if (GetMesh())
+		{
+			GetMesh()->bDisableClothSimulation = true;
+		}
+	}
 }
 
 bool AUTCTFFlag::CanBePickedUpBy(AUTCharacter* Character)

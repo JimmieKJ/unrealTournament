@@ -242,6 +242,13 @@ void AUTCharacter::BeginPlay()
 void AUTCharacter::PostInitializeComponents()
 {
 	Super::PostInitializeComponents();
+	if ((GetNetMode() == NM_DedicatedServer) || (GetCachedScalabilityCVars().DetailMode == 0))
+	{
+		if (GetMesh())
+		{
+			GetMesh()->bDisableClothSimulation = true;
+		}
+	}
 	if (GetNetMode() != NM_DedicatedServer)
 	{
 		for (int32 i = 0; i < GetMesh()->GetNumMaterials(); i++)
