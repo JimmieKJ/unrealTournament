@@ -28,6 +28,10 @@ void AUTCTFFlagBase::CreateCarriedObject()
 	}
 	Super::CreateCarriedObject();
 	MyFlag = Cast<AUTCTFFlag>(CarriedObject);
+	if (MyFlag && MyFlag->GetMesh())
+	{
+		MyFlag->GetMesh()->ClothBlendWeight = 0.f;
+	}
 }
 
 FName AUTCTFFlagBase::GetFlagState()

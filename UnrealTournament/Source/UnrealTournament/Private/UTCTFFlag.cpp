@@ -85,6 +85,7 @@ void AUTCTFFlag::AttachTo(USkeletalMeshComponent* AttachToMesh)
 	{
 		GetMesh()->SetAbsolute(false, false, true);
 		GetMesh()->SetWorldScale3D(FVector(FlagHeldScale));
+		GetMesh()->ClothBlendWeight = 0.5f;
 	}
 }
 
@@ -109,6 +110,15 @@ void AUTCTFFlag::SendHomeWithNotify()
 {
 	SendGameMessage(1, NULL, NULL);
 	SendHome();
+}
+
+void AUTCTFFlag::MoveToHome()
+{
+	Super::MoveToHome();
+	if (GetMesh())
+	{
+		GetMesh()->ClothBlendWeight = 0.f;
+	}
 }
 
 void AUTCTFFlag::Drop(AController* Killer)

@@ -34,10 +34,10 @@ class UNREALTOURNAMENT_API AUTCTFFlag : public AUTCarriedObject
 
 	FTimerHandle SendHomeWithNotifyHandle;
 	virtual void SendHomeWithNotify() override;
-
 	virtual void OnConstruction(const FTransform& Transform) override;
-
 	virtual void Drop(AController* Killer) override;
+	virtual void MoveToHome() override;
+
 
 	/** World time when flag was last dropped. */
 	UPROPERTY()
