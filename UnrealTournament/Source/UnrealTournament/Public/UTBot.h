@@ -625,6 +625,8 @@ protected:
 	UUTAIAction* TacticalMoveAction;
 	UPROPERTY()
 	UUTAIAction* ChargeAction;
+	UPROPERTY()
+	UUTAIAction* CampAction;
 
 public:
 	inline AUTCharacter* GetUTChar() const
@@ -784,6 +786,11 @@ public:
 	virtual void DoTacticalMove();
 	/** do a stationary (or minor strafing, if skilled enough) attack on the given target. Priority is accuracy, not evasion */
 	virtual void DoRangedAttackOn(AActor* NewTarget);
+	/** stay largely still and be alert for incoming enemies (used when sniping, defending, etc) */
+	virtual void DoCamp()
+	{
+		StartNewAction(CampAction);
+	}
 	/** hunt specified enemy (assumed not currently attackable), attempting to predict its path and intercept it at an advantageous position */
 	virtual void DoHunt(APawn* NewHuntTarget);
 
@@ -806,6 +813,8 @@ public:
 
 	/** return whether passed in Actor is or belongs to a teammate */
 	virtual bool IsTeammate(AActor* TestActor);
+	/** returns all enemies, using either team's view of info or individual bot's view */
+	const TArray<const struct FBotEnemyInfo>& GetEnemyList(bool bPreferTeamList) const;
 	/** get info on enemy, from team if available or local list if not
 	 * returned pointer is from an array so it is only guaranteed valid until next enemy update
 	 */

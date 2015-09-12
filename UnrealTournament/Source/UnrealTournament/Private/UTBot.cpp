@@ -16,6 +16,7 @@
 #include "UTAvoidMarker.h"
 #include "UTBotCharacter.h"
 #include "UTDefensePoint.h"
+#include "UTAIAction_Camp.h"
 
 void FBotEnemyInfo::Update(EAIEnemyUpdateType UpdateType, const FVector& ViewerLoc)
 {
@@ -131,6 +132,7 @@ AUTBot::AUTBot(const FObjectInitializer& ObjectInitializer)
 	TacticalMoveAction = ObjectInitializer.CreateDefaultSubobject<UUTAIAction_TacticalMove>(this, FName(TEXT("TacticalMove")));
 	RangedAttackAction = ObjectInitializer.CreateDefaultSubobject<UUTAIAction_RangedAttack>(this, FName(TEXT("RangedAttack")));
 	ChargeAction = ObjectInitializer.CreateDefaultSubobject<UUTAIAction_Charge>(this, FName(TEXT("Charge")));
+	CampAction = ObjectInitializer.CreateDefaultSubobject<UUTAIAction_Camp>(this, FName(TEXT("Camp")));
 }
 
 void AUTBot::InitializeCharacter(UUTBotCharacter* NewCharacterData)
@@ -1050,18 +1052,21 @@ void AUTBot::SetDefaultFocus()
 	{
 		SetFocus(Enemy);
 	}
-	else if (DefensePoint != NULL && DefensePoint == MoveTarget.Actor)
+	else if (CurrentAction == NULL || !CurrentAction->SetFocusForNoTarget())
 	{
-		SetFocalPoint(DefensePoint->GetActorLocation() + DefensePoint->GetActorRotation().Vector() * 1000.0f);
-	}
-	else if (MoveTarget.Actor.IsValid())
-	{
-		SetFocus(MoveTarget.Actor.Get());
-	}
-	else
-	{
-		// the movement code automatically sets Move priority (pri 1, below gameplay) to where we are going
-		ClearFocus(EAIFocusPriority::Gameplay);
+		if (DefensePoint != NULL && DefensePoint == MoveTarget.Actor)
+		{
+			SetFocalPoint(DefensePoint->GetActorLocation() + DefensePoint->GetActorRotation().Vector() * 1000.0f);
+		}
+		else if (MoveTarget.Actor.IsValid())
+		{
+			SetFocus(MoveTarget.Actor.Get());
+		}
+		else
+		{
+			// the movement code automatically sets Move priority (pri 1, below gameplay) to where we are going
+			ClearFocus(EAIFocusPriority::Gameplay);
+		}
 	}
 }
 
@@ -1718,7 +1723,7 @@ void AUTBot::NotifyMoveBlocked(const FHitResult& Impact)
 				// check for spontaneous wall dodge
 				// if hit wall because of incoming damage momentum, add additional reaction time check
 				else if ( (Skill + Personality.Jumpiness > 4.0f && UTChar->UTCharacterMovement->bIsDodging) ||
-						(!UTChar->UTCharacterMovement->bIsDodging && Skill >= 3.0f && GetWorld()->TimeSeconds - UTChar->LastTakeHitTime > 2.0f - Skill * 0.2f - Personality.ReactionTime * 0.5f) )
+						(!UTChar->UTCharacterMovement->bIsDodging && Enemy != NULL && Skill >= 3.0f && GetWorld()->TimeSeconds - UTChar->LastTakeHitTime > 2.0f - Skill * 0.2f - Personality.ReactionTime * 0.5f) )
 				{
 					FVector Start = GetPawn()->GetActorLocation();
 					// reject if on special path, unless above dest already and dodge is in its direction, or in direct combat and prefer evasiveness
@@ -2117,6 +2122,12 @@ bool AUTBot::TryPathToward(AActor* Goal, bool bAllowDetours, const FString& Succ
 	{
 		return false;
 	}
+	else if (NavData->HasReachedTarget(GetPawn(), GetPawn()->GetNavAgentPropertiesRef(), FRouteCacheItem(Goal)))
+	{
+		GoalString = FString::Printf(TEXT("%s (already there, camp)"), *SuccessGoalString);
+		DoCamp();
+		return true;
+	}
 	else
 	{
 		FSingleEndpointEval NodeEval(Goal);
@@ -2139,6 +2150,19 @@ bool AUTBot::IsTeammate(AActor* TestActor)
 {
 	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 	return (GS != NULL && GS->OnSameTeam(this, TestActor));
+}
+
+const TArray<const FBotEnemyInfo>& AUTBot::GetEnemyList(bool bPreferTeamList) const
+{
+	AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
+	if (bPreferTeamList && PS != NULL && PS->Team != NULL)
+	{
+		return PS->Team->GetEnemyList();
+	}
+	else
+	{
+		return *(TArray<const FBotEnemyInfo>*)&LocalEnemyList;
+	}
 }
 
 const FBotEnemyInfo* AUTBot::GetEnemyInfo(APawn* TestEnemy, bool bCheckTeam)

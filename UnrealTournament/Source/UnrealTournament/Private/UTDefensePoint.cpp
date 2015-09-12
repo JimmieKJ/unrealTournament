@@ -40,6 +40,11 @@ void AUTDefensePoint::BeginPlay()
 	if (NavMesh != NULL)
 	{
 		MyNode = NavMesh->FindNearestNode(GetActorLocation(), NavMesh->GetPOIExtent(this));
+		if (MyNode == NULL)
+		{
+			// try a bit lower
+			MyNode = NavMesh->FindNearestNode(GetActorLocation() - FVector(0.0f, 0.0f, GetSimpleCollisionHalfHeight()), NavMesh->GetPOIExtent(this));
+		}
 	}
 }
 void AUTDefensePoint::EndPlay(const EEndPlayReason::Type EndPlayReason)

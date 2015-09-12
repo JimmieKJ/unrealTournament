@@ -1,11 +1,13 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "UTPathBuilderInterface.h"
+
 #include "UTDefensePoint.generated.h"
 
 /** marker for good spots AI should consider for defending the associated game objective */
 UCLASS()
-class UNREALTOURNAMENT_API AUTDefensePoint : public AActor
+class UNREALTOURNAMENT_API AUTDefensePoint : public AActor, public IUTPathBuilderInterface
 {
 	GENERATED_BODY()
 public:
