@@ -977,16 +977,26 @@ void AUTCTFGameMode::UpdateSkillRating()
 
 void AUTCTFGameMode::SetRedScore(int32 NewScore)
 {
-	Teams[0]->Score = NewScore;
+	if (!bOfflineChallenge)
+	{
+		Teams[0]->Score = NewScore;
+	}
 }
 
 void AUTCTFGameMode::SetBlueScore(int32 NewScore)
 {
-	Teams[1]->Score = NewScore;
+	if (!bOfflineChallenge)
+	{
+		Teams[1]->Score = NewScore;
+	}
 }
 
 void AUTCTFGameMode::SetRemainingTime(int32 RemainingSeconds)
 {
+	if (bOfflineChallenge)
+	{
+		return;
+	}
 	if (RemainingSeconds > TimeLimit)
 	{
 		// still in first half;
