@@ -2324,7 +2324,7 @@ void AUTPlayerState::OnRep_bIsInactive()
 
 bool AUTPlayerState::AllowFreezingTaunts() const
 {
-	bool bResult = GetWorld()->GetGameState()->IsMatchInProgress();
+	bool bResult = !GetWorld()->GetGameState()->IsMatchInProgress();
 	if (!bResult)
 	{
 		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
