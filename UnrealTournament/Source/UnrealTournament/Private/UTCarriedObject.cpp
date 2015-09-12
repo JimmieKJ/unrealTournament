@@ -371,6 +371,19 @@ void AUTCarriedObject::TossObject(AUTCharacter* ObjectHolder)
 			MovementComponent->SetUpdatedComponent(NULL);
 		}
 	}
+	if (ObjectState == CarriedObjectState::Dropped)
+	{
+		// make sure no other players are touching the flag and should cause it to change state immediately
+		TArray<AActor*> Touching;
+		GetOverlappingActors(Touching, APawn::StaticClass());
+		for (AActor* Touched : Touching)
+		{
+			if (Touched != LastHoldingPawn)
+			{
+				OnOverlapBegin(Touched, Cast<UPrimitiveComponent>(Touched->GetRootComponent()), INDEX_NONE, false, FHitResult(this, Collision, GetActorLocation(), FVector(0.0f, 0.0f, 1.0f)));
+			}
+		}
+	}
 }
 
 bool AUTCarriedObject::TeleportTo(const FVector& DestLocation, const FRotator& DestRotation, bool bIsATest, bool bNoCheck)
