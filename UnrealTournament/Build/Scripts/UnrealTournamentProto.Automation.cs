@@ -442,14 +442,14 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
             var Chunker = bp.Branch.FindProgram("BuildPatchTool");
             AddDependency(GUBP.EditorGameNode.StaticGetFullName(HostPlatform, GameProj));
             AddDependency(GUBP.EditorAndToolsNode.StaticGetFullName(HostPlatform));
-            AddDependency(GUBP.SingleInternalToolsNode.StaticGetFullName(HostPlatform, Chunker));
+            //AddDependency(GUBP.SingleInternalToolsNode.StaticGetFullName(HostPlatform, Chunker));
 
             // Make sure we have the mac version of Chunker as well
 			if(!bp.ParseParam("nomac"))
 			{
 				AddDependency(GUBP.EditorGameNode.StaticGetFullName(UnrealTargetPlatform.Mac, GameProj));
 				AddDependency(GUBP.EditorAndToolsNode.StaticGetFullName(UnrealTargetPlatform.Mac));
-				AddDependency(GUBP.SingleInternalToolsNode.StaticGetFullName(UnrealTargetPlatform.Mac, Chunker));
+				//AddDependency(GUBP.SingleInternalToolsNode.StaticGetFullName(UnrealTargetPlatform.Mac, Chunker));
 			}
         }
         public override string GetTriggerDescText()
@@ -839,7 +839,7 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
 			{
 				throw new AutomationException("Could not find program BuildPatchTool.");
 			}
-			AddDependency(GUBP.SingleInternalToolsNode.StaticGetFullName(HostPlatform, BuildPatchTool));
+			//AddDependency(GUBP.SingleInternalToolsNode.StaticGetFullName(HostPlatform, BuildPatchTool));
 
 			AgentSharingGroup = "UnrealTournament_MakeEditorBuild" + StaticGetHostPlatformSuffix(InHostPlatform);
         }
