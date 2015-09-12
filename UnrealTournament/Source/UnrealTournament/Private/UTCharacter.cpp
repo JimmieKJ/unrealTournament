@@ -3126,8 +3126,8 @@ void AUTCharacter::CheckRagdollFallingDamage(const FHitResult& Hit)
 	FVector MeshVelocity = GetMesh()->GetComponentVelocity();
 	// physics numbers don't seem to match up... biasing towards more falling damage over less to minimize exploits
 	// besides, faceplanting ought to hurt more than landing on your feet, right? :)
-	MeshVelocity.Z *= 2.0f;
-	if (MeshVelocity.Z < -1.f * MaxSafeFallSpeed)
+	MeshVelocity *= 2.0f;
+	if (MeshVelocity.Size() > MaxSafeFallSpeed)
 	{
 		FVector SavedVelocity = GetCharacterMovement()->Velocity;
 		GetCharacterMovement()->Velocity = MeshVelocity;
