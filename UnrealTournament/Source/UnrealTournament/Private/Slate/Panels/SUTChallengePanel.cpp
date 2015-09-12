@@ -652,7 +652,7 @@ FReply SUTChallengePanel::ChallengeClicked(FName ChallengeTag)
 		bool bReset = true;
 
 		TArray<FAssetData> MapAssets;
-		GetAllAssetData(UWorld::StaticClass(), MapAssets);
+		GetAllAssetData(UWorld::StaticClass(), MapAssets, false);
 		for (const FAssetData& Asset : MapAssets)
 		{
 			FString MapPackageName = Asset.PackageName.ToString();
