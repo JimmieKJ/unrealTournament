@@ -199,7 +199,7 @@ public:
 	virtual void ServerStartMatch();
 	
 	// Actually launch the map.  NOTE: This is used for QuickStart and doesn't check any of the "can I launch" metrics.
-	virtual void LaunchMatch(bool bQuickPlay=false);
+	virtual void LaunchMatch(bool bQuickPlay, int32 DebugCode);
 
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerAbortMatch();
@@ -376,7 +376,6 @@ protected:
 public:
 	UPROPERTY(Replicated)
 	TArray<FString> AllowedPlayerList;
-
 };
 
 

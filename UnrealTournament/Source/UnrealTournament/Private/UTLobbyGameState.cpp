@@ -253,36 +253,6 @@ TWeakObjectPtr<AUTReplicatedGameRuleset> AUTLobbyGameState::FindRuleset(FString 
 	return NULL;
 }
 
-AUTLobbyMatchInfo* AUTLobbyGameState::QuickStartMatch(AUTLobbyPlayerState* Host, bool bIsCTFMatch)
-{
-	// Create a match and replicate all of the relevant information
-
-	UE_LOG(UT,Log,TEXT("Starting a QuickMatch for %s (%s)"), *Host->PlayerName, (bIsCTFMatch ? TEXT("True") : TEXT("False")))
-
-	AUTLobbyMatchInfo* NewMatchInfo = GetWorld()->SpawnActor<AUTLobbyMatchInfo>();
-	if (NewMatchInfo)
-	{	
-		AvailableMatches.Add(NewMatchInfo);
-		NewMatchInfo->SetOwner(Host);
-		NewMatchInfo->AddPlayer(Host, true);
-
-		UE_LOG(UT,Log,TEXT("   Added player to Quickmatch.. "))
-
-		TWeakObjectPtr<AUTReplicatedGameRuleset> NewRuleset = FindRuleset( bIsCTFMatch ? FQuickMatchTypeRulesetTag::CTF : FQuickMatchTypeRulesetTag::DM);
-
-		if (NewRuleset.IsValid())
-		{
-			NewMatchInfo->SetRules(NewRuleset, NewRuleset->DefaultMap);
-		}
-
-		NewMatchInfo->bJoinAnytime = true;
-		NewMatchInfo->bSpectatable = true;
-		NewMatchInfo->LaunchMatch();		
-	}
-
-	return NewMatchInfo;
-}
-
 AUTLobbyMatchInfo* AUTLobbyGameState::AddNewMatch(AUTLobbyPlayerState* MatchOwner, AUTLobbyMatchInfo* MatchToCopy)
 {
 	// Create a match and replicate all of the relevant information
@@ -435,11 +405,18 @@ void AUTLobbyGameState::CreateAutoMatch(FString MatchGameMode, FString MatchOpti
 */
 }
 
-void AUTLobbyGameState::LaunchGameInstance(AUTLobbyMatchInfo* MatchOwner, FString GameURL)
+void AUTLobbyGameState::LaunchGameInstance(AUTLobbyMatchInfo* MatchOwner, FString GameURL, int32 DebugCode)
 {
 	AUTLobbyGameMode* LobbyGame = GetWorld()->GetAuthGameMode<AUTLobbyGameMode>();
+
 	if (LobbyGame && MatchOwner && MatchOwner->CurrentRuleset.IsValid())
 	{
+		if (MatchOwner->GameInstanceProcessHandle.IsValid())
+		{
+			UE_LOG(UT, Warning, TEXT("Attempted to Launch a game instance when an instance already has a proc id.  Ignoring. DebugCode = %i"), DebugCode);
+			return;
+		}
+
 		GameInstanceID++;
 		if (GameInstanceID == 0) GameInstanceID = 1;	// Always skip 0.
 
@@ -954,7 +931,7 @@ void AUTLobbyGameState::HandleQuickplayRequest(AUTServerBeaconClient* Beacon, co
 				(GameInstances[i].MatchInfo->CurrentState == ELobbyMatchState::Launching || GameInstances[i].MatchInfo->CurrentState == ELobbyMatchState::InProgress))
 		{
 			// We have found a potential quick play match.  See if this player could be added to it.
-			if (GameInstances[i].MatchInfo->CanAddPlayer(ELORank, true))
+			if (bTrainingGround || GameInstances[i].MatchInfo->CanAddPlayer(ELORank, true))
 			{
 				// If we have already found a possibly good match, look to see if this one is better.
 
@@ -1019,7 +996,7 @@ void AUTLobbyGameState::HandleQuickplayRequest(AUTServerBeaconClient* Beacon, co
 			NewMatchInfo->NotifyBeacons.Add(Beacon);
 			NewMatchInfo->bJoinAnytime = true;
 			NewMatchInfo->bSpectatable = true;
-			NewMatchInfo->LaunchMatch(true);
+			NewMatchInfo->LaunchMatch(true,1);
 		}
 	}
 	else

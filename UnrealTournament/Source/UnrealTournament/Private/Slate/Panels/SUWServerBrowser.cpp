@@ -1436,26 +1436,6 @@ void SUWServerBrowser::AddHub(TSharedPtr<FServerData> Hub)
 		{
 			if (AllHubServers[i]->SearchResult.Session.SessionInfo->GetSessionId() == Hub->SearchResult.Session.SessionInfo->GetSessionId())
 			{
-				// Same session id, so see if they are the same
-
-				if (AllHubServers[i] == Hub)
-				{
-					AllHubServers[i]->Update(Hub);
-
-					if (HUBServerList.IsValid())
-					{
-						TArray<TSharedPtr<FServerData>> Selected = HUBServerList->GetSelectedItems();
-						if (Selected.Num() > 0)
-						{
-							// If this is an update for the currently selected hub update it's information
-							if (Selected[0] == Hub)
-							{
-								OnHUBListSelectionChanged(Hub, ESelectInfo::Direct);
-							}
-						}
-					}
-				}
-
 				return; 
 			}
 		}

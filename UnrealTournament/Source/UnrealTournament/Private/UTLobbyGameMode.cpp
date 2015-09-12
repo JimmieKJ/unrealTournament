@@ -80,6 +80,7 @@ void AUTLobbyGameMode::InitGameState()
 	UTLobbyGameState = Cast<AUTLobbyGameState>(GameState);
 	if (UTLobbyGameState != NULL)
 	{
+		UTLobbyGameState->bTrainingGround = bTrainingGround;
 		UTLobbyGameState->HubGuid = ServerInstanceGUID;
 
 		// Setupo the beacons to listen for updates from Game Server Instances
@@ -208,31 +209,6 @@ void AUTLobbyGameMode::PostLogin( APlayerController* NewPlayer )
 	if (LPS)
 	{
 		UTLobbyGameState->InitializeNewPlayer(LPS);
-
-		if (!LPS->DesiredQuickStartGameMode.IsEmpty())
-		{
-			for (int32 i=0;i<UTLobbyGameState->GameInstances.Num();i++)
-			{
-				AUTLobbyMatchInfo* MatchInfo = UTLobbyGameState->GameInstances[i].MatchInfo;
-				if (MatchInfo && (MatchInfo->CurrentState == ELobbyMatchState::Setup || (MatchInfo->CurrentState == ELobbyMatchState::InProgress && MatchInfo->bJoinAnytime)))
-				{
-					if ( LPS->DesiredQuickStartGameMode.Equals(MatchInfo->CurrentRuleset->UniqueTag, ESearchCase::IgnoreCase))
-					{
-						// Potential match.. see if there is room.
-						//if (MatchInfo->PlayersInMatchInstance.Num() < MatchInfo->MaxPlayers && MatchInfo->bJoinAnytime)
-						{
-							LPS->DesiredQuickStartGameMode = TEXT("");
-							UTLobbyGameState->JoinMatch(MatchInfo, LPS);
-							return;
-						}
-					}
-				}
-			}
-
-			// There wasn't a match to play on here
-
-			UTLobbyGameState->QuickStartMatch(LPS, LPS->DesiredQuickStartGameMode.Equals(FQuickMatchTypeRulesetTag::CTF, ESearchCase::IgnoreCase));
-		}
 	}
 	// Set my Initial Presence
 	AUTBasePlayerController* PC = Cast<AUTBasePlayerController>(NewPlayer);

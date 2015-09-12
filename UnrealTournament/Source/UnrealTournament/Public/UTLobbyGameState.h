@@ -74,11 +74,6 @@ class UNREALTOURNAMENT_API AUTLobbyGameState : public AUTGameState
 	virtual AUTLobbyMatchInfo* AddNewMatch(AUTLobbyPlayerState* HostOwner, AUTLobbyMatchInfo* MatchToCopy = NULL);
 
 	/**
-	 *	Create a quick match for a quick start player then get them in to it without the typical setup
-	 **/
-	virtual AUTLobbyMatchInfo* QuickStartMatch(AUTLobbyPlayerState* Host, bool bIsCTFMatch);
-
-	/**
 	 *	Sets someone as the host of a match and replicates all of the relevant match information to them
 	 **/
 	virtual void HostMatch(AUTLobbyMatchInfo* MatchInfo, AUTLobbyPlayerState* MatchOwner, AUTLobbyMatchInfo* MatchToCopy = NULL);
@@ -109,7 +104,7 @@ class UNREALTOURNAMENT_API AUTLobbyGameState : public AUTGameState
 	 *	Launches an instance of a game that was created via the lobby interface.  MatchOwner is the MI of the match that is being created and ServerURLOptions is a string
 	 *  that contains the game options.  
 	 **/
-	void LaunchGameInstance(AUTLobbyMatchInfo* MatchOwner, FString GameURL);
+	void LaunchGameInstance(AUTLobbyMatchInfo* MatchOwner, FString GameURL, int32 DebugCode);
 
 	/**
 	 *	Create the default "MATCH" for the server.
@@ -245,6 +240,10 @@ public:
 
 	// An external client wants to join to an instance.. see if they can
 	virtual void RequestInstanceJoin(AUTServerBeaconClient* Beacon, const FString& InstanceId, bool bSpectator, int32 Rank);
+
+	UPROPERTY()
+	bool bTrainingGround;
+
 
 };
 

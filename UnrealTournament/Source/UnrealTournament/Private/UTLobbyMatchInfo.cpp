@@ -412,7 +412,7 @@ void AUTLobbyMatchInfo::ServerStartMatch_Implementation()
 
 		if (CurrentState == ELobbyMatchState::WaitingForPlayers)
 		{
-			LaunchMatch();
+			LaunchMatch(false, 2);
 			return;
 		}
 	}
@@ -420,13 +420,12 @@ void AUTLobbyMatchInfo::ServerStartMatch_Implementation()
 	GetOwnerPlayerState()->ClientMatchError(NSLOCTEXT("LobbyMessage", "TooManyInstances","All available game instances are taken.  Please wait a bit and try starting again."));
 }
 
-void AUTLobbyMatchInfo::LaunchMatch(bool bQuickPlay)
+void AUTLobbyMatchInfo::LaunchMatch(bool bQuickPlay, int32 DebugCode)
 {
 	for (int32 i=0;i<Players.Num();i++)
 	{
 		Players[i]->bReadyToPlay = true;
 	}
-
 
 	if (CheckLobbyGameState() && CurrentRuleset.IsValid() && InitialMapInfo.IsValid())
 	{
@@ -460,7 +459,7 @@ void AUTLobbyMatchInfo::LaunchMatch(bool bQuickPlay)
 		if (!bSpectatable) GameURL += TEXT("?MaxSpectators=0");
 		if (!bJoinAnytime) GameURL += TEXT("?NoJIP");
 
-		LobbyGameState->LaunchGameInstance(this, GameURL);
+		LobbyGameState->LaunchGameInstance(this, GameURL, DebugCode);
 	}
 }
 
