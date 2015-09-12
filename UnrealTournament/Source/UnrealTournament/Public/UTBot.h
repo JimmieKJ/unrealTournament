@@ -610,6 +610,10 @@ protected:
 	UPROPERTY()
 	FVector FinalFocalPoint;
 
+	/** defense point bot wants to camp at */
+	UPROPERTY()
+	class AUTDefensePoint* DefensePoint;
+
 	/** AI actions */
 	UPROPERTY()
 	UUTAIAction* WaitForMoveAction;
@@ -661,6 +665,14 @@ public:
 	{
 		return FinalFocalPoint;
 	}
+
+	inline class AUTDefensePoint* GetDefensePoint() const
+	{
+		return DefensePoint;
+	}
+	virtual void SetDefensePoint(AUTDefensePoint* NewDefensePoint);
+
+	virtual bool IsSniping() const;
 
 	/** given a set Z speed, find the XY velocity that will cause the bot to reach the desired location just as the Z coordinate arcs to it
 	 * if there is no solution, JumpVelocity is not modified; otherwise, it contains the needed velocity in XY and Z is zero
@@ -811,6 +823,8 @@ public:
 	virtual bool HasOtherVisibleEnemy();
 	/** returns list of enemies bot *thinks* are near the given point */
 	virtual TArray<APawn*> GetEnemiesNear(const FVector& TestLoc, float MaxDist, bool bAllowPrediction);
+	/** returns last time bot saw any enemy at all */
+	float GetLastAnyEnemySeenTime() const;
 
 	/** returns true if we haven't noted any update from Enemy in the specified amount of time
 	 * NOTE: SetEnemy() counts as an update for purposes of this function

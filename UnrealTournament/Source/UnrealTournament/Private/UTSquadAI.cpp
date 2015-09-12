@@ -2,6 +2,7 @@
 #include "UnrealTournament.h"
 #include "UTSquadAI.h"
 #include "UTPickupWeapon.h"
+#include "UTDefensePoint.h"
 
 FName NAME_Attack(TEXT("Attack"));
 FName NAME_Defend(TEXT("Defend"));
@@ -109,6 +110,54 @@ bool AUTSquadAI::LostEnemy(AUTBot* B)
 		}
 		B->PickNewEnemy();
 		return PrevEnemy != B->GetEnemy();
+	}
+}
+
+void AUTSquadAI::SetDefensePointFor(AUTBot* B)
+{
+	if (GameObjective != NULL)
+	{
+		if ( B->GetDefensePoint() == NULL || GameObjective != B->GetDefensePoint()->Objective/* || (B.DefensePoint.bOnlyOnFoot && Vehicle(B.Pawn) != None)*/ ||
+			// don't change defensepoints if fighting, recently fought, or if haven't reached it yet
+			(B->GetEnemy() == NULL && GetWorld()->TimeSeconds - B->GetLastAnyEnemySeenTime() < 5.0 || (NavData != NULL && !NavData->HasReachedTarget(B->GetPawn(), B->GetPawn()->GetNavAgentPropertiesRef(), FRouteCacheItem(B->GetDefensePoint())))))
+		{
+			TArray<AUTDefensePoint*> DefensePoints = GameObjective->DefensePoints;
+			// remove points in use
+			for (int32 i = DefensePoints.Num() - 1; i >= 0; i--)
+			{
+				if (DefensePoints[i] == NULL || (DefensePoints[i]->CurrentUser != NULL && DefensePoints[i]->CurrentUser != B))
+				{
+					DefensePoints.RemoveAt(i);
+				}
+			}
+
+			if (DefensePoints.Num() == 0)
+			{
+				B->SetDefensePoint(NULL);
+			}
+			else
+			{
+				TArray<int32> Priorities;
+				Priorities.Reserve(DefensePoints.Num());
+				int32 TotalPriority = 0;
+				for (AUTDefensePoint* Point : DefensePoints)
+				{
+					int32 Priority = Point->GetPriorityFor(B);
+					Priorities.Add(Priority);
+					TotalPriority += Priority;
+				}
+				int32 Choice = FMath::RandHelper(TotalPriority);
+				for (int32 i = 0; i < Priorities.Num(); i++)
+				{
+					Choice -= Priorities[i];
+					if (Choice < 0)
+					{
+						B->SetDefensePoint(DefensePoints[i]);
+						break;
+					}
+				}
+			}
+		}
 	}
 }
 

@@ -15,6 +15,7 @@
 #include "UTReachSpec_HighJump.h"
 #include "UTAvoidMarker.h"
 #include "UTBotCharacter.h"
+#include "UTDefensePoint.h"
 
 void FBotEnemyInfo::Update(EAIEnemyUpdateType UpdateType, const FVector& ViewerLoc)
 {
@@ -1048,6 +1049,10 @@ void AUTBot::SetDefaultFocus()
 	else if (Enemy != NULL && GetUTChar() != NULL && GetUTChar()->GetWeapon() != NULL && GetUTChar()->GetWeapon()->bMeleeWeapon)
 	{
 		SetFocus(Enemy);
+	}
+	else if (DefensePoint != NULL && DefensePoint == MoveTarget.Actor)
+	{
+		SetFocalPoint(DefensePoint->GetActorLocation() + DefensePoint->GetActorRotation().Vector() * 1000.0f);
 	}
 	else if (MoveTarget.Actor.IsValid())
 	{
@@ -2227,6 +2232,16 @@ TArray<APawn*> AUTBot::GetEnemiesNear(const FVector& TestLoc, float MaxDist, boo
 	return Results;
 }
 
+float AUTBot::GetLastAnyEnemySeenTime() const
+{
+	float LastTime = -100.0f;
+	for (const FBotEnemyInfo& EnemyInfo : LocalEnemyList)
+	{
+		LastTime = FMath::Max<float>(LastTime, EnemyInfo.LastSeenTime);
+	}
+	return LastTime;
+}
+
 bool AUTBot::LostContact(float MaxTime)
 {
 	if (Enemy == NULL)
@@ -2279,6 +2294,27 @@ void AUTBot::SetSquad(AUTSquadAI* NewSquad)
 		{
 			Squad->AddMember(this);
 		}
+	}
+}
+
+void AUTBot::SetDefensePoint(AUTDefensePoint* NewDefensePoint)
+{
+	if (DefensePoint != NULL)
+	{
+		if (DefensePoint->CurrentUser == this)
+		{
+			DefensePoint->CurrentUser = NULL;
+		}
+		DefensePoint = NULL;
+	}
+	DefensePoint = NewDefensePoint;
+	if (DefensePoint != NULL)
+	{
+		if (DefensePoint->CurrentUser != NULL)
+		{
+			DefensePoint->CurrentUser->SetDefensePoint(NULL);
+		}
+		DefensePoint->CurrentUser = this;
 	}
 }
 
@@ -2338,7 +2374,7 @@ void AUTBot::ExecuteWhatToDoNext()
 			if (!Squad->MustKeepEnemy(Enemy) && !IsEnemyVisible(Enemy))
 			{
 				// decide if should lose enemy
-				if (/*Squad.IsDefending(self)*/ false)
+				if (Squad->IsDefending(this))
 				{
 					if (LostContact(4.0f))
 					{
@@ -2429,6 +2465,12 @@ void AUTBot::SendVoiceMessage(FName MessageName)
 			PS->AnnounceStatus(MessageName);
 		}
 	}
+}
+
+bool AUTBot::IsSniping() const
+{
+	return ( DefensePoint != NULL && DefensePoint->bSniperSpot && GetUTChar() != NULL && GetUTChar()->GetWeapon() != NULL && GetUTChar()->GetWeapon()->bSniping &&
+			NavData != NULL && NavData->HasReachedTarget(GetPawn(), GetPawn()->GetNavAgentPropertiesRef(), FRouteCacheItem(DefensePoint)) );
 }
 
 void AUTBot::ChooseAttackMode()
@@ -2602,16 +2644,19 @@ void AUTBot::FightEnemy(bool bCanCharge, float EnemyStrength)
 			{
 				GoalString = "Stake Out - no charge";
 				//DoStakeOut();
+				DoRangedAttackOn(Enemy); // FIXME temp replacement
 			}
-			/*else if (Squad.IsDefending(self) && LostContact(4) && ClearShot(LastSeenPos, false))
+			else if (Squad->IsDefending(this) && LostContact(4.0f) && CanAttack(Enemy, EnemyLoc, false))
 			{
-				GoalString = "Stake Out "$LastSeenPos;
-				DoStakeOut();
-			}*/
-			else if (((CurrentAggression < 1.0f && !LostContact(3.0f + 2.0f * FMath::FRand()))/* || IsSniping()*/)/* && CanStakeOut()*/)
+				GoalString = FString::Printf(TEXT("Stake Out %s"), *GetEnemyInfo(Enemy, false)->LastSeenLoc.ToString());
+				//DoStakeOut();
+				DoRangedAttackOn(Enemy); // FIXME temp replacement
+			}
+			else if (((CurrentAggression < 1.0f && !LostContact(3.0f + 2.0f * FMath::FRand())) || IsSniping())/* && CanStakeOut()*/)
 			{
 				GoalString = "Stake Out2";
 				//DoStakeOut();
+				DoRangedAttackOn(Enemy); // FIXME temp replacement
 			}
 			else if ( Skill + Personality.Tactics >= 3.5f + FMath::FRand() && !LostContact(1.0f) /*&& VSize(EnemyLoc - GetPawn()->GetActorLocation()) < MAXSTAKEOUTDIST*/ &&
 				!NeedsWeapon() && !MyWeap->bMeleeWeapon &&
@@ -2620,6 +2665,7 @@ void AUTBot::FightEnemy(bool bCanCharge, float EnemyStrength)
 			{
 				GoalString = "Stake Out 3";
 				//DoStakeOut();
+				DoRangedAttackOn(Enemy); // FIXME temp replacement
 			}
 			else
 			{

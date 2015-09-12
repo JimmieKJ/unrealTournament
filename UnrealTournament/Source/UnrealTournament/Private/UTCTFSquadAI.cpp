@@ -2,6 +2,7 @@
 #include "UnrealTournament.h"
 #include "UTCTFSquadAI.h"
 #include "UTCTFFlag.h"
+#include "UTDefensePoint.h"
 
 AUTCTFSquadAI::AUTCTFSquadAI(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -351,6 +352,15 @@ bool AUTCTFSquadAI::RecoverFriendlyFlag(AUTBot* B)
 bool AUTCTFSquadAI::CheckSquadObjectives(AUTBot* B)
 {
 	FName CurrentOrders = GetCurrentOrders(B);
+	
+	if (CurrentOrders == NAME_Defend)
+	{
+		SetDefensePointFor(B);
+	}
+	else
+	{
+		B->SetDefensePoint(NULL);
+	}
 
 	// TODO: will need to redirect to vehicle for VCTF
 	if (B->GetUTChar() != NULL && B->GetUTChar()->GetCarriedObject() != NULL)
@@ -372,14 +382,23 @@ bool AUTCTFSquadAI::CheckSquadObjectives(AUTBot* B)
 		}
 		else if (B->GetEnemy() != NULL)
 		{
-			if (!B->LostContact(3.0f) || !CheckSuperPickups(B, 5000))
+			if (!B->LostContact(3.0f) || MustKeepEnemy(B->GetEnemy()))
 			{
 				B->GoalString = "Fight attacker";
 				return false;
 			}
-			else
+			else if (CheckSuperPickups(B, 5000))
 			{
 				return true;
+			}
+			else if (B->GetDefensePoint() != NULL)
+			{
+				return B->TryPathToward(B->GetDefensePoint(), true, "Go to defense point");
+			}
+			else
+			{
+				B->GoalString = "Fight attacker";
+				return false;
 			}
 		}
 		else if (Super::CheckSquadObjectives(B))
@@ -393,9 +412,12 @@ bool AUTCTFSquadAI::CheckSquadObjectives(AUTBot* B)
 			B->StartWaitForMove();
 			return true;
 		}
+		else if (B->GetDefensePoint() != NULL)
+		{
+			return B->TryPathToward(B->GetDefensePoint(), true, "Go to defense point");
+		}
 		else if (Objective != NULL)
 		{
-			// TODO: find defense point
 			return B->TryPathToward(Objective, true, "Defend objective");
 		}
 		else
