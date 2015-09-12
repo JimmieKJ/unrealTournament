@@ -1700,12 +1700,13 @@ void AUTGameMode::AwardXP()
 					int32 PrevLevel = GetLevelForXP(UTPS->GetPrevXP());
 					int32 NewLevel = GetLevelForXP(UTPS->GetPrevXP() + UTPS->GetXP().Total());
 					TArray<FProfileItemEntry> Rewards;
-					for (int32 CurrentLevel = PrevLevel + 1; CurrentLevel <= NewLevel; CurrentLevel++)
+					for (int32 CurrentLevel = 1; CurrentLevel <= NewLevel; CurrentLevel++)
 					{
 						if (LevelUpRewards.IsValidIndex(CurrentLevel) && LevelUpRewards[CurrentLevel].IsValid())
 						{
 							const UUTProfileItem* RewardItem = Cast<UUTProfileItem>(LevelUpRewards[CurrentLevel].TryLoad());
-							if (RewardItem != NULL)
+							// award if player just gained this level, or retroactively should have at least one but doesn't
+							if (RewardItem != NULL && (CurrentLevel > PrevLevel || !UTPS->OwnsItem(RewardItem)))
 							{
 								new(Rewards) FProfileItemEntry(RewardItem, 1);
 								PC->ClientReceiveLevelReward(CurrentLevel, RewardItem);
