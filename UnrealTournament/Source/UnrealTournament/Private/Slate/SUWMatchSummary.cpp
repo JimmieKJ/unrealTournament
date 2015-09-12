@@ -1024,44 +1024,6 @@ void SUWMatchSummary::RecreateAllPlayers()
 			}
 		}
 	}
-
-	//Move the teams into position
-	if (TeamAnchors.Num() == 2)
-	{
-		if (GameState.IsValid() && Cast<AUTCTFGameState>(GameState.Get()) != nullptr)
-		{
-			for (int32 iTeam = 0; iTeam < 2; iTeam++)
-			{
-				//Spawn a flag if its a ctf game TODO: Let the gamemode pick the mesh
-				FVector FlagLocation = TeamAnchors[iTeam]->GetActorLocation() - 120.f * TeamAnchors[iTeam]->GetActorRotation().Vector() - FVector(2.f * PLAYER_ALTOFFSET * int32(TeamPlayerStates[iTeam].Num() / 5), 0.f, 0.f);
-				FlagLocation.Z = 0.f;
-				FRotator FlagRotation = (iTeam == 0) ? FRotator(0.0f, 90.0f, 0.0f) : FRotator(0.0f, -90.0f, 0.0f);
-				USkeletalMesh* const FlagMesh = Cast<USkeletalMesh>(StaticLoadObject(USkeletalMesh::StaticClass(), NULL, TEXT("SkeletalMesh'/Game/RestrictedAssets/Proto/UT3_Pickups/Flag/S_CTF_Flag_IronGuard.S_CTF_Flag_IronGuard'"), NULL, LOAD_None, NULL));
-				ASkeletalMeshActor* NewFlag = PlayerPreviewWorld->SpawnActor<ASkeletalMeshActor>(ASkeletalMeshActor::StaticClass(), FlagLocation, FlagRotation);
-				if (NewFlag != nullptr && FlagMesh != nullptr)
-				{
-					UMaterial* PoleMat = NULL; // FIXMESTEVE Cast<UMaterial>(StaticLoadObject(UMaterial::StaticClass(), NULL, TEXT("Material'/Game/RestrictedAssets/Proto/UT3_Pickups/Flag/M_Flag_Poster.M_Flag_Poster'"), NULL, LOAD_None, NULL));
-					UMaterialInstanceConstant* FlagMat = nullptr;
-					if (iTeam == 0)
-					{
-						FlagMat = Cast<UMaterialInstanceConstant>(StaticLoadObject(UMaterialInstanceConstant::StaticClass(), NULL, TEXT("MaterialInstanceConstant'/Game/RestrictedAssets/Proto/UT3_Pickups/Flag/MI_CTF_RedFlag.MI_CTF_RedFlag'"), NULL, LOAD_None, NULL));
-					}
-					else
-					{
-						FlagMat = Cast<UMaterialInstanceConstant>(StaticLoadObject(UMaterialInstanceConstant::StaticClass(), NULL, TEXT("MaterialInstanceConstant'/Game/RestrictedAssets/Proto/UT3_Pickups/Flag/MI_CTF_BlueFlag.MI_CTF_BlueFlag'"), NULL, LOAD_None, NULL));
-					}
-
-					NewFlag->GetSkeletalMeshComponent()->SetSkeletalMesh(FlagMesh);
-					NewFlag->GetSkeletalMeshComponent()->SetMaterial(0, PoleMat);
-					NewFlag->GetSkeletalMeshComponent()->SetMaterial(1, FlagMat);
-					NewFlag->GetSkeletalMeshComponent()->SetMaterial(3, FlagMat);
-					NewFlag->SetActorScale3D(FVector(2.2f));
-					NewFlag->AttachRootComponentToActor(TeamAnchors[iTeam], NAME_None, EAttachLocation::KeepWorldPosition);
-					PreviewFlags.Add(NewFlag);
-				}
-			}
-		}
-	}
 }
 
 static int32 WeaponIndex = 0;
