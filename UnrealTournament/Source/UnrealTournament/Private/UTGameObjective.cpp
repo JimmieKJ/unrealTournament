@@ -48,7 +48,7 @@ void AUTGameObjective::InitializeObjective()
 		AUTRecastNavMesh* NavData = GetUTNavData(GetWorld());
 		if (NavData != NULL)
 		{
-			const FVector MyLoc = GetActorLocation();
+			const FVector MyLoc = GetActorLocation() + FVector(0.0f, 0.0f, 45.0f);
 			const UUTPathNode* MyNode = NavData->FindNearestNode(MyLoc, NavData->GetPOIExtent(this));
 			TArray<const UUTPathNode*> AllNodes = NavData->GetAllNodes();
 			// sort nodes by overall area viability as a defense point

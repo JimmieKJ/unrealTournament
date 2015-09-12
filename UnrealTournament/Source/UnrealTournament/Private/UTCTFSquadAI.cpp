@@ -194,9 +194,7 @@ bool AUTCTFSquadAI::SetFlagCarrierAction(AUTBot* B)
 								B->GetCharacter()->GetCharacterMovement()->bWantsToCrouch = (B->Skill > 2.0f);
 							}
 							B->GoalString = "Hide here";
-							// TODO: Camp action
-							B->SetMoveTarget(HideTarget);
-							B->StartWaitForMove();
+							B->DoCamp();
 							B->SendVoiceMessage(StatusMessage::GetFlagBack);
 							return true;
 						}
@@ -261,7 +259,7 @@ void AUTCTFSquadAI::GetPossibleEnemyGoals(AUTBot* B, const FBotEnemyInfo* EnemyI
 		if (EnemyBase != NULL && EnemyBase->GetCarriedObjectState() == CarriedObjectState::Home)
 		{
 			// enemy flag is home so clearly he's going there
-			Goals.Add(EnemyBase->GetActorLocation());
+			Goals.Add(EnemyBase->GetActorLocation() + FVector(0.0f, 0.0f, 45.0f));
 		}
 		else
 		{

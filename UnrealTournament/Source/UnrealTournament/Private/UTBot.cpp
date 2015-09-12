@@ -2879,7 +2879,8 @@ void AUTBot::DoHunt(APawn* NewHuntTarget)
 					break;
 				}
 			}
-			if (!bRemoved && !GetWorld()->LineTraceTestByChannel(GetPawn()->GetActorLocation() + FVector(0.0f, 0.0f, GetPawn()->BaseEyeHeight), RemainingSpots[i], ECC_Visibility, FCollisionQueryParams(true), WorldResponseParams))
+			if ( !bRemoved && ( NavData->HasReachedTarget(GetPawn(), GetPawn()->GetNavAgentPropertiesRef(), FRouteCacheItem(RemainingSpots[i])) ||
+								!GetWorld()->LineTraceTestByChannel(GetPawn()->GetActorLocation() + FVector(0.0f, 0.0f, GetPawn()->BaseEyeHeight), RemainingSpots[i] + FVector(0.0f, 0.0f, GetPawn()->BaseEyeHeight), ECC_Visibility, FCollisionQueryParams(true), WorldResponseParams) ) )
 			{
 				HuntingCheckedSpots.Add(RemainingSpots[i]);
 				RemainingSpots.RemoveAt(i);
