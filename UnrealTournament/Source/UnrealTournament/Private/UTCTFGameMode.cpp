@@ -975,6 +975,32 @@ void AUTCTFGameMode::UpdateSkillRating()
 	}
 }
 
+void AUTCTFGameMode::SetRedScore(int32 NewScore)
+{
+	Teams[0]->Score = NewScore;
+}
+
+void AUTCTFGameMode::SetBlueScore(int32 NewScore)
+{
+	Teams[1]->Score = NewScore;
+}
+
+void AUTCTFGameMode::SetRemainingTime(int32 RemainingSeconds)
+{
+	if (RemainingSeconds > TimeLimit)
+	{
+		// still in first half;
+		UTGameState->RemainingTime = RemainingSeconds - TimeLimit;
+	}
+	else
+	{
+		UTGameState->RemainingTime = 1;
+		TimeLimit = RemainingSeconds;
+		HalftimeDuration = 5;
+	}
+}
+
+
 #if !UE_SERVER
 void AUTCTFGameMode::BuildScoreInfo(AUTPlayerState* PlayerState, TSharedPtr<class SUTTabWidget> TabWidget, TArray<TSharedPtr<TAttributeStat> >& StatList)
 {
