@@ -4,7 +4,12 @@
 #include "UTChallengeManager.generated.h"
 
 static const FName NAME_ChallengeSlateBadgeName_DM(TEXT("UT.ChallengeBadges.DM"));
+static const FName NAME_ChallengeSlateBadgeName_DM_OP23(TEXT("UT.ChallengeBadges.DM_OP23"));
+static const FName NAME_ChallengeSlateBadgeName_DM_Lea(TEXT("UT.ChallengeBadges.DM_Lea"));
 static const FName NAME_ChallengeSlateBadgeName_CTF(TEXT("UT.ChallengeBadges.CTF"));
+static const FName NAME_ChallengeSlateBadgeName_CTF_Face(TEXT("UT.ChallengeBadges.CTF_Face"));
+static const FName NAME_ChallengeSlateBadgeName_CTF_Pistola(TEXT("UT.ChallengeBadges.CTF_Pistola"));
+static const FName NAME_ChallengeSlateBadgeName_CTF_Titan(TEXT("UT.ChallengeBadges.CTF_Titan"));
 static const FName NAME_PlayerTeamRoster(TEXT("PlayersTeam"));
 
 static const FName NAME_ChallengeDMFFA(TEXT("ChallengeDMFFA1"));
