@@ -802,7 +802,7 @@ int32 GetXPForLevel(int32 Level)
 	const TArray<int32>& LevelTable = GetLevelTable();
 	if (Level < LevelTable.Num() && Level > 0)
 	{
-		return LevelTable[Level];
+		return LevelTable[Level-1];
 	}
 	return 0;
 }
