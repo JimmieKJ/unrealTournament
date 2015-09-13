@@ -101,7 +101,6 @@ void AUTProj_Redeemer::Detonate(class AController* InstigatedBy)
 	if (!bExploded)
 	{
 		bExploded = true;
-
 		if (Role == ROLE_Authority)
 		{
 			bTearOff = true;
@@ -112,6 +111,9 @@ void AUTProj_Redeemer::Detonate(class AController* InstigatedBy)
 		{
 			DetonateEffects.GetDefaultObject()->SpawnEffect(GetWorld(), FTransform(GetActorRotation(), GetActorLocation()), CollisionComp, this, InstigatorController);
 		}
+		CapsuleComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		CollisionComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		ProjectileMovement->SetActive(false);
 
 		if (Role == ROLE_Authority)
 		{
@@ -144,7 +146,6 @@ void AUTProj_Redeemer::Explode_Implementation(const FVector& HitLocation, const 
 			Detonate(NULL);
 			return;
 		}
-
 		//Guarantee detonation on projectile collision
 		AUTProjectile* Projectile = Cast<AUTProjectile>(ImpactedActor);
 		if (Projectile != nullptr)
@@ -156,6 +157,9 @@ void AUTProj_Redeemer::Explode_Implementation(const FVector& HitLocation, const 
 			Detonate(Projectile->InstigatorController);
 			return;
 		}
+		CapsuleComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		CollisionComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		ProjectileMovement->SetActive(false);
 
 		bExploded = true;
 		TArray<USceneComponent*> Components;

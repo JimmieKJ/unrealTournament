@@ -11,6 +11,9 @@ public:
 	static const ISlateStyle& Get();
 	static FName GetStyleSetName();
 
+	static FSlateSound MessageSound;
+	static FSlateSound PauseSound;
+
 private:
 	static TSharedRef<class FSlateStyleSet> Create();
 	static TSharedPtr<class FSlateStyleSet> UWindowsStyleInstance;

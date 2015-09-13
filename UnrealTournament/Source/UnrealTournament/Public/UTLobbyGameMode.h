@@ -107,4 +107,8 @@ public:
 	virtual void UpdateLobbySession();
 
 	virtual void DefaultTimer();
+
+	UPROPERTY(Config)
+	int32 MaxPlayersInLobby;
+
 };

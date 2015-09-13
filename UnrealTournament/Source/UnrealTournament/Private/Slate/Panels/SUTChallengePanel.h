@@ -11,10 +11,14 @@
 class UUTChallengeManager;
 class SUTButton;
 
-class UNREALTOURNAMENT_API SUTChallengePanel : public SUWPanel
+class UNREALTOURNAMENT_API SUTChallengePanel : public SUWPanel, public FGCObject
 {
+public:
+	virtual ~SUTChallengePanel();
+
 private:
 	virtual void ConstructPanel(FVector2D ViewportSize);	
+	
 
 protected:
 	int32 PendingDifficulty;
@@ -39,6 +43,16 @@ protected:
 
 	virtual void StartChallenge(int32 Difficulty);
 	void WarningResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
+
+	FSlateDynamicImageBrush* LevelScreenshot;
+	UTexture2D* LevelShot;
+
+
+	virtual void AddReferencedObjects(FReferenceCollector& Collector) override
+	{
+		Collector.AddReferencedObject(LevelShot);
+	}
+
 
 };
 

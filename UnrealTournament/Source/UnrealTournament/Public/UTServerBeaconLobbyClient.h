@@ -30,7 +30,7 @@ class UNREALTOURNAMENT_API AUTServerBeaconLobbyClient : public AOnlineBeaconClie
 	 *	NotifyInstanceIsReady will be called when the game instance is ready.  It will replicate to the lobby server and tell the lobby to have all of the clients in this match transition
 	 **/
 	UFUNCTION(server, reliable, WithValidation)
-	virtual void Lobby_NotifyInstanceIsReady(uint32 InstanceID, FGuid InstanceGUID);
+	virtual void Lobby_NotifyInstanceIsReady(uint32 InstanceID, FGuid InstanceGUID, const FString& MapName);
 
 	/**
 	 * Tells the Lobby to update it's description on the stats

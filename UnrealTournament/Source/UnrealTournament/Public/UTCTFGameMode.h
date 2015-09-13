@@ -51,6 +51,16 @@ class UNREALTOURNAMENT_API AUTCTFGameMode : public AUTTeamGameMode
 	UFUNCTION(exec)
 	void CheatScore();
 
+	/** Admin control for restarting competitive matches with appropriate status. */
+	UFUNCTION(exec)
+		void SetRedScore(int32 NewScore);
+
+	UFUNCTION(exec)
+		void SetBlueScore(int32 NewScore);
+
+	UFUNCTION(exec)
+		void SetRemainingTime(int32 RemainingSeconds);
+
 	virtual void InitGameState();
 	virtual void PreInitializeComponents();
 	virtual void InitGame( const FString& MapName, const FString& Options, FString& ErrorMessage );

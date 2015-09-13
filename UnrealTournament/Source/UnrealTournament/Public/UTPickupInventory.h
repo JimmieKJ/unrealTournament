@@ -73,6 +73,7 @@ public:
 	virtual void GiveTo_Implementation(APawn* Target) override;
 	virtual void SetPickupHidden(bool bNowHidden) override;
 	virtual void Reset_Implementation() override;
+	virtual void PlayTakenEffects(bool bReplicate) override;
 
 	/** Announce pickup to recipient */
 	virtual void AnnouncePickup(AUTCharacter* P);

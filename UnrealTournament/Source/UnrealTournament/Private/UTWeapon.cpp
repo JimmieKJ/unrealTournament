@@ -298,6 +298,11 @@ void AUTWeapon::DropFrom(const FVector& StartLocation, const FVector& TossVeloci
 		else
 		{
 			Super::DropFrom(StartLocation, TossVelocity);
+			if (UTOwner == NULL && CurrentState != InactiveState)
+			{
+				UE_LOG(UT, Warning, TEXT("Weapon %s wasn't properly sent to Inactive state after being dropped!"), *GetName());
+				GotoState(InactiveState);
+			}
 		}
 	}
 }
@@ -1844,8 +1849,8 @@ void AUTWeapon::UpdateOverlaysShared(AActor* WeaponActor, AUTCharacter* InOwner,
 	AUTGameState* GS = WeaponActor ? WeaponActor->GetWorld()->GetGameState<AUTGameState>() : NULL;
 	if (GS != NULL && InOwner != NULL && InMesh != NULL)
 	{
-		UMaterialInterface* TopOverlay = GS->GetFirstOverlay(InOwner->GetWeaponOverlayFlags(), Cast<AUTWeapon>(WeaponActor) != NULL);
-		if (TopOverlay != NULL)
+		FOverlayEffect TopOverlay = GS->GetFirstOverlay(InOwner->GetWeaponOverlayFlags(), Cast<AUTWeapon>(WeaponActor) != NULL);
+		if (TopOverlay.IsValid())
 		{
 			if (InOverlayMesh == NULL)
 			{
@@ -1866,13 +1871,68 @@ void AUTWeapon::UpdateOverlaysShared(AActor* WeaponActor, AUTCharacter* InOwner,
 			}
 			for (int32 i = 0; i < InOverlayMesh->GetNumMaterials(); i++)
 			{
-				InOverlayMesh->SetMaterial(i, TopOverlay);
+				InOverlayMesh->SetMaterial(i, TopOverlay.Material);
+			}
+			if (TopOverlay.Particles != NULL)
+			{
+				UParticleSystemComponent* PSC = NULL;
+				for (USceneComponent* Child : InOverlayMesh->AttachChildren) 
+				{
+					PSC = Cast<UParticleSystemComponent>(Child);
+					if (PSC != NULL)
+					{
+						break;
+					}
+				}
+				if (PSC == NULL)
+				{
+					PSC = NewObject<UParticleSystemComponent>(InOverlayMesh);
+					PSC->RegisterComponent();
+				}
+				PSC->AttachTo(InOverlayMesh, TopOverlay.ParticleAttachPoint);
+				PSC->SetTemplate(TopOverlay.Particles);
+			}
+			else
+			{
+				for (USceneComponent* Child : InOverlayMesh->AttachChildren)
+				{
+					UParticleSystemComponent* PSC = Cast<UParticleSystemComponent>(Child);
+					if (PSC != NULL)
+					{
+						if (PSC->IsActive())
+						{
+							PSC->bAutoDestroy = true;
+							PSC->DeactivateSystem();
+							PSC->DetachFromParent(true);
+						}
+						else
+						{
+							PSC->DestroyComponent();
+						}
+						break;
+					}
+				}
 			}
 		}
 		else if (InOverlayMesh != NULL && InOverlayMesh->IsRegistered())
 		{
 			InOverlayMesh->DetachFromParent();
 			InOverlayMesh->UnregisterComponent();
+			TArray<USceneComponent*> ChildrenCopy = InOverlayMesh->AttachChildren;
+			for (USceneComponent* Child : ChildrenCopy)
+			{
+				UParticleSystemComponent* PSC = Cast<UParticleSystemComponent>(Child);
+				if (PSC != NULL && PSC->IsActive())
+				{
+					PSC->bAutoDestroy = true;
+					PSC->DeactivateSystem();
+					PSC->DetachFromParent(true);
+				}
+				else
+				{
+					Child->DestroyComponent(false);
+				}
+			}
 		}
 	}
 }

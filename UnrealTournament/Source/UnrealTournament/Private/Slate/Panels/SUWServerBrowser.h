@@ -285,12 +285,23 @@ public:
 		TrustLevel = NewData->TrustLevel;
 		SearchResult = NewData->SearchResult;
 
+		HUBInstances.Empty(); 
+		for (int32 i=0;i<NewData->HUBInstances.Num();i++) 
+		{
+			HUBInstances.Add(NewData->HUBInstances[i]);
+		}
 
+		Rules.Empty(); 
+		for (int32 i=0;i<NewData->Rules.Num();i++) 
+		{
+			Rules.Add(NewData->Rules[i]);
+		}
 
-		HUBInstances.Empty(); Rules.Empty(); Players.Empty();
-		for (int32 i=0;i<NewData->HUBInstances.Num();i++) HUBInstances.Add(NewData->HUBInstances[i]);
-		for (int32 i=0;i<NewData->Rules.Num();i++) Rules.Add(NewData->Rules[i]);
-		for (int32 i=0;i<NewData->Players.Num();i++) Players.Add(NewData->Players[i]);
+		Players.Empty();
+		for (int32 i=0;i<NewData->Players.Num();i++) 
+		{
+			Players.Add(NewData->Players[i]);
+		}
 	}
 
 

@@ -4,6 +4,7 @@
 #include "UTPickupInventory.h"
 #include "UnrealNetwork.h"
 #include "UTPickupMessage.h"
+#include "UTWorldSettings.h"
 
 AUTPickupInventory::AUTPickupInventory(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -417,6 +418,20 @@ void AUTPickupInventory::GiveTo_Implementation(APawn* Target)
 					UTGameMode->BroadcastSpectatorPickup(PS, Inventory->StatsNameCount, Inventory->GetClass());
 				}
 			}
+		}
+	}
+}
+
+void AUTPickupInventory::PlayTakenEffects(bool bReplicate)
+{
+	Super::PlayTakenEffects(bReplicate);
+
+	if (GetNetMode() != NM_DedicatedServer && InventoryType != NULL && Mesh != NULL)
+	{
+		AUTWorldSettings* WS = Cast<AUTWorldSettings>(GetWorld()->GetWorldSettings());
+		if (WS == NULL || WS->EffectIsRelevant(this, Mesh->GetComponentLocation(), true, false, 10000.0f, 1000.0f))
+		{
+			UGameplayStatics::SpawnEmitterAtLocation(this, InventoryType.GetDefaultObject()->PickupEffect, Mesh->GetComponentLocation(), Mesh->GetComponentRotation());
 		}
 	}
 }

@@ -439,17 +439,18 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
 	            AddDependency(GUBP.GamePlatformCookedAndCompiledNode.StaticGetFullName(HostPlatform, GameProj, UnrealTargetPlatform.Linux));
 			}
 
-            var Chunker = bp.Branch.FindProgram("BuildPatchTool");
+            
             AddDependency(GUBP.EditorGameNode.StaticGetFullName(HostPlatform, GameProj));
             AddDependency(GUBP.EditorAndToolsNode.StaticGetFullName(HostPlatform));
-            AddDependency(GUBP.SingleInternalToolsNode.StaticGetFullName(HostPlatform, Chunker));
+            //var Chunker = bp.Branch.FindProgram("BuildPatchTool");
+            //AddDependency(GUBP.SingleInternalToolsNode.StaticGetFullName(HostPlatform, Chunker));
 
             // Make sure we have the mac version of Chunker as well
 			if(!bp.ParseParam("nomac"))
 			{
 				AddDependency(GUBP.EditorGameNode.StaticGetFullName(UnrealTargetPlatform.Mac, GameProj));
 				AddDependency(GUBP.EditorAndToolsNode.StaticGetFullName(UnrealTargetPlatform.Mac));
-				AddDependency(GUBP.SingleInternalToolsNode.StaticGetFullName(UnrealTargetPlatform.Mac, Chunker));
+				//AddDependency(GUBP.SingleInternalToolsNode.StaticGetFullName(UnrealTargetPlatform.Mac, Chunker));
 			}
         }
         public override string GetTriggerDescText()
@@ -675,10 +676,6 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
 			ConfidentialFilter.Include(".../NoRedist/...");
             ConfidentialFilter.Include(".../EpicInternal/...");
             ConfidentialFilter.Include(".../Environments/Outside/TestMaps/...");
-            ConfidentialFilter.Include(".../Character/Human/Female/...");
-            ConfidentialFilter.Include(".../Character/Skaarji/...");
-            ConfidentialFilter.Include(".../Character/Necris_Female/...");
-            ConfidentialFilter.Include(".../FemaleTest/...");
 			foreach (UnrealTargetPlatform PossiblePlatform in Enum.GetValues(typeof(UnrealTargetPlatform)))
 			{
 				if(PossiblePlatform != Platform && PossiblePlatform != UnrealTargetPlatform.Unknown)
@@ -834,12 +831,12 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
             AddDependency(UnrealTournamentCopyEditorNode.StaticGetFullName(GameProj, InHostPlatform));
             AddDependency(UnrealTournamentEditorDDCNode.StaticGetFullName(GameProj, InHostPlatform));
 
-			SingleTargetProperties BuildPatchTool = bp.Branch.FindProgram("BuildPatchTool");
-			if (BuildPatchTool.Rules == null)
-			{
-				throw new AutomationException("Could not find program BuildPatchTool.");
-			}
-			AddDependency(GUBP.SingleInternalToolsNode.StaticGetFullName(HostPlatform, BuildPatchTool));
+            //SingleTargetProperties BuildPatchTool = bp.Branch.FindProgram("BuildPatchTool");
+            //if (BuildPatchTool.Rules == null)
+            //{
+            //    throw new AutomationException("Could not find program BuildPatchTool.");
+            //}
+			//AddDependency(GUBP.SingleInternalToolsNode.StaticGetFullName(HostPlatform, BuildPatchTool));
 
 			AgentSharingGroup = "UnrealTournament_MakeEditorBuild" + StaticGetHostPlatformSuffix(InHostPlatform);
         }

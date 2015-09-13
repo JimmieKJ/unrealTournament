@@ -193,6 +193,8 @@ void AUTRemoteRedeemer::BlowUp()
 		}
 
 		ProjectileMovement->SetActive(false);
+		CapsuleComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		CollisionComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 
 		TArray<USceneComponent*> Components;
 		GetComponents<USceneComponent>(Components);
@@ -221,6 +223,8 @@ void AUTRemoteRedeemer::Detonate()
 		}
 
 		ProjectileMovement->SetActive(false);
+		CapsuleComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		CollisionComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 
 		TArray<USceneComponent*> Components;
 		GetComponents<USceneComponent>(Components);

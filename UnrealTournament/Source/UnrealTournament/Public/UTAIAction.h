@@ -79,4 +79,10 @@ class UNREALTOURNAMENT_API UUTAIAction : public UObject
 	/** called repeatedly while enemy is valid but not visible; combat actions often react to this by changing position, aborting, etc */
 	virtual void EnemyNotVisible()
 	{}
+
+	/** called to optionally set bot's focus when no target/enemy to look at */
+	virtual bool SetFocusForNoTarget()
+	{
+		return false;
+	}
 };

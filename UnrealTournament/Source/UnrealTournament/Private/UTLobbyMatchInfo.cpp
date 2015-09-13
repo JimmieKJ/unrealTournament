@@ -54,10 +54,12 @@ void AUTLobbyMatchInfo::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > &
 	DOREPLIFETIME(AUTLobbyMatchInfo, BotSkillLevel);
 	DOREPLIFETIME(AUTLobbyMatchInfo, AverageRank);
 	DOREPLIFETIME(AUTLobbyMatchInfo, Redirects);
+	DOREPLIFETIME(AUTLobbyMatchInfo, AllowedPlayerList);
 
 	DOREPLIFETIME_CONDITION(AUTLobbyMatchInfo, DedicatedServerName, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTLobbyMatchInfo, bDedicatedMatch, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTLobbyMatchInfo, bQuickPlayMatch, COND_InitialOnly);
+	DOREPLIFETIME_CONDITION(AUTLobbyMatchInfo, PrivateKey, COND_InitialOnly);
 }
 
 void AUTLobbyMatchInfo::PreInitializeComponents()
@@ -66,7 +68,7 @@ void AUTLobbyMatchInfo::PreInitializeComponents()
 	SetLobbyMatchState(ELobbyMatchState::Initializing);
 
 	UniqueMatchID = FGuid::NewGuid();
-
+	PrivateKey = FGuid::NewGuid();
 	MatchBadge = TEXT("Loading...");
 }
 
@@ -347,6 +349,7 @@ void AUTLobbyMatchInfo::ServerManageUser_Implementation(int32 CommandID, AUTLobb
 	{
 		// Right now we only have kicks and bans.
 		RemovePlayer(Target);
+		Target->UninviteFromMatch(this);
 		if (CommandID == 3)
 		{
 			BannedIDs.Add(Target->UniqueId);
@@ -409,7 +412,7 @@ void AUTLobbyMatchInfo::ServerStartMatch_Implementation()
 
 		if (CurrentState == ELobbyMatchState::WaitingForPlayers)
 		{
-			LaunchMatch();
+			LaunchMatch(false, 2);
 			return;
 		}
 	}
@@ -417,13 +420,12 @@ void AUTLobbyMatchInfo::ServerStartMatch_Implementation()
 	GetOwnerPlayerState()->ClientMatchError(NSLOCTEXT("LobbyMessage", "TooManyInstances","All available game instances are taken.  Please wait a bit and try starting again."));
 }
 
-void AUTLobbyMatchInfo::LaunchMatch(bool bQuickPlay)
+void AUTLobbyMatchInfo::LaunchMatch(bool bQuickPlay, int32 DebugCode)
 {
 	for (int32 i=0;i<Players.Num();i++)
 	{
 		Players[i]->bReadyToPlay = true;
 	}
-
 
 	if (CheckLobbyGameState() && CurrentRuleset.IsValid() && InitialMapInfo.IsValid())
 	{
@@ -454,7 +456,10 @@ void AUTLobbyMatchInfo::LaunchMatch(bool bQuickPlay)
 			}
 		}
 
-		LobbyGameState->LaunchGameInstance(this, GameURL);
+		if (!bSpectatable) GameURL += TEXT("?MaxSpectators=0");
+		if (!bJoinAnytime) GameURL += TEXT("?NoJIP");
+
+		LobbyGameState->LaunchGameInstance(this, GameURL, DebugCode);
 	}
 }
 
@@ -532,7 +537,7 @@ bool AUTLobbyMatchInfo::ShouldShowInDock()
 	}
 	else
 	{
-		return (OwnerId.IsValid() || bQuickPlayMatch) && (Players.Num() > 0 || PlayersInMatchInstance.Num() > 0) && 
+		return (OwnerId.IsValid() || bQuickPlayMatch) && //(Players.Num() > 0 || PlayersInMatchInstance.Num() > 0) && 
 				CurrentRuleset.IsValid() && 
 				(CurrentState == ELobbyMatchState::InProgress || CurrentState == ELobbyMatchState::Launching || CurrentState == ELobbyMatchState::WaitingForPlayers);
 	}
@@ -561,6 +566,13 @@ void AUTLobbyMatchInfo::ServerSetRankLocked_Implementation(bool bLocked)
 {
 	bRankLocked = bLocked;
 }
+
+bool AUTLobbyMatchInfo::ServerSetPrivateMatch_Validate(bool bIsPrivate) { return true; }
+void AUTLobbyMatchInfo::ServerSetPrivateMatch_Implementation(bool bIsPrivate)
+{
+	bPrivateMatch = bIsPrivate;
+}
+
 
 
 FText AUTLobbyMatchInfo::GetDebugInfo()
@@ -652,16 +664,40 @@ void AUTLobbyMatchInfo::SetRedirects()
 			}
 		}
 
-		if (InitialMapInfo->Redirect.PackageName != TEXT(""))
+		if (InitialMapInfo.IsValid() && InitialMapInfo->Redirect.PackageName != TEXT(""))
 		{
 			Redirects.Add(InitialMapInfo->Redirect);
 		}
 	}
 }
 
+void AUTLobbyMatchInfo::AssignTeams()
+{
+	if (CurrentRuleset.IsValid())
+	{
+		for (int32 i = 0 ; i < Players.Num(); i++)
+		{
+			if (!Players[i]->bIsSpectator)
+			{
+				if (CurrentRuleset->bTeamGame)
+				{
+					Players[i]->DesiredTeamNum = i % 2;
+				}
+				else 
+				{
+					Players[i]->DesiredTeamNum = 0;
+				}
+			}
+		}
+	}
+}
+
 void AUTLobbyMatchInfo::SetRules(TWeakObjectPtr<AUTReplicatedGameRuleset> NewRuleset, const FString& StartingMap)
 {
+	bool bOldTeamGame = CurrentRuleset.IsValid() ? CurrentRuleset->bTeamGame : false;
 	CurrentRuleset = NewRuleset;
+
+	if (bOldTeamGame != CurrentRuleset->bTeamGame) AssignTeams();
 
 	InitialMap = StartingMap;
 	GetMapInformation();
@@ -715,6 +751,8 @@ void AUTLobbyMatchInfo::OnRep_MatchStats()
 bool AUTLobbyMatchInfo::ServerCreateCustomRule_Validate(const FString& GameMode, const FString& StartingMap, const FString& Description, const TArray<FString>& GameOptions, int32 DesiredSkillLevel, int32 DesiredPlayerCount, bool bTeamGame) { return true; }
 void AUTLobbyMatchInfo::ServerCreateCustomRule_Implementation(const FString& GameMode, const FString& StartingMap, const FString& Description, const TArray<FString>& GameOptions, int32 DesiredSkillLevel, int32 DesiredPlayerCount, bool bTeamGame)
 {
+	bool bOldTeamGame = CurrentRuleset.IsValid() ? CurrentRuleset->bTeamGame : false;
+
 	// We need to build a one off custom replicated ruleset just for this hub.  :)
 	AUTLobbyGameState* GameState = GetWorld()->GetGameState<AUTLobbyGameState>();
 
@@ -798,8 +836,10 @@ void AUTLobbyMatchInfo::ServerCreateCustomRule_Implementation(const FString& Gam
 
 		// Add code to setup the required packages array
 		CurrentRuleset = NewReplicatedRuleset;
-
 		NewReplicatedRuleset->bTeamGame = bTeamGame;
+
+		if (CurrentRuleset->bTeamGame != bOldTeamGame) AssignTeams();
+
 
 		if (!InitialMapInfo.IsValid())
 		{
@@ -934,6 +974,9 @@ bool AUTLobbyMatchInfo::SkillTest(int32 Rank, bool bForceLock)
 {
 	if (bRankLocked || bForceLock)
 	{
+		// Beginners should always join a beginner match
+		if (Rank < 1400 && AverageRank < 1400) return true;
+
 		return (Rank >= AverageRank - 400) && (Rank <= AverageRank + 400);
 	}
 
@@ -1132,19 +1175,46 @@ uint32 AUTLobbyMatchInfo::GetMatchFlags()
 		Flags = Flags | MATCH_FLAG_InProgress;
 	}
 
+	if (bPrivateMatch)
+	{
+		Flags = Flags | MATCH_FLAG_Private;
+	}
+
 	if (bRankLocked)
 	{
-		Flags = MATCH_FLAG_Ranked | 0x02;
+		Flags = Flags | MATCH_FLAG_Ranked;
 	}
+
 	if (!bJoinAnytime)
 	{
 		Flags = Flags | MATCH_FLAG_NoJoinInProgress;
 	}
+
 	if (!bSpectatable)
 	{
 		Flags = Flags | MATCH_FLAG_NoSpectators;
 	}
 
 	return Flags;
+}
 
+bool AUTLobbyMatchInfo::ServerInvitePlayer_Validate(AUTLobbyPlayerState* Who, bool bInvite) { return true; }
+void AUTLobbyMatchInfo::ServerInvitePlayer_Implementation(AUTLobbyPlayerState* Who, bool bInvite)
+{
+	if (bInvite)
+	{
+		if (AllowedPlayerList.Find(Who->UniqueId.ToString()) == INDEX_NONE)
+		{
+			AllowedPlayerList.Add(Who->UniqueId.ToString());
+			Who->InviteToMatch(this);
+		}
+	}
+	else
+	{
+		if (AllowedPlayerList.Find(Who->UniqueId.ToString()) != INDEX_NONE)
+		{
+			AllowedPlayerList.Remove(Who->UniqueId.ToString());
+			Who->UninviteFromMatch(this);
+		}
+	}
 }

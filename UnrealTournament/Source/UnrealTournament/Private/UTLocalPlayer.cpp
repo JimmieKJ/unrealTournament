@@ -1472,7 +1472,7 @@ int32 UUTLocalPlayer::GetBaseELORank()
 		}
 	}
 
-	// FFA Elo is the least accurate, weighted lower @TODO FIXMESTEVE show badge based on current game type
+	// FFA Elo is the least accurate, weighted lower
 	// max rating of 2400 based on FFA 
 	if ((FFA_ELO > CurrentRating) && ((CurrentRating < 2400) || (DuelMatchesPlayed + TDMMatchesPlayed + CTFMatchesPlayed < MatchThreshold)))
 	{
@@ -1924,6 +1924,7 @@ void UUTLocalPlayer::OnJoinSessionComplete(FName SessionName, EOnJoinSessionComp
 
 			FWorldContext &Context = GEngine->GetWorldContextFromWorldChecked(GetWorld());
 			Context.LastURL.RemoveOption(TEXT("QuickStart"));
+			Context.LastURL.RemoveOption(TEXT("MatchId"));
 			
 			PlayerController->ClientTravel(ConnectionString, ETravelType::TRAVEL_Partial,false);
 
@@ -3048,7 +3049,7 @@ void UUTLocalPlayer::CloseAllUI(bool bExceptDialogs)
 			// restore dialogs to the viewport
 			for (TSharedPtr<SUWDialog> Dialog : OpenDialogs)
 			{
-				if (Dialog.IsValid())
+				if ( Dialog.IsValid() && (!MapVoteMenu.IsValid() || Dialog.Get() != MapVoteMenu.Get()) )
 				{
 					GEngine->GameViewport->AddViewportWidgetContent(Dialog.ToSharedRef(), 255);
 				}
@@ -3059,6 +3060,8 @@ void UUTLocalPlayer::CloseAllUI(bool bExceptDialogs)
 	{
 		OpenDialogs.Empty();
 	}
+	
+	// These should all be proper closes
 	DesktopSlateWidget.Reset();
 	ServerBrowserWidget.Reset();
 	ReplayBrowserWidget.Reset();
@@ -3071,10 +3074,11 @@ void UUTLocalPlayer::CloseAllUI(bool bExceptDialogs)
 	FriendsMenu.Reset();
 	RedirectDialog.Reset();
 	LoadoutMenu.Reset();
-	MapVoteMenu.Reset();
 	ReplayWindow.Reset();
 	YoutubeDialog.Reset();
 	YoutubeConsentDialog.Reset();
+
+	CloseMapVote();
 	CloseMatchSummary();
 #endif
 }

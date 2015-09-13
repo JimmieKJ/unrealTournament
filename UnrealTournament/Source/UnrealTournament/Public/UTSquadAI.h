@@ -202,6 +202,14 @@ public:
 		return Orders;
 	}
 
+	virtual bool IsDefending(AUTBot* B)
+	{
+		return GetCurrentOrders(B) == NAME_Defend || B->GetDefensePoint() != NULL;
+	}
+
+	/** set an appropriate defense point for the bot to defend the current objective, if one is available */
+	virtual void SetDefensePointFor(AUTBot* B);
+
 	/** return true if the bot B has a better claim on the given pickup than the current claiming pawn (so this bot may consider taking it instead) */
 	virtual bool HasBetterPickupClaim(AUTBot* B, const FPickupClaim& Claim);
 
@@ -241,6 +249,9 @@ public:
 	{
 		return false;
 	}
+
+	/** pick potential goal locations enemy might want to go to, used by bot hunting/tracking logic */
+	virtual void GetPossibleEnemyGoals(AUTBot* B, const FBotEnemyInfo* EnemyInfo, TArray<FVector>& Goals);
 
 	/** debug drawing of squad route for B, if applicable */
 	virtual void DrawDebugSquadRoute(AUTBot* B) const

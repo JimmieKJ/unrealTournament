@@ -54,6 +54,63 @@ AUTWeap_LinkGun::AUTWeap_LinkGun(const FObjectInitializer& OI)
 	AltDeathStatsName = NAME_LinkBeamDeaths;
 	HitsStatsName = NAME_LinkHits;
 	ShotsStatsName = NAME_LinkShots;
+
+	ScreenMaterialID = 2;
+	LastClientKillTime = -100000.0f;
+}
+
+void AUTWeap_LinkGun::AttachToOwner_Implementation()
+{
+	Super::AttachToOwner_Implementation();
+
+	if (!IsRunningDedicatedServer() && Mesh != NULL && ScreenMaterialID < Mesh->GetNumMaterials())
+	{
+		ScreenMI = Mesh->CreateAndSetMaterialInstanceDynamic(ScreenMaterialID);
+		ScreenTexture = UCanvasRenderTarget2D::CreateCanvasRenderTarget2D(this, UCanvasRenderTarget2D::StaticClass(), 64, 64);
+		ScreenTexture->ClearColor = FLinearColor(0.0f, 0.0f, 0.0f, 1.0f);
+		ScreenTexture->OnCanvasRenderTargetUpdate.AddDynamic(this, &AUTWeap_LinkGun::UpdateScreenTexture);
+		ScreenMI->SetTextureParameterValue(FName(TEXT("ScreenTexture")), ScreenTexture);
+	}
+}
+
+void AUTWeap_LinkGun::UpdateScreenTexture(UCanvas* C, int32 Width, int32 Height)
+{
+	if (GetWorld()->TimeSeconds - LastClientKillTime < 2.5f && ScreenKillNotifyTexture != NULL)
+	{
+		C->SetDrawColor(FColor::White);
+		C->DrawTile(ScreenKillNotifyTexture, 0.0f, 0.0f, float(Width), float(Height), 0.0f, 0.0f, ScreenKillNotifyTexture->GetSizeX(), ScreenKillNotifyTexture->GetSizeY());
+	}
+	else
+	{
+		FFontRenderInfo RenderInfo;
+		RenderInfo.bClipText = true;
+		RenderInfo.GlowInfo.bEnableGlow = true;
+		RenderInfo.GlowInfo.GlowColor = FLinearColor(-0.75f, -0.75f, -0.75f, 1.0f);
+		RenderInfo.GlowInfo.GlowOuterRadius.X = 0.45f;
+		RenderInfo.GlowInfo.GlowOuterRadius.Y = 0.475f;
+		RenderInfo.GlowInfo.GlowInnerRadius.X = 0.475f;
+		RenderInfo.GlowInfo.GlowInnerRadius.Y = 0.5f;
+
+		bool bInfiniteAmmo = true;
+		for (int32 Cost : AmmoCost)
+		{
+			if (Cost > 0)
+			{
+				bInfiniteAmmo = false;
+				break;
+			}
+		}
+		FString AmmoText = bInfiniteAmmo ? TEXT("--") : FString::FromInt(Ammo);
+		float XL, YL;
+		C->TextSize(ScreenFont, AmmoText, XL, YL);
+		if (!WordWrapper.IsValid())
+		{
+			WordWrapper = MakeShareable(new FCanvasWordWrapper());
+		}
+		FUTCanvasTextItem Item(FVector2D(Width / 2 - XL * 0.5f, Height / 2 - YL * 0.5f), FText::FromString(AmmoText), ScreenFont, (Ammo <= 5) ? FLinearColor::Red : FLinearColor::White, WordWrapper);
+		Item.FontRenderInfo = RenderInfo;
+		C->DrawItem(Item);
+	}
 }
 
 AUTProjectile* AUTWeap_LinkGun::FireProjectile()
@@ -137,6 +194,11 @@ void AUTWeap_LinkGun::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 void AUTWeap_LinkGun::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+
+	if (ScreenTexture != NULL && Mesh->IsRegistered() && GetWorld()->TimeSeconds - Mesh->LastRenderTime < 1.0f)
+	{
+		ScreenTexture->UpdateResource();
+	}
 
 	if (MuzzleFlash.IsValidIndex(1) && MuzzleFlash[1] != NULL)
 	{

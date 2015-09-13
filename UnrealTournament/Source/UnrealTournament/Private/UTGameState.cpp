@@ -239,8 +239,8 @@ void AUTGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLif
 	DOREPLIFETIME_CONDITION(AUTGameState, bWeaponStay, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTGameState, GoalScore, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTGameState, RemainingTime, COND_InitialOnly);
-	DOREPLIFETIME_CONDITION(AUTGameState, OverlayMaterials, COND_InitialOnly);
-	DOREPLIFETIME_CONDITION(AUTGameState, OverlayMaterials1P, COND_InitialOnly);
+	DOREPLIFETIME_CONDITION(AUTGameState, OverlayEffects, COND_InitialOnly);
+	DOREPLIFETIME_CONDITION(AUTGameState, OverlayEffects1P, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTGameState, SpawnProtectionTime, COND_InitialOnly);
 	DOREPLIFETIME_CONDITION(AUTGameState, NumTeams, COND_InitialOnly);
 
@@ -266,31 +266,36 @@ void AUTGameState::PreReplication(IRepChangedPropertyTracker& ChangedPropertyTra
 
 void AUTGameState::AddOverlayMaterial(UMaterialInterface* NewOverlay, UMaterialInterface* NewOverlay1P)
 {
-	if (NewOverlay != NULL && Role == ROLE_Authority)
+	AddOverlayEffect(FOverlayEffect(NewOverlay), FOverlayEffect(NewOverlay1P));
+}
+
+void AUTGameState::AddOverlayEffect(const FOverlayEffect& NewOverlay, const FOverlayEffect& NewOverlay1P)
+{
+	if (NewOverlay.IsValid() && Role == ROLE_Authority)
 	{
 		if (NetUpdateTime > 0.0f)
 		{
 			UE_LOG(UT, Warning, TEXT("UTGameState::AddOverlayMaterial() called after startup; may not take effect on clients"));
 		}
-		for (int32 i = 0; i < ARRAY_COUNT(OverlayMaterials); i++)
+		for (int32 i = 0; i < ARRAY_COUNT(OverlayEffects); i++)
 		{
-			if (OverlayMaterials[i] == NewOverlay)
+			if (OverlayEffects[i] == NewOverlay)
 			{
-				OverlayMaterials1P[i] = NewOverlay1P;
+				OverlayEffects1P[i] = NewOverlay1P;
 				return;
 			}
-			else if (OverlayMaterials[i] == NULL)
+			else if (!OverlayEffects[i].IsValid())
 			{
-				OverlayMaterials[i] = NewOverlay;
-				OverlayMaterials1P[i] = NewOverlay1P;
+				OverlayEffects[i] = NewOverlay;
+				OverlayEffects1P[i] = NewOverlay1P;
 				return;
 			}
 		}
-		UE_LOG(UT, Warning, TEXT("UTGameState::AddOverlayMaterial(): Ran out of slots, couldn't add %s"), *NewOverlay->GetFullName());
+		UE_LOG(UT, Warning, TEXT("UTGameState::AddOverlayMaterial(): Ran out of slots, couldn't add %s"), *NewOverlay.ToString());
 	}
 }
 
-void AUTGameState::OnRep_OverlayMaterials()
+void AUTGameState::OnRep_OverlayEffects()
 {
 	for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
 	{

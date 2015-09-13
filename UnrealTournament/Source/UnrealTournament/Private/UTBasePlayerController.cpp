@@ -401,6 +401,8 @@ void AUTBasePlayerController::OnFindSessionsComplete(bool bWasSuccessful)
 				UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
 				if (LP)
 				{
+					// Clear the Quickmatch wait timer.
+					LP->QuickMatchLimitTime = 0.0;
 					if (LP->JoinSession(Result, GUIDJoinWantsToSpectate, NAME_None, GUIDJoinWantsToFindMatch,GUIDJoinDesiredTeam))
 					{
 						//LP->HideMenu(); // should happen on level change now

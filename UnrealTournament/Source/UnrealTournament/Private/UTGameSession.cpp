@@ -14,6 +14,7 @@ AUTGameSession::AUTGameSession(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
 	bSessionValid = false;
+	bNoJoinInProgress = false;
 }
 
 void AUTGameSession::Destroyed()
@@ -28,6 +29,7 @@ void AUTGameSession::InitOptions( const FString& Options )
 
 	// Cache the GameMode for later.
 	UTGameMode = Cast<AUTBaseGameMode>(GetWorld()->GetAuthGameMode());
+	bNoJoinInProgress = UTGameMode->HasOption(Options,"NoJIP");
 }
 
 void AUTGameSession::ValidatePlayer(const FString& Address, const TSharedPtr<class FUniqueNetId>& UniqueId, FString& ErrorMessage)
@@ -37,6 +39,13 @@ void AUTGameSession::ValidatePlayer(const FString& Address, const TSharedPtr<cla
 	{
 		NetDriver = GetWorld()->GetNetDriver();
 	}
+
+	if ( bNoJoinInProgress && UTGameMode->HasMatchStarted() )
+	{
+		ErrorMessage = TEXT("CANTJOININPROGRESS");
+		return;
+	}
+
 
 	FString LocalAddress = NetDriver->LowLevelGetNetworkNumber();
 
@@ -101,7 +110,20 @@ bool AUTGameSession::BanPlayer(class APlayerController* BannedPlayer, const FTex
 	return Super::BanPlayer(BannedPlayer, BanReason);
 }
 
-
+bool AUTGameSession::KickPlayer(APlayerController* KickedPlayer, const FText& KickReason)
+{
+	// Do not kick logged admins
+	if (KickedPlayer != NULL && Cast<UNetConnection>(KickedPlayer->Player) != NULL)
+	{
+		KickedPlayer->ClientWasKicked(KickReason);
+		KickedPlayer->Destroy();
+		return true;
+	}
+	else
+	{
+		return false;
+	}
+}
 
 FString AUTGameSession::ApproveLogin(const FString& Options)
 {
@@ -119,20 +141,23 @@ FString AUTGameSession::ApproveLogin(const FString& Options)
 			return TEXT("");
 		}
 
-		FString Password = UTGameMode->ParseOption(Options, TEXT("Password"));
-		bool bSpectator = FCString::Stricmp(*UTGameMode->ParseOption(Options, TEXT("SpectatorOnly")), TEXT("1")) == 0;
-		if (!bSpectator && !UTGameMode->ServerPassword.IsEmpty())
+		if (GetNetMode() != NM_Standalone && !GetWorld()->IsPlayInEditor())
 		{
-			if (Password.IsEmpty() || !UTGameMode->ServerPassword.Equals(Password, ESearchCase::CaseSensitive))
+			FString Password = UTGameMode->ParseOption(Options, TEXT("Password"));
+			bool bSpectator = FCString::Stricmp(*UTGameMode->ParseOption(Options, TEXT("SpectatorOnly")), TEXT("1")) == 0;
+			if (!bSpectator && !UTGameMode->ServerPassword.IsEmpty())
 			{
-				return TEXT("NEEDPASS");
+				if (Password.IsEmpty() || !UTGameMode->ServerPassword.Equals(Password, ESearchCase::CaseSensitive))
+				{
+					return TEXT("NEEDPASS");
+				}
 			}
-		}
-		else if (bSpectator && !UTGameMode->SpectatePassword.IsEmpty())
-		{
-			if (Password.IsEmpty() || !UTGameMode->SpectatePassword.Equals(Password, ESearchCase::CaseSensitive))
+			else if (bSpectator && !UTGameMode->SpectatePassword.IsEmpty())
 			{
-				return TEXT("NEEDPASS");
+				if (Password.IsEmpty() || !UTGameMode->SpectatePassword.Equals(Password, ESearchCase::CaseSensitive))
+				{
+					return TEXT("NEEDPASS");
+				}
 			}
 		}
 	}

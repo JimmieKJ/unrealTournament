@@ -21,10 +21,7 @@ void AUTArmor::GivenTo(AUTCharacter* NewOwner, bool bAutoActivate)
 	{
 		NewOwner->bIsWearingHelmet = true;
 	}
-	if (OverlayMaterial != NULL)
-	{
-		NewOwner->SetCharacterOverlay(OverlayMaterial, true);
-	}
+	NewOwner->SetCharacterOverlayEffect(OverlayEffect.IsValid() ? OverlayEffect : FOverlayEffect(OverlayMaterial), true);
 
 	NewOwner->CheckArmorStacking();
 }
@@ -35,10 +32,7 @@ void AUTArmor::Removed()
 	{
 		GetUTOwner()->bIsWearingHelmet = false;
 	}
-	if (OverlayMaterial != NULL)
-	{
-		GetUTOwner()->SetCharacterOverlay(OverlayMaterial, false);
-	}
+	GetUTOwner()->SetCharacterOverlayEffect(OverlayEffect.IsValid() ? OverlayEffect : FOverlayEffect(OverlayMaterial), false);
 	Super::Removed();
 }
 

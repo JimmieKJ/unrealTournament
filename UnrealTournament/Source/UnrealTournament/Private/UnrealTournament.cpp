@@ -152,6 +152,7 @@ static TMap<FName, FString> HackedEntitlementTable = []()
 	Result.Add(TEXT("BP_CardboardHat"), TEXT("9a1ad6c3c10e438f9602c14ad1b67bfa"));
 	Result.Add(TEXT("BP_CardboardHat_C"), TEXT("9a1ad6c3c10e438f9602c14ad1b67bfa"));
 	Result.Add(TEXT("DM-Lea"), TEXT("0d5e275ca99d4cf0b03c518a6b279e26"));
+	Result.Add(TEXT("CTF-Pistola"), TEXT("48d281f487154bb29dd75bd7bb95ac8e"));
 	return Result;
 }();
 

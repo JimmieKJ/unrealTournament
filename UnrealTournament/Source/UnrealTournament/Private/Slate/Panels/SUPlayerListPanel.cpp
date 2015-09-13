@@ -95,16 +95,26 @@ void SUPlayerListPanel::Construct(const FArguments& InArgs)
 		]
 		+SOverlay::Slot()
 		[
-			SAssignNew( PlayerList, SListView< TSharedPtr<FTrackedPlayer> > )
-			// List view items are this tall
-			.ItemHeight(64)
-			// Tell the list view where to get its source data
-			.ListItemsSource( &TrackedPlayers)
-			// When the list view needs to generate a widget for some data item, use this method
-			.OnGenerateRow( this, &SUPlayerListPanel::OnGenerateWidgetForPlayerList)
-			//.OnContextMenuOpening( this, &SUPlayerListPanel::OnGetContextMenuContent )
-			//.OnMouseButtonDoubleClick(this, &SUPlayerListPanel::OnListSelect)
-			.SelectionMode(ESelectionMode::Single)
+			SNew(SVerticalBox)
+			+SVerticalBox::Slot()
+			.FillHeight(1.0)
+			[
+				SAssignNew( PlayerList, SListView< TSharedPtr<FTrackedPlayer> > )
+				// List view items are this tall
+				.ItemHeight(64)
+				// Tell the list view where to get its source data
+				.ListItemsSource( &TrackedPlayers)
+				// When the list view needs to generate a widget for some data item, use this method
+				.OnGenerateRow( this, &SUPlayerListPanel::OnGenerateWidgetForPlayerList)
+				//.OnContextMenuOpening( this, &SUPlayerListPanel::OnGetContextMenuContent )
+				//.OnMouseButtonDoubleClick(this, &SUPlayerListPanel::OnListSelect)
+				.SelectionMode(ESelectionMode::Single)
+			]
+			+SVerticalBox::Slot()
+			.AutoHeight()
+			[
+				SAssignNew(InviteOverlay,SOverlay)
+			]
 		]
 	];
 }
@@ -247,6 +257,23 @@ void SUPlayerListPanel::GetMenuContent(FString SearchTag, TArray<FMenuOptionData
 				MenuOptions.Add(FMenuOptionData(NSLOCTEXT("PlayerListSubMenu","Ban","Ban"), EPlayerListContentCommand::Ban));
 			}
 		}
+		else
+		{
+			AUTLobbyPlayerState* OwnerLobbyPlayerState = Cast<AUTLobbyPlayerState>(PlayerOwner->PlayerController->PlayerState);
+			AUTLobbyPlayerState* LobbyPlayerState = Cast<AUTLobbyPlayerState>(TrackedPlayers[Idx]->PlayerState.Get());
+			if (OwnerLobbyPlayerState && LobbyPlayerState && OwnerLobbyPlayerState->CurrentMatch)
+			{
+				if ( OwnerLobbyPlayerState->CurrentMatch->AllowedPlayerList.Find(LobbyPlayerState->UniqueId.ToString()) == INDEX_NONE)
+				{
+					MenuOptions.Add(FMenuOptionData(NSLOCTEXT("PlayerListSubMenu","Invite","Invite to Match"), EPlayerListContentCommand::Invite));
+				}
+				else
+				{
+					MenuOptions.Add(FMenuOptionData(NSLOCTEXT("PlayerListSubMenu","Uninvite","Uninvite from Match"), EPlayerListContentCommand::UnInvite));
+				}
+			}
+		
+		}
 	}
 }
 
@@ -327,6 +354,7 @@ void SUPlayerListPanel::Tick( const FGeometry& AllottedGeometry, const double In
 	}
 
 	bool bListNeedsUpdate = false;
+	AUTLobbyPlayerState* OwnerPlayerState = NULL;
 
 	AUTGameState* GameState = PlayerOwner->GetWorld()->GetGameState<AUTGameState>();
 	if (GameState)
@@ -334,10 +362,10 @@ void SUPlayerListPanel::Tick( const FGeometry& AllottedGeometry, const double In
 	
 		if (PlayerOwner.IsValid() && PlayerOwner->PlayerController && PlayerOwner->PlayerController->PlayerState)
 		{
-			AUTLobbyPlayerState* OwnerPlayerState = Cast<AUTLobbyPlayerState>(PlayerOwner->PlayerController->PlayerState);
+			OwnerPlayerState = Cast<AUTLobbyPlayerState>(PlayerOwner->PlayerController->PlayerState);
 			if (OwnerPlayerState && OwnerPlayerState->CurrentMatch)
 			{
-				// Owner is in a match.. add trhe headers...
+				// Owner is in a match.. add the headers...
 
 				if (!MatchHeader.IsValid())
 				{
@@ -383,10 +411,17 @@ void SUPlayerListPanel::Tick( const FGeometry& AllottedGeometry, const double In
 
 				AUTLobbyPlayerState* LobbyPlayerState = Cast<AUTLobbyPlayerState>(PlayerState);
 				bool bIsHost = (LobbyPlayerState && LobbyPlayerState->CurrentMatch && LobbyPlayerState->CurrentMatch->OwnerId == LobbyPlayerState->UniqueId);
+				bool bIsInAnyMatch = (LobbyPlayerState && LobbyPlayerState->CurrentMatch);
 
 				// Update the player's team info...
 
 				uint8 TeamNum = PlayerState->GetTeamNum();
+
+				if (LobbyPlayerState && LobbyPlayerState->CurrentMatch && LobbyPlayerState->CurrentMatch->CurrentRuleset.IsValid() && !LobbyPlayerState->CurrentMatch->CurrentRuleset->bTeamGame)
+				{
+					TeamNum = 255;
+				}
+
 
 				if (ShouldShowPlayer(PlayerState->UniqueId, TeamNum, bIsInMatch))
 				{
@@ -402,6 +437,12 @@ void SUPlayerListPanel::Tick( const FGeometry& AllottedGeometry, const double In
 							TrackedPlayers[Idx]->bIsInMatch = bIsInMatch;
 						}
 						
+						if (TrackedPlayers[Idx]->bIsInAnyMatch != bIsInAnyMatch)
+						{
+							bListNeedsUpdate = true;
+							TrackedPlayers[Idx]->bIsInAnyMatch = bIsInAnyMatch;
+						}
+
 						if (TrackedPlayers[Idx]->TeamNum != TeamNum)
 						{
 							bListNeedsUpdate = true;
@@ -422,8 +463,6 @@ void SUPlayerListPanel::Tick( const FGeometry& AllottedGeometry, const double In
 						// This is a new player.. Add them.
 						TrackedPlayers.Add(FTrackedPlayer::Make(PlayerState, PlayerState->UniqueId, PlayerState->PlayerName, TeamNum, PlayerState->Avatar, PlayerState == PlayerOwner->PlayerController->PlayerState,bIsHost));
 					}
-
-
 				}
 			}
 		}
@@ -502,6 +541,24 @@ void SUPlayerListPanel::Tick( const FGeometry& AllottedGeometry, const double In
 		PlayerList->RequestListRefresh();
 		bNeedsRefresh = false;
 	}
+
+	if (OwnerPlayerState)
+	{
+		if (OwnerPlayerState->LastInvitedMatch)
+		{
+			if (!InviteInfo.IsValid() || InviteInfo.Get() != OwnerPlayerState->LastInvitedMatch)
+			{
+				InviteInfo = OwnerPlayerState->LastInvitedMatch;
+				BuildInvite();
+			}
+		}
+		else if (InviteBox.IsValid())
+		{
+			InviteInfo.Reset();
+			BuildInvite();
+		}
+	}
+
 }
  
 void SUPlayerListPanel::ForceRefresh()
@@ -561,7 +618,122 @@ void SUPlayerListPanel::OnSubMenuSelect(FName Tag, TSharedPtr<FTrackedPlayer> In
 				LobbyPlayerState->CurrentMatch->ServerManageUser(3,TargetPlayerState);
 			}
 		}
+		else if (Tag == EPlayerListContentCommand::Invite)
+		{
+			if (LobbyPlayerState && TargetPlayerState && LobbyPlayerState->CurrentMatch)
+			{
+				LobbyPlayerState->CurrentMatch->ServerInvitePlayer(TargetPlayerState, true);
+			}
+		
+		}
+		else if (Tag == EPlayerListContentCommand::UnInvite)
+		{
+			if (LobbyPlayerState && TargetPlayerState && LobbyPlayerState->CurrentMatch)
+			{
+				LobbyPlayerState->CurrentMatch->ServerInvitePlayer(TargetPlayerState, false);
+			}
+		
+		}
 	}
 }
 
+void SUPlayerListPanel::BuildInvite()
+{
+	InviteOverlay->ClearChildren();
+	if (InviteInfo.IsValid())
+	{
+
+		FSlateApplication::Get().PlaySound(SUTStyle::MessageSound,0);
+
+		TWeakObjectPtr<AUTLobbyPlayerState> InviteOwner = InviteInfo->GetOwnerPlayerState();
+		if (InviteOwner.IsValid())
+		{
+			InviteOverlay->AddSlot()
+			[
+				SAssignNew(InviteBox,SVerticalBox)
+				+SVerticalBox::Slot()
+				.Padding(2.0,5.0,2.0,2.0)
+				.AutoHeight()
+				[
+					SNew(SBorder)
+					.BorderImage(SUTStyle::Get().GetBrush("UT.HeaderBackground.SuperLight"))
+					[
+						SNew(SVerticalBox)
+						+SVerticalBox::Slot()
+						.AutoHeight()
+						.HAlign(HAlign_Center)
+						[
+							SNew(STextBlock)
+							.Text(FText::FromString(InviteOwner->PlayerName))
+							.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
+						]
+						+SVerticalBox::Slot()
+						.AutoHeight()
+						.HAlign(HAlign_Center)
+						[
+							SNew(SRichTextBlock)
+							.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Tiny")
+							.Justification(ETextJustify::Center)
+							.DecoratorStyleSet( &SUTStyle::Get() )
+							.AutoWrapText( true )
+							.Text(NSLOCTEXT("SUPlayerListPanel","InviteText","has invited you to\nplay UT..."))
+						]
+
+						+SVerticalBox::Slot()
+						.AutoHeight()
+						.HAlign(HAlign_Center)
+						.Padding(0.0,5.0,0.0,5.0)
+						[
+							SNew(SGridPanel)
+							+SGridPanel::Slot(0,0)
+							.Padding(10.0,0.0,5.0,0.0)
+							[
+								SNew(SButton)
+								.ButtonStyle(SUTStyle::Get(),"UT.SimpleButton")
+								.OnClicked(this, &SUPlayerListPanel::OnMatchInviteAction, true)
+								.ContentPadding(FMargin(5.0,0.0,5.0,0.0))
+								[
+									SNew(STextBlock)
+									.Text(NSLOCTEXT("Generic","Accept","Accept"))
+									.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small")
+								]
+							]
+							+SGridPanel::Slot(1,0)
+							.Padding(10.0,0.0,5.0,0.0)
+							[
+								SNew(SButton)
+								.ButtonStyle(SUTStyle::Get(),"UT.SimpleButton")
+								.OnClicked(this, &SUPlayerListPanel::OnMatchInviteAction,false)
+								.ContentPadding(FMargin(5.0,0.0,5.0,0.0))
+								[
+									SNew(STextBlock)
+									.Text(NSLOCTEXT("Generic","Ignore","Ignore"))
+									.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small")
+								]
+							]
+						]
+					]
+				]
+			];
+
+
+		}
+	}
+}
+
+FReply SUPlayerListPanel::OnMatchInviteAction(bool bAccept)
+{
+	AUTLobbyPlayerState* LobbyPlayerState = Cast<AUTLobbyPlayerState>(PlayerOwner->PlayerController->PlayerState);
+	if (LobbyPlayerState)
+	{
+		if (bAccept && LobbyPlayerState->LastInvitedMatch)
+		{
+			LobbyPlayerState->ServerJoinMatch(LobbyPlayerState->LastInvitedMatch,false);
+		}
+		LobbyPlayerState->LastInvitedMatch = NULL;
+	}
+
+	return FReply::Handled();
+
+}
 #endif

@@ -120,7 +120,7 @@ class UNREALTOURNAMENT_API AUTTeamInfo : public AInfo, public IUTTeamInterface
 	UFUNCTION()
 	virtual void ReceivedTeamIndex();
 
-	const TArray<const struct FBotEnemyInfo>& GetEnemyList()
+	const TArray<const struct FBotEnemyInfo>& GetEnemyList() const
 	{
 		return *(TArray<const FBotEnemyInfo>*)&EnemyList;
 	}

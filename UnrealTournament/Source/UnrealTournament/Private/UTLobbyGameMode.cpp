@@ -29,6 +29,8 @@ AUTLobbyGameMode::AUTLobbyGameMode(const class FObjectInitializer& ObjectInitial
 	DefaultPlayerName = FText::FromString(TEXT("Player"));
 	GameMessageClass = UUTGameMessage::StaticClass();
 
+	MaxPlayersInLobby=200;
+
 	DisplayName = NSLOCTEXT("UTLobbyGameMode", "HUB", "HUB");
 }
 
@@ -42,6 +44,15 @@ void AUTLobbyGameMode::InitGame( const FString& MapName, const FString& Options,
 	GetWorld()->bShouldSimulatePhysics = false;
 
 	Super::InitGame(MapName, Options, ErrorMessage);
+
+	if (GameSession)
+	{
+		AUTGameSession* UTGameSession = Cast<AUTGameSession>(GameSession);
+		if (UTGameSession)
+		{
+			UTGameSession->MaxPlayers = MaxPlayersInLobby;
+		}
+	}
 
 	MinPlayersToStart = FMath::Max(1, GetIntOption(Options, TEXT("MinPlayers"), MinPlayersToStart));
 
@@ -69,6 +80,7 @@ void AUTLobbyGameMode::InitGameState()
 	UTLobbyGameState = Cast<AUTLobbyGameState>(GameState);
 	if (UTLobbyGameState != NULL)
 	{
+		UTLobbyGameState->bTrainingGround = bTrainingGround;
 		UTLobbyGameState->HubGuid = ServerInstanceGUID;
 
 		// Setupo the beacons to listen for updates from Game Server Instances
@@ -197,31 +209,6 @@ void AUTLobbyGameMode::PostLogin( APlayerController* NewPlayer )
 	if (LPS)
 	{
 		UTLobbyGameState->InitializeNewPlayer(LPS);
-
-		if (!LPS->DesiredQuickStartGameMode.IsEmpty())
-		{
-			for (int32 i=0;i<UTLobbyGameState->GameInstances.Num();i++)
-			{
-				AUTLobbyMatchInfo* MatchInfo = UTLobbyGameState->GameInstances[i].MatchInfo;
-				if (MatchInfo && (MatchInfo->CurrentState == ELobbyMatchState::Setup || (MatchInfo->CurrentState == ELobbyMatchState::InProgress && MatchInfo->bJoinAnytime)))
-				{
-					if ( LPS->DesiredQuickStartGameMode.Equals(MatchInfo->CurrentRuleset->UniqueTag, ESearchCase::IgnoreCase))
-					{
-						// Potential match.. see if there is room.
-						//if (MatchInfo->PlayersInMatchInstance.Num() < MatchInfo->MaxPlayers && MatchInfo->bJoinAnytime)
-						{
-							LPS->DesiredQuickStartGameMode = TEXT("");
-							UTLobbyGameState->JoinMatch(MatchInfo, LPS);
-							return;
-						}
-					}
-				}
-			}
-
-			// There wasn't a match to play on here
-
-			UTLobbyGameState->QuickStartMatch(LPS, LPS->DesiredQuickStartGameMode.Equals(FQuickMatchTypeRulesetTag::CTF, ESearchCase::IgnoreCase));
-		}
 	}
 	// Set my Initial Presence
 	AUTBasePlayerController* PC = Cast<AUTBasePlayerController>(NewPlayer);
@@ -310,7 +297,7 @@ void AUTLobbyGameMode::GetInstanceData(TArray<TSharedPtr<FServerInstanceData>>& 
 			{
 				int32 NumPlayers = MatchInfo->NumPlayersInMatch();
 
-				TSharedPtr<FServerInstanceData> Data = FServerInstanceData::Make(MatchInfo->UniqueMatchID, MatchInfo->CurrentRuleset->Title, (MatchInfo->InitialMapInfo.IsValid() ? MatchInfo->InitialMapInfo->Title : MatchInfo->InitialMap), NumPlayers, MatchInfo->CurrentRuleset->MaxPlayers, 0, MatchInfo->GetMatchFlags(), MatchInfo->AverageRank, MatchInfo->CurrentRuleset->bTeamGame, MatchInfo->bJoinAnytime || !MatchInfo->IsInProgress(), MatchInfo->bSpectatable);
+				TSharedPtr<FServerInstanceData> Data = FServerInstanceData::Make(MatchInfo->UniqueMatchID, MatchInfo->CurrentRuleset->Title, (MatchInfo->InitialMapInfo.IsValid() ? MatchInfo->InitialMapInfo->Title : MatchInfo->InitialMap), NumPlayers, MatchInfo->CurrentRuleset->MaxPlayers, 0, MatchInfo->GetMatchFlags(), MatchInfo->AverageRank, MatchInfo->CurrentRuleset->bTeamGame, MatchInfo->bJoinAnytime || !MatchInfo->IsInProgress(), MatchInfo->bSpectatable, MatchInfo->CurrentRuleset->Description, TEXT(""));
 				MatchInfo->GetPlayerData(Data->Players);
 				InstanceData.Add(Data);
 			}

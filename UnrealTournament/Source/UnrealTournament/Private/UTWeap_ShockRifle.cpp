@@ -29,7 +29,7 @@ void AUTWeap_ShockRifle::AttachToOwner_Implementation()
 {
 	Super::AttachToOwner_Implementation();
 
-	if (GetNetMode() != NM_DedicatedServer && Mesh != NULL && ScreenMaterialID < Mesh->GetNumMaterials())
+	if (!IsRunningDedicatedServer() && Mesh != NULL && ScreenMaterialID < Mesh->GetNumMaterials())
 	{
 		ScreenMI = Mesh->CreateAndSetMaterialInstanceDynamic(ScreenMaterialID);
 		ScreenTexture = UCanvasRenderTarget2D::CreateCanvasRenderTarget2D(this, UCanvasRenderTarget2D::StaticClass(), 64, 64);

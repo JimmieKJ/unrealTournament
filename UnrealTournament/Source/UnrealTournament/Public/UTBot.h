@@ -349,6 +349,13 @@ class UNREALTOURNAMENT_API AUTBot : public AAIController, public IUTTeamInterfac
 	UPROPERTY()
 	FRouteCacheItem SquadRouteGoal;
 
+	/** set when hunting to target enemy */
+	UPROPERTY()
+	APawn* HuntingTarget;
+	/** when hunting, list of possible enemy goals that we've checked and confirmed the enemy is not there */
+	UPROPERTY()
+	TArray<FVector> HuntingCheckedSpots;
+
 	/** debugging string set during decision logic */
 	UPROPERTY()
 	FString GoalString;
@@ -603,6 +610,10 @@ protected:
 	UPROPERTY()
 	FVector FinalFocalPoint;
 
+	/** defense point bot wants to camp at */
+	UPROPERTY()
+	class AUTDefensePoint* DefensePoint;
+
 	/** AI actions */
 	UPROPERTY()
 	UUTAIAction* WaitForMoveAction;
@@ -614,6 +625,8 @@ protected:
 	UUTAIAction* TacticalMoveAction;
 	UPROPERTY()
 	UUTAIAction* ChargeAction;
+	UPROPERTY()
+	UUTAIAction* CampAction;
 
 public:
 	inline AUTCharacter* GetUTChar() const
@@ -654,6 +667,14 @@ public:
 	{
 		return FinalFocalPoint;
 	}
+
+	inline class AUTDefensePoint* GetDefensePoint() const
+	{
+		return DefensePoint;
+	}
+	virtual void SetDefensePoint(AUTDefensePoint* NewDefensePoint);
+
+	virtual bool IsSniping() const;
 
 	/** given a set Z speed, find the XY velocity that will cause the bot to reach the desired location just as the Z coordinate arcs to it
 	 * if there is no solution, JumpVelocity is not modified; otherwise, it contains the needed velocity in XY and Z is zero
@@ -765,8 +786,18 @@ public:
 	virtual void DoTacticalMove();
 	/** do a stationary (or minor strafing, if skilled enough) attack on the given target. Priority is accuracy, not evasion */
 	virtual void DoRangedAttackOn(AActor* NewTarget);
-	/** hunt current enemy (assumed not currently attackable), attempting to predict its path and intercept it at an advantageous position */
-	virtual void DoHunt();
+	/** stay largely still and be alert for incoming enemies (used when sniping, defending, etc) */
+	virtual void DoCamp()
+	{
+		StartNewAction(CampAction);
+	}
+	/** hunt specified enemy (assumed not currently attackable), attempting to predict its path and intercept it at an advantageous position */
+	virtual void DoHunt(APawn* NewHuntTarget);
+
+	inline bool IsHunting(APawn* PossibleTarget) const
+	{
+		return (PossibleTarget != NULL && HuntingTarget == PossibleTarget); // TODO: and is in hunting action
+	}
 
 	// action accessors
 	inline void StartWaitForMove()
@@ -782,6 +813,8 @@ public:
 
 	/** return whether passed in Actor is or belongs to a teammate */
 	virtual bool IsTeammate(AActor* TestActor);
+	/** returns all enemies, using either team's view of info or individual bot's view */
+	const TArray<const struct FBotEnemyInfo>& GetEnemyList(bool bPreferTeamList) const;
 	/** get info on enemy, from team if available or local list if not
 	 * returned pointer is from an array so it is only guaranteed valid until next enemy update
 	 */
@@ -799,6 +832,8 @@ public:
 	virtual bool HasOtherVisibleEnemy();
 	/** returns list of enemies bot *thinks* are near the given point */
 	virtual TArray<APawn*> GetEnemiesNear(const FVector& TestLoc, float MaxDist, bool bAllowPrediction);
+	/** returns last time bot saw any enemy at all */
+	float GetLastAnyEnemySeenTime() const;
 
 	/** returns true if we haven't noted any update from Enemy in the specified amount of time
 	 * NOTE: SetEnemy() counts as an update for purposes of this function
@@ -854,7 +889,10 @@ public:
 	 * @param bDoSkillChecks - if true, low skill bots may not return all potential results (some checks skipped)
 	 * @param FoundPoints (out) - list of appearance points to consider for targeting
 	 */
-	virtual void GuessAppearancePoints(AActor* InTarget, const FVector& TargetLoc, bool bDoSkillChecks, TArray<FVector>& FoundPoints);
+	virtual void GuessAppearancePoints(AActor* InTarget, FVector TargetLoc, bool bDoSkillChecks, TArray<FVector>& FoundPoints);
+
+	/** returns whether the given enemy Pawn may become visible within MaxWaitTime if it continues to move towards us and we remain stationary */
+	virtual bool MayBecomeVisible(APawn* TestEnemy, float MaxWaitTime);
 
 	/** call to send a voice message of the given type
 	 * this function does spam protection so you don't have to!

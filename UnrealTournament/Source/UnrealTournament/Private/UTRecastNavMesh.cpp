@@ -1654,7 +1654,7 @@ float AUTRecastNavMesh::GetPolySurfaceArea2D(NavNodeRef PolyID) const
 NavNodeRef AUTRecastNavMesh::FindAnchorPoly(const FVector& TestLoc, APawn* Asker, const FNavAgentProperties& AgentProps) const
 {
 	AUTCharacter* P = Cast<AUTCharacter>(Asker);
-	if (P != NULL && P->LastReachedMoveTarget.TargetPoly != INVALID_NAVNODEREF && HasReachedTarget(P, AgentProps, P->LastReachedMoveTarget))
+	if (P != NULL && P->LastReachedMoveTarget.TargetPoly != INVALID_NAVNODEREF && (TestLoc - P->GetNavAgentLocation()).IsNearlyZero() && HasReachedTarget(P, AgentProps, P->LastReachedMoveTarget))
 	{
 		return P->LastReachedMoveTarget.TargetPoly;
 	}
@@ -1781,7 +1781,7 @@ void AUTRecastNavMesh::CalcReachParams(APawn* Asker, const FNavAgentProperties& 
 	}
 }
 
-bool AUTRecastNavMesh::FindBestPath(APawn* Asker, const FNavAgentProperties& AgentProps, FUTNodeEvaluator& NodeEval, const FVector& StartLoc, float& Weight, bool bAllowDetours, TArray<FRouteCacheItem>& NodeRoute)
+bool AUTRecastNavMesh::FindBestPath(APawn* Asker, const FNavAgentProperties& AgentProps, FUTNodeEvaluator& NodeEval, const FVector& StartLoc, float& Weight, bool bAllowDetours, TArray<FRouteCacheItem>& NodeRoute, TArray<int32>* NodeCosts)
 {
 	DECLARE_CYCLE_STAT(TEXT("UT node pathing time"), STAT_Navigation_UTPathfinding, STATGROUP_Navigation);
 
@@ -1949,6 +1949,10 @@ bool AUTRecastNavMesh::FindBestPath(APawn* Asker, const FNavAgentProperties& Age
 			while (NextRouteNode->PrevPath != NULL) // don't need first node, we're already there
 			{
 				NodeRoute.Insert(FRouteCacheItem(NextRouteNode->Node, GetPolyCenter(NextRouteNode->Poly), NextRouteNode->Poly), 0);
+				if (NodeCosts != NULL)
+				{
+					NodeCosts->Insert(NextRouteNode->TotalDistance - NextRouteNode->PrevPath->TotalDistance, 0);
+				}
 				NextRouteNode = NextRouteNode->PrevPath;
 			}
 
@@ -1977,11 +1981,19 @@ bool AUTRecastNavMesh::FindBestPath(APawn* Asker, const FNavAgentProperties& Age
 			if (NodeEval.GetRouteGoal(RouteGoal, RouteGoalLoc))
 			{
 				new(NodeRoute) FRouteCacheItem(RouteGoal, RouteGoalLoc, FindNearestPoly(RouteGoalLoc, FVector(AgentProps.AgentRadius, AgentProps.AgentRadius, AgentProps.AgentHeight)));
+				if (NodeCosts != NULL)
+				{
+					NodeCosts->Add(FMath::TruncToInt((NodeRoute.Last().GetLocation(Asker) - GetPolyCenter(NextRouteNode->Poly)).Size()));
+				}
 			}
 
 			if (bNeedMoveToStartNode || NodeRoute.Num() == 0) // make sure success always returns a route
 			{
 				NodeRoute.Insert(FRouteCacheItem(NextRouteNode->Node, GetPolyCenter(NextRouteNode->Poly), NextRouteNode->Poly), 0);
+				if (NodeCosts != NULL)
+				{
+					NodeCosts->Insert(FMath::TruncToInt((NodeRoute[0].GetLocation(Asker) - StartLoc).Size()), 0);
+				}
 			}
 
 			if (bAllowDetours && !bNeedMoveToStartNode && Asker != NULL && NodeRoute.Num() > ((RouteGoal != NULL) ? 2 : 1))
@@ -2043,6 +2055,10 @@ bool AUTRecastNavMesh::FindBestPath(APawn* Asker, const FNavAgentProperties& Age
 					if (DetourPoly != INVALID_NAVNODEREF && NextRouteNode->Node->Polys.Contains(DetourPoly))
 					{
 						NodeRoute.Insert(FRouteCacheItem(BestDetour, BestDetour->GetActorLocation(), DetourPoly), 0);
+						if (NodeCosts != NULL)
+						{
+							NodeCosts->Insert(FMath::TruncToInt((BestDetour->GetActorLocation() - StartLoc).Size()), 0);
+						}
 					}
 				}
 			}
@@ -2054,9 +2070,14 @@ bool AUTRecastNavMesh::FindBestPath(APawn* Asker, const FNavAgentProperties& Age
 				while (NodeRoute.Num() > 1 && HasReachedTarget(Asker, AgentProps, NodeRoute[0]))
 				{
 					NodeRoute.RemoveAt(0);
+					if (NodeCosts != NULL)
+					{
+						NodeCosts->RemoveAt(0);
+					}
 				}
 			}
 
+			checkSlow(NodeCosts == NULL || NodeRoute.Num() == NodeCosts->Num());
 			return true;
 		}
 	}

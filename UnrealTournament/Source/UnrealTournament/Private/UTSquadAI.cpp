@@ -2,6 +2,7 @@
 #include "UnrealTournament.h"
 #include "UTSquadAI.h"
 #include "UTPickupWeapon.h"
+#include "UTDefensePoint.h"
 
 FName NAME_Attack(TEXT("Attack"));
 FName NAME_Defend(TEXT("Defend"));
@@ -109,6 +110,54 @@ bool AUTSquadAI::LostEnemy(AUTBot* B)
 		}
 		B->PickNewEnemy();
 		return PrevEnemy != B->GetEnemy();
+	}
+}
+
+void AUTSquadAI::SetDefensePointFor(AUTBot* B)
+{
+	if (GameObjective != NULL)
+	{
+		if ( B->GetDefensePoint() == NULL || GameObjective != B->GetDefensePoint()->Objective/* || (B.DefensePoint.bOnlyOnFoot && Vehicle(B.Pawn) != None)*/ ||
+			// don't change defensepoints if fighting, recently fought, or if haven't reached it yet
+			(B->GetEnemy() == NULL && GetWorld()->TimeSeconds - B->GetLastAnyEnemySeenTime() >= 5.0 && NavData != NULL && NavData->HasReachedTarget(B->GetPawn(), B->GetPawn()->GetNavAgentPropertiesRef(), FRouteCacheItem(B->GetDefensePoint()))) )
+		{ 
+			TArray<AUTDefensePoint*> DefensePoints = GameObjective->DefensePoints;
+			// remove points in use
+			for (int32 i = DefensePoints.Num() - 1; i >= 0; i--)
+			{
+				if (DefensePoints[i] == NULL || (DefensePoints[i]->CurrentUser != NULL && DefensePoints[i]->CurrentUser != B))
+				{
+					DefensePoints.RemoveAt(i);
+				}
+			}
+
+			if (DefensePoints.Num() == 0)
+			{
+				B->SetDefensePoint(NULL);
+			}
+			else
+			{
+				TArray<int32> Priorities;
+				Priorities.Reserve(DefensePoints.Num());
+				int32 TotalPriority = 0;
+				for (AUTDefensePoint* Point : DefensePoints)
+				{
+					int32 Priority = Point->GetPriorityFor(B);
+					Priorities.Add(Priority);
+					TotalPriority += Priority;
+				}
+				int32 Choice = FMath::RandHelper(TotalPriority);
+				for (int32 i = 0; i < Priorities.Num(); i++)
+				{
+					Choice -= Priorities[i];
+					if (Choice < 0)
+					{
+						B->SetDefensePoint(DefensePoints[i]);
+						break;
+					}
+				}
+			}
+		}
 	}
 }
 
@@ -233,7 +282,7 @@ bool AUTSquadAI::FollowAlternateRoute(AUTBot* B, AActor* Goal, TArray<FAlternate
 
 				Routes.AddZeroed(1);
 				float Weight = 0.0f;
-				if (!NavData->FindBestPath(B->GetPawn(), B->GetPawn()->GetNavAgentPropertiesRef(), NodeEval, B->GetPawn()->GetNavAgentLocation(), Weight, bAllowDetours, Routes.Last().RouteCache))
+				if (!NavData->FindBestPath(B->GetPawn(), B->GetPawn()->GetNavAgentPropertiesRef(), NodeEval, B->GetPawn()->GetNavAgentLocation(), Weight, false, Routes.Last().RouteCache))
 				{
 					Routes.RemoveAt(Routes.Num() - 1);
 				}
@@ -276,17 +325,20 @@ bool AUTSquadAI::FollowAlternateRoute(AUTBot* B, AActor* Goal, TArray<FAlternate
 			FMultiPathNodeEval NodeEval;
 			for (int32 i = SquadRouteGoalIndex; i < AlternatePath.RouteCache.Num(); i++)
 			{
-				NodeEval.Goals.Add(AlternatePath.RouteCache[i].Node.Get());
+				NodeEval.Goals.Add(AlternatePath.RouteCache[i]);
 			}
 			// sanity check the goal is in there
-			NodeEval.Goals.Add(NavData->FindNearestNode(Goal->GetActorLocation(), NavData->GetPOIExtent(Goal)));
+			{
+				NavNodeRef Poly = NavData->FindNearestPoly(Goal->GetActorLocation(), NavData->GetPOIExtent(Goal));
+				NodeEval.Goals.Add(FRouteCacheItem(Goal, Goal->GetActorLocation(), Poly, NavData->GetNodeFromPoly(Poly)));
+			}
 			float Weight = 0.0f;
 			if (NavData->FindBestPath(B->GetPawn(), B->GetPawn()->GetNavAgentPropertiesRef(), NodeEval, B->GetPawn()->GetNavAgentLocation(), Weight, bAllowDetours, B->RouteCache))
 			{
 				// set SquadRouteGoal to the endpoint we actually found
 				B->SquadRouteGoal = B->RouteCache.Last();
 				// fill bot route with the rest of the squad route for e.g. translocator planning
-				for (int32 i = SquadRouteGoalIndex; i < AlternatePath.RouteCache.Num(); i++)
+				for (int32 i = SquadRouteGoalIndex; i < AlternatePath.RouteCache.Num() - 1; i++)
 				{
 					if (AlternatePath.RouteCache[i].Node == B->SquadRouteGoal.Node)
 					{
@@ -361,6 +413,19 @@ bool AUTSquadAI::ShouldUseTranslocator(AUTBot* B)
 {
 	// use only if no enemy to shoot at
 	return (B->GetTarget() == NULL || !B->CanAttack(B->GetTarget(), (B->GetTarget() == B->GetEnemy()) ? B->GetEnemyLocation(B->GetEnemy(), true) : B->GetTarget()->GetActorLocation(), B->GetEnemy() == NULL || MustKeepEnemy(B->GetEnemy())));
+}
+
+void AUTSquadAI::GetPossibleEnemyGoals(AUTBot* B, const FBotEnemyInfo* EnemyInfo, TArray<FVector>& Goals)
+{
+	// assume enemy wants super pickups
+	FSuperPickupEval NodeEval(B->RespawnPredictionTime, (EnemyInfo->GetUTChar() != NULL) ? EnemyInfo->GetUTChar()->GetCharacterMovement()->MaxWalkSpeed : GetDefault<AUTCharacter>()->GetCharacterMovement()->MaxWalkSpeed, 10000, 1.0f);
+	float Weight = 0.0f;
+	TArray<FRouteCacheItem> EnemyRouteCache;
+	// TODO: Would be better to pass enemy pawn; need to fix bot controller assumptions in places
+	if (NavData->FindBestPath(B->GetPawn(), B->GetPawn()->GetNavAgentPropertiesRef(), NodeEval, EnemyInfo->LastKnownLoc, Weight, false, EnemyRouteCache))
+	{
+		Goals.Add(EnemyRouteCache.Last().GetLocation(NULL));
+	}
 }
 
 void AUTSquadAI::NotifyObjectiveEvent(AActor* InObjective, AController* InstigatedBy, FName EventName)

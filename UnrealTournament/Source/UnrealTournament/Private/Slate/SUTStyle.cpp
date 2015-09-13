@@ -4,6 +4,7 @@
 #include "../Public/UTLocalPlayer.h"
 #include "SlateBasics.h"
 #include "Slate/SlateGameResources.h"
+#include "Slate/SlateBrushAsset.h"
 #include "FriendsAndChatStyle.h"
 #include "SUTStyle.h"
 
@@ -43,8 +44,13 @@ const int32 FONT_SIZE_Medium = 24;
 const int32 FONT_SIZE_Large = 32;
 const int32 FONT_SIZE_Huge = 64;
 
+const int32 FONT_SIZE_Notice = 20;
+
 FSlateSound SUTStyle::ButtonPressSound;
 FSlateSound SUTStyle::ButtonHoverSound;
+FSlateSound SUTStyle::MessageSound;
+FSlateSound SUTStyle::PauseSound;
+
 FSlateColor SUTStyle::DefaultForeground;
 
 TSharedRef<FSlateStyleSet> SUTStyle::Create()
@@ -59,6 +65,8 @@ TSharedRef<FSlateStyleSet> SUTStyle::Create()
 
 	ButtonHoverSound = FSlateSound::FromName_DEPRECATED(FName("SoundCue'/Game/RestrictedAssets/UI/UT99UI_LittleSelect_Cue.UT99UI_LittleSelect_Cue'"));
 	ButtonPressSound = FSlateSound::FromName_DEPRECATED(FName("SoundCue'/Game/RestrictedAssets/UI/UT99UI_BigSelect_Cue.UT99UI_BigSelect_Cue'"));
+	MessageSound = FSlateSound::FromName_DEPRECATED(FName("SoundCue'/Game/RestrictedAssets/Audio/UI/A_UI_Attention02_Cue.A_UI_Attention02_Cue'"));
+	PauseSound = FSlateSound::FromName_DEPRECATED(FName("SoundCue'/Game/RestrictedAssets/Audio/UI/A_UI_Pause01_Cue.A_UI_Pause01_Cue'"));
 
 	SetFonts(StyleRef);
 	SetCommonStyle(StyleRef);
@@ -75,6 +83,7 @@ void SUTStyle::SetFonts(TSharedRef<FSlateStyleSet> StyleRef)
 
 	Style.Set("UT.Font.NormalText.Tiny", FTextBlockStyle().SetFont(TTF_FONT("/UTStyle/Fonts/Lato/Lato-Regular", FONT_SIZE_Tiny)).SetColorAndOpacity(FLinearColor::White));
 	Style.Set("UT.Font.NormalText.Tiny.Bold", FTextBlockStyle().SetFont(TTF_FONT("/UTStyle/Fonts/Lato/Lato-Bold", FONT_SIZE_Tiny)).SetColorAndOpacity(FLinearColor::White));
+	Style.Set("UT.Font.NormalText.Tiny.Bold.Gold", FTextBlockStyle().SetFont(TTF_FONT("/UTStyle/Fonts/Lato/Lato-Bold", FONT_SIZE_Tiny)).SetColorAndOpacity(FLinearColor::Yellow));
 
 	Style.Set("UT.Font.NormalText.Small", FTextBlockStyle().SetFont(TTF_FONT("/UTStyle/Fonts/Lato/Lato-Regular", FONT_SIZE_Small)).SetColorAndOpacity(FLinearColor::White));
 	Style.Set("UT.Font.NormalText.Small.Bold", FTextBlockStyle().SetFont(TTF_FONT("/UTStyle/Fonts/Lato/Lato-Bold", FONT_SIZE_Small)).SetColorAndOpacity(FLinearColor::White));
@@ -90,6 +99,13 @@ void SUTStyle::SetFonts(TSharedRef<FSlateStyleSet> StyleRef)
 
 	Style.Set("UT.Font.NormalText.Huge", FTextBlockStyle().SetFont(TTF_FONT("/UTStyle/Fonts/Lato/Lato-Regular", FONT_SIZE_Huge)).SetColorAndOpacity(FLinearColor::White));
 	Style.Set("UT.Font.NormalText.Huge.Bold", FTextBlockStyle().SetFont(TTF_FONT("/UTStyle/Fonts/Lato/Lato-Bold", FONT_SIZE_Huge)).SetColorAndOpacity(FLinearColor::White));
+
+	Style.Set("UT.Font.Notice", FTextBlockStyle().SetFont(TTF_FONT("/UTStyle/Fonts/Lato/Lato-Regular", FONT_SIZE_Notice)).SetColorAndOpacity(FLinearColor::White));
+	Style.Set("UT.Font.Notice.Gold", FTextBlockStyle().SetFont(TTF_FONT("/UTStyle/Fonts/Lato/Lato-Regular", FONT_SIZE_Notice)).SetColorAndOpacity(FLinearColor(255.0, 255.0, 96 / 255.0 ,1.0)));
+	Style.Set("UT.Font.Notice.Blue", FTextBlockStyle().SetFont(TTF_FONT("/UTStyle/Fonts/Lato/Lato-Regular", FONT_SIZE_Notice)).SetColorAndOpacity(FLinearColor(25.0/255.0,48.0 / 255.0,180.0 / 255, 1.0)));
+
+
+
 
 }
 
@@ -148,6 +164,7 @@ void SUTStyle::SetCommonStyle(TSharedRef<FSlateStyleSet> StyleRef)
 	Style.Set("UT.HeaderBackground.Dark", new FSlateColorBrush(FColor(4,4,4,255)));
 	Style.Set("UT.HeaderBackground.Navy", new FSlateColorBrush(FColor(0,0,4,255)));
 	Style.Set("UT.HeaderBackground.Light", new FSlateColorBrush(FColor(14,14,14,255)));
+	Style.Set("UT.HeaderBackground.SuperLight", new FSlateColorBrush(FColor(32,32,32,255)));
 	Style.Set("UT.HeaderBackground.Medium", new FSlateColorBrush(FColor(10,10,10,255)));
 	Style.Set("UT.HeaderBackground.Shaded", new FSlateColorBrush(FColor(4,4,4,200)));
 	Style.Set("UT.Box", new FSlateColorBrush(FColor(13,13,13,153)));
@@ -230,11 +247,32 @@ void SUTStyle::SetCommonStyle(TSharedRef<FSlateStyleSet> StyleRef)
 
 
 
-	Style.Set("UT.HomePanel.TutorialLogo", new IMAGE_BRUSH("UTStyle/MainPanel/T_TUT_ULogo_Shadow", FVector2D(2048,1024), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
+	FStringAssetReference T_TUT_ULogo_Shadow(TEXT("/Game/RestrictedAssets/SlateLargeImages/T_TUT_ULogo_Shadow_Brush.T_TUT_ULogo_Shadow_Brush"));
+	USlateBrushAsset* T_TUT_ULogo_ShadowBrushAsset = Cast<USlateBrushAsset>(T_TUT_ULogo_Shadow.TryLoad());
+	if (T_TUT_ULogo_ShadowBrushAsset)
+	{
+		T_TUT_ULogo_ShadowBrushAsset->AddToRoot();
+		Style.Set("UT.HomePanel.TutorialLogo", &T_TUT_ULogo_ShadowBrushAsset->Brush);
+	}
+
+	FStringAssetReference Background(TEXT("/Game/RestrictedAssets/SlateLargeImages/Background_Brush.Background_Brush"));
+	USlateBrushAsset* BackgroundBrushAsset = Cast<USlateBrushAsset>(Background.TryLoad());
+	if (BackgroundBrushAsset)
+	{
+		BackgroundBrushAsset->AddToRoot();
+		Style.Set("UT.HomePanel.Background", &BackgroundBrushAsset->Brush);
+	}
+
+	FStringAssetReference IABadge(TEXT("/Game/RestrictedAssets/SlateLargeImages/IABadge_Brush.IABadge_Brush"));
+	USlateBrushAsset* IABadgeBrushAsset = Cast<USlateBrushAsset>(IABadge.TryLoad());
+	if (IABadgeBrushAsset)
+	{
+		IABadgeBrushAsset->AddToRoot();
+		Style.Set("UT.HomePanel.IABadge", &IABadgeBrushAsset->Brush);
+	}
+
 	Style.Set("UT.HomePanel.FragCenterLogo", new IMAGE_BRUSH("UTStyle/MainPanel/FragCenterEmblem", FVector2D(644, 644), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
-	Style.Set("UT.HomePanel.Background", new IMAGE_BRUSH( "UTStyle/MainPanel/Background", FVector2D(1920,1016), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
 	Style.Set("UT.HomePanel.Flak", new IMAGE_BRUSH( "UTStyle/MainPanel/Flak", FVector2D(180,180), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
-	Style.Set("UT.HomePanel.IABadge", new IMAGE_BRUSH( "UTStyle/MainPanel/IABadge", FVector2D(380,270), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
 	Style.Set("UT.HomePanel.FMBadge", new IMAGE_BRUSH( "UTStyle/MainPanel/FMBadge", FVector2D(380,270), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
 	Style.Set("UT.HomePanel.DMBadge", new IMAGE_BRUSH( "UTStyle/MainPanel/DMBadge", FVector2D(380,270), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
 	Style.Set("UT.HomePanel.CTFBadge", new IMAGE_BRUSH( "UTStyle/MainPanel/CTFBadge", FVector2D(380,270), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
@@ -280,6 +318,7 @@ void SUTStyle::SetRankBadges(TSharedRef<FSlateStyleSet> StyleRef)
 
 	Style.Set("UT.RankBadge.2", new IMAGE_BRUSH( "UTStyle/RankBadges/UT.RankBadge.Tarydium.77x77", FVector2D(77.0f, 77.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
 	Style.Set("UT.RankBadge.2.Small", new IMAGE_BRUSH( "UTStyle/RankBadges/UT.RankBadge.Tarydium.48x48", FVector2D(48.0f, 48.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
+
 }
 
 
@@ -288,7 +327,11 @@ void SUTStyle::SetChallengeBadges(TSharedRef<FSlateStyleSet> StyleRef)
 	FSlateStyleSet& Style = StyleRef.Get();
 	Style.Set("UT.ChallengeBadges.DM", new IMAGE_BRUSH( "UTStyle/ChallengeBadges/DeathmatchChallenge", FVector2D(880.0f, 256.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
 	Style.Set("UT.ChallengeBadges.CTF", new IMAGE_BRUSH( "UTStyle/ChallengeBadges/CaptureTheFlagChallenge", FVector2D(880.0f, 256.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
-
+	Style.Set("UT.ChallengeBadges.CTF_Face", new IMAGE_BRUSH("UTStyle/ChallengeBadges/CaptureTheFlagChallenge_FacingWorlds", FVector2D(880.0f, 256.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+	Style.Set("UT.ChallengeBadges.CTF_Pistola", new IMAGE_BRUSH("UTStyle/ChallengeBadges/CaptureTheFlagChallenge_Pistola", FVector2D(880.0f, 256.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+	Style.Set("UT.ChallengeBadges.CTF_Titan", new IMAGE_BRUSH("UTStyle/ChallengeBadges/CaptureTheFlagChallenge_TitanPass", FVector2D(880.0f, 256.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+	Style.Set("UT.ChallengeBadges.DM_Lea", new IMAGE_BRUSH("UTStyle/ChallengeBadges/DeathmatchChallenge_Lea", FVector2D(880.0f, 256.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+	Style.Set("UT.ChallengeBadges.DM_OP23", new IMAGE_BRUSH("UTStyle/ChallengeBadges/DeathmatchChallenge_OP23", FVector2D(880.0f, 256.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
 }
 
 END_SLATE_FUNCTION_BUILD_OPTIMIZATION

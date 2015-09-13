@@ -3,6 +3,7 @@
 #include "UTWeaponRedirector.h"
 #include "UnrealNetwork.h"
 #include "UTWorldSettings.h"
+#include "UTProj_TransDisk.h"
 
 void AUTWeaponRedirector::InitFor_Implementation(APawn* InInstigator, const FRepCollisionShape& InCollision, UPrimitiveComponent* InBase, const FTransform& InDest)
 {
@@ -58,7 +59,7 @@ float AUTWeaponRedirector::TakeDamage(float DamageAmount, const FDamageEvent& Da
 
 void AUTWeaponRedirector::OnBeginOverlap(AActor* OtherActor)
 {
-	if (bWeaponPortal && Cast<AUTProjectile>(OtherActor) != NULL)
+	if (bWeaponPortal && (Cast<AUTProjectile>(OtherActor) != NULL) && (Cast<AUTProj_TransDisk>(OtherActor) == NULL))
 	{
 		FTransform OtherTransform = OtherActor->GetTransform();
 		OtherTransform.RemoveScaling();

@@ -723,6 +723,12 @@ struct FServerInstanceData
 	UPROPERTY()
 	bool bJoinableAsSpectator;
 
+	UPROPERTY()
+	FString MutatorList;
+
+	UPROPERTY()
+	FString Score;
+
 	UPROPERTY(NotReplicated)
 	TArray<FMatchPlayerListStruct> Players;
 
@@ -737,10 +743,12 @@ struct FServerInstanceData
 		, bTeamGame(false)
 		, bJoinableAsPlayer(false)
 		, bJoinableAsSpectator(false)
+		, MutatorList(TEXT(""))
+		, Score(TEXT(""))
 	{
 	}
 
-	FServerInstanceData(FGuid inInstanceId, const FString& inRulesTitle, const FString& inMapName, int32 inNumPlayers, int32 inMaxPlayers, int32 inNumFriends, uint32 inFlags, int32 inRank, bool inbTeamGame, bool inbJoinableAsPlayer, bool inbJoinableAsSpectator)
+	FServerInstanceData(FGuid inInstanceId, const FString& inRulesTitle, const FString& inMapName, int32 inNumPlayers, int32 inMaxPlayers, int32 inNumFriends, uint32 inFlags, int32 inRank, bool inbTeamGame, bool inbJoinableAsPlayer, bool inbJoinableAsSpectator, const FString& inMutatorList, const FString& inScore)
 		: InstanceId(inInstanceId)
 		, RulesTitle(inRulesTitle)
 		, MapName(inMapName)
@@ -752,12 +760,14 @@ struct FServerInstanceData
 		, bTeamGame(inbTeamGame)
 		, bJoinableAsPlayer(inbJoinableAsPlayer)
 		, bJoinableAsSpectator(inbJoinableAsSpectator)
+		, MutatorList(inMutatorList)
+		, Score(inScore)
 	{
 	}
 
-	static TSharedRef<FServerInstanceData> Make(FGuid inInstanceId, const FString& inRulesTitle, const FString& inMapName, int32 inNumPlayers, int32 inMaxPlayers, int32 inNumFriends, uint32 inFlags, int32 inRank, bool inbTeamGame, bool inbJoinableAsPlayer, bool inbJoinableAsSpectator)
+	static TSharedRef<FServerInstanceData> Make(FGuid inInstanceId, const FString& inRulesTitle, const FString& inMapName, int32 inNumPlayers, int32 inMaxPlayers, int32 inNumFriends, uint32 inFlags, int32 inRank, bool inbTeamGame, bool inbJoinableAsPlayer, bool inbJoinableAsSpectator, const FString& inMutatorList, const FString& inScore)
 	{
-		return MakeShareable(new FServerInstanceData(inInstanceId, inRulesTitle, inMapName, inNumPlayers, inMaxPlayers, inNumFriends, inFlags, inRank, inbTeamGame, inbJoinableAsPlayer, inbJoinableAsSpectator));
+		return MakeShareable(new FServerInstanceData(inInstanceId, inRulesTitle, inMapName, inNumPlayers, inMaxPlayers, inNumFriends, inFlags, inRank, inbTeamGame, inbJoinableAsPlayer, inbJoinableAsSpectator, inMutatorList, inScore));
 	}
 	static TSharedRef<FServerInstanceData> Make(const FServerInstanceData& Other)
 	{
@@ -831,6 +841,7 @@ namespace EPlayerListContentCommand
 	const FName Kick = FName(TEXT("Kick"));
 	const FName Ban = FName(TEXT("Ban"));
 	const FName Invite = FName(TEXT("Invite"));
+	const FName UnInvite = FName(TEXT("Uninvite"));
 }
 
 UENUM()

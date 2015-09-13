@@ -267,7 +267,7 @@ void SUTQuickMatch::OnFindSessionsComplete(bool bWasSuccessful)
 void SUTQuickMatch::NoAvailableMatches()
 {
 	PlayerOwner->CloseQuickMatch();
-	PlayerOwner->MessageBox(NSLOCTEXT("QuickMatch", "NoServersTitle", "ONLINE FAILURE"), NSLOCTEXT("QuickMatch", "NoServerTitle", "The Online System is down for maintenance, please try again in a few minutes."));
+	PlayerOwner->MessageBox(NSLOCTEXT("QuickMatch", "NoServersTitle", "ONLINE FAILURE"), NSLOCTEXT("QuickMatch", "NoServerTitle", "No quickmatch instances were found.  Try finding a game using the hub browser."));
 }
 
 void SUTQuickMatch::PingNextBatch()
@@ -597,8 +597,10 @@ void SUTQuickMatch::RequestQuickPlayResults(AUTServerBeaconClient* Beacon, const
 	{
 		UE_LOG(UT,Log,TEXT("QuickPlay Request to server timed out.  Attempting the next one"));
 		FinalList.Remove(BestServer);
-		BestServer->Beacon->DestroyBeacon();
-
+		if (BestServer.IsValid() && BestServer->Beacon.IsValid())
+		{
+			BestServer->Beacon->DestroyBeacon();
+		}
 		// Restart the search
 		FindBestMatch();		
 	
@@ -607,7 +609,10 @@ void SUTQuickMatch::RequestQuickPlayResults(AUTServerBeaconClient* Beacon, const
 	{
 		UE_LOG(UT,Log,TEXT("QuickPlay Request to server Failed.  Attempting the next one"));
 		FinalList.Remove(BestServer);
-		BestServer->Beacon->DestroyBeacon();
+		if (BestServer.IsValid() && BestServer->Beacon.IsValid())
+		{
+			BestServer->Beacon->DestroyBeacon();
+		}
 
 		// Restart the search
 		FindBestMatch();		

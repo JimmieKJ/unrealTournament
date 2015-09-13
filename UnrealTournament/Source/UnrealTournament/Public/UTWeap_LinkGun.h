@@ -74,6 +74,38 @@ class UNREALTOURNAMENT_API AUTWeap_LinkGun : public AUTWeapon
 
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = LinkGun)
 	virtual void LinkedConsumeAmmo(int32 Mode);
+	
+	/** render target for on-mesh display screen */
+	UPROPERTY(BlueprintReadWrite, Category = Mesh)
+	UCanvasRenderTarget2D* ScreenTexture;
+	/** drawn to the display screen for a short time after holder kills an enemy */
+	UPROPERTY(BlueprintReadWrite, EditDefaultsOnly, Category = Mesh)
+	UTexture2D* ScreenKillNotifyTexture;
+	/** font for text on the display screen */
+	UPROPERTY(BlueprintReadWrite, EditDefaultsOnly, Category = Mesh)
+	UFont* ScreenFont;
+	/** material ID for the screen */
+	UPROPERTY(EditDefaultsOnly, Category = Mesh)
+	int32 ScreenMaterialID;
+	/** material instance showing the screen */
+	UPROPERTY(BlueprintReadWrite, Category = Mesh)
+	UMaterialInstanceDynamic* ScreenMI;
+
+	virtual void AttachToOwner_Implementation() override;
+
+	UFUNCTION()
+	virtual void UpdateScreenTexture(UCanvas* C, int32 Width, int32 Height);
+
+	TSharedPtr<FCanvasWordWrapper> WordWrapper;
+
+	/** set (client only) to last time user recorded a kill while holding this weapon, used to change on-mesh screen display */
+	UPROPERTY(BlueprintReadWrite, Category = Mesh)
+	float LastClientKillTime;
+
+	virtual void NotifyKillWhileHolding_Implementation(TSubclassOf<UDamageType> DmgType) override
+	{
+		LastClientKillTime = GetWorld()->TimeSeconds;
+	}
 
 protected:
 	UPROPERTY(BlueprintReadOnly, Replicated, Category = LinkGun)

@@ -902,8 +902,11 @@ public:
 	UPROPERTY()
 	FXPBreakdown XPBreakdown;
 
-	/**Stored list of rewards gained from ClientReceiveLevelReward()*/
-	TMap<int32, const class UUTProfileItem*> LevelRewards;
+	/** Stored list of rewards gained from ClientReceiveLevelReward()
+	 * FIXME: using a wasteful array instead of TMap here because GC can't handle MapProperty correctly
+	 */
+	UPROPERTY()
+	TArray<const class UUTProfileItem*> LevelRewards;
 };
 
 

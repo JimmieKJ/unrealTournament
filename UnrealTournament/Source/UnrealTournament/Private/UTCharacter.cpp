@@ -46,7 +46,8 @@ AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer.SetDefaultSubobjectClass<UUTCharacterMovement>(ACharacter::CharacterMovementComponentName))
 {
 	// FIXME: TEMP FOR GDC: needed because of TeamMaterials
-	static ConstructorHelpers::FObjectFinder<UClass> DefaultCharContent(TEXT("Class'/Game/RestrictedAssets/Character/Malcom_New/Malcolm_New.Malcolm_New_C'"));
+	static ConstructorHelpers::FObjectFinder<UClass> DefaultCharContentRef(TEXT("Class'/Game/RestrictedAssets/Character/Malcom_New/Malcolm_New.Malcolm_New_C'"));
+	DefaultCharContent = DefaultCharContentRef.Object;
 
 	// Set size for collision capsule
 	GetCapsuleComponent()->InitCapsuleSize(42.f, 92.0f);
@@ -69,6 +70,7 @@ AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 	FirstPersonMesh->bCastDynamicShadow = false;
 	FirstPersonMesh->CastShadow = false;
 	FirstPersonMesh->bReceivesDecals = false;
+	FirstPersonMesh->PrimaryComponentTick.AddPrerequisite(this, PrimaryActorTick);
 
 	GetMesh()->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered;
 	GetMesh()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
@@ -240,6 +242,13 @@ void AUTCharacter::BeginPlay()
 void AUTCharacter::PostInitializeComponents()
 {
 	Super::PostInitializeComponents();
+	if ((GetNetMode() == NM_DedicatedServer) || (GetCachedScalabilityCVars().DetailMode == 0))
+	{
+		if (GetMesh())
+		{
+			GetMesh()->bDisableClothSimulation = true;
+		}
+	}
 	if (GetNetMode() != NM_DedicatedServer)
 	{
 		for (int32 i = 0; i < GetMesh()->GetNumMaterials(); i++)
@@ -315,7 +324,10 @@ FRotator AUTCharacter::GetDelayedShotRotation()
 void AUTCharacter::PositionUpdated(bool bShotSpawned)
 {
 	const float WorldTime = GetWorld()->GetTimeSeconds();
-	new(SavedPositions) FSavedPosition(GetActorLocation(), GetViewRotation(), GetCharacterMovement()->Velocity, GetCharacterMovement()->bJustTeleported, bShotSpawned, WorldTime, (UTCharacterMovement ? UTCharacterMovement->GetCurrentSynchTime() : 0.f));
+	if (GetCharacterMovement())
+	{
+		new(SavedPositions)FSavedPosition(GetActorLocation(), GetViewRotation(), GetCharacterMovement()->Velocity, GetCharacterMovement()->bJustTeleported, bShotSpawned, WorldTime, (UTCharacterMovement ? UTCharacterMovement->GetCurrentSynchTime() : 0.f));
+	}
 
 	// maintain one position beyond MaxSavedPositionAge for interpolation
 	if (SavedPositions.Num() > 1 && SavedPositions[1].Time < WorldTime - MaxSavedPositionAge)
@@ -3114,12 +3126,12 @@ void AUTCharacter::CheckRagdollFallingDamage(const FHitResult& Hit)
 	FVector MeshVelocity = GetMesh()->GetComponentVelocity();
 	// physics numbers don't seem to match up... biasing towards more falling damage over less to minimize exploits
 	// besides, faceplanting ought to hurt more than landing on your feet, right? :)
-	MeshVelocity.Z *= 2.0f;
-	if (MeshVelocity.Z < -1.f * MaxSafeFallSpeed)
+	MeshVelocity *= 2.0f;
+	if (MeshVelocity.Size() > MaxSafeFallSpeed)
 	{
 		FVector SavedVelocity = GetCharacterMovement()->Velocity;
 		GetCharacterMovement()->Velocity = MeshVelocity;
-		TakeFallingDamage(Hit, GetCharacterMovement()->Velocity.Z);
+		TakeFallingDamage(Hit, -GetCharacterMovement()->Velocity.Size());
 		GetCharacterMovement()->Velocity = SavedVelocity;
 		// clear Z velocity on the mesh so that this collision won't happen again unless there's a new fall
 		for (int32 i = 0; i < GetMesh()->Bodies.Num(); i++)
@@ -3151,15 +3163,19 @@ void AUTCharacter::OnRagdollCollision(AActor* OtherActor, UPrimitiveComponent* O
 
 void AUTCharacter::SetCharacterOverlay(UMaterialInterface* NewOverlay, bool bEnabled)
 {
-	if (Role == ROLE_Authority && NewOverlay != NULL)
+	SetCharacterOverlayEffect(FOverlayEffect(NewOverlay), bEnabled);
+}
+void AUTCharacter::SetCharacterOverlayEffect(const struct FOverlayEffect& NewOverlay, bool bEnabled)
+{
+	if (Role == ROLE_Authority && NewOverlay.IsValid())
 	{
 		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 		if (GS != NULL)
 		{
-			int32 Index = GS->FindOverlayMaterial(NewOverlay);
+			int32 Index = GS->FindOverlayEffect(NewOverlay);
 			if (Index == INDEX_NONE)
 			{
-				UE_LOG(UT, Warning, TEXT("Overlay material %s was not registered"), *NewOverlay->GetFullName());
+				UE_LOG(UT, Warning, TEXT("Overlay effect %s was not registered"), *NewOverlay.ToString());
 			}
 			else
 			{
@@ -3182,15 +3198,19 @@ void AUTCharacter::SetCharacterOverlay(UMaterialInterface* NewOverlay, bool bEna
 }
 void AUTCharacter::SetWeaponOverlay(UMaterialInterface* NewOverlay, bool bEnabled)
 {
-	if (Role == ROLE_Authority && NewOverlay != NULL)
+	SetWeaponOverlayEffect(FOverlayEffect(NewOverlay), bEnabled);
+}
+void AUTCharacter::SetWeaponOverlayEffect(const FOverlayEffect& NewOverlay, bool bEnabled)
+{
+	if (Role == ROLE_Authority && NewOverlay.IsValid())
 	{
 		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 		if (GS != NULL)
 		{
-			int32 Index = GS->FindOverlayMaterial(NewOverlay);
+			int32 Index = GS->FindOverlayEffect(NewOverlay);
 			if (Index == INDEX_NONE)
 			{
-				UE_LOG(UT, Warning, TEXT("Overlay material %s was not registered"), *NewOverlay->GetFullName());
+				UE_LOG(UT, Warning, TEXT("Overlay effect %s was not registered"), *NewOverlay.ToString());
 			}
 			else
 			{
@@ -3245,6 +3265,21 @@ void AUTCharacter::UpdateCharOverlays()
 		{
 			OverlayMesh->DetachFromParent();
 			OverlayMesh->UnregisterComponent();
+			TArray<USceneComponent*> ChildrenCopy = OverlayMesh->AttachChildren;
+			for (USceneComponent* Child : ChildrenCopy)
+			{
+				UParticleSystemComponent* PSC = Cast<UParticleSystemComponent>(Child);
+				if (PSC != NULL && PSC->IsActive())
+				{
+					PSC->bAutoDestroy = true;
+					PSC->DeactivateSystem();
+					PSC->DetachFromParent(true);
+				}
+				else
+				{
+					Child->DestroyComponent(false);
+				}
+			}
 		}
 	}
 	else if (GS != NULL)
@@ -3267,9 +3302,9 @@ void AUTCharacter::UpdateCharOverlays()
 			OverlayMesh->SetRelativeScale3D(FVector(1.0f, 1.0f, 1.0f));
 			OverlayMesh->SetRenderCustomDepth(true);
 		}
-		UMaterialInterface* FirstOverlay = GS->GetFirstOverlay(CharOverlayFlags, false);
+		FOverlayEffect FirstOverlay = GS->GetFirstOverlay(CharOverlayFlags, false);
 		// note: MID doesn't have any safe way to change Parent at runtime, so we need to make a new one every time...
-		UMaterialInstanceDynamic* MID = UMaterialInstanceDynamic::Create(FirstOverlay, OverlayMesh);
+		UMaterialInstanceDynamic* MID = UMaterialInstanceDynamic::Create(FirstOverlay.Material, OverlayMesh);
 		// apply team color, if applicable
 		AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
 		if (PS != NULL && PS->Team != NULL)
@@ -3280,6 +3315,46 @@ void AUTCharacter::UpdateCharOverlays()
 		for (int32 i = 0; i < OverlayMesh->GetNumMaterials(); i++)
 		{
 			OverlayMesh->SetMaterial(i, MID);
+		}
+		if (FirstOverlay.Particles != NULL)
+		{
+			UParticleSystemComponent* PSC = NULL;
+			for (USceneComponent* Child : OverlayMesh->AttachChildren)
+			{
+				PSC = Cast<UParticleSystemComponent>(Child);
+				if (PSC != NULL)
+				{
+					break;
+				}
+			}
+			if (PSC == NULL)
+			{
+				PSC = NewObject<UParticleSystemComponent>(OverlayMesh);
+				PSC->RegisterComponent();
+			}
+			PSC->AttachTo(OverlayMesh, FirstOverlay.ParticleAttachPoint);
+			PSC->SetTemplate(FirstOverlay.Particles);
+		}
+		else
+		{
+			for (USceneComponent* Child : OverlayMesh->AttachChildren)
+			{
+				UParticleSystemComponent* PSC = Cast<UParticleSystemComponent>(Child);
+				if (PSC != NULL)
+				{
+					if (PSC->IsActive())
+					{
+						PSC->bAutoDestroy = true;
+						PSC->DeactivateSystem();
+						PSC->DetachFromParent(true);
+					}
+					else
+					{
+						PSC->DestroyComponent();
+					}
+					break;
+				}
+			}
 		}
 	}
 }
@@ -3908,11 +3983,8 @@ void AUTCharacter::OnRep_PlayerState()
 
 void AUTCharacter::ApplyCharacterData(TSubclassOf<AUTCharacterContent> CharType)
 {
-	// FIXME: TEMP FOR GDC: needed because of TeamMaterials
-	TSubclassOf<AUTCharacterContent> DefaultClass = LoadClass<AUTCharacterContent>(NULL, TEXT("/Game/RestrictedAssets/Character/Malcom_New/Malcolm_New.Malcolm_New_C"), NULL, LOAD_None, NULL);
-
 	AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
-	const AUTCharacterContent* Data = (CharType != NULL) ? CharType.GetDefaultObject() : (DefaultClass != NULL ? DefaultClass.GetDefaultObject() : NULL);
+	const AUTCharacterContent* Data = (CharType != NULL) ? CharType.GetDefaultObject() : (DefaultCharContent != NULL ? DefaultCharContent.GetDefaultObject() : NULL);
 	if (Data->Mesh != NULL)
 	{
 		FComponentReregisterContext ReregisterContext(GetMesh());

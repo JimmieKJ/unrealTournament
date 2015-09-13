@@ -84,14 +84,14 @@ void AUTServerBeaconLobbyClient::Empty()
 }
 
 
-bool AUTServerBeaconLobbyClient::Lobby_NotifyInstanceIsReady_Validate(uint32 InstanceID, FGuid InstanceGUID) { return true; }
-void AUTServerBeaconLobbyClient::Lobby_NotifyInstanceIsReady_Implementation(uint32 InstanceID, FGuid InstanceGUID)
+bool AUTServerBeaconLobbyClient::Lobby_NotifyInstanceIsReady_Validate(uint32 InstanceID, FGuid InstanceGUID, const FString& MapName) { return true; }
+void AUTServerBeaconLobbyClient::Lobby_NotifyInstanceIsReady_Implementation(uint32 InstanceID, FGuid InstanceGUID, const FString& MapName)
 {
 	UE_LOG(UT,Verbose,TEXT("[HUB] NotifyInstanceIsReady: Instance %i [%s]"), InstanceID, *InstanceGUID.ToString());
 	AUTLobbyGameState* LobbyGameState = GetWorld()->GetGameState<AUTLobbyGameState>();
 	if (LobbyGameState)
 	{
-		LobbyGameState->GameInstance_Ready(InstanceID, InstanceGUID);
+		LobbyGameState->GameInstance_Ready(InstanceID, InstanceGUID, MapName);
 		Instance_ReceiveHubID(LobbyGameState->HubGuid);
 	}
 

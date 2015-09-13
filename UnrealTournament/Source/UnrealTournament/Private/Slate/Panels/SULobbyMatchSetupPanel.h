@@ -57,6 +57,7 @@ protected:
 
 	void JoinAnyTimeChanged(ECheckBoxState NewState);
 	void AllowSpectatorChanged(ECheckBoxState NewState);
+	void FriendsOnlyChanged(ECheckBoxState NewState);
 	void RankCeilingChanged(ECheckBoxState NewState);
 
 	float BlinkyTimer;
@@ -86,6 +87,7 @@ protected:
 	ECheckBoxState GetLimitRankState() const;
 	ECheckBoxState GetAllowSpectatingState() const;
 	ECheckBoxState GetAllowJIPState() const;
+	ECheckBoxState GetFriendsOnlyState() const;
 
 	TSharedPtr<SUWGameSetupDialog> SetupDialog;
 

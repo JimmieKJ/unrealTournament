@@ -14,7 +14,7 @@ class UNREALTOURNAMENT_API UUTLevelSummary : public UObject
 	: Super(OI)
 	{
 		Author = TEXT("Unknown");
-		Description = NSLOCTEXT("LevelSummary", "DefaultDesc", "Needs Description");
+		Description = NSLOCTEXT("LevelSummary", "DefaultDesc", "");
 		OptimalPlayerCount = 6;
 		OptimalTeamPlayerCount = 10;
 	}

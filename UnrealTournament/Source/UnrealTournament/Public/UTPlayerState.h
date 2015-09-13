@@ -478,6 +478,10 @@ public:
 	{
 		return ItemListReq.IsValid() && ItemListReq->GetStatus() == EHttpRequestStatus::Processing;
 	}
+	inline bool OwnsItem(const UUTProfileItem* Item) const
+	{
+		return ProfileItems.ContainsByPredicate([=](const FProfileItemEntry& A) { return A.Item == Item; });
+	}
 	/** returns whether the user owns an item that grants the asset (cosmetic, character, whatever) with the given path */
 	bool OwnsItemFor(const FString& Path, int32 VariantId = 0) const;
 

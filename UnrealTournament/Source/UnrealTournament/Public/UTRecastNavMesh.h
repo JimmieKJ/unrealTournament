@@ -95,8 +95,8 @@ public:
 	FRouteCacheItem(TWeakObjectPtr<UUTPathNode> InNode, const FVector& InLoc, NavNodeRef InTargetPoly)
 		: Node(InNode), Actor(NULL), Location(InLoc), bDirectTarget(false), TargetPoly(InTargetPoly)
 	{}
-	FRouteCacheItem(TWeakObjectPtr<AActor> InActor, const FVector& InLoc, NavNodeRef InTargetPoly)
-		: Node(NULL), Actor(InActor), Location(InLoc), bDirectTarget(InTargetPoly == INVALID_NAVNODEREF), TargetPoly(InTargetPoly)
+	FRouteCacheItem(TWeakObjectPtr<AActor> InActor, const FVector& InLoc, NavNodeRef InTargetPoly, TWeakObjectPtr<UUTPathNode> InNode = NULL)
+		: Node(InNode), Actor(InActor), Location(InLoc), bDirectTarget(InTargetPoly == INVALID_NAVNODEREF), TargetPoly(InTargetPoly)
 	{}
 	explicit FRouteCacheItem(const FVector& InLoc, NavNodeRef InTargetPoly = INVALID_NAVNODEREF)
 		: Node(NULL), Actor(NULL), Location(InLoc), bDirectTarget(InTargetPoly == INVALID_NAVNODEREF), TargetPoly(InTargetPoly)
@@ -197,7 +197,32 @@ struct UNREALTOURNAMENT_API FSingleEndpointEvalWeighted : public FSingleEndpoint
 /** ends pathing when it encounters one of any number of target nodes */
 struct UNREALTOURNAMENT_API FMultiPathNodeEval : public FUTNodeEvaluator
 {
-	TSet<const UUTPathNode*> Goals;
+	// special set key handling that only pays attention to Node
+	struct SetKeyFuncs : BaseKeyFuncs<FRouteCacheItem, FRouteCacheItem, true>
+	{
+		typedef TCallTraits<FRouteCacheItem>::ParamType KeyInitType;
+		typedef TCallTraits<FRouteCacheItem>::ParamType ElementInitType;
+		static FORCEINLINE KeyInitType GetSetKey(ElementInitType Element)
+		{
+			return Element;
+		}
+		static FORCEINLINE bool Matches(KeyInitType A, KeyInitType B)
+		{
+			return A.Node == B.Node;
+		}
+		static FORCEINLINE uint32 GetKeyHash(KeyInitType Key)
+		{
+			return GetTypeHash(Key.Node);
+		}
+	};
+
+	/** route item for goals; note that the route has to have Node set or it won't ever be found, however we use the full data
+	 * so we can set the endpoint of the returned path to the exact requested location
+	 */
+	TSet<FRouteCacheItem, SetKeyFuncs> Goals;
+
+	const UUTPathNode* GoalNode;
+	FVector GoalEntryLoc;
 
 	virtual bool InitForPathfinding(APawn* Asker, const FNavAgentProperties& AgentProps, AUTRecastNavMesh* NavData) override
 	{
@@ -205,14 +230,35 @@ struct UNREALTOURNAMENT_API FMultiPathNodeEval : public FUTNodeEvaluator
 	}
 	virtual float Eval(APawn* Asker, const FNavAgentProperties& AgentProps, const UUTPathNode* Node, const FVector& EntryLoc, int32 TotalDistance) override
 	{
-		return Goals.Contains(Node) ? 10.0f : 0.0f;
+		if (Goals.Contains(FRouteCacheItem(Node, EntryLoc, INVALID_NAVNODEREF)))
+		{
+			GoalNode = Node;
+			GoalEntryLoc = EntryLoc;
+			return 10.0f;
+		}
+		else
+		{
+			return 0.0f;
+		}
+	}
+	virtual bool GetRouteGoal(AActor*& OutGoal, FVector& OutGoalLoc) const override
+	{
+		// return closest input location to the final node entry point as the final destination
+		float BestDistSq = FLT_MAX;
+		for (TSet<FRouteCacheItem, SetKeyFuncs>::TConstKeyIterator It(Goals, FRouteCacheItem(GoalNode, GoalEntryLoc, INVALID_NAVNODEREF)); It; ++It)
+		{
+			float DistSq = (It->GetLocation(NULL) - GoalEntryLoc).SizeSquared();
+			if (DistSq < BestDistSq)
+			{
+				OutGoal = It->Actor.Get();
+				OutGoalLoc = It->GetLocation(NULL);
+			}
+		}
+		return true;
 	}
 
 	FMultiPathNodeEval() = default;
-	explicit FMultiPathNodeEval(const TSet<const UUTPathNode*>& InGoals)
-		: Goals(InGoals)
-	{}
-	explicit FMultiPathNodeEval(const TArray<const UUTPathNode*>& InGoals)
+	explicit FMultiPathNodeEval(const TArray<FRouteCacheItem>& InGoals)
 		: Goals(InGoals)
 	{}
 };
@@ -364,9 +410,10 @@ class UNREALTOURNAMENT_API AUTRecastNavMesh : public ARecastNavMesh
 	 * @param Weight (in/out) - input is minimum weight (as returned by NodeEval) for a node to be chosen; output is the weight of the found node (if any)
 	 * @param bAllowDetours - whether to allow post processing the final path with redirects to nearby inventory items (ignored if Asker is NULL)
 	 * @param NodeRoute - the route found over the node network
+	 * @param NodeCosts - if specified, filled with parallel array to NodeRoute that contains path costs
 	 * @return whether a valid path was found
 	 */
-	virtual bool FindBestPath(APawn* Asker, const FNavAgentProperties& AgentProps, FUTNodeEvaluator& NodeEval, const FVector& StartLoc, float& Weight, bool bAllowDetours, TArray<FRouteCacheItem>& NodeRoute);
+	virtual bool FindBestPath(APawn* Asker, const FNavAgentProperties& AgentProps, FUTNodeEvaluator& NodeEval, const FVector& StartLoc, float& Weight, bool bAllowDetours, TArray<FRouteCacheItem>& NodeRoute, TArray<int32>* NodeCosts = NULL);
 
 	/** calculate effective traveling distance between two polys
 	 * returns direct distance if reachable by straight line or no navmesh path exists, otherwise does navmesh pathfinding and returns path distance

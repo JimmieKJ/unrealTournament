@@ -58,7 +58,7 @@ AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer
 	PrevXP = -1;
 	TotalChallengeStars = 0;
 	EmoteSpeed = 1.0f;
-	BotELOLimit = 1575;
+	BotELOLimit = 1500;
 }
 
 void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
@@ -2324,7 +2324,7 @@ void AUTPlayerState::OnRep_bIsInactive()
 
 bool AUTPlayerState::AllowFreezingTaunts() const
 {
-	bool bResult = GetWorld()->GetGameState()->IsMatchInProgress();
+	bool bResult = !GetWorld()->GetGameState()->IsMatchInProgress();
 	if (!bResult)
 	{
 		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();

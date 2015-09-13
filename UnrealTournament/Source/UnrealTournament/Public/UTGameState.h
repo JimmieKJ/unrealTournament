@@ -59,7 +59,7 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 
 	/**If true, had to force balance teams. */
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = GameState)
-		uint32 bForcedBalance : 1;
+	uint32 bForcedBalance : 1;
 
 	/** If a single player's (or team's) score hits this limited, the game is over */
 	UPROPERTY(Replicated, EditDefaultsOnly, BlueprintReadOnly, Category = GameState)
@@ -204,14 +204,31 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 	virtual int32 GetMaxTeamSpectatingId(int32 TeamNum);
 
 	/** add an overlay to the OverlayMaterials list */
-	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = Effects)
+	UFUNCTION(Meta = (DeprecatedFunction, DeprecationMessage = "Use AddOverlayEffect"), BlueprintCallable, BlueprintAuthorityOnly, Category = Effects)
 	virtual void AddOverlayMaterial(UMaterialInterface* NewOverlay, UMaterialInterface* NewOverlay1P = NULL);
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = Effects)
+	virtual void AddOverlayEffect(const FOverlayEffect& NewOverlay, const FOverlayEffect& NewOverlay1P
+#if CPP // UHT is dumb
+	= FOverlayEffect()
+#endif
+	);
 	/** find an overlay in the OverlayMaterials list, return its index */
-	int32 FindOverlayMaterial(UMaterialInterface* TestOverlay)
+	int32 FindOverlayMaterial(UMaterialInterface* TestOverlay) const
 	{
-		for (int32 i = 0; i < ARRAY_COUNT(OverlayMaterials); i++)
+		for (int32 i = 0; i < ARRAY_COUNT(OverlayEffects); i++)
 		{
-			if (OverlayMaterials[i] == TestOverlay)
+			if (OverlayEffects[i].Material == TestOverlay)
+			{
+				return i;
+			}
+		}
+		return INDEX_NONE;
+	}
+	int32 FindOverlayEffect(const FOverlayEffect& TestEffect) const
+	{
+		for (int32 i = 0; i < ARRAY_COUNT(OverlayEffects); i++)
+		{
+			if (OverlayEffects[i] == TestEffect)
 			{
 				return i;
 			}
@@ -219,35 +236,35 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 		return INDEX_NONE;
 	}
 	/** get overlay material from index */
-	UMaterialInterface* GetOverlayMaterial(int32 Index, bool bFirstPerson)
+	FOverlayEffect GetOverlayMaterial(int32 Index, bool bFirstPerson)
 	{
-		if (Index >= 0 && Index < ARRAY_COUNT(OverlayMaterials))
+		if (Index >= 0 && Index < ARRAY_COUNT(OverlayEffects))
 		{
-			return (bFirstPerson && OverlayMaterials1P[Index] != NULL) ? OverlayMaterials1P[Index] : OverlayMaterials[Index];
+			return (bFirstPerson && OverlayEffects1P[Index].IsValid()) ? OverlayEffects1P[Index] : OverlayEffects[Index];
 		}
 		else
 		{
-			return NULL;
+			return FOverlayEffect();
 		}
 	}
 	/** returns first active overlay material given the passed in flags */
-	UMaterialInterface* GetFirstOverlay(uint16 Flags, bool bFirstPerson)
+	FOverlayEffect GetFirstOverlay(uint16 Flags, bool bFirstPerson)
 	{
 		// early out
 		if (Flags == 0)
 		{
-			return NULL;
+			return FOverlayEffect();
 		}
 		else
 		{
-			for (int32 i = 0; i < ARRAY_COUNT(OverlayMaterials); i++)
+			for (int32 i = 0; i < ARRAY_COUNT(OverlayEffects); i++)
 			{
 				if (Flags & (1 << i))
 				{
-					return (bFirstPerson && OverlayMaterials1P[i] != NULL) ? OverlayMaterials1P[i] : OverlayMaterials[i];
+					return (bFirstPerson && OverlayEffects1P[i].IsValid()) ? OverlayEffects1P[i] : OverlayEffects[i];
 				}
 			}
-			return NULL;
+			return FOverlayEffect();
 		}
 	}
 
@@ -288,10 +305,10 @@ protected:
 	/** overlay materials, mapped to bits in UTCharacter's OverlayFlags/WeaponOverlayFlags and used to efficiently handle character/weapon overlays
 	 * only replicated at startup so set any used materials via BeginPlay()
 	 */
-	UPROPERTY(ReplicatedUsing = OnRep_OverlayMaterials)
-	UMaterialInterface* OverlayMaterials[MAX_OVERLAY_MATERIALS];
-	UPROPERTY(ReplicatedUsing = OnRep_OverlayMaterials)
-	UMaterialInterface* OverlayMaterials1P[MAX_OVERLAY_MATERIALS];
+	UPROPERTY(ReplicatedUsing = OnRep_OverlayEffects)
+	FOverlayEffect OverlayEffects[MAX_OVERLAY_MATERIALS];
+	UPROPERTY(ReplicatedUsing = OnRep_OverlayEffects)
+	FOverlayEffect OverlayEffects1P[MAX_OVERLAY_MATERIALS];
 
 	virtual void HandleMatchHasEnded() override
 	{
@@ -299,7 +316,7 @@ protected:
 	}
 
 	UFUNCTION()
-	virtual void OnRep_OverlayMaterials();
+	virtual void OnRep_OverlayEffects();
 
 public:
 	// Will be true if this is an instanced server from a lobby.

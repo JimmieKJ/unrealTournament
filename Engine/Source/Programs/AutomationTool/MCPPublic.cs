@@ -293,9 +293,9 @@ namespace EpicGames.MCP.Automation
         public class PatchGenerationOptions
         {
             /// <summary>
-            /// By default, we will only consider data modified within 12 days to be reusable
+            /// By default, we will only consider data referenced from manifests modified within five days to be reusable.
             /// </summary>
-            public const int DEFAULT_DATA_AGE_THRESHOLD = 12;
+            private const int DEFAULT_DATA_AGE_THRESHOLD = 5;
 
             public PatchGenerationOptions()
             {
@@ -336,10 +336,10 @@ namespace EpicGames.MCP.Automation
             public MCPPlatform Platform;
             /// <summary>
             /// When identifying existing patch data to reuse in this build, only
-            /// files modified within this number of days will be considered for reuse.
-            /// IMPORTANT: This should always be smaller than the data age threshold for any compactify process which will run on the directory, to ensure
+            /// files referenced from a manifest file modified within this number of days will be considered for reuse.
+            /// IMPORTANT: This should always be smaller than the minimum age at which manifest files can be deleted by any cleanup process, to ensure
             /// that we do not reuse any files which could be deleted by a concurrently running compactify. It is recommended that this number be at least
-            /// two days less than the compactify data age threshold.
+            /// two days less than the cleanup data age threshold.
             /// </summary>
             public int DataAgeThreshold;
 			/// <summary>
@@ -361,11 +361,11 @@ namespace EpicGames.MCP.Automation
 		/// </summary>
 		public class CompactifyOptions
 		{
-			private static readonly int DefaultDataAgeThreshold = PatchGenerationOptions.DEFAULT_DATA_AGE_THRESHOLD + 2;
+			private const int DEFAULT_DATA_AGE_THRESHOLD = 2;
 
 			public CompactifyOptions()
 			{
-				DataAgeThreshold = DefaultDataAgeThreshold;
+				DataAgeThreshold = DEFAULT_DATA_AGE_THRESHOLD;
 			}
 
 			/// <summary>
@@ -390,10 +390,9 @@ namespace EpicGames.MCP.Automation
 			/// </summary>
 			public string ManifestsToKeepFile;
 			/// <summary>
-			/// Path data files modified within this number of days will *not* be deleted, allowing them to be reused by patch generation processes.
-			/// IMPORTANT: This should always be larger than the data age threshold for any build processes which will run on the directory, to ensure
-			/// that we do not delete any files which could be reused by a concurrently running build. It is recommended that this number be at least
-			/// two days greater than the build data age threshold.
+			/// Patch data files modified within this number of days will *not* be deleted, to ensure that any patch files being written out by a.
+			/// patch generation process are not deleted before their corresponding manifest file(s) can be written out.
+			/// NOTE: this should be set to a value larger than the expected maximum time that a build could take.
 			/// </summary>
 			public int DataAgeThreshold;
 		}

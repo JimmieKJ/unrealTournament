@@ -253,36 +253,6 @@ TWeakObjectPtr<AUTReplicatedGameRuleset> AUTLobbyGameState::FindRuleset(FString 
 	return NULL;
 }
 
-AUTLobbyMatchInfo* AUTLobbyGameState::QuickStartMatch(AUTLobbyPlayerState* Host, bool bIsCTFMatch)
-{
-	// Create a match and replicate all of the relevant information
-
-	UE_LOG(UT,Log,TEXT("Starting a QuickMatch for %s (%s)"), *Host->PlayerName, (bIsCTFMatch ? TEXT("True") : TEXT("False")))
-
-	AUTLobbyMatchInfo* NewMatchInfo = GetWorld()->SpawnActor<AUTLobbyMatchInfo>();
-	if (NewMatchInfo)
-	{	
-		AvailableMatches.Add(NewMatchInfo);
-		NewMatchInfo->SetOwner(Host);
-		NewMatchInfo->AddPlayer(Host, true);
-
-		UE_LOG(UT,Log,TEXT("   Added player to Quickmatch.. "))
-
-		TWeakObjectPtr<AUTReplicatedGameRuleset> NewRuleset = FindRuleset( bIsCTFMatch ? FQuickMatchTypeRulesetTag::CTF : FQuickMatchTypeRulesetTag::DM);
-
-		if (NewRuleset.IsValid())
-		{
-			NewMatchInfo->SetRules(NewRuleset, NewRuleset->DefaultMap);
-		}
-
-		NewMatchInfo->bJoinAnytime = true;
-		NewMatchInfo->bSpectatable = true;
-		NewMatchInfo->LaunchMatch();		
-	}
-
-	return NewMatchInfo;
-}
-
 AUTLobbyMatchInfo* AUTLobbyGameState::AddNewMatch(AUTLobbyPlayerState* MatchOwner, AUTLobbyMatchInfo* MatchToCopy)
 {
 	// Create a match and replicate all of the relevant information
@@ -319,6 +289,17 @@ void AUTLobbyGameState::JoinMatch(AUTLobbyMatchInfo* MatchInfo, AUTLobbyPlayerSt
 		return;
 	}
 
+	if (MatchInfo->IsPrivateMatch())
+	{
+		// Look to see if this player has the key to the match
+	
+		if (MatchInfo->AllowedPlayerList.Find(NewPlayer->UniqueId.ToString()) == INDEX_NONE)
+		{
+			NewPlayer->ClientMatchError(NSLOCTEXT("LobbyMessage","Private","Sorry, but the match you are trying to join is private."));
+			return;
+		}
+	}
+
 	if (MatchInfo->CurrentState == ELobbyMatchState::Launching)
 	{
 		NewPlayer->ClientMatchError(NSLOCTEXT("LobbyMessage","MatchIsStarting","The match you are trying to join is starting.  Please wait for it to begin before trying to spectate it."));	
@@ -326,22 +307,21 @@ void AUTLobbyGameState::JoinMatch(AUTLobbyMatchInfo* MatchInfo, AUTLobbyPlayerSt
 	}
 	else if (MatchInfo->CurrentState == ELobbyMatchState::InProgress)
 	{
-		AUTLobbyGameMode* GM = GetWorld()->GetAuthGameMode<AUTLobbyGameMode>();
-		if (GM)
+		if (!MatchInfo->bJoinAnytime)
 		{
-			if (MatchInfo->bJoinAnytime || bAsSpectator)
-			{
-				 if ( MatchInfo->MatchHasRoom(bAsSpectator) )
-				 {
-					MatchInfo->AddPlayer(NewPlayer);
-					NewPlayer->ClientConnectToInstance(MatchInfo->GameInstanceGUID, bAsSpectator);
-					return;
-				 }
-			}
-
-			NewPlayer->ClientMatchError(NSLOCTEXT("LobbyMessage","MatchIsFull","The match you are trying to join is full."));	
+			NewPlayer->ClientMatchError(NSLOCTEXT("LobbyMessage", "MatchIsNotJoinable", "The match you are trying to join is does not allow join in progress."));
 			return;
 		}
+		AUTLobbyGameMode* GM = GetWorld()->GetAuthGameMode<AUTLobbyGameMode>();
+		if (GM && MatchInfo->MatchHasRoom(bAsSpectator) )
+		{
+			MatchInfo->AddPlayer(NewPlayer);
+			NewPlayer->ClientConnectToInstance(MatchInfo->GameInstanceGUID, bAsSpectator);
+			return;
+		}
+
+		NewPlayer->ClientMatchError(NSLOCTEXT("LobbyMessage","MatchIsFull","The match you are trying to join is full."));	
+		return;
 	}
 
 	if (!MatchInfo->SkillTest(NewPlayer->AverageRank)) // MAKE THIS CONFIG
@@ -425,11 +405,18 @@ void AUTLobbyGameState::CreateAutoMatch(FString MatchGameMode, FString MatchOpti
 */
 }
 
-void AUTLobbyGameState::LaunchGameInstance(AUTLobbyMatchInfo* MatchOwner, FString GameURL)
+void AUTLobbyGameState::LaunchGameInstance(AUTLobbyMatchInfo* MatchOwner, FString GameURL, int32 DebugCode)
 {
 	AUTLobbyGameMode* LobbyGame = GetWorld()->GetAuthGameMode<AUTLobbyGameMode>();
+
 	if (LobbyGame && MatchOwner && MatchOwner->CurrentRuleset.IsValid())
 	{
+		if (MatchOwner->GameInstanceProcessHandle.IsValid())
+		{
+			UE_LOG(UT, Warning, TEXT("Attempted to Launch a game instance when an instance already has a proc id.  Ignoring. DebugCode = %i"), DebugCode);
+			return;
+		}
+
 		GameInstanceID++;
 		if (GameInstanceID == 0) GameInstanceID = 1;	// Always skip 0.
 
@@ -518,13 +505,14 @@ void AUTLobbyGameState::TerminateGameInstance(AUTLobbyMatchInfo* MatchOwner, boo
 }
 
 
-void AUTLobbyGameState::GameInstance_Ready(uint32 InGameInstanceID, FGuid GameInstanceGUID)
+void AUTLobbyGameState::GameInstance_Ready(uint32 InGameInstanceID, FGuid GameInstanceGUID, const FString& MapName)
 {
 	for (int32 i=0; i < GameInstances.Num(); i++)
 	{
 		if (GameInstances[i].MatchInfo->GameInstanceID == InGameInstanceID)
 		{
 			GameInstances[i].MatchInfo->GameInstanceReady(GameInstanceGUID);
+			GameInstances[i].MatchInfo->InitialMap = MapName;
 			break;
 		}
 	}
@@ -943,7 +931,7 @@ void AUTLobbyGameState::HandleQuickplayRequest(AUTServerBeaconClient* Beacon, co
 				(GameInstances[i].MatchInfo->CurrentState == ELobbyMatchState::Launching || GameInstances[i].MatchInfo->CurrentState == ELobbyMatchState::InProgress))
 		{
 			// We have found a potential quick play match.  See if this player could be added to it.
-			if (GameInstances[i].MatchInfo->CanAddPlayer(ELORank, true))
+			if (bTrainingGround || GameInstances[i].MatchInfo->CanAddPlayer(ELORank, true))
 			{
 				// If we have already found a possibly good match, look to see if this one is better.
 
@@ -1008,7 +996,7 @@ void AUTLobbyGameState::HandleQuickplayRequest(AUTServerBeaconClient* Beacon, co
 			NewMatchInfo->NotifyBeacons.Add(Beacon);
 			NewMatchInfo->bJoinAnytime = true;
 			NewMatchInfo->bSpectatable = true;
-			NewMatchInfo->LaunchMatch(true);
+			NewMatchInfo->LaunchMatch(true,1);
 		}
 	}
 	else

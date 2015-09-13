@@ -22,6 +22,10 @@ class UNREALTOURNAMENT_API AUTLobbyPlayerState : public AUTPlayerState
 	UPROPERTY(Replicated, replicatedUsing = OnRep_CurrentMatch )
 	AUTLobbyMatchInfo* CurrentMatch;
 
+ 	// The match this player is currently in.
+	UPROPERTY(Replicated, replicatedUsing = OnRep_CurrentMatch )
+	AUTLobbyMatchInfo* LastInvitedMatch;
+
 	// The previous match this player played in.
 	UPROPERTY()
 	AUTLobbyMatchInfo* PreviousMatch;
@@ -118,6 +122,10 @@ public:
 	{
 		return DesiredTeamNum;
 	}
+
+	virtual void InviteToMatch(AUTLobbyMatchInfo* Match);
+	virtual void UninviteFromMatch(AUTLobbyMatchInfo* Match);
+
 
 };
 

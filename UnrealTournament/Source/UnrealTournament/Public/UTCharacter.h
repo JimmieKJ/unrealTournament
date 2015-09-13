@@ -220,6 +220,36 @@ struct FBloodDecalInfo
 	{}
 };
 
+USTRUCT(BlueprintType)
+struct FOverlayEffect
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	UMaterialInterface* Material;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	UParticleSystem* Particles;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FName ParticleAttachPoint;
+
+	explicit FOverlayEffect(UMaterialInterface* InMaterial = NULL, UParticleSystem* InParticles = NULL, FName InParticleAttachPoint = NAME_None)
+		: Material(InMaterial), Particles(InParticles), ParticleAttachPoint(InParticleAttachPoint)
+	{}
+
+	inline bool operator== (const FOverlayEffect& B) const
+	{
+		return Material == B.Material && Particles == B.Particles; // attach point irrelevant
+	}
+	inline bool IsValid() const
+	{
+		return Material != NULL || Particles != NULL;
+	}
+	inline FString ToString() const
+	{
+		return FString::Printf(TEXT("(Material=%s,Particles=%s)"), *GetFullNameSafe(Material), *GetFullNameSafe(Particles));
+	}
+};
+
 UCLASS(config=Game, collapsecategories, hidecategories=(Clothing,Lighting,AutoExposure,LensFlares,AmbientOcclusion,DepthOfField,MotionBlur,Misc,ScreenSpaceReflections,Bloom,SceneColor,Film,AmbientCubemap,AgentPhysics,Attachment,Avoidance,PlanarMovement,AI,Replication,Input,Actor,Tags,GlobalIllumination))
 class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInterface
 {
@@ -1223,10 +1253,12 @@ public:
 	UPROPERTY(BlueprintReadWrite, Category = Sounds)
 	float LastWallHitNotifyTime;
 
-	/** sets character overlay material; material must be added to the UTGameState's OverlayMaterials at level startup to work correctly (for replication reasons)
+	/** sets character overlay effect; effect must be added to the UTGameState's OverlayEffects at level startup to work correctly (for replication reasons)
 	 * multiple overlays can be active at once, but only one will be displayed at a time
 	 */
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = Effects)
+	virtual void SetCharacterOverlayEffect(const FOverlayEffect& NewOverlay, bool bEnabled);
+	UFUNCTION(Meta = (DeprecatedFunction, DeprecationMessage = "Use SetCharacterOverlayEffect"), BlueprintCallable, BlueprintAuthorityOnly, Category = Effects)
 	virtual void SetCharacterOverlay(UMaterialInterface* NewOverlay, bool bEnabled);
 
 	/** uses CharOverlayFlags to apply the desired overlay material (if any) to OverlayMesh */
@@ -1238,11 +1270,16 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category = Effects)
 	virtual UMaterialInstanceDynamic* GetCharOverlayMI();
+	
+	UPROPERTY()
+	TSubclassOf<AUTCharacterContent> DefaultCharContent;
 
-	/** sets weapon overlay material; material must be added to the UTGameState's OverlayMaterials at level startup to work correctly (for replication reasons)
+	/** sets weapon overlay effect; effect must be added to the UTGameState's OverlayEffects at level startup to work correctly (for replication reasons)
 	 * multiple overlays can be active at once, but the default in the weapon code is to only display one at a time
 	 */
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = Effects)
+	virtual void SetWeaponOverlayEffect(const FOverlayEffect& NewOverlay, bool bEnabled);
+	UFUNCTION(Meta = (DeprecatedFunction, DeprecationMessage = "Use SetWeaponOverlayEffect"), BlueprintCallable, BlueprintAuthorityOnly, Category = Effects)
 	virtual void SetWeaponOverlay(UMaterialInterface* NewOverlay, bool bEnabled);
 
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = Effects)

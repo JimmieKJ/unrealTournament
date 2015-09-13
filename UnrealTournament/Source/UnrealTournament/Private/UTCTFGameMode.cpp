@@ -61,6 +61,10 @@ void AUTCTFGameMode::InitGame(const FString& MapName, const FString& Options, FS
 	}
 
 	Super::InitGame(MapName, Options, ErrorMessage);
+	if (bOfflineChallenge)
+	{
+		TimeLimit = 900;
+	}
 
 	bSuddenDeath = EvalBoolOptions(ParseOption(Options, TEXT("SuddenDeath")), bSuddenDeath);
 
@@ -970,6 +974,42 @@ void AUTCTFGameMode::UpdateSkillRating()
 		}
 	}
 }
+
+void AUTCTFGameMode::SetRedScore(int32 NewScore)
+{
+	if (!bOfflineChallenge)
+	{
+		Teams[0]->Score = NewScore;
+	}
+}
+
+void AUTCTFGameMode::SetBlueScore(int32 NewScore)
+{
+	if (!bOfflineChallenge)
+	{
+		Teams[1]->Score = NewScore;
+	}
+}
+
+void AUTCTFGameMode::SetRemainingTime(int32 RemainingSeconds)
+{
+	if (bOfflineChallenge)
+	{
+		return;
+	}
+	if (RemainingSeconds > TimeLimit)
+	{
+		// still in first half;
+		UTGameState->RemainingTime = RemainingSeconds - TimeLimit;
+	}
+	else
+	{
+		UTGameState->RemainingTime = 1;
+		TimeLimit = RemainingSeconds;
+		HalftimeDuration = 5;
+	}
+}
+
 
 #if !UE_SERVER
 void AUTCTFGameMode::BuildScoreInfo(AUTPlayerState* PlayerState, TSharedPtr<class SUTTabWidget> TabWidget, TArray<TSharedPtr<TAttributeStat> >& StatList)

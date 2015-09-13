@@ -3371,6 +3371,13 @@ bool FMeshUtilities::BuildSkeletalMesh( FStaticLODModel& LODModel, const FRefere
 
 		if( bComputeNormals || bComputeTangents )
 		{
+			for (int32 VertexIndex = 0; VertexIndex < 3; VertexIndex++)
+			{
+				VertexTangentX[VertexIndex] = FVector::ZeroVector;
+				VertexTangentY[VertexIndex] = FVector::ZeroVector;
+				VertexTangentZ[VertexIndex] = FVector::ZeroVector;
+			}
+
 			FVector	TriangleNormal = FPlane(
 				Points[Wedges[Face.iWedge[2]].iVertex],
 				Points[Wedges[Face.iWedge[1]].iVertex],
@@ -3383,6 +3390,7 @@ bool FMeshUtilities::BuildSkeletalMesh( FStaticLODModel& LODModel, const FRefere
 				VertexTangentY[VertexIndex] = FaceTangentY[FaceIndex];
 				VertexTangentZ[VertexIndex] = TriangleNormal;
 			}
+
 
 			float	Determinant = FVector::Triple(FaceTangentX[FaceIndex],FaceTangentY[FaceIndex],TriangleNormal);
 

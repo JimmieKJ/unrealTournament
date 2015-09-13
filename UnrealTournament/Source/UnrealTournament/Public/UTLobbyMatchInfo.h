@@ -134,6 +134,10 @@ public:
 	UPROPERTY()
 	FString GameInstanceGUID;
 
+	// This is the key that will be used to lock this match
+	UPROPERTY(Replicated)
+	FGuid PrivateKey;
+
 	// Holds a list of Unique IDs of players who are currently in the match.  When a player returns to lobby if their ID is in this list, they will be re-added to the match.
 	UPROPERTY(Replicated)
 	TArray<FPlayerListInfo> PlayersInMatchInstance;
@@ -174,6 +178,15 @@ public:
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerSetRankLocked(bool bLocked);
 
+	void SetPrivateMatch(bool bIsPrivate)
+	{
+		ServerSetPrivateMatch(bIsPrivate);
+	}
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	virtual void ServerSetPrivateMatch(bool bIsPrivate);
+
+
 	FOnMatchInfoUpdated OnMatchInfoUpdatedDelegate;
 	FOnRulesetUpdated OnRulesetUpdatedDelegate;
 
@@ -186,7 +199,7 @@ public:
 	virtual void ServerStartMatch();
 	
 	// Actually launch the map.  NOTE: This is used for QuickStart and doesn't check any of the "can I launch" metrics.
-	virtual void LaunchMatch(bool bQuickPlay=false);
+	virtual void LaunchMatch(bool bQuickPlay, int32 DebugCode);
 
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerAbortMatch();
@@ -345,12 +358,24 @@ public:
 
 	uint32 GetMatchFlags();
 
+	bool IsPrivateMatch()
+	{
+		return ((GetMatchFlags() & MATCH_FLAG_Private) > 0);
+	}
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	void ServerInvitePlayer(AUTLobbyPlayerState* Who, bool bInvite);
+
 protected:
 	UFUNCTION()
 	void OnRep_RedirectsChanged();
 
+	// Moves players to set teams depending on the ruleset.
+	void AssignTeams();
 
-
+public:
+	UPROPERTY(Replicated)
+	TArray<FString> AllowedPlayerList;
 };
 
 

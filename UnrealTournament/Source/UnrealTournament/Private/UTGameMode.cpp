@@ -140,7 +140,7 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	LevelUpRewards[39] = FString(TEXT("/Game/RestrictedAssets/ProfileItems/ThundercrashBeanieRed.ThundercrashBeanieRed"));
 	LevelUpRewards[40] = FString(TEXT("/Game/RestrictedAssets/ProfileItems/SkaarjMale02.SkaarjMale02"));
 	LevelUpRewards[45] = FString(TEXT("/Game/RestrictedAssets/ProfileItems/ThundercrashBeret.ThundercrashBeret"));
-	LevelUpRewards[50] = FString(TEXT("/Game/RestrictedAssets/ProfileItems/ThundercrashMale01.ThundercrashMale01"));
+	LevelUpRewards[50] = FString(TEXT("/Game/RestrictedAssets/ProfileItems/NecrisMale04.NecrisMale04"));
 
 	bDisableMapVote = false;
 
@@ -294,7 +294,7 @@ void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FStr
 			BotFillCount = UUTChallengeManager::StaticClass()->GetDefaultObject<UUTChallengeManager>()->GetNumPlayers(this);
 			bOfflineChallenge = UUTChallengeManager::StaticClass()->GetDefaultObject<UUTChallengeManager>()->IsValidChallenge(this, MapName);
 			bForceRespawn = true;
-			TimeLimit = 900; // always 15 minutes
+			TimeLimit = 600; 
 			GoalScore = 0;
 		}
 	}
@@ -468,40 +468,6 @@ void AUTGameMode::InitGameState()
 			if (UTGameSession->bSessionValid)
 			{
 				NotifyLobbyGameIsReady();
-			}
-		}
-	}
-
-	if (!IsGameInstanceServer() && !bDisableMapVote)
-	{
-		// First, fixup the MapRotation array so it only has long names...
-
-		for (int32 i=0; i < MapRotation.Num(); i++)
-		{
-			FString Map = MapRotation[i];
-			if ( FPackageName::IsShortPackageName(Map) )
-			{
-				FPackageName::SearchForPackageOnDisk(Map, &MapRotation[i]); 
-			}
-		}
-
-		TArray<FString> MapPrefixList;
-		TArray<FAssetData> MapList;	
-
-		MapPrefixList.Add(MapPrefix);
-		UTGameState->ScanForMaps(MapPrefixList, MapList);
-		for(int32 i = 0; i < MapList.Num(); i++)
-		{
-			FString PackageName = MapList[i].PackageName.ToString();
-			for (int32 j = 0; j < MapRotation.Num(); j++)
-			{
-				
-				if (PackageName.Equals(MapRotation[j], ESearchCase::IgnoreCase))
-				{
-					const FString* Title = MapList[i].TagsAndValues.Find(NAME_MapInfo_Title); 
-					const FString* Screenshot = MapList[i].TagsAndValues.Find(NAME_MapInfo_ScreenshotReference);
-					UTGameState->CreateMapVoteInfo(PackageName, (Title != NULL && !Title->IsEmpty()) ? *Title : *MapList[i].AssetName.ToString(), *Screenshot);
-				}
 			}
 		}
 	}
@@ -1176,7 +1142,7 @@ void AUTGameMode::Killed(AController* Killer, AController* KilledPlayer, APawn* 
 			}
 
 			BroadcastDeathMessage(Killer, KilledPlayer, DamageType);
-			if (!bEnemyKill && (Killer != KilledPlayer))
+			if (!bEnemyKill && (Killer != KilledPlayer) && (Killer != NULL))
 			{
 				ScoreTeamKill(Killer, KilledPlayer, KilledPawn, DamageType);
 			}
@@ -1713,11 +1679,6 @@ void AUTGameMode::SendEndOfGameStats(FName Reason)
 
 void AUTGameMode::AwardXP()
 {
-#if !UE_BUILD_SHIPPING
-	if (!FEngineBuildSettings::IsInternalBuild())
-	{
-		return;
-	}
 	// TODO: ideally we wouldn't execute this if the server isn't approved for XP/items, but servers can't easily get their own status...
 	// client does a redundant check anyway so not a huge deal
 	static const bool bXPCheatEnabled = FParse::Param(FCommandLine::Get(), TEXT("XPGiveaway"));
@@ -1739,13 +1700,15 @@ void AUTGameMode::AwardXP()
 					int32 PrevLevel = GetLevelForXP(UTPS->GetPrevXP());
 					int32 NewLevel = GetLevelForXP(UTPS->GetPrevXP() + UTPS->GetXP().Total());
 					TArray<FProfileItemEntry> Rewards;
-					for (int32 CurrentLevel = PrevLevel + 1; CurrentLevel <= NewLevel; CurrentLevel++)
+					for (int32 CurrentLevel = 1; CurrentLevel <= NewLevel; CurrentLevel++)
 					{
 						if (LevelUpRewards.IsValidIndex(CurrentLevel) && LevelUpRewards[CurrentLevel].IsValid())
 						{
 							const UUTProfileItem* RewardItem = Cast<UUTProfileItem>(LevelUpRewards[CurrentLevel].TryLoad());
-							if (RewardItem != NULL)
+							// award if player just gained this level, or retroactively should have at least one but doesn't
+							if (RewardItem != NULL && (CurrentLevel > PrevLevel || !UTPS->OwnsItem(RewardItem)))
 							{
+								UE_LOG(UT, Verbose, TEXT("%s has earned item %s for reaching level %i"), *UTPS->PlayerName, *RewardItem->GetName(), CurrentLevel);
 								new(Rewards) FProfileItemEntry(RewardItem, 1);
 								PC->ClientReceiveLevelReward(CurrentLevel, RewardItem);
 							}
@@ -1756,6 +1719,7 @@ void AUTGameMode::AwardXP()
 						const UUTProfileItem* RewardItem = Cast<UUTProfileItem>(EventReward.TryLoad());
 						if (RewardItem != NULL)
 						{
+							UE_LOG(UT, Log, TEXT("Granting event item %s to %s "), *RewardItem->GetName(), *UTPS->PlayerName);
 							new(Rewards) FProfileItemEntry(RewardItem, 1);
 						}
 					}
@@ -1771,7 +1735,6 @@ void AUTGameMode::AwardXP()
 			}
 		}
 	}
-#endif
 }
 
 bool AUTGameMode::PlayerWonChallenge()
@@ -1910,6 +1873,48 @@ void AUTGameMode::TravelToNextMap_Implementation()
 		}
 	}
 	UE_LOG(UT,Log,TEXT("TravelToNextMap: %i %i"),bDedicatedInstance,IsGameInstanceServer());
+
+	if (!IsGameInstanceServer() && !bDisableMapVote && GetWorld()->GetNetMode() != NM_Standalone)
+	{
+		// gather maps for map vote
+		TArray<FString> MapPrefixList;
+		TArray<FAssetData> MapList;
+
+		MapPrefixList.Add(MapPrefix);
+		UTGameState->ScanForMaps(MapPrefixList, MapList);
+
+		// First, fixup the MapRotation array so it only has long names...
+		for (FString& Map : MapRotation)
+		{
+			if (FPackageName::IsShortPackageName(Map))
+			{
+				for (const FAssetData& MapAsset : MapList)
+				{
+					FString PackageName = MapAsset.PackageName.ToString();
+					PackageName = PackageName.Right(PackageName.Len() - PackageName.Find(TEXT("/") - 1, ESearchCase::IgnoreCase, ESearchDir::FromEnd));
+					if (Map == PackageName)
+					{
+						Map = MapAsset.PackageName.ToString();
+						break;
+					}
+				}
+			}
+		}
+
+		for (int32 i = 0; i < MapList.Num(); i++)
+		{
+			FString PackageName = MapList[i].PackageName.ToString();
+			for (int32 j = 0; j < MapRotation.Num(); j++)
+			{
+				if (PackageName.Equals(MapRotation[j], ESearchCase::IgnoreCase))
+				{
+					const FString* Title = MapList[i].TagsAndValues.Find(NAME_MapInfo_Title);
+					const FString* Screenshot = MapList[i].TagsAndValues.Find(NAME_MapInfo_ScreenshotReference);
+					UTGameState->CreateMapVoteInfo(PackageName, (Title != NULL && !Title->IsEmpty()) ? *Title : *MapList[i].AssetName.ToString(), *Screenshot);
+				}
+			}
+		}
+	}
 
 	if (GetWorld()->GetNetMode() != ENetMode::NM_Standalone && (IsGameInstanceServer() || (!bDisableMapVote && UTGameState->MapVoteList.Num() > 0)))
 	{
@@ -3361,7 +3366,7 @@ void AUTGameMode::NotifyLobbyGameIsReady()
 {
 	if (IsGameInstanceServer() && LobbyBeacon)
 	{
-		LobbyBeacon->Lobby_NotifyInstanceIsReady(LobbyInstanceID, ServerInstanceGUID);
+		LobbyBeacon->Lobby_NotifyInstanceIsReady(LobbyInstanceID, ServerInstanceGUID, GetWorld()->GetMapName());
 	}
 }
 
@@ -3738,6 +3743,7 @@ void AUTGameMode::BuildWeaponInfo(AUTPlayerState* PlayerState, TSharedPtr<class 
 			StatList);
 	}
 
+	TopRightPane->AddSlot().AutoHeight()[SNew(SBox).HeightOverride(40.0f)];
 	NewPlayerInfoLine(TopRightPane, NSLOCTEXT("AUTGameMode", "ShockComboKills", "Shock Combo Kills"), MakeShareable(new TAttributeStat(PlayerState, NAME_ShockComboKills)), StatList);
 	NewPlayerInfoLine(TopRightPane, NSLOCTEXT("AUTGameMode", "AmazingCombos", "Amazing Combos"), MakeShareable(new TAttributeStat(PlayerState, NAME_AmazingCombos)), StatList);
 	NewPlayerInfoLine(TopRightPane, NSLOCTEXT("AUTGameMode", "HeadShots", "Sniper Headshots"), MakeShareable(new TAttributeStat(PlayerState, NAME_SniperHeadshotKills)), StatList);

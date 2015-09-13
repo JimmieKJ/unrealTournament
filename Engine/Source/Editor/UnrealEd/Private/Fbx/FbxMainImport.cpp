@@ -425,10 +425,17 @@ int32 FFbxImporter::GetImportType(const FString& InFilename)
 		CurPhase = NOTSTARTED;
 
 		// In case no Geometry was found, check for animation (FBX can still contain mesh data though)
-		if ( Result == -1 )
+		if (bHasAnimation)
 		{
-			// If animation data is found, set the result to 2, otherwise default to static mesh
-			Result = bHasAnimation ? 2 : 0;
+			if ( Result == -1)
+			{
+				Result = 2;
+			}
+			// by default detects as skeletalmesh since it has animation curves
+			else if (Result == 0)
+			{
+				Result = 1;
+			}
 		}
 	}
 	

@@ -394,7 +394,7 @@ void AUTHUD::OpenMatchSummary()
 void AUTHUD::PostRender()
 {
 	// @TODO FIXMESTEVE - need engine to also give pawn a chance to postrender so don't need this hack
-	AUTRemoteRedeemer* Missile = Cast<AUTRemoteRedeemer>(UTPlayerOwner->GetViewTarget());
+	AUTRemoteRedeemer* Missile = UTPlayerOwner ? Cast<AUTRemoteRedeemer>(UTPlayerOwner->GetViewTarget()) : NULL;
 	if (Missile && !UTPlayerOwner->IsBehindView())
 	{
 		Missile->PostRender(this, Canvas);

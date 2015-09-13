@@ -134,7 +134,7 @@ FText UUTDeathMessage::GetText(int32 Switch,bool bTargetsPlayerState1,class APla
 		UUTDamageType* DamageType = DamageTypeClass->GetDefaultObject<UUTDamageType>();			
 		if (Switch == 1)	// Suicide
 		{
-			AUTPlayerState* PS = Cast<AUTPlayerState>(RelatedPlayerState_1);
+			AUTPlayerState* PS = Cast<AUTPlayerState>(RelatedPlayerState_2);
 			return (PS != NULL && PS->IsFemale()) ? DamageType->FemaleSuicideMessage : DamageType->MaleSuicideMessage;
 		}
 		return DamageType->ConsoleDeathMessage;
