@@ -1690,7 +1690,7 @@ void AUTGameMode::AwardXP()
 			AUTPlayerController* PC = Cast<AUTPlayerController>(UTPS->GetOwner());
 			if (PC != NULL)
 			{
-				UTPS->GiveXP(FNewScoreXP(FMath::TruncToInt(UTPS->Score)));
+				UTPS->GiveXP(FNewScoreXP(FMath::Max<int32>(0, FMath::TruncToInt(UTPS->Score))));
 				if (bXPCheatEnabled)
 				{
 					UTPS->GiveXP(FNewKillAwardXP(250000));
