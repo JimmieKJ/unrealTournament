@@ -989,6 +989,15 @@ void AUTPlayerState::GiveXP(const FXPBreakdown& AddXP)
 	}
 }
 
+void AUTPlayerState::ClampXP(int32 MaxValue)
+{
+	float Percent = float(XP.Total()) / float(MaxValue);
+	if (Percent > 1.0f)
+	{
+		XP /= Percent;
+	}
+}
+
 void AUTPlayerState::ReadStatsFromCloud()
 {
 	AUTGameMode* GameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();

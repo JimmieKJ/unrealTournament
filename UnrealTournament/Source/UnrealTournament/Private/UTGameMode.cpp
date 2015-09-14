@@ -101,6 +101,7 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	bAllowOvertime = true;
 	bForceRespawn = false;
 	XPMultiplier = 1.0f;
+	XPCapPerMin = 20;
 
 	DefaultPlayerName = FText::FromString(TEXT("Player"));
 	MapPrefix = TEXT("DM");
@@ -1690,7 +1691,11 @@ void AUTGameMode::AwardXP()
 			AUTPlayerController* PC = Cast<AUTPlayerController>(UTPS->GetOwner());
 			if (PC != NULL)
 			{
-				UTPS->GiveXP(FNewScoreXP(FMath::TruncToInt(UTPS->Score)));
+				UTPS->GiveXP(FNewScoreXP(FMath::Max<int32>(0, FMath::TruncToInt(UTPS->Score))));
+				if (XPCapPerMin > 0)
+				{
+					UTPS->ClampXP(XPCapPerMin * (((GameState->ElapsedTime - PS->StartTime) / 60) + 1));
+				}
 				if (bXPCheatEnabled)
 				{
 					UTPS->GiveXP(FNewKillAwardXP(250000));

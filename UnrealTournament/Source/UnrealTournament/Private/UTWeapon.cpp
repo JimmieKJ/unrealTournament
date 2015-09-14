@@ -1916,8 +1916,6 @@ void AUTWeapon::UpdateOverlaysShared(AActor* WeaponActor, AUTCharacter* InOwner,
 		}
 		else if (InOverlayMesh != NULL && InOverlayMesh->IsRegistered())
 		{
-			InOverlayMesh->DetachFromParent();
-			InOverlayMesh->UnregisterComponent();
 			TArray<USceneComponent*> ChildrenCopy = InOverlayMesh->AttachChildren;
 			for (USceneComponent* Child : ChildrenCopy)
 			{
@@ -1933,6 +1931,10 @@ void AUTWeapon::UpdateOverlaysShared(AActor* WeaponActor, AUTCharacter* InOwner,
 					Child->DestroyComponent(false);
 				}
 			}
+			// we have to destroy the component instead of simply leaving it unregistered because of the way first person weapons handle component registration via AttachToOwner()
+			// otherwise the overlay will get registered when it's unwanted
+			InOverlayMesh->DestroyComponent(false);
+			InOverlayMesh = NULL;
 		}
 	}
 }

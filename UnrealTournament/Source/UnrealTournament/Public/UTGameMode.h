@@ -150,6 +150,10 @@ public:
 	UPROPERTY()
 	float XPMultiplier;
 
+	/** XP cap/minute */
+	UPROPERTY(GlobalConfig)
+	int32 XPCapPerMin;
+
 	/** Will be TRUE if the game has ended */
 	UPROPERTY()
 	uint32 bGameEnded:1;    

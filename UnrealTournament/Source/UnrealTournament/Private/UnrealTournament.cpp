@@ -285,6 +285,7 @@ void GetAllAssetData(UClass* BaseClass, TArray<FAssetData>& AssetList, bool bReq
 	RootPaths.Add(TEXT("/Game/RestrictedAssets/Character/"));
 	RootPaths.Add(TEXT("/Game/RestrictedAssets/ProfileItems/"));
 	RootPaths.Add(TEXT("/Game/EpicInternal/Lea/"));
+	RootPaths.Add(TEXT("/Game/EpicInternal/Pistola/"));
 	// Cooked data has the asset data already set up
 	AssetRegistry.ScanPathsSynchronous(RootPaths);
 #endif
@@ -802,7 +803,7 @@ int32 GetXPForLevel(int32 Level)
 	const TArray<int32>& LevelTable = GetLevelTable();
 	if (Level < LevelTable.Num() && Level > 0)
 	{
-		return LevelTable[Level];
+		return LevelTable[Level-1];
 	}
 	return 0;
 }

@@ -105,6 +105,21 @@ struct FXPBreakdown
 		NewXP *= B;
 		return NewXP;
 	}
+	template<typename NumberType>
+	void operator/= (const NumberType B)
+	{
+		ScoreXP /= B;
+		KillAwardXP /= B;
+		OffenseXP /= B;
+		DefenseXP /= B;
+	}
+	template<typename NumberType>
+	FXPBreakdown operator/ (const NumberType B) const
+	{
+		FXPBreakdown NewXP(*this);
+		NewXP /= B;
+		return NewXP;
+	}
 };
 
 // convenient overrides for XPBreakdown to make it easier to grant specific types
