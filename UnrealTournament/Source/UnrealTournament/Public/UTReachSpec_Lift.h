@@ -97,7 +97,8 @@ class UNREALTOURNAMENT_API UUTReachSpec_Lift : public UUTReachSpec
 	virtual bool AllowWalkOffLedges(const FUTPathLink& OwnerLink, APawn* Asker, const FComponentBasedPosition& MovePos) const
 	{
 		// allow jumping onto lift center regardless of path
-		return (MovePos.Base == Lift.Get()->GetEncroachComponent());
+		// also handle case where pathing went directly from exit to exit (bug due to navmesh not working correctly for moving platforms)
+		return (MovePos.Base == Lift.Get()->GetEncroachComponent() || (!bEntryPath && LiftCenter.Z > LiftExitLoc.Z + Asker->GetSimpleCollisionHalfHeight()));
 	}
 
 	virtual bool OverrideAirControl(const FUTPathLink& OwnerLink, APawn* Asker, const FComponentBasedPosition& MovePos, const FRouteCacheItem& Target) const
