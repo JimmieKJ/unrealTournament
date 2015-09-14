@@ -639,40 +639,48 @@ void ParseProfileItemJson(const FString& Data, TArray<FProfileItemEntry>& ItemLi
 {
 	TArray< TSharedPtr<FJsonValue> > StatsJson;
 	TSharedRef<TJsonReader<>> JsonReader = TJsonReaderFactory<>::Create(Data);
-	if (FJsonSerializer::Deserialize(JsonReader, StatsJson) && StatsJson.Num() > 0)
+	if (FJsonSerializer::Deserialize(JsonReader, StatsJson))
 	{
-		// compose a TMap of the items for search efficiency
-		TMap< FName, uint32 > StatValueMap;
-		for (TSharedPtr<FJsonValue> TestValue : StatsJson)
+		if (StatsJson.Num() == 0)
 		{
-			if (TestValue->Type == EJson::Object)
+			// valid response, but user has no stats
+			XP = 0;
+		}
+		else
+		{
+			// compose a TMap of the items for search efficiency
+			TMap< FName, uint32 > StatValueMap;
+			for (TSharedPtr<FJsonValue> TestValue : StatsJson)
 			{
-				TSharedPtr<FJsonObject> Obj = TestValue->AsObject();
-				if (Obj->HasField(TEXT("name")))
+				if (TestValue->Type == EJson::Object)
 				{
-					uint32 Value = 0;
-					Obj->TryGetNumberField(TEXT("value"), Value);
-					StatValueMap.Add(FName(*Obj->GetStringField(TEXT("name"))), Value);
+					TSharedPtr<FJsonObject> Obj = TestValue->AsObject();
+					if (Obj->HasField(TEXT("name")))
+					{
+						uint32 Value = 0;
+						Obj->TryGetNumberField(TEXT("value"), Value);
+						StatValueMap.Add(FName(*Obj->GetStringField(TEXT("name"))), Value);
+					}
 				}
 			}
-		}
 
-		XP = int32(StatValueMap.FindRef(NAME_PlayerXP));
+			XP = int32(StatValueMap.FindRef(NAME_PlayerXP));
 
-		ItemList.Reset();
+			ItemList.Reset();
 
-		TArray<FAssetData> AllItems;
-		GetAllAssetData(UUTProfileItem::StaticClass(), AllItems, false);
-		for (const FAssetData& TestItem : AllItems)
-		{
-			FName FieldName(*(ITEM_STAT_PREFIX + TestItem.AssetName.ToString()));
-			uint32 Value = StatValueMap.FindRef(FieldName);
-			if (Value > 0)
+			TArray<FAssetData> AllItems;
+			GetAllAssetData(UUTProfileItem::StaticClass(), AllItems, false);
+			for (const FAssetData& TestItem : AllItems)
 			{
-				UUTProfileItem* Obj = Cast<UUTProfileItem>(TestItem.GetAsset());
-				if (Obj != NULL)
+				FName FieldName(*(ITEM_STAT_PREFIX + TestItem.AssetName.ToString()));
+				uint32 Value = StatValueMap.FindRef(FieldName);
+				if (Value > 0)
 				{
-					new(ItemList)FProfileItemEntry(Obj, Value);
+					UUTProfileItem* Obj = Cast<UUTProfileItem>(TestItem.GetAsset());
+					if (Obj != NULL)
+					{
+						new(ItemList)FProfileItemEntry(Obj, Value);
+					}
 				}
 			}
 		}
