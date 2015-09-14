@@ -281,6 +281,7 @@ public:
 	}
 
 	void GiveXP(const FXPBreakdown& AddXP);
+	void ClampXP(int32 MaxValue);
 
 	// How long until this player can respawn.  It's not directly replicated to the clients instead it's set
 	// locally via OnDeathsReceived.  It will be set to the value of "GameState.RespawnWaitTime"
