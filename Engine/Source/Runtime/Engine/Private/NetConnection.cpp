@@ -654,7 +654,7 @@ void UNetConnection::ReceivedPacket( FBitReader& Reader )
 		
 		if ( PacketsLost > 10 )
 		{
-			UE_LOG( LogNetTraffic, Warning, TEXT( "High single frame packet loss: %i" ), PacketsLost );
+			UE_LOG( LogNetTraffic, Verbose, TEXT( "High single frame packet loss: %i" ), PacketsLost );
 		}
 
 		InPacketsLost += PacketsLost;
