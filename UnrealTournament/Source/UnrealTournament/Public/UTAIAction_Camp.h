@@ -66,6 +66,6 @@ class UNREALTOURNAMENT_API UUTAIAction_Camp : public UUTAIAction
 
 	virtual bool Update(float DeltaTime) override
 	{
-		return GetWorld()->TimeSeconds - CampEndTime <= 0.0f;
+		return GetWorld()->TimeSeconds >= CampEndTime;
 	}
 };
