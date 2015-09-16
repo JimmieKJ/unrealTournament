@@ -718,8 +718,8 @@ void SUWMatchSummary::Tick(const FGeometry& AllottedGeometry, const double InCur
 			TArray<AUTCharacter*> &TeamCharacters = TeamPreviewMeshs[iTeam];
 			for (int32 iPlayer = 0; iPlayer < TeamCharacters.Num(); iPlayer++)
 			{
-				AUTPlayerState* PS = (TeamCharacters[iPlayer] && TeamCharacters[iPlayer]->PlayerState && !TeamCharacters[iPlayer]->PlayerState->IsPendingKillPending()) ? Cast<AUTPlayerState>(TeamCharacters[iPlayer]->PlayerState) : NULL;
-				if (!PS || (GameState->bTeamGame && (!PS->Team || (PS->Team->TeamIndex != iTeam))))
+				AUTPlayerState* PS = (TeamCharacters[iPlayer] && TeamCharacters[iPlayer]->PlayerState) ? Cast<AUTPlayerState>(TeamCharacters[iPlayer]->PlayerState) : NULL;
+				if (!PS || PS->bOnlySpectator || PS->IsPendingKillPending() || (GameState->bTeamGame && (!PS->Team || (PS->Team->TeamIndex != iTeam))))
 				{
 					bPlayersAreValid = false;
 					break;
@@ -976,7 +976,7 @@ void SUWMatchSummary::RecreateAllPlayers()
 		{
 			AUTPlayerState* PS = *It;
 
-			if (!PS->bOnlySpectator)
+			if (!PS->bOnlySpectator && !PS->IsPendingKillPending())
 			{
 				int32 TeamNum = PS->GetTeamNum() == 255 ? 0 : PS->GetTeamNum();
 				if (!TeamPlayerStates.IsValidIndex(TeamNum))
