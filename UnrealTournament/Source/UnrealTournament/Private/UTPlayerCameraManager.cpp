@@ -300,6 +300,8 @@ void AUTPlayerCameraManager::CheckCameraSweep(FHitResult& OutHit, AActor* Target
 	GetWorld()->SweepSingleByChannel(OutHit, Start, End, FQuat::Identity, ECC_Camera, FCollisionShape::MakeBox(FVector(12.f)), BoxParams);
 }
 
+static TAutoConsoleVariable<int32> CVarBloomDirt(TEXT("r.BloomDirt"), 0, TEXT("Enables screen dirt effect in high light/bloom"), ECVF_Default);
+
 void AUTPlayerCameraManager::ApplyCameraModifiers(float DeltaTime, FMinimalViewInfo& InOutPOV)
 {
 	Super::ApplyCameraModifiers(DeltaTime, InOutPOV);
@@ -316,6 +318,15 @@ void AUTPlayerCameraManager::ApplyCameraModifiers(float DeltaTime, FMinimalViewI
 	{
 		PostProcessBlendCache.Insert(StylizedPPSettings[UTPCOwner->StylizedPPIndex], 0);
 		PostProcessBlendCacheWeights.Insert(1.0f, 0);
+	}
+
+	if (!CVarBloomDirt.GetValueOnGameThread())
+	{
+		FPostProcessSettings OverrideSettings;
+		OverrideSettings.bOverride_BloomDirtMaskIntensity = true;
+		OverrideSettings.BloomDirtMaskIntensity = 0.0f;
+		PostProcessBlendCache.Add(OverrideSettings);
+		PostProcessBlendCacheWeights.Add(1.0f);
 	}
 }
 
