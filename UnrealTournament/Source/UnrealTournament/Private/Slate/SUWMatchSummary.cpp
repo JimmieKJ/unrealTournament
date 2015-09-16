@@ -1551,32 +1551,12 @@ void SUWMatchSummary::ShowCharacter(AUTCharacter* UTC)
 
 void SUWMatchSummary::ShowAllCharacters()
 {
-	// @TODO FIXMESTEVE TEMP return - just keep visible whoever is currently visible.
-	return;
-
-	if (TeamPreviewMeshs.Num() > 1)
+	int32 TeamToView = 0;
+	if ((TeamPreviewMeshs.Num() > 1) && GameState.IsValid() && GameState->GetMatchState() == MatchState::WaitingPostMatch && GameState->WinningTeam != nullptr)
 	{
-		for (int32 i = 0; i< TeamPreviewMeshs.Num(); i++)
-		{
-			TArray<AUTCharacter*> &TeamCharacters = TeamPreviewMeshs[i];
-			for (int32 j = 0; j < TeamCharacters.Num(); j++)
-			{
-				TeamCharacters[j]->HideCharacter(false);
-			}
-		}
-		for (auto Weapon : PreviewWeapons)
-		{
-			AUTCharacter* Holder = Cast<AUTCharacter>(Weapon->Instigator);
-			Weapon->SetActorHiddenInGame(false);
-		}
-		for (int32 i = 0; i < PreviewFlags.Num(); i++)
-		{
-			if (PreviewFlags[i])
-			{
-				PreviewFlags[i]->SetActorHiddenInGame(false);
-			}
-		}
+		TeamToView = GameState->WinningTeam->GetTeamNum();
 	}
+	ShowTeam(TeamToView);
 }
 
 float SUWMatchSummary::GetAllCameraOffset()
@@ -1837,9 +1817,29 @@ FOptionalSize SUWMatchSummary::GetStatsWidth() const
 
 FReply SUWMatchSummary::OnClose()
 {
-	if (GameState.IsValid() && ((GameState->GetMatchState() == MatchState::WaitingToStart) || (GameState->GetMatchState() == MatchState::WaitingPostMatch)))
+	if (GameState.IsValid())
 	{
-		ViewAll();
+		int32 TeamToView = 0;
+		if (GameState->GetMatchState() == MatchState::WaitingToStart)
+		{
+			if ((TeamPreviewMeshs.Num() > 1) && GetPlayerOwner().IsValid() && Cast<AUTPlayerController>(GetPlayerOwner()->PlayerController) != nullptr)
+			{
+				TeamToView = Cast<AUTPlayerController>(GetPlayerOwner()->PlayerController)->GetTeamNum();
+			}
+			ViewTeam(TeamToView);
+		}
+		else if (GameState->GetMatchState() == MatchState::WaitingPostMatch)
+		{
+			if ((TeamPreviewMeshs.Num() > 1) && (GameState->WinningTeam != nullptr))
+			{
+				TeamToView = GameState->WinningTeam->GetTeamNum();
+			}
+			ViewTeam(TeamToView);
+		}
+		else
+		{
+			GetPlayerOwner()->CloseMatchSummary();
+		}
 	}
 	else
 	{
