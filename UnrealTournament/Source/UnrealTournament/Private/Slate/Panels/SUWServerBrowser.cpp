@@ -1430,6 +1430,15 @@ void SUWServerBrowser::AddHub(TSharedPtr<FServerData> Hub)
 		Hub->Flags |= SERVERFLAG_Restricted;
 	}
 
+	if (HUBServerList->GetNumItemsSelected() > 0)
+	{
+		TArray<TSharedPtr<FServerData>> Hubs = HUBServerList->GetSelectedItems();
+		if (Hubs.Num() >= 1 && Hubs[0]->SearchResult.Session.SessionInfo->GetSessionId() == Hub->SearchResult.Session.SessionInfo->GetSessionId())
+		{
+			AddHUBInfo(Hub);
+		}
+	}
+
 	for (int32 i=0; i < AllHubServers.Num() ; i++)
 	{
 		if (!AllHubServers[i]->bFakeHUB)
@@ -1507,6 +1516,8 @@ void SUWServerBrowser::OnServerBeaconResult(AUTServerBeaconClient* Sender, FServ
 			}
 
 			PingTrackers[i].Server->AddRule(TEXT("Version"), PingTrackers[i].Server->Version);
+
+			UE_LOG(UT,Log,TEXT("Got Ping:  %s %i"), *PingTrackers[i].Server->GetBrowserName().ToString(), PingTrackers[i].Beacon->Instances.Num() );
 
 			PingTrackers[i].Server->HUBInstances.Empty();
 			for (int32 InstIndex=0; InstIndex < PingTrackers[i].Beacon->Instances.Num(); InstIndex++ )
