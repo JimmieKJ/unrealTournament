@@ -29,6 +29,9 @@ namespace EBuildPatchProgress
 		// The patch process is moving staged files to the install
 		MovingToInstall,
 
+		// The patch process is setting up attributes on the build
+		SettingAttributes,
+
 		// The patch process is verifying the build
 		BuildVerification,
 
@@ -101,6 +104,9 @@ private:
 	// The error text that was set when in error state
 	FText ErrorText;
 
+	// The error text that was set when in error state
+	FText ShortErrorText;
+
 	// Critical section to protect variable access
 	FCriticalSection ThreadLock;
 
@@ -132,9 +138,10 @@ public:
 
 	/**
 	 * Gets the text for the current progress state
+	 * @param ShortError		The truncated version of the error
 	 * @return The display text for the current progress state
 	 */
-	const FText& GetStateText();
+	const FText& GetStateText( bool ShortError = false );
 
 	/**
 	 * Gets the current overall progress

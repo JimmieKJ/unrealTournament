@@ -6,8 +6,11 @@
 
 #pragma once
 
+#include "Generation/StatsCollector.h"
+
 #include "BuildPatchChunk.generated.h"
 
+using namespace BuildPatchServices;
 /**
  * A UStruct wrapping SHA1 hash data for serialization
  */
@@ -24,6 +27,7 @@ struct FSHAHashData
 	bool operator==(const FSHAHashData& Other) const;
 	bool operator!=(const FSHAHashData& Other) const;
 	FString ToString() const;
+	bool isZero() const;
 };
 
 static_assert(FSHA1::DigestSize == 20, "If this changes a lot of stuff here will break!");
@@ -37,7 +41,7 @@ namespace FBuildPatchData
 	{
 		// Sizes
 		ChunkDataSize		= 1024*1024,	// We are using 1MB chunks for patching
-		ChunkQueueSize		= 5,			// The number of chunks to allow to be queued up when saving out
+		ChunkQueueSize		= 50,			// The number of chunks to allow to be queued up when saving out
 	};
 
 	enum Type
@@ -191,6 +195,9 @@ private:
 		// The directory that we want to save chunks to
 		FString ChunkDirectory;
 
+		// The stats collector for stat output
+		FStatsCollectorPtr StatsCollector;
+
 		// Default Constructor
 		FQueuedChunkWriter();
 
@@ -241,6 +248,16 @@ private:
 		// A critical section for accessing ChunkFileSizes.
 		FCriticalSection ChunkFileSizesCS;
 
+		// Atmoic statistics
+		volatile int64* StatFileCreateTime;
+		volatile int64* StatCheckExistsTime;
+		volatile int64* StatSerlialiseTime;
+		volatile int64* StatChunksSaved;
+		volatile int64* StatCompressTime;
+		volatile int64* StatDataWritten;
+		volatile int64* StatDataWriteSpeed;
+		volatile int64* StatCompressionRatio;
+
 		/**
 		 * Called from within run to save out a chunk file.
 		 * @param	ChunkFilename	The chunk filename
@@ -280,7 +297,7 @@ public:
 	/**
 	 * Constructor
 	 */
-	FChunkWriter( const FString& ChunkDirectory );
+	FChunkWriter(const FString& ChunkDirectory, FStatsCollectorRef StatsCollector);
 
 	/**
 	 * Default destructor

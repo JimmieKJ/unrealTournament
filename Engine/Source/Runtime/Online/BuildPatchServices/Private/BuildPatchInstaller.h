@@ -94,7 +94,13 @@ private:
 	double TimePausedAt;
 
 	// Holds a list of files that have been placed into the install directory
-	TArray< FString > FilesInstalled;
+	TArray<FString> FilesInstalled;
+
+	// Holds the install tags for describing the files we want to install
+	TSet<FString> InstallTags;
+
+	// Holds the files which are all required
+	TSet<FString> TaggedFiles;
 
 	// Referecne to the module's installation info
 	FBuildPatchInstallationInfo& InstallationInfo;
@@ -126,6 +132,7 @@ public:
 	virtual bool IsComplete() override;
 	virtual bool IsCanceled() override;
 	virtual bool IsPaused() override;
+	virtual bool IsResumable() override;
 	virtual bool HasError() override;
 	//@todo this is deprecated and shouldn't be used anymore [6/4/2014 justin.sargent]
 	virtual FText GetPercentageText() override;
@@ -134,13 +141,28 @@ public:
 	virtual double GetDownloadSpeed() const override;
 	virtual int64 GetInitialDownloadSize() const override;
 	virtual int64 GetTotalDownloaded() const override;
-	virtual FText GetStatusText() override;
+	virtual FText GetStatusText(bool ShortError = false) override;
 	virtual float GetUpdateProgress() override;
 	virtual FBuildInstallStats GetBuildStatistics() override;
 	virtual FText GetErrorText() override;
 	virtual void CancelInstall() override;
 	virtual bool TogglePauseInstall() override;
 	// End IBuildInstaller interface
+
+	/**
+	 * Set the list of install tags to be installed. Only files which are tagged with one of these will be installed. Untagged files are always installed.
+	 * Special cases:
+	 *      Providing an empty set will result in every file being installed.
+	 *      Providing a set with a single empty string entry, is minimal install, defined by only untagged files.
+	 * @return true if the new set was accepted. false can be returned if the installation is already running, or the set contained a tag not present on the install manifest.
+	 */
+	bool SetRequiredInstallTags(const TSet<FString>& Tags);
+
+	/**
+	 * Begin the installation process
+	 * @return true if the installation started successfully, or is already running
+	 */
+	bool StartInstallation();
 
 	/**
 	 * Executes the on complete delegate. This should only be called when completed, and is separated out
@@ -154,6 +176,14 @@ public:
 	void WaitForThread() const;
 
 private:
+
+	/**
+	 * Checks the installation directory for any already existing files of the correct size, with may account for manual
+	 * installation. Should be used for new installation detecting existing files.
+	 * NB: Not useful for patches, where we'd expect existing files anyway.
+	 * @return    Returns true if there were potentially already installed files
+	 */
+	bool CheckForExternallyInstalledFiles();
 
 	/**
 	 * Runs the installation process

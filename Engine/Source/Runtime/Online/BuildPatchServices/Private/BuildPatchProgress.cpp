@@ -20,6 +20,7 @@ const FString& EBuildPatchProgress::ToString(const EBuildPatchProgress::Type& Pr
 	static const FString Recycling(TEXT("Recycling"));
 	static const FString Installing(TEXT("Installing"));
 	static const FString MovingToInstall(TEXT("MovingToInstall"));
+	static const FString SettingAttributes(TEXT("SettingAttributes"));
 	static const FString BuildVerification(TEXT("BuildVerification"));
 	static const FString CleanUp(TEXT("CleanUp"));
 	static const FString PrerequisitesInstall(TEXT("PrerequisitesInstall"));
@@ -40,6 +41,8 @@ const FString& EBuildPatchProgress::ToString(const EBuildPatchProgress::Type& Pr
 			return Installing;
 		case EBuildPatchProgress::MovingToInstall:
 			return MovingToInstall;
+		case EBuildPatchProgress::SettingAttributes:
+			return SettingAttributes;
 		case EBuildPatchProgress::BuildVerification:
 			return BuildVerification;
 		case EBuildPatchProgress::CleanUp:
@@ -63,7 +66,6 @@ const FText& EBuildPatchProgress::ToText(const EBuildPatchProgress::Type& Progre
 	static const FText Initializing = LOCTEXT("EBuildPatchProgress_Initialising", "Initializing");
 	static const FText Resuming = LOCTEXT("EBuildPatchProgress_Resuming", "Resuming");
 	static const FText Downloading = LOCTEXT("EBuildPatchProgress_Downloading", "Downloading");
-	static const FText Recycling = LOCTEXT("EBuildPatchProgress_Recycling", "Recycling Content");
 	static const FText Installing = LOCTEXT("EBuildPatchProgress_Installing", "Installing");
 	static const FText BuildVerification = LOCTEXT("EBuildPatchProgress_BuildVerification", "Verifying");
 	static const FText CleanUp = LOCTEXT("EBuildPatchProgress_CleanUp", "Cleaning up");
@@ -82,7 +84,8 @@ const FText& EBuildPatchProgress::ToText(const EBuildPatchProgress::Type& Progre
 		case EBuildPatchProgress::Downloading:
 			return Downloading;
 		case EBuildPatchProgress::Installing:
-		case EBuildPatchProgress::MovingToInstall: //User should see same as "Installing"
+		case EBuildPatchProgress::MovingToInstall:
+		case EBuildPatchProgress::SettingAttributes:
 			return Installing;
 		case EBuildPatchProgress::BuildVerification:
 			return BuildVerification;
@@ -114,6 +117,7 @@ void FBuildPatchProgress::Reset()
 	CurrentState = EBuildPatchProgress::Initializing;
 	CurrentProgress = 0.0f;
 	ErrorText = FText::GetEmpty();
+	ShortErrorText = FText::GetEmpty();
 
 	// Initialize array data
 	for( uint32 idx = 0; idx < EBuildPatchProgress::NUM_PROGRESS_STATES; ++idx )
@@ -149,12 +153,12 @@ void FBuildPatchProgress::SetStateWeight( const EBuildPatchProgress::Type& State
 	}
 }
 
-const FText& FBuildPatchProgress::GetStateText()
+const FText& FBuildPatchProgress::GetStateText( bool ShortError )
 {
 	FScopeLock ScopeLock( &ThreadLock );
 	if( CurrentState == EBuildPatchProgress::Error )
 	{
-		return ErrorText;
+		return ShortError ? ShortErrorText : ErrorText;
 	}
 	return EBuildPatchProgress::ToText( CurrentState );
 }
@@ -230,6 +234,7 @@ void FBuildPatchProgress::UpdateProgressInfo()
 	{
 		CurrentState = EBuildPatchProgress::Error;
 		ErrorText = FBuildPatchInstallError::GetErrorText();
+		ShortErrorText = FBuildPatchInstallError::GetShortErrorText();
 		return;
 	}
 
@@ -288,6 +293,7 @@ const bool FBuildPatchProgress::bHasProgressValue[EBuildPatchProgress::NUM_PROGR
 	true,  // Downloading
 	true,  // Installing
 	true,  // MovingToInstall
+	true,  // SettingAttributes
 	true,  // BuildVerification
 	false, // CleanUp
 	false, // PrerequisitesInstall
@@ -303,6 +309,7 @@ const bool FBuildPatchProgress::bCountsTowardsProgress[EBuildPatchProgress::NUM_
 	true,  // Downloading
 	true,  // Installing
 	true,  // MovingToInstall
+	true,  // SettingAttributes
 	true,  // BuildVerification
 	false, // CleanUp
 	false, // PrerequisitesInstall

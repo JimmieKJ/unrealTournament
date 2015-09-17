@@ -40,12 +40,13 @@ namespace EBuildPatchAppManifestVersion
 		StoresPrerequisitesInfo,
 		// Manifest stores chunk download sizes
 		StoresChunkFileSizes,
-		// Manifest is now stored using UObject serialization and compressed
+		// Manifest can optionally be stored using UObject serialization and compressed
 		StoredAsCompressedUClass,
-		// Added support for file data to be split into max individual part size, files now go to FilesV3
-		FileSplittingSupport,
-		// Added support for file data compression, (files still FilesV3)
-		FileCompressionSupport,
+		// These two features were removed and never used
+		UNUSED_0,
+		UNUSED_1,
+		// Manifest stores chunk data SHA1 hash to use in place of data compare, for faster generation
+		StoresChunkDataShaHashes,
 
 
 		// Always after the latest version, signifies the latest version plus 1 to allow initialization simplicity
@@ -60,8 +61,14 @@ namespace EBuildPatchAppManifestVersion
 	/** @return The last known manifest feature of this code base. Handy for manifest constructor */
 	Type GetLatestVersion();
 
-	/** @return The latest version of a manifest support by JSON serialization */
+	/** @return The latest version of a manifest supported by JSON serialization method */
 	Type GetLatestJsonVersion();
+
+	/** @return The latest version of a manifest supported by file data (nochunks) */
+	Type GetLatestFileDataVersion();
+
+	/** @return The latest version of a manifest supported by chunk data */
+	Type GetLatestChunkDataVersion();
 
 	/**
 	 * Get the chunk subdirectory for used for a specific manifest version, e.g. Chunks, ChunksV2 etc
@@ -88,8 +95,11 @@ namespace EManifestFileHeader
 	enum Type
 	{
 		// Storage flags, can be raw or a combination of others.
-		STORED_RAW = 0x0, // Zero means raw data
-		STORED_COMPRESSED = 0x1, // Flag for compressed
+
+		/** Zero means raw data. */
+		STORED_RAW = 0x0,
+		/** Flag for compressed. */
+		STORED_COMPRESSED = 0x1,
 	};
 }
 
@@ -124,6 +134,9 @@ struct FChunkInfoData
 
 	UPROPERTY()
 	uint64 Hash;
+
+	UPROPERTY()
+	FSHAHashData ShaHash;
 
 	UPROPERTY()
 	int64 FileSize;
@@ -173,6 +186,9 @@ struct FFileManifestData
 
 	UPROPERTY()
 	TArray<FChunkPartData> FileChunkParts;
+
+	UPROPERTY()
+	TArray<FString> InstallTags;
 
 	UPROPERTY()
 	bool bIsUnixExecutable;
@@ -318,17 +334,23 @@ struct FFileChunkPart
 	{}
 };
 
+// Required to allow private access to manifest builder for now..
+namespace BuildPatchServices
+{
+	class FManifestBuilderImpl;
+}
+
 /**
  * Declare the FBuildPatchAppManifest object class. This holds the UObject data, and the implemented build manifest functionality
  */
 class FBuildPatchAppManifest
-	: public IBuildManifest
+	: public IBuildManifest, FGCObject
 {
 	// Allow access to build processor classes
 	friend class FBuildDataGenerator;
-	friend class FBuildDataChunkProcessor;
 	friend class FBuildDataFileProcessor;
 	friend class FBuildPatchInstaller;
+	friend class BuildPatchServices::FManifestBuilderImpl;
 public:
 
 	/**
@@ -362,6 +384,7 @@ public:
 	virtual const FString& GetPrereqArgs() const override;
 	virtual int64 GetDownloadSize() const override;
 	virtual int64 GetBuildSize() const override;
+	virtual TArray<FString> GetBuildFileList() const override;
 	virtual void GetRemovableFiles(IBuildManifestRef OldManifest, TArray< FString >& RemovableFiles) const override;
 	virtual void GetRemovableFiles(const TCHAR* InstallPath, TArray< FString >& RemovableFiles) const override;
 	virtual bool NeedsResaving() const override;
@@ -370,6 +393,7 @@ public:
 	virtual const IManifestFieldPtr SetCustomField(const FString& FieldName, const FString& Value) override;
 	virtual const IManifestFieldPtr SetCustomField(const FString& FieldName, const double& Value) override;
 	virtual const IManifestFieldPtr SetCustomField(const FString& FieldName, const int64& Value) override;
+	virtual void RemoveCustomField(const FString& FieldName) override;
 	virtual IBuildManifestRef Duplicate() const override;
 	// END IBuildManifest Interface
 
@@ -468,7 +492,20 @@ public:
 	 * Get the list of files described by this manifest
 	 * @param Filenames		OUT		Receives the array of files.
 	 */
-	void GetFileList(TArray< FString >& Filenames) const;
+	void GetFileList(TArray<FString>& Filenames) const;
+
+	/**
+	 * Get the list of install tags in this manifest
+	 * @param Tags			OUT		Receives the tags referenced.
+	 */
+	void GetFileTagList(TSet<FString>& Tags) const;
+
+	/**
+	 * Get the list of files that are tagged with the provided tags
+	 * @param Tags					The tags for the required file groups.
+	 * @param TaggedFiles	OUT		Receives the tagged files.
+	 */
+	void GetTaggedFileList(const TSet<FString>& Tags, TSet<FString>& TaggedFiles) const;
 
 	/**
 	* Get the list of Guids for all files described by this manifest
@@ -496,6 +533,14 @@ public:
 	 * @return	true if we had the hash for this chunk
 	 */
 	bool GetChunkHash(const FGuid& ChunkGuid, uint64& OutHash) const;
+
+	/**
+	 * Gets the SHA1 hash for a given chunk
+	 * @param ChunkGuid		IN		The guid of the chunk to get hash for
+	 * @param OutHash		OUT		Receives the hash value if found
+	 * @return	true if we had the hash for this chunk
+	 */
+	bool GetChunkShaHash(const FGuid& ChunkGuid, FSHAHashData& OutHash) const;
 
 	/**
 	 * Gets the file hash for given file data
@@ -542,9 +587,9 @@ public:
 	 * @param OldManifest		IN		The Build Manifest that is currently installed. Shared Ptr - Can be invalid.
 	 * @param NewManifest		IN		The Build Manifest that is being patched to. Shared Ref - Implicitly valid.
 	 * @param InstallDirectory	IN		The Build installation directory, so that it can be checked for missing files.
-	 * @param OutDatedFiles		OUT		The array of files that do not match or are new.
+	 * @param OutDatedFiles		OUT		The files that changed hash, are new, are wrong size, or missing on disk.
 	 */
-	static void GetOutdatedFiles(FBuildPatchAppManifestPtr OldManifest, FBuildPatchAppManifestRef NewManifest, const FString& InstallDirectory, TArray< FString >& OutDatedFiles);
+	static void GetOutdatedFiles(FBuildPatchAppManifestPtr OldManifest, FBuildPatchAppManifestRef NewManifest, const FString& InstallDirectory, TSet<FString>& OutDatedFiles);
 
 	/**
 	 * Check a single file to see if it will be effected by patching
@@ -561,8 +606,15 @@ public:
 	 */
 	void EnumerateChunkPartInventory(const TArray< FGuid >& ChunksRequired, TMap< FGuid, TArray< FFileChunkPart > >& ChunkPartsAvailable) const;
 
+	/** @return True if any files in this manifest have file attributes to be set */
+	bool HasFileAttributes() const;
+
 	/** @return True if this manifest is for the same build, i.e. same ID, Name, and Version */
 	bool IsSameAs(FBuildPatchAppManifestRef InstallManifest) const;
+public:
+
+	// FGCObject API
+	virtual void AddReferencedObjects( FReferenceCollector& Collector ) override;
 
 private:
 
@@ -586,6 +638,7 @@ private:
 	/** Some lookups to optimize data access */
 	TMap<FGuid, FString*> FileNameLookup;
 	TMap<FString, FFileManifestData*> FileManifestLookup;
+	TMap<FString, TArray<FFileManifestData*>> TaggedFilesLookup;
 	TMap<FGuid, FChunkInfoData*> ChunkInfoLookup;
 	TMap<FString, FCustomFieldData*> CustomFieldLookup;
 

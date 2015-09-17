@@ -72,24 +72,25 @@ public:
 	// End IModuleInterface interface
 
 	// Begin IBuildPatchServicesModule interface
-	virtual IBuildManifestPtr LoadManifestFromFile( const FString& Filename ) override;
-	virtual IBuildManifestPtr MakeManifestFromData( const TArray<uint8>& ManifestData ) override;
-	virtual bool SaveManifestToFile( const FString& Filename, IBuildManifestRef Manifest, bool bUseBinary = true ) override;
-	virtual IBuildInstallerPtr StartBuildInstall(IBuildManifestPtr CurrentManifest, IBuildManifestPtr InstallManifest, const FString& InstallDirectory, FBuildPatchBoolManifestDelegate OnCompleteDelegate) override;
-	virtual IBuildInstallerPtr StartBuildInstallStageOnly(IBuildManifestPtr CurrentManifest, IBuildManifestPtr InstallManifest, const FString& InstallDirectory, FBuildPatchBoolManifestDelegate OnCompleteDelegate) override;
-	virtual void SetStagingDirectory( const FString& StagingDir ) override;
-	virtual void SetCloudDirectory( const FString& CloudDir ) override;
-	virtual void SetBackupDirectory( const FString& BackupDir ) override;
-	virtual void SetAnalyticsProvider( TSharedPtr< IAnalyticsProvider > AnalyticsProvider ) override;
-	virtual void SetHttpTracker( TSharedPtr< FHttpServiceTracker > HttpTracker ) override;
-	virtual void RegisterAppInstallation( IBuildManifestRef AppManifest, const FString AppInstallDirectory ) override;
+	virtual IBuildManifestPtr LoadManifestFromFile(const FString& Filename) override;
+	virtual IBuildManifestPtr MakeManifestFromData(const TArray<uint8>& ManifestData) override;
+	virtual bool SaveManifestToFile(const FString& Filename, IBuildManifestRef Manifest, bool bUseBinary = true) override;
+	virtual IBuildInstallerPtr StartBuildInstall(IBuildManifestPtr CurrentManifest, IBuildManifestPtr InstallManifest, const FString& InstallDirectory, FBuildPatchBoolManifestDelegate OnCompleteDelegate, TSet<FString> InstallTags = TSet<FString>()) override;
+	virtual IBuildInstallerPtr StartBuildInstallStageOnly(IBuildManifestPtr CurrentManifest, IBuildManifestPtr InstallManifest, const FString& InstallDirectory, FBuildPatchBoolManifestDelegate OnCompleteDelegate, TSet<FString> InstallTags = TSet<FString>()) override;
+	virtual void SetStagingDirectory(const FString& StagingDir) override;
+	virtual void SetCloudDirectory(const FString& CloudDir) override;
+	virtual void SetBackupDirectory(const FString& BackupDir) override;
+	virtual void SetAnalyticsProvider(TSharedPtr< IAnalyticsProvider > AnalyticsProvider) override;
+	virtual void SetHttpTracker(TSharedPtr< FHttpServiceTracker > HttpTracker) override;
+	virtual void RegisterAppInstallation(IBuildManifestRef AppManifest, const FString AppInstallDirectory) override;
+	virtual void CancelAllInstallers(bool WaitForThreads) override;
 #if WITH_BUILDPATCHGENERATION
-	virtual bool GenerateChunksManifestFromDirectory( const FBuildPatchSettings& Settings ) override;
-	virtual bool GenerateFilesManifestFromDirectory( const FBuildPatchSettings& Settings ) override;
-	virtual bool CompactifyCloudDirectory( const TArray<FString>& ManifestsToKeep, const float DataAgeThreshold, const ECompactifyMode::Type Mode ) override;
+	virtual bool GenerateChunksManifestFromDirectory(const FBuildPatchSettings& Settings) override;
+	virtual bool GenerateFilesManifestFromDirectory(const FBuildPatchSettings& Settings) override;
+	virtual bool CompactifyCloudDirectory(const TArray<FString>& ManifestsToKeep, const float DataAgeThreshold, const ECompactifyMode::Type Mode) override;
 	virtual bool EnumerateManifestData(FString ManifestFilePath, FString OutputFile, const bool bIncludeSizes) override;
 #endif
-	virtual IBuildManifestPtr MakeManifestFromJSON( const FString& ManifestJSON ) override;
+	virtual IBuildManifestPtr MakeManifestFromJSON(const FString& ManifestJSON) override;
 	// End IBuildPatchServicesModule interface
 
 	/**
@@ -116,7 +117,7 @@ private:
 	 * @param		Delta	Time since last tick
 	 * @return	Whether to continue ticking
 	 */
-	bool Tick( float Delta );
+	bool Tick(float Delta);
 
 	/**
 	 * This will get called when core PreExits. Make sure any running installers are canceled out.

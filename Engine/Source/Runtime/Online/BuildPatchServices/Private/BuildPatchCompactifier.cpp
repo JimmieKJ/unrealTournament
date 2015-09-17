@@ -9,35 +9,27 @@ data that are no longer referenced by the manifests in a given cloud directory.
 
 #if WITH_BUILDPATCHGENERATION
 
-namespace BuildDataCompactifierDefs
-{
-	const static uint32 TouchFailureThresholdPercentage = 10;
-	const static int64 TimeStampTolerance = FTimespan::FromMinutes(1).GetTicks();
-}
-
 /* Constructors
 *****************************************************************************/
 
-FBuildDataCompactifier::FBuildDataCompactifier(const FString& InCloudDir, const bool bInPreview, const bool bInNoPatchDelete)
+FBuildDataCompactifier::FBuildDataCompactifier(const FString& InCloudDir, const bool bInPreview)
 	: CloudDir(InCloudDir)
 	, bPreview(bInPreview)
-	, bNoPatchDelete(bInNoPatchDelete)
 {
-
 }
 
 /* Public static methods
 *****************************************************************************/
 
-bool FBuildDataCompactifier::CompactifyCloudDirectory(const FString& CloudDir, const TArray<FString>& ManifestsToKeep, const float DataAgeThreshold, const bool bPreview, const bool bNoPatchDelete)
+bool FBuildDataCompactifier::CompactifyCloudDirectory(const FString& CloudDir, const TArray<FString>& ManifestsToKeep, const float DataAgeThreshold, const bool bPreview)
 {
-	FBuildDataCompactifier Compactifier(CloudDir, bPreview, bNoPatchDelete);
+	FBuildDataCompactifier Compactifier(CloudDir, bPreview);
 	return Compactifier.Compactify(ManifestsToKeep, DataAgeThreshold);
 }
 
-bool FBuildDataCompactifier::CompactifyCloudDirectory(const TArray<FString>& ManifestsToKeep, const float DataAgeThreshold, const bool bPreview, const bool bNoPatchDelete)
+bool FBuildDataCompactifier::CompactifyCloudDirectory(const TArray<FString>& ManifestsToKeep, const float DataAgeThreshold, const bool bPreview)
 {
-	return CompactifyCloudDirectory(FBuildPatchServicesModule::GetCloudDirectory(), ManifestsToKeep, DataAgeThreshold, bPreview, bNoPatchDelete);
+	return CompactifyCloudDirectory(FBuildPatchServicesModule::GetCloudDirectory(), ManifestsToKeep, DataAgeThreshold, bPreview);
 }
 
 /* Private methods
@@ -45,7 +37,7 @@ bool FBuildDataCompactifier::CompactifyCloudDirectory(const TArray<FString>& Man
 
 bool FBuildDataCompactifier::Compactify(const TArray<FString>& ManifestsToKeep, const float DataAgeThreshold) const
 {
-	GLog->Logf(TEXT("Running Compactify on %s%s"), *CloudDir, bPreview ? TEXT(". Preview mode. NO action will be taken.") : bNoPatchDelete ? TEXT(". NoPatchDelete mode. NO patch data will be deleted.") : TEXT(""));
+	GLog->Logf(TEXT("Running Compactify on %s%s"), *CloudDir, bPreview ? TEXT(". Preview mode. NO action will be taken.") : TEXT(""));
 	if (ManifestsToKeep.Num() > 0)
 	{
 		GLog->Logf(TEXT("Preserving manifest files: %s"), *FString::Join(ManifestsToKeep, TEXT(", ")));
@@ -124,24 +116,18 @@ bool FBuildDataCompactifier::Compactify(const TArray<FString>& ManifestsToKeep, 
 		}
 	}
 
-	GLog->Logf(TEXT("Compactify walking %s to touch referenced chunks, remove all aged unreferenced chunks and compute statistics."), *CloudDir);
+	GLog->Logf(TEXT("Compactify walking %s to remove all mature unreferenced chunks and compute statistics."), *CloudDir);
 
 	uint32 FilesProcessed = 0;
-	uint32 FilesTouched = 0;
 	uint32 FilesSkipped = 0;
 	uint32 NonPatchFilesProcessed = 0;
 	uint32 FilesDeleted = DeletedManifestFilenames.Num();
 	uint64 BytesProcessed = 0;
-	uint64 BytesTouched = 0;
 	uint64 BytesSkipped = 0;
 	uint64 NonPatchBytesProcessed = 0;
 	uint64 BytesDeleted = ManifestBytesDeleted;
 	uint64 CurrentFileSize;
-	uint32 TouchFailureCount = 0;
-	uint64 BytesFailedTouch = 0;
 	FGuid FileGuid;
-	FDateTime Now = FDateTime::UtcNow();
-	const uint32 TouchFailureErrorThreshold = FMath::DivideAndRoundUp((uint32)AllFiles.Num(), BuildDataCompactifierDefs::TouchFailureThresholdPercentage);
 
 	for (const auto& File : AllFiles)
 	{
@@ -162,38 +148,21 @@ bool FBuildDataCompactifier::Compactify(const TArray<FString>& ManifestsToKeep, 
 				continue;
 			}
 
-			if (ReferencedGuids.Contains(FileGuid))
+			if (!ReferencedGuids.Contains(FileGuid))
 			{
-				// This is a valid, referenced file, so we need to touch it with the current date
-				++FilesTouched;
-				BytesTouched += CurrentFileSize;
-				if (!bPreview)
+				if (IFileManager::Get().GetTimeStamp(*File) < Cutoff)
 				{
-					if (!SafeSetTimeStamp(*File, Now))
-					{
-						++TouchFailureCount;
-						BytesFailedTouch += CurrentFileSize;
-						GLog->Logf(ELogVerbosity::Warning, TEXT("Failed to set timestamp on file %s"), *File);
-						if (TouchFailureCount >= TouchFailureErrorThreshold)
-						{
-							GLog->Logf(ELogVerbosity::Error, TEXT("Failed to set timestamp on %u%% of files"), BuildDataCompactifierDefs::TouchFailureThresholdPercentage);
-							return false;
-						}
-					}
+					// This file is not referenced by any manifest, is a data file, and is older than we need to keep ...
+					// Let's get rid of it!
+					DeleteFile(File);
+					++FilesDeleted;
+					BytesDeleted += CurrentFileSize;
 				}
-			}
-			else if (IFileManager::Get().GetTimeStamp(*File) < Cutoff)
-			{
-				// This file is not referenced by any manifest, is a data file, and is older than we want to keep ...
-				// Let's get rid of it!
-				DeleteFile(File);
-				++FilesDeleted;
-				BytesDeleted += CurrentFileSize;
-			}
-			else
-			{
-				++FilesSkipped;
-				BytesSkipped += CurrentFileSize;
+				else
+				{
+					++FilesSkipped;
+					BytesSkipped += CurrentFileSize;
+				}
 			}
 		}
 		else
@@ -202,28 +171,13 @@ bool FBuildDataCompactifier::Compactify(const TArray<FString>& ManifestsToKeep, 
 		}
 	}
 
-	FilesTouched -= TouchFailureCount;
-	BytesTouched -= BytesFailedTouch;
-
 	GLog->Logf(TEXT("Compactify of %s complete!"), *CloudDir);
 	GLog->Logf(TEXT("Compactify found %u files totalling %s."), FilesProcessed, *HumanReadableSize(BytesProcessed));
 	if (NonPatchFilesProcessed > 0)
 	{
 		GLog->Logf(TEXT("Of these, %u (totalling %s) were not chunk/manifest files."), NonPatchFilesProcessed, *HumanReadableSize(NonPatchBytesProcessed));
 	}
-	if (bNoPatchDelete)
-	{
-		GLog->Logf(TEXT("Compactify skipped deleting %u unreferenced chunk/manifest files (totalling %s) due to -nopatchdelete being specified."), FilesDeleted, *HumanReadableSize(BytesDeleted));
-	}
-	else
-	{
-		GLog->Logf(TEXT("Compactify deleted %u chunk/manifest files totalling %s."), FilesDeleted, *HumanReadableSize(BytesDeleted));
-	}
-	GLog->Logf(TEXT("Compactify touched %u chunk files totalling %s."), FilesTouched, *HumanReadableSize(BytesTouched));
-	if (TouchFailureCount > 0)
-	{
-		GLog->Logf(TEXT("Compactify failed to touch %u files toatlling %s."), TouchFailureCount, *HumanReadableSize(BytesFailedTouch));
-	}
+	GLog->Logf(TEXT("Compactify deleted %u chunk/manifest files totalling %s."), FilesDeleted, *HumanReadableSize(BytesDeleted));
 	GLog->Logf(TEXT("Compactify skipped %u unreferenced chunk files (totalling %s) which have not yet aged out."), FilesSkipped, *HumanReadableSize(BytesSkipped));
 	return true;
 }
@@ -231,7 +185,7 @@ bool FBuildDataCompactifier::Compactify(const TArray<FString>& ManifestsToKeep, 
 void FBuildDataCompactifier::DeleteFile(const FString& FilePath) const
 {
 	FString LogMsg = FString::Printf(TEXT("Deprecated data %s"), *FilePath);
-	if (!bNoPatchDelete && !bPreview)
+	if (!bPreview)
 	{
 		LogMsg = LogMsg.Append(TEXT(" ... deleted"));
 		IFileManager::Get().Delete(*FilePath);
@@ -277,10 +231,10 @@ bool FBuildDataCompactifier::DeleteNonReferencedManifests(TArray<FString>& AllMa
 			DeletedManifests.Add(Manifest);
 			BytesDeleted += IFileManager::Get().FileSize(*ManifestPath);
 
-			if (!bPreview && !bNoPatchDelete)
+			if (!bPreview)
 			{
 				IFileManager::Get().Delete(*ManifestPath);
-				if (FPaths::FileExists(ManifestPath))
+				if (FPlatformFileManager::Get().GetPlatformFile().FileExists(*ManifestPath))
 				{
 					// Something went wrong ... the file still exists!
 					GLog->Logf(ELogVerbosity::Error, TEXT("Compactify could not delete manifest file %s"), *Manifest);
@@ -340,19 +294,5 @@ FString FBuildDataCompactifier::HumanReadableSize(uint64 NumBytes, uint8 Decimal
 	DecimalPlaces = FMath::Clamp<int32>(DecimalPlaces, 0, Index*3);
 
 	return FString::Printf(TEXT("%.*f %s"), DecimalPlaces, DataSize / (FMath::Pow(Base, Index)), Suffixes[bUseBase10 ? 0 : 1][Index]);
-}
-
-bool FBuildDataCompactifier::SafeSetTimeStamp(const FString& FilePath, FDateTime TimeStamp) const
-{
-	bool bSuccess = false;
-	IFileManager& FileMan = IFileManager::Get();
-	bSuccess = FileMan.SetTimeStamp(*FilePath, TimeStamp);
-	if (bSuccess)
-	{
-		FDateTime ActualTimeStamp = FileMan.GetTimeStamp(*FilePath);
-		int64 TickVariance = FMath::Abs(ActualTimeStamp.GetTicks() - TimeStamp.GetTicks());
-		bSuccess = TickVariance < BuildDataCompactifierDefs::TimeStampTolerance;
-	}
-	return bSuccess;
 }
 #endif

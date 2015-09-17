@@ -9,6 +9,12 @@ class FBuildPatchVerification
 {
 public:
 	/**
+	 * Override which files should be verified. The default is all build files
+	 * @param RequiredFiles    The array of files to be verified
+	 */
+	virtual void SetRequiredFiles(TArray<FString> RequiredFiles) = 0;
+
+	/**
 	 * Verifies a local directory structure against a given manifest.
 	 * NOTE: This function is blocking and will not return until finished. Don't run on main thread.
 	 * @param OutDatedFiles    OUT  The array of files that do not match or are locally missing.

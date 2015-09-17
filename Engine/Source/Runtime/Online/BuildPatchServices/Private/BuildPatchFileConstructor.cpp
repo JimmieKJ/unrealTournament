@@ -52,7 +52,7 @@ public:
 		, BuildManifest( InBuildManifest )
 	{
 		// Load data from previous resume file
-		bHasResumeData = FPaths::FileExists( ResumeDataFile );
+		bHasResumeData = FPlatformFileManager::Get().GetPlatformFile().FileExists(*ResumeDataFile);
 		GLog->Logf(TEXT("BuildPatchResumeData file found %d"), bHasResumeData);
 		if( bHasResumeData )
 		{
@@ -459,11 +459,33 @@ bool FBuildPatchFileConstructor::ConstructFileFromChunks( const FString& Filenam
 		}
 		else
 		{
-			FBuildPatchAnalytics::RecordConstructionError( Filename, FPlatformMisc::GetLastError(), TEXT( "Could Not Create File" ) );
-			ErrorString = TEXT( "Could not create new file " );
-			ErrorString += Filename;
-			GWarn->Logf( TEXT( "BuildPatchFileConstructor: ERROR: %s" ), *ErrorString );
-			FBuildPatchInstallError::SetFatalError( EBuildPatchInstallError::FileConstructionFail, ErrorString );
+			// Check drive space
+			bool bError = false;
+			uint64 TotalSize = 0;
+			uint64 AvailableSpace = 0;
+			if (FPlatformMisc::GetDiskTotalAndFreeSpace(InstallDirectory, TotalSize, AvailableSpace))
+			{
+				const int64 DriveSpace = AvailableSpace;
+				const int64 RequiredSpace = FileManifest->GetFileSize();
+				if (DriveSpace < RequiredSpace)
+				{
+					bError = true;
+					FBuildPatchAnalytics::RecordConstructionError(Filename, FPlatformMisc::GetLastError(), TEXT("Not Enough Disk Space"));
+					ErrorString = TEXT("Not enough disk space for new file ");
+					ErrorString += Filename;
+					GWarn->Logf(TEXT("BuildPatchFileConstructor: ERROR: %s"), *ErrorString);
+					FBuildPatchInstallError::SetFatalError(EBuildPatchInstallError::OutOfDiskSpace, ErrorString);
+				}
+			}
+
+			if (!bError)
+			{
+				FBuildPatchAnalytics::RecordConstructionError(Filename, FPlatformMisc::GetLastError(), TEXT("Could Not Create File"));
+				ErrorString = TEXT("Could not create new file ");
+				ErrorString += Filename;
+				GWarn->Logf(TEXT("BuildPatchFileConstructor: ERROR: %s"), *ErrorString);
+				FBuildPatchInstallError::SetFatalError(EBuildPatchInstallError::FileConstructionFail, ErrorString);
+			}
 		}
 	}
 	else
