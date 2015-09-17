@@ -34,6 +34,18 @@ FString FSHAHashData::ToString() const
 	return BytesToHex(Hash, FSHA1::DigestSize);
 }
 
+bool FSHAHashData::isZero() const
+{
+	for (const auto& digit : Hash)
+	{
+		if (digit != 0)
+		{
+			return false;
+		}
+	}
+	return true;
+}
+
 /* FChunkHeader implementation
 *****************************************************************************/
 FChunkHeader::FChunkHeader()
@@ -169,6 +181,15 @@ bool FChunkWriter::FQueuedChunkWriter::Init()
 
 uint32 FChunkWriter::FQueuedChunkWriter::Run()
 {
+	StatFileCreateTime = StatsCollector->CreateStat(TEXT("Chunk Writer: Create Time"), EStatFormat::Timer);
+	StatCheckExistsTime = StatsCollector->CreateStat(TEXT("Chunk Writer: Check Exist Time"), EStatFormat::Timer);
+	StatCompressTime = StatsCollector->CreateStat(TEXT("Chunk Writer: Compress Time"), EStatFormat::Timer);
+	StatSerlialiseTime = StatsCollector->CreateStat(TEXT("Chunk Writer: Serialise Time"), EStatFormat::Timer);
+	StatChunksSaved = StatsCollector->CreateStat(TEXT("Chunk Writer: Num Saved"), EStatFormat::Value);
+	StatDataWritten = StatsCollector->CreateStat(TEXT("Chunk Writer: Data Size Written"), EStatFormat::DataSize);
+	StatDataWriteSpeed = StatsCollector->CreateStat(TEXT("Chunk Writer: Data Write Speed"), EStatFormat::DataSpeed);
+	StatCompressionRatio = StatsCollector->CreateStat(TEXT("Chunk Writer: Compression Ratio"), EStatFormat::Percentage);
+
 	// Loop until there's no more chunks
 	while ( ShouldBeRunning() )
 	{
@@ -215,6 +236,11 @@ uint32 FChunkWriter::FQueuedChunkWriter::Run()
 			// Delete the data memory
 			delete ChunkFile;
 		}
+		double TotalTime = FStatsCollector::CyclesToSeconds(*StatFileCreateTime + *StatSerlialiseTime);
+		if(TotalTime > 0.0)
+		{
+			FStatsCollector::Set(StatDataWriteSpeed, *StatDataWritten / TotalTime);
+		}
 		FPlatformProcess::Sleep( 0.0f );
 	}
 	return 0;
@@ -222,17 +248,23 @@ uint32 FChunkWriter::FQueuedChunkWriter::Run()
 
 const bool FChunkWriter::FQueuedChunkWriter::WriteChunkData(const FString& ChunkFilename, FChunkFile* ChunkFile, const FGuid& ChunkGuid)
 {
+	uint64 TempTimer;
 	// Chunks are saved with GUID, so if a file already exists it will never be different.
 	// Skip with return true if already exists
-	if( FPaths::FileExists( ChunkFilename ) )
+	FStatsCollector::AccumulateTimeBegin(TempTimer);
+	const int64 ChunkFilesSize = IFileManager::Get().FileSize(*ChunkFilename);
+	FStatsCollector::AccumulateTimeEnd(StatCheckExistsTime, TempTimer);
+	if(ChunkFilesSize > 0)
 	{
-		const int64 ChunkFilesSize = IFileManager::Get().FileSize(*ChunkFilename);
+		FStatsCollector::AccumulateTimeEnd(StatCheckExistsTime, TempTimer);
 		ChunkFileSizesCS.Lock();
 		ChunkFileSizes.Add(ChunkGuid, ChunkFilesSize);
 		ChunkFileSizesCS.Unlock();
 		return true;
 	}
+	FStatsCollector::AccumulateTimeBegin(TempTimer);
 	FArchive* FileOut = IFileManager::Get().CreateFileWriter( *ChunkFilename );
+	FStatsCollector::AccumulateTimeEnd(StatFileCreateTime, TempTimer);
 	bool bSuccess = FileOut != NULL;
 	if( bSuccess )
 	{
@@ -247,12 +279,14 @@ const bool FChunkWriter::FQueuedChunkWriter::WriteChunkData(const FString& Chunk
 
 		// Compressed can increase in size, but the function will return as failure in that case
 		// we can allow that to happen since we would not keep larger compressed data anyway.
+		FStatsCollector::AccumulateTimeBegin(TempTimer);
 		bDataIsCompressed = FCompression::CompressMemory(
 			static_cast< ECompressionFlags >( COMPRESS_ZLIB | COMPRESS_BiasMemory ),
 			TempCompressedData.GetData(),
 			CompressedSize,
 			ChunkFile->ChunkData,
 			FBuildPatchData::ChunkDataSize );
+		FStatsCollector::AccumulateTimeEnd(StatCompressTime, TempTimer);
 
 		// If compression succeeded, set data vars
 		if( bDataIsCompressed )
@@ -262,6 +296,7 @@ const bool FChunkWriter::FQueuedChunkWriter::WriteChunkData(const FString& Chunk
 		}
 
 		// Setup Header
+		FStatsCollector::AccumulateTimeBegin(TempTimer);
 		FChunkHeader& Header = ChunkFile->ChunkHeader;
 		*FileOut << Header;
 		Header.HeaderSize = FileOut->Tell();
@@ -270,14 +305,18 @@ const bool FChunkWriter::FQueuedChunkWriter::WriteChunkData(const FString& Chunk
 		Header.HashType = FChunkHeader::HASH_ROLLING;
 
 		// Write out files
-		FileOut->Seek( 0 );
+		FileOut->Seek(0);
 		*FileOut << Header;
-		FileOut->Serialize( ChunkDataSource, ChunkDataSourceSize );
-		const int64 ChunkFilesSize = FileOut->TotalSize();
+		FileOut->Serialize(ChunkDataSource, ChunkDataSourceSize);
+		const int64 NewChunkFilesSize = FileOut->TotalSize();
 		FileOut->Close();
+		FStatsCollector::AccumulateTimeEnd(StatSerlialiseTime, TempTimer);
+		FStatsCollector::Accumulate(StatChunksSaved, 1);
+		FStatsCollector::Accumulate(StatDataWritten, NewChunkFilesSize);
+		FStatsCollector::SetAsPercentage(StatCompressionRatio, 1.0 - (*StatDataWritten / double(*StatChunksSaved * FBuildPatchData::ChunkDataSize)));
 
 		ChunkFileSizesCS.Lock();
-		ChunkFileSizes.Add(ChunkGuid, ChunkFilesSize);
+		ChunkFileSizes.Add(ChunkGuid, NewChunkFilesSize);
 		ChunkFileSizesCS.Unlock();
 
 		bSuccess = !FileOut->GetError();
@@ -361,15 +400,15 @@ void FChunkWriter::FQueuedChunkWriter::SetNoMoreChunks()
 void FChunkWriter::FQueuedChunkWriter::GetChunkFilesizes(TMap<FGuid, int64>& OutChunkFileSizes)
 {
 	FScopeLock ScopeLock(&ChunkFileSizesCS);
-	OutChunkFileSizes.Empty(ChunkFileSizes.Num());
 	OutChunkFileSizes.Append(ChunkFileSizes);
 }
 
 /* FChunkWriter implementation
 *****************************************************************************/
-FChunkWriter::FChunkWriter( const FString& ChunkDirectory )
+FChunkWriter::FChunkWriter(const FString& ChunkDirectory, FStatsCollectorRef StatsCollector)
 {
 	QueuedChunkWriter.ChunkDirectory = ChunkDirectory;
+	QueuedChunkWriter.StatsCollector = StatsCollector;
 	WriterThread = FRunnableThread::Create(&QueuedChunkWriter, TEXT("QueuedChunkWriterThread"));
 }
 

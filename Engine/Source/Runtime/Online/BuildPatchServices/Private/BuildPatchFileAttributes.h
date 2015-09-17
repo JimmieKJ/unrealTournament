@@ -30,5 +30,6 @@ public:
 	static TSharedRef<FBuildPatchFileAttributes> Create(const FBuildPatchAppManifestRef& NewManifest,
 	                                                    const FBuildPatchAppManifestPtr& OldManifest,
 	                                                    const FString& VerifyDirectory,
-	                                                    const FString& StagedFileDirectory);
+	                                                    const FString& StagedFileDirectory,
+	                                                    FBuildPatchProgress* BuildProgress);
 };

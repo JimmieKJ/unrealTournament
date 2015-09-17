@@ -115,6 +115,12 @@ public:
 	virtual int64 GetBuildSize() const = 0;
 
 	/**
+	 * Get the list of files in this build. Filenames are all relative to an install directory
+	 * @return		an array containing build files
+	 */
+	virtual TArray<FString> GetBuildFileList() const = 0;
+
+	/**
 	 * Gets a list of files that were installed with the Old Manifest, but no longer required by this Manifest.
 	 * @param OldManifest	IN		The Build Manifest that is currently installed.
 	 * @param RemovableFiles	OUT		A list to receive the files that may be removed.
@@ -157,6 +163,12 @@ public:
 	virtual const IManifestFieldPtr SetCustomField(const FString& FieldName, const FString& Value) = 0;
 	virtual const IManifestFieldPtr SetCustomField(const FString& FieldName, const double& Value) = 0;
 	virtual const IManifestFieldPtr SetCustomField(const FString& FieldName, const int64& Value) = 0;
+
+	/**
+	 * Remove a custom field from the manifest
+	 * @param	FieldName	The name of the custom field
+	 */
+	virtual void RemoveCustomField(const FString& FieldName) = 0;
 	
 	/**
 	 * Duplicated this manifest to create a copy. Should be used if storing a received manifest as an installed

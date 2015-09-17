@@ -4,356 +4,9 @@
 	BuildPatchGeneration.h: Declares classes involved with producing build data.
 =============================================================================*/
 
-#ifndef __BuildPatchGeneration_h__
-#define __BuildPatchGeneration_h__
-
 #pragma once
 
 #if WITH_BUILDPATCHGENERATION
-
-/**
- * A threaded class that holds Build stream data as a FIFO data buffer of given size. Will read until full then wait
- * for data to be read out before continuing.
- */
-class FBuildStream
-{
-private:
-	// A private runnable class that reads in data
-	class FBuildStreamReader : public FRunnable
-	{
-	public:
-		// The directory that we want to read from
-		FString DepotDirectory;
-
-		// The path to a text file containing \r\n separated depot relative files to ignore
-		FString IgnoreListFile;
-
-		// Pointer to FBuildStream
-		FBuildStream* BuildStream;
-
-		// Default Constructor
-		FBuildStreamReader();
-
-		// Destructor
-		~FBuildStreamReader();
-
-		// Start FRunnable interface
-		virtual bool Init() override;
-		virtual uint32 Run() override;
-		// End FRunnable interface
-
-		void StartThread();
-
-		FRunnableThread * Thread;
-
-	} BuildStreamReader;
-
-	// A private struct for storing the data span of a file in the build stream
-	struct FFileSpan
-	{
-		// The file's filename
-		FString Filename;
-		// The file data start index
-		uint64 StartIdx;
-		// The size of the file
-		uint64 Size;
-		
-		/**
-		 * Default constructor
-		 */
-		FFileSpan()
-			: StartIdx( 0 )
-			, Size( 0 )
-		{
-		}
-	};
-
-public:
-	/**
-	 * Constructor
-	 */
-	FBuildStream( const FString& RootDirectory, const FString& IgnoreListFile );
-
-	/**
-	 * Default destructor
-	 */
-	~FBuildStream();
-
-	/**
-	 * Retrieves the file details for a specific start index.
-	 * @param	IN	StartingIdx		The data index into the build image.
-	 * @param	OUT Filename		The filename for the file starting at StartingIdx. NB: The variable remains UNCHANGED if no file starts here.
-	 * @param	OUT FileSize		The size of the file starting at StartingIdx. NB: The variable remains UNCHANGED if no file starts here.
-	 * @return	true if the data byte at StartingIdx is the start of a file
-	 */
-	bool GetFileSpan( const uint64& StartingIdx, FString& Filename, uint64& FileSize );
-
-	/**
-	 * Fetches some data from the buffer, also removing it.
-	 * @param	IN	Buffer			Pointer to buffer to receive the data.
-	 * @param	IN	ReqSize			The amount of data to attempt to retrieve.
-	 * @param	IN	WaitForData		Optional: Default true. Whether to wait until there is enough data in the buffer.
-	 * @return	The amount of data retrieved
-	 */
-	uint32 DequeueData( uint8* Buffer, const uint32& ReqSize, const bool WaitForData = true );
-
-	/**
-	 * Gets a list of empty files that the build contains.
-	 * @return	Array of empty files in the build
-	 */
-	const TArray< FString > GetEmptyFiles();
-
-	/**
-	 * Whether the read thread has finished reading the build image.
-	 * @return	true if there is no more data coming into the buffer
-	 */
-	bool IsEndOfBuild();
-
-	/**
-	 * Whether there is any more data available to dequeue from the buffer
-	 * @return	true if there is no more data coming in, and the internal buffer is also empty.
-	 */
-	bool IsEndOfData();
-
-private:
-	/**
-	 * Hide the default constructor so that the params must be given
-	 */
-	FBuildStream(){};
-
-	//////////////////////////////////////////////////////////////////////////
-	// Private functions for manipulating the data store
-private:
-	/**
-	 * Wipes out all data
-	 */
-	void Clear();
-
-	/**
-	 * How much more data the internal buffer can hold before being full
-	 * @return	the number of bytes free in the buffer
-	 */
-	uint32 SpaceLeft();
-
-	/**
-	 * How much data the internal buffer is currently holding
-	 * @return	the number of bytes held in the buffer
-	 */
-	uint32 DataAvailable();
-
-	/**
-	 * Mark the beginning of a new file
-	 * @param	IN	Filename	The local build filename to the file
-	 * @param	IN	FileSize	The size of the file
-	 */
-	void BeginNewFile( const FString& Filename, const uint64& FileSize );
-
-	/**
-	 * We must special case empty files because we don't want them effecting chunk data
-	 * @param	IN	Filename	The local build filename to the file
-	 */
-	void AddEmptyFile( const FString& Filename );
-
-	/**
-	 * Enqueue a buffer of data into the internal buffer.
-	 * @param	IN	Buffer		Pointer to buffer of data.
-	 * @param	IN	Len			The length of the data buffer.
-	 */
-	void EnqueueData( const uint8* Buffer, const uint32& Len );
-
-	/**
-	 * Mark the end of the build image
-	 * @param	IN	bIsEnd		Optional: Default true. Whether to set the build end as true or false
-	 */
-	void EndOfBuild( bool bIsEnd = true );
-
-	//////////////////////////////////////////////////////////////////////////
-	// Private variables
-private:
-	// Holds the filenames referred to index positions in the data stream
-	TMap< uint64, FFileSpan > FilesParsed;
-
-	// Holds a list of empty files
-	TArray< FString > EmptyFiles;
-
-	// A critical section for accessing the FilesParsed and EmptyFiles data.
-	FCriticalSection FilesListsCS;
-
-	// Holds the ring buffer for loaded data code words
-	TRingBuffer< uint8, StreamBufferSize > BuildDataStream;
-
-	// A critical section for accessing the data stream, BuildDataStream
-	FCriticalSection BuildDataStreamCS;
-
-	// Whether the build has been completely read from disk
-	bool bNoMoreData;
-
-	// A critical section for accessing the no more data flag, NoMoreData.
-	FCriticalSection NoMoreDataCS;
-};
-
-/**
- * A class that controls processing of build data to produce the manifest with chunks
- */
-class FBuildDataChunkProcessor
-{
-public:
-
-	/**
-	 * Constructor
-	 * @param	InBuildManifest 	a build manifest that receives the manifest data.
-	 * @param	InBuildRoot			The root directory of the build
-	 */
-	FBuildDataChunkProcessor( FBuildPatchAppManifestRef InBuildManifest, const FString& InBuildRoot );
-	
-	/**
-	 * Default destructor
-	 */
-	~FBuildDataChunkProcessor();
-
-	/**
-	 * Start a new chunk
-	 * @param	bZeroBuffer 	Optional: Default true. Whether to clear the chunk buffer with zero
-	 */
-	void BeginNewChunk( const bool& bZeroBuffer = true );
-
-	/**
-	 * Start a new chunk part
-	 */
-	void BeginNewChunkPart();
-	
-	/**
-	 * End the current chunk part
-	 */
-	void EndNewChunkPart();
-	
-	/**
-	 * End the current chunk
-	 * @param	ChunkHash		The chunk's hash value
-	 * @param	ChunkData		Pointer to the chunk data, must be of FBuildPatchData::ChunkDataSize length
-	 * @param	ChunkGuid		The chunk GUID of this chunk. If it matches CurrentChunkGuid then this is a new chunk, otherwise it is the guid of the recognized chunk
-	 */
-	void EndNewChunk( const uint64& ChunkHash, const uint8* ChunkData, const FGuid& ChunkGuid );
-	
-	/**
-	 * Begins insertion of recognized chunk
-	 */
-	void PushChunk();
-
-	/**
-	 * Ends the insertion of recognized chunk
-	 * @param	ChunkHash		The hash value for the recognised chunk
-	 * @param	ChunkData		The data for the recognised chunk
-	 * @param	ChunkGuid		The GUID for the recognised chunk
-	 */
-	void PopChunk( const uint64& ChunkHash, const uint8* ChunkData, const FGuid& ChunkGuid );
-
-	/**
-	 * When the build image has been fully covered, call to end any current chunk we have (which will be zero padded)
-	 */
-	void FinalChunk();
-
-	/**
-	 * Mark the beginning of a new file
-	 * @param	FileName	The file's local filename
-	 */
-	void BeginFile( const FString& FileName );
-
-	/**
-	 * Mark the end of the current file
-	 */
-	void EndFile();
-
-	/**
-	 * Skips over the next byte from a recognized chunk
-	 * @param	NextByte		The next byte
-	 * @param	bStartOfFile	Whether this byte is the beginning of a file
-	 * @param	bEndOfFile		Whether this byte is the end of a file
-	 * @param	Filename		The filename of the file, only required if start of new file
-	 */
-	void SkipKnownByte( const uint8& NextByte, const bool& bStartOfFile, const bool& bEndOfFile, const FString& Filename );
-
-	/**
-	 * Process a new byte into the current new chunk
-	 * @param	NewByte			The new byte
-	 * @param	bStartOfFile	Whether this byte is the beginning of a file
-	 * @param	bEndOfFile		Whether this byte is the end of a file
-	 * @param	Filename		The filename of the file, only required if start of new file
-	 */
-	void ProcessNewByte( const uint8& NewByte, const bool& bStartOfFile, const bool& bEndOfFile, const FString& Filename );
-
-	/**
-	 * Get the new/know chunks stats
-	 * @param	OutNewChunks	Receives the number of new chunks found
-	 * @param	OutKnownChunks	Receives the number of recognised chunks found
-	 */
-	void GetChunkStats( uint32& OutNewChunks, uint32& OutKnownChunks );
-
-	/**
-	 * Get the chunk filesizes that have been saved out
-	 * @return ref to the Map of GUID to filesize
-	 */
-	const TMap<FGuid, int64>& GetChunkFilesizes();
-
-private:
-
-	// Keep track of the number of new chunks generated
-	uint32 NumNewChunks;
-
-	// Keep track of the number of recognised chunks
-	uint32 NumKnownChunks;
-
-	// Holds the build manifest that is receiving the information
-	FBuildPatchAppManifestPtr BuildManifest;
-
-	// Holds the build manifest that is receiving the information
-	FString BuildRoot;
-
-	// The chunk writer system
-	FChunkWriter ChunkWriter;
-
-	// A GUID for the current chunk
-	FGuid CurrentChunkGuid;
-
-	// The current chunk data
-	uint8* CurrentChunkBuffer;
-
-	// The current index into the chunk data
-	uint32 CurrentChunkBufferPos;
-
-	// Holds the current file being processed. Receives the chunk parts that we pass over.
-	FFileManifestData* CurrentFile;
-
-	// Holds an SHA hash calculator
-	FSHA1 FileHash;
-
-	// Are we currently processing a chunk
-	bool IsProcessingChunk;
-
-	// Are we currently processing a chunk part
-	bool IsProcessingChunkPart;
-
-	// Are we currently processing a file
-	bool IsProcessingFile;
-
-	// Have we pushed to a recognized chunk
-	bool ChunkIsPushed;
-
-	// Backup of CurrentChunkGuid when pushing a chunk
-	FGuid BackupChunkGuid;
-
-	// Backup of CurrentChunkBufferPos when pushing a chunk
-	uint32 BackupChunkBufferPos;
-
-	// Backup of IsProcessingChunk when pushing a chunk
-	bool BackupProcessingChunk;
-
-	// Backup of IsProcessingChunkPart when pushing a chunk
-	bool BackupProcessingChunkPart;
-
-	// Cached map of chunk file sizes
-	TMap<FGuid, int64> ChunkFileSizes;
-};
 
 /**
  * A class that controls processing of build data to produce the manifest with files
@@ -467,18 +120,14 @@ public:
 		// How many bytes we have read out of this chunk, used to calculate when we need more data from file
 		uint32 MemoryBytesRead;
 
-		// The validity period of chunk data. Anything older than this will be considered to be invalid
-		FDateTime DataAgeThreshold;
-
 	public:
 		/**
 		 * Constructs the reader from required data
 		 * @param	InChunkFilePath		The file path of the source file for the chunk
 		 * @param	InChunkFile			The data structure for this chunk
 		 * @param	InBytesRead			Pointer to an unsigned int to keep track of how much data is read from file
-		 * @param	InDataAgeThreshold	The validity period of chunk data. Anything older than this will be considered to be invalid
 		 */
-		FChunkReader( const FString& InChunkFilePath, TSharedRef< FChunkFile > InChunkFile, uint32* InBytesRead, const FDateTime& InDataAgeThreshold );
+		FChunkReader(const FString& InChunkFilePath, TSharedRef< FChunkFile > InChunkFile, uint32* InBytesRead);
 
 		/**
 		 * Destructor. Cleans up and releases data locks.
@@ -522,15 +171,12 @@ public:
 private:
 	/**
 	* Constructor
-	* @param	DataAgeThreshold		The cutoff point before which data chunks should be regarded as isvalid
 	*/
-	FBuildGenerationChunkCache(const FDateTime& DataAgeThreshold);
+	FBuildGenerationChunkCache();
 
 private:
 	// The number of chunks to cache in memory
-	const static int32 NumChunksToCache = 256;
-
-	FDateTime DataAgeThreshold;
+	const static int32 NumChunksToCache = 1024;
 
 	// The map of chunks we have cached
 	TMap< FString, TSharedRef< FChunkFile > > ChunkCache;
@@ -538,10 +184,23 @@ private:
 	// The store for how much file data has been read for each chunk
 	TMap< FString, uint32* > BytesReadPerChunk;
 
+	// The stats collector class, and some stats variables
+	FStatsCollectorPtr StatsCollector;
+	volatile int64* StatChunksInDataCache;
+	volatile int64* StatNumCacheLoads;
+	volatile int64* StatNumCacheBoots;
+
 	// The singleton instance for this class
 	static TSharedPtr< FBuildGenerationChunkCache > SingletonInstance;
 
 public:
+
+	/**
+	 * Sets the stats collector, which will be used to record statistics from the point of settings
+	 * @param StatsCollector		Ref to the stats collector
+	 */
+	void SetStatsCollector(FStatsCollectorRef StatsCollector);
+
 	/**
 	 * Get a reader class for a chunk file. The reader class is the interface to chunk data which will either come from RAM or file.
 	 * @return		Shared ref to a reader class, in order to allow memory freeing, you should not keep hold of references when finished with chunk
@@ -550,9 +209,8 @@ public:
 
 	/**
 	 * Call to initialise static singleton so that the cache system can be used
-	 * @param DataAgeThreshold		Any chunks older than this date will be classed as invalid
 	 */
-	static void Init(const FDateTime& DataAgeThreshold);
+	static void Init();
 
 	/**
 	 * Get a reference to the chunk system. Only call between Init and Shutdown calls.
@@ -689,9 +347,8 @@ struct FFileAttributes
 	bool bReadOnly;
 	bool bCompressed;
 	bool bUnixExecutable;
+	TSet<FString> InstallTags;
 	FFileAttributes();
 };
 
 #endif //WITH_BUILDPATCHGENERATION
-
-#endif // __BuildPatchGeneration_h__

@@ -17,7 +17,7 @@ public class BuildPatchServices : ModuleRules
 		PrivateIncludePaths.AddRange(
 			new string[]
 			{
-				"Developer/NoRedist/BuildPatchServices/Private",
+				"Runtime/Online/BuildPatchServices/Private",
 			}
 		);
 

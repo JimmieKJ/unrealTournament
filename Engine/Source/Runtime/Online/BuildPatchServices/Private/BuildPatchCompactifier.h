@@ -23,42 +23,38 @@ public:
 	 * @param ManifestsToKeep   If specified, these manifests will be retained, and all others will be deleted
 	 * @param DataAgeThreshold  Chunks which are not referenced by a valid manifest, and which are older than this age (in days), will be deleted
 	 * @param bPreview          If true, then no actual work will be done, but all operations which would be carried out will be logged.
-	 * @param bNoPatchDelete    If true, then no patch data will be deleted, but referenced data will have its timestamp updated to the current time.
 	 * @return                  true if no file errors occurred
 	 */
-	static bool CompactifyCloudDirectory(const TArray<FString>& ManifestsToKeep, const float DataAgeThreshold, const bool bPreview, const bool bNoPatchDelete);
+	static bool CompactifyCloudDirectory(const TArray<FString>& ManifestsToKeep, const float DataAgeThreshold, const bool bPreview);
 
 	/**
 	 * Processes the specified Cloud Directory to identify and delete any orphaned chunks or files.
 	 * NOTE: THIS function is blocking and will not return until finished. Don't run on main thread.
-	 * @param CloudDir      The path to the Cloud Dir to compactify
+	 * @param CloudDir          The path to the Cloud Dir to compactify
 	 * @param ManifestsToKeep   If specified, these manifests will be retained, and all others will be deleted
 	 * @param DataAgeThreshold  Chunks which are not referenced by a valid manifest, and which are older than this age (in days), will be deleted
 	 * @param bPreview          If true, then no actual work will be done, but all operations which would be carried out will be logged.
-	 * @param bNoPatchDelete    If true, then no patch data will be deleted, but referenced data will have its timestamp updated to the current time.
 	 * @return                  true if no file errors occurred
 	 */
-	static bool CompactifyCloudDirectory(const FString& CloudDir, const TArray<FString>& ManifestsToKeep, const float DataAgeThreshold, const bool bPreview, const bool bNoPatchDelete);
+	static bool CompactifyCloudDirectory(const FString& CloudDir, const TArray<FString>& ManifestsToKeep, const float DataAgeThreshold, const bool bPreview);
 
 private:
 	const FString CloudDir;
 	const bool bPreview;
-	const bool bNoPatchDelete;
 
 	/**
 	 * Constructor.
 	 * @param CloudDir         The directory that this compactifier should operate on.
 	 * @param bPreview         If true, then no actual work will be done, but all operations which would be carried out will be logged.
-	 * @param bNoPatchDelete   If true, then no patch data will be deleted, but referenced data will have its timestamp updated to the current time.
 	 */
-	FBuildDataCompactifier(const FString& CloudDir, const bool bPreview, const bool bNoPatchDelete);
+	FBuildDataCompactifier(const FString& CloudDir, const bool bPreview);
 
 	/**
 	 * Processes the Cloud Directory to identify and delete any orphaned chunks or files.
 	 * NOTE: THIS function is blocking and will not return until finished. Don't run on main thread.
 	 * @param ManfestsToKeep      The list of manifest files that we want to keep. If specified, all other manifest files will be deleted.
 	 * @param DataAgeThreshold    The minimum age (in days) of data before it is eligible to be deleted.
-	 * @return              true if no file errors occurred
+	 * @return                    true if no file errors occurred
 	 */
 	bool Compactify(const TArray<FString>& ManifestsToKeep, const float DataAgeThreshold) const;
 
@@ -108,14 +104,6 @@ private:
 	 * @return               A string containing the human readable size
 	 */
 	FString HumanReadableSize(uint64 NumBytes, uint8 DecimalPlaces = 2, bool bUseBase10 = false) const;
-
-	/**
-	 * Sets the modified time on a file, and checks that setting the time was successful
-	 * @param FilePath    The full path to the filename on which to set the modified date
-	 * @param TimeStamp   The timestamp to apply to the file
-	 * @return            True if the operation succeeded, false otherwise
-	 */
-	bool SafeSetTimeStamp(const FString& FilePath, FDateTime TimeStamp) const;
 };
 
 #endif //WITH_BUILDPATCHGENERATION

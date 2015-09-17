@@ -6,6 +6,7 @@
 	The tool can be used in two modes of operation:
 	(1) to generate patch data (manifest, chunks, files) for build images given the existing cloud data; or
 	(2) to "compactify" a cloud directory by removing all orphaned chunks, not referenced by any manifest file.
+	(3) to enumerate the data files referenced by a manifest
 
 	In order to trigger compactify functionality, the -compactify commandline argument should be specified.
 
@@ -34,7 +35,7 @@
 	-PrereqName=""			Specifies in quotes, the display name for the prerequisites installer
 	-PrereqPath=""			Specifies in quotes, the prerequisites installer to launch on successful product install
 	-PrereqArgs=""			Specifies in quotes, the commandline to send to prerequisites installer on launch
-	-DataAgeThreshold=12.5	Specified the maximum age (in days) of existing patch data which can be reused in the generated manifest
+	-DataAgeThreshold=12.5	Specified the maximum age (in days) of existing manifest files whose referenced patch data can be reused in the generated manifest
 
 	NB: -DataAgeThreshold can also be present in the [PatchGeneration] section of BuildPatchTool.ini in the cloud directory
 	NB: If -DataAgeThreshold is not supplied, either on the command-line or in BuildPatchTool.ini, then all existing data is eligible for reuse in the generated manifest
@@ -56,10 +57,9 @@
 	Optional arguments:
 	-stdout				Adds stdout logging to the app.
 	-preview			Log all the actions it will take to update internal structures, but don't actually execute them.
-	-nopatchdelete		When specified, will only set the modified date of referenced files to the current time, but will NOT delete any patch data.
 	-ManifestsList=""			Specifies in quotes, the list of manifest filenames to keep following the operation. If omitted, all manifests are kept.
 	-ManifestsFile=""			Specifies in quotes, the name of the file (relative to CloudDir) which contains a list of manifests to keep, one manifest filename per line
-	-DataAgeThreshold=14.25		The maximum age in days of chunk files that will be retained. All older chunks will be deleted.
+	-DataAgeThreshold=2			The minimum age in days of chunk files that will be deleted. Any unreferenced chunks older than this will be deleted.
 
 	NB: If -ManifestsList is specified, then -ManifestsFile is ignored.
 	NB: -DataAgeThreshold can also be present in the [Compactify] section of BuildPatchTool.ini in the cloud directory
@@ -142,22 +142,17 @@ namespace EBuildPatchToolMode
 
 int32 BuildPatchToolMain( const TCHAR* CommandLine )
 {
-	// Initialize the command line
-	FCommandLine::Set(CommandLine);
-
-	// Add log devices
-	if (FParse::Param(FCommandLine::Get(), TEXT("stdout")))
+	// Add log device
+	if (FParse::Param(CommandLine, TEXT("stdout")))
 	{
 		GLog->AddOutputDevice(new FBuildPatchOutputDevice());
 	}
-	if (FPlatformMisc::IsDebuggerPresent())
-	{
-		GLog->AddOutputDevice(new FOutputDeviceDebug());
-	}
+
+	GEngineLoop.PreInit(CommandLine);
+	GConfig->InitializeConfigSystem();
+	IFileManager::Get().ProcessCommandLineOptions();
 
 	GLog->Logf(TEXT("BuildPatchToolMain ran with: %s"), CommandLine);
-
-	FPlatformProcess::SetCurrentWorkingDirectoryToBaseDir();
 
 	bool bSuccess = false;
 
@@ -183,7 +178,6 @@ int32 BuildPatchToolMain( const TCHAR* CommandLine )
 
 	EBuildPatchToolMode::Type ToolMode = EBuildPatchToolMode::Unknown;
 	bool bPreview = false;
-	bool bNoPatchDelete = false;
 	bool bPatchWithReuseAgeThreshold = true;
 	bool bIncludeSizes = false;
 
@@ -224,7 +218,6 @@ int32 BuildPatchToolMain( const TCHAR* CommandLine )
 			ToolMode = EBuildPatchToolMode::PatchGeneration;
 		}
 		bPreview = Switches.IndexOfByPredicate(FCommandLineMatcher(TEXT("preview"))) != INDEX_NONE;
-		bNoPatchDelete = Switches.IndexOfByPredicate(FCommandLineMatcher(TEXT("nopatchdelete"))) != INDEX_NONE;
 		bIncludeSizes = Switches.IndexOfByPredicate(FCommandLineMatcher(TEXT("includesizes"))) != INDEX_NONE;
 		BuildRootIdx = Switches.IndexOfByPredicate(FCommandLineMatcher(TEXT("BuildRoot")));
 		CloudDirIdx = Switches.IndexOfByPredicate(FCommandLineMatcher(TEXT("CloudDir")));
@@ -269,7 +262,7 @@ int32 BuildPatchToolMain( const TCHAR* CommandLine )
 		switch (ToolMode)
 		{
 		case EBuildPatchToolMode::PatchGeneration:
-		bSuccess = bSuccess && FParse::Value( *Switches[CloudDirIdx], TEXT( "CloudDir=" ), CloudDirectory );
+			bSuccess = bSuccess && FParse::Value( *Switches[CloudDirIdx], TEXT( "CloudDir=" ), CloudDirectory );
 			bSuccess = bSuccess && FParse::Value(*Switches[BuildRootIdx], TEXT("BuildRoot="), RootDirectory);
 			bSuccess = bSuccess && FParse::Value(*Switches[AppIDIdx], TEXT("AppID="), AppID);
 			bSuccess = bSuccess && FParse::Value(*Switches[AppNameIdx], TEXT("AppName="), AppName);
@@ -379,7 +372,6 @@ int32 BuildPatchToolMain( const TCHAR* CommandLine )
 		{
 			// Initialize the configuration system, we can only do this reliably if we have CloudDirectory (i.e. bSuccess is true)
 			IniFile = CloudDirectory / TEXT("BuildPatchTool.ini");
-			GConfig->InitializeConfigSystem();
 
 			if (DataAgeThresholdIdx != INDEX_NONE)
 			{
@@ -413,20 +405,11 @@ int32 BuildPatchToolMain( const TCHAR* CommandLine )
 		}
 	}
 
-	// Initialize the file manager
-	IFileManager::Get().ProcessCommandLineOptions();
-
 	// Check for argument error
 	if( !bSuccess )
 	{
 		GLog->Log(ELogVerbosity::Error, TEXT("An error occurred processing arguments"));
 		return 1;
-	}
-
-	if (ToolMode == EBuildPatchToolMode::Compactify && bPreview && bNoPatchDelete)
-	{
-		GLog->Log(ELogVerbosity::Error, TEXT("Only one of -preview and -nopatchdelete can be specified"));
-		return 5;
 	}
 
 	if (!IgnoreListFile.IsEmpty() && !FPaths::FileExists(IgnoreListFile))
@@ -486,10 +469,6 @@ int32 BuildPatchToolMain( const TCHAR* CommandLine )
 		if (bPreview)
 		{
 			CompactifyMode = ECompactifyMode::Preview;
-		}
-		else if (bNoPatchDelete)
-		{
-			CompactifyMode = ECompactifyMode::NoPatchDelete;
 		}
 
 		// Run the compactify routine
@@ -559,7 +538,7 @@ int32 BuildPatchToolMain( const TCHAR* CommandLine )
 
 INT32_MAIN_INT32_ARGC_TCHAR_ARGV()
 {
-	FString CommandLine;
+	FString CommandLine = TEXT("-usehyperthreading");
 	for( int32 Option = 1; Option < ArgC; Option++ )
 	{
 		CommandLine += TEXT(" ");

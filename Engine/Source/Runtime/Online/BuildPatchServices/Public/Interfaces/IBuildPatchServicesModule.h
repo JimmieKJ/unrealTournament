@@ -1,10 +1,8 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
-
-/*=============================================================================
-	IBuildPatchServicesModule.h: Declares the IBuildPatchServicesModule interface.
-=============================================================================*/
-
 #pragma once
+
+#include "IBuildInstaller.h"
+#include "IBuildManifest.h"
 
 class IAnalyticsProvider;
 class FHttpServiceTracker;
@@ -22,7 +20,6 @@ namespace ECompactifyMode
 	enum Type
 	{
 		Preview,
-		NoPatchDelete,
 		Full
 	};
 }
@@ -68,9 +65,10 @@ public:
 	 * @param	InstallManifest			The manifest to be installed
 	 * @param	InstallDirectory		The directory to install the App to
 	 * @param	OnCompleteDelegate		The delegate to call on completion
+	 * @param	InstallTags				The set of tags that describe what to be installed, default empty set means full installation
 	 * @return		An interface to the created installer. Will be an invalid ptr if error.
 	 */
-	virtual IBuildInstallerPtr StartBuildInstall( IBuildManifestPtr CurrentManifest, IBuildManifestPtr InstallManifest, const FString& InstallDirectory, FBuildPatchBoolManifestDelegate OnCompleteDelegate ) = 0;
+	virtual IBuildInstallerPtr StartBuildInstall(IBuildManifestPtr CurrentManifest, IBuildManifestPtr InstallManifest, const FString& InstallDirectory, FBuildPatchBoolManifestDelegate OnCompleteDelegate, TSet<FString> InstallTags = TSet<FString>()) = 0;
 
 	/**
 	 * Starts an installer thread for the provided manifests, only producing the necessary stage. Useful for handling specific install directory write access requirements yourself.
@@ -79,9 +77,10 @@ public:
 	 * @param	InstallManifest			The manifest to be installed
 	 * @param	InstallDirectory		The directory to install the App to - this should still be the real install directory. It may be read from for patching.
 	 * @param	OnCompleteDelegate		The delegate to call on completion
+	 * @param	InstallTags				The set of tags that describe what to be installed, default empty set means full installation
 	 * @return		An interface to the created installer. Will be an invalid ptr if error.
 	 */
-	virtual IBuildInstallerPtr StartBuildInstallStageOnly( IBuildManifestPtr CurrentManifest, IBuildManifestPtr InstallManifest, const FString& InstallDirectory, FBuildPatchBoolManifestDelegate OnCompleteDelegate ) = 0;
+	virtual IBuildInstallerPtr StartBuildInstallStageOnly(IBuildManifestPtr CurrentManifest, IBuildManifestPtr InstallManifest, const FString& InstallDirectory, FBuildPatchBoolManifestDelegate OnCompleteDelegate, TSet<FString> InstallTags = TSet<FString>()) = 0;
 
 	/**
 	 * Sets the directory used for staging intermediate files.
@@ -120,6 +119,12 @@ public:
 	 * @param AppInstallDirectory	The install location
 	 */
 	virtual void RegisterAppInstallation(IBuildManifestRef AppManifest, const FString AppInstallDirectory) = 0;
+
+	/**
+	 * Call to force the exit out of all current installers, optionally blocks until threads have exited and complete delegates are called.
+	 * @param WaitForThreads		If true, will block on threads exit and completion delegates
+	 */
+	virtual void CancelAllInstallers(bool WaitForThreads) = 0;
 
 #if WITH_BUILDPATCHGENERATION
 	/**

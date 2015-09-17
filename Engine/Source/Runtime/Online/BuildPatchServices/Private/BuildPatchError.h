@@ -44,7 +44,13 @@ namespace EBuildPatchInstallError
 		PrerequisiteError = 8,
 
 		// An initialization error
-		InitializationError = 9
+		InitializationError = 9,
+
+		// An error occurred creating a file due to excessive path length
+		PathLengthExceeded = 10,
+
+		// An error occurred creating a file due to their not being enough space left on the disk
+		OutOfDiskSpace = 11
 	};
 };
 
@@ -105,7 +111,13 @@ public:
 	 * Static function to get the error text for UI
 	 * @return The error text
 	 */
-	static const FText& GetErrorText();
+	static const FText GetErrorText();
+
+	/**
+	 * Static function to get the truncated error text for UI
+	 * @return The shorter error text
+	 */
+	static const FText& GetShortErrorText();
 
 	/**
 	 * Static function allowing any worker to set fatal error
