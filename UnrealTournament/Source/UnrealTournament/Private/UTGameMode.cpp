@@ -1696,6 +1696,10 @@ void AUTGameMode::AwardXP()
 				{
 					UTPS->ClampXP(XPCapPerMin * (((GameState->ElapsedTime - PS->StartTime) / 60) + 1));
 				}
+				if (GameSession->MaxPlayers > 2 && (NumPlayers == 1 || NumPlayers < NumBots))
+				{
+					UTPS->ApplyBotXPPenalty();
+				}
 				if (bXPCheatEnabled)
 				{
 					UTPS->GiveXP(FNewKillAwardXP(250000));
