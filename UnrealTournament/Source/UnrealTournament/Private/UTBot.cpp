@@ -1597,9 +1597,39 @@ void AUTBot::NotifyMoveBlocked(const FHitResult& Impact)
 	{
 		if (GetCharacter()->GetCharacterMovement()->MovementMode == MOVE_Walking)
 		{
+			APawn* HitPawn = Cast<APawn>(Impact.Actor.Get());
+			if (HitPawn != NULL && !IsTeammate(HitPawn))
+			{
+				UpdateEnemyInfo(HitPawn, EUT_HeardExact);
+			}
+			// adjust around friendly or inactive Pawns
+			if (HitPawn != NULL && (HitPawn->GetController() == NULL || IsTeammate(HitPawn)))
+			{
+				FVector VelDir = (MoveTarget.GetLocation(GetPawn()) - GetPawn()->GetActorLocation()).GetSafeNormal();
+				VelDir.Z = 0;
+				FVector OtherDir = HitPawn->GetActorLocation() - GetPawn()->GetActorLocation();
+				OtherDir.Z = 0;
+				OtherDir = OtherDir.GetSafeNormal();
+				if ((VelDir | OtherDir) > 0.8f)
+				{
+					FVector SideDir(VelDir.Y, -1.0f * VelDir.X, 0.0f);
+					if ((SideDir | OtherDir) > 0.0f)
+					{
+						SideDir *= -1.0f;
+					}
+					FVector NewAdjustLoc = GetPawn()->GetActorLocation() + 3.0f * HitPawn->GetSimpleCollisionRadius() * (0.5f * VelDir + SideDir);
+					// make sure adjust location isn't through a wall
+					FHitResult AdjustTraceHit;
+					if (GetWorld()->LineTraceSingleByChannel(AdjustTraceHit, GetPawn()->GetActorLocation(), AdjustLoc, ECC_Pawn, FCollisionQueryParams(), WorldResponseParams))
+					{
+						AdjustLoc = AdjustTraceHit.Location - AdjustTraceHit.Normal;
+					}
+					SetAdjustLoc(NewAdjustLoc);
+				}
+			}
 			// crouch if path says we should
 			// FIXME: what if going for detour in the middle of crouch path? (dropped pickup, etc)
-			if (CurrentPath.IsSet() && CurrentPath.CollisionHeight < FMath::TruncToInt(GetCharacter()->GetSimpleCollisionHalfHeight()))
+			else if (CurrentPath.IsSet() && CurrentPath.CollisionHeight < FMath::TruncToInt(GetCharacter()->GetSimpleCollisionHalfHeight()))
 			{
 				if (CurrentPath.CollisionHeight < FMath::TruncToInt(GetCharacter()->GetCharacterMovement()->CrouchedHalfHeight))
 				{
