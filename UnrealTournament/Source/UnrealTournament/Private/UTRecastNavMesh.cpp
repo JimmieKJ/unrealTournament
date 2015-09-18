@@ -56,7 +56,7 @@ AUTRecastNavMesh::AUTRecastNavMesh(const FObjectInitializer& ObjectInitializer)
 	SpecialLinkBuildNodeIndex = INDEX_NONE;
 
 	SizeSteps.Add(FCapsuleSize(42, 92));
-	SizeSteps.Add(FCapsuleSize(42, 55));
+	SizeSteps.Add(FCapsuleSize(42, 60));
 	JumpTestThreshold2D = 2048.0f;
 	ScoutClass = AUTCharacter::StaticClass();
 }
