@@ -1333,13 +1333,29 @@ void AUTBot::ApplyWeaponAimAdjust(FVector TargetLoc, FVector& FocalPoint)
 					}
 					bool bCheckedHead = false;
 					bool bHeadClean = false;
-					if (MyWeap->bSniping && ((IsStopped() && Skill + Personality.Accuracy > 5.0f + 6.0f * FMath::FRand()) || (Skill > 2.0f && FMath::FRand() < Personality.Accuracy && MyWeap->GetHeadshotScale() > 0.0f)))
+					if (MyWeap->bSniping)
 					{
-						// try head
-						TargetLoc.Z = FocalPoint.Z + 0.9f * TargetHeight;
-						bClean = !GetWorld()->LineTraceTestByObjectType(FireStart, TargetLoc, ResultParams, Params);
-						bCheckedHead = true;
-						bHeadClean = bClean;
+						float SkillThreshold;
+						if (IsStopped())
+						{
+							SkillThreshold = 4.0f + 6.0f * FMath::FRand();
+						}
+						else
+						{
+							SkillThreshold = 5.5f + 6.0f * FMath::FRand();
+						}
+						if (IsFavoriteWeapon(MyWeap->GetClass()) || FMath::FRand() < Personality.Accuracy)
+						{
+							SkillThreshold -= 1.5f;
+						}
+						if (Skill + Personality.Accuracy < SkillThreshold)
+						{
+							// try head
+							TargetLoc.Z = FocalPoint.Z + 0.9f * TargetHeight;
+							bClean = !GetWorld()->LineTraceTestByObjectType(FireStart, TargetLoc, ResultParams, Params);
+							bCheckedHead = true;
+							bHeadClean = bClean;
+						}
 					}
 
 					if (!bClean)
