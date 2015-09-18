@@ -2102,15 +2102,24 @@ void AUTCharacter::FiringInfoUpdated()
 		{
 			Weapon->FiringInfoUpdated(FireMode, FlashCount, FlashLocation);
 		}
+		if (FlashCount == 0 && FlashLocation.IsZero() && WeaponAttachment != NULL)
+		{
+			WeaponAttachment->StopFiringEffects();
+		}
 	}
-	else if (WeaponAttachment != NULL && (!IsLocallyControlled() || UTPC == NULL || UTPC->IsBehindView()))
+	else if (WeaponAttachment != NULL)
 	{
 		if (FlashCount != 0 || !FlashLocation.IsZero())
 		{
-			WeaponAttachment->PlayFiringEffects();
+			if ((!IsLocallyControlled() || UTPC == NULL || UTPC->IsBehindView()))
+			{
+				WeaponAttachment->PlayFiringEffects();
+			}
 		}
 		else
 		{
+			// always call Stop to avoid effects mismatches where we switched view modes during a firing sequence
+			// and some effect ends up being left on forever
 			WeaponAttachment->StopFiringEffects();
 		}
 	}
