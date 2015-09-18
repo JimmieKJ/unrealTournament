@@ -1333,7 +1333,7 @@ void AUTBot::ApplyWeaponAimAdjust(FVector TargetLoc, FVector& FocalPoint)
 					}
 					bool bCheckedHead = false;
 					bool bHeadClean = false;
-					if (MyWeap->bSniping && ((IsStopped() && Skill + Personality.Accuracy > 5.0f + 6.0f * FMath::FRand()) || (FMath::FRand() < Personality.Accuracy && MyWeap->GetHeadshotScale() > 0.0f)))
+					if (MyWeap->bSniping && ((IsStopped() && Skill + Personality.Accuracy > 5.0f + 6.0f * FMath::FRand()) || (Skill > 2.0f && FMath::FRand() < Personality.Accuracy && MyWeap->GetHeadshotScale() > 0.0f)))
 					{
 						// try head
 						TargetLoc.Z = FocalPoint.Z + 0.9f * TargetHeight;
