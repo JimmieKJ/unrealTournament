@@ -233,11 +233,13 @@ void FWebMRecord::OnSlateWindowRenderedDuringCapture(SWindow& SlateWindow, void*
 		if (GameViewportClient->GetWindow() == SlateWindow.AsShared())
 		{
 			//UE_LOG(LogUTWebM, Log, TEXT("Saving video frame %f"), VideoDeltaTimeAccum);
-
-			SaveCurrentFrameToDisk();
-
 			const FViewportRHIRef* ViewportRHI = (const FViewportRHIRef*)ViewportRHIPtr;
 			StartCopyingNextGameFrame(*ViewportRHI);
+
+			// Force game frame copy
+			FlushRenderingCommands();
+
+			SaveCurrentFrameToDisk();
 		}
 	}
 }
@@ -310,6 +312,7 @@ void FWebMRecord::SaveCurrentFrameToDisk()
 		while (VideoRecordLagTime > VideoFrameDelay)
 		{
 			WriteFrameToTempFile();
+			//UE_LOG(LogUTWebM, Log, TEXT("Wrote extra frame"));
 			VideoRecordLagTime -= VideoFrameDelay;
 		}
 
@@ -392,6 +395,8 @@ void FWebMRecord::UnmapReadbackTextures()
 
 void FWebMRecord::StartCopyingNextGameFrame(const FViewportRHIRef& ViewportRHI)
 {
+	// There has to be a better way to get the back buffer data.
+
 	const FIntPoint ResizeTo(VideoWidth, VideoHeight);
 
 	static const FName RendererModuleName("Renderer");
