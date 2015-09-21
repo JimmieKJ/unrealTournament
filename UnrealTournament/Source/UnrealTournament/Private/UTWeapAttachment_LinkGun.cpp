@@ -59,6 +59,12 @@ void AUTWeapAttachment_LinkGun::FiringExtraUpdated()
 	{
 		// display beam pulse
 		LastBeamPulseTime = GetWorld()->TimeSeconds;
+		// use an extra muzzle flash slot at the end for the pulse effect
+		int32 PulseFlashIndex = WeaponType.GetDefaultObject()->FiringState.Num();
+		if (MuzzleFlash.IsValidIndex(PulseFlashIndex) && MuzzleFlash[PulseFlashIndex] != NULL)
+		{
+			MuzzleFlash[PulseFlashIndex]->ActivateSystem();
+		}
 	}
 }
 

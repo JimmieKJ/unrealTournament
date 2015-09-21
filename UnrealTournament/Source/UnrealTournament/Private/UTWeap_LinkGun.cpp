@@ -186,6 +186,12 @@ void AUTWeap_LinkGun::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 				AddAmmo(-BeamPulseAmmoCost);
 			}
 		}
+		PlayWeaponAnim(PulseAnim, PulseAnimHands);
+		// use an extra muzzle flash slot at the end for the pulse effect
+		if (MuzzleFlash.IsValidIndex(FiringState.Num()) && MuzzleFlash[FiringState.Num()] != NULL)
+		{
+			MuzzleFlash[FiringState.Num()]->ActivateSystem();
+		}
 		LastBeamPulseTime = GetWorld()->TimeSeconds;
 		bPendingBeamPulse = false;
 	}
@@ -545,5 +551,11 @@ void AUTWeap_LinkGun::FiringExtraUpdated_Implementation(uint8 NewFlashExtra, uin
 	if (NewFlashExtra > 0 && InFireMode == 1)
 	{
 		LastBeamPulseTime = GetWorld()->TimeSeconds;
+		// use an extra muzzle flash slot at the end for the pulse effect
+		if (MuzzleFlash.IsValidIndex(FiringState.Num()) && MuzzleFlash[FiringState.Num()] != NULL)
+		{
+			MuzzleFlash[FiringState.Num()]->ActivateSystem();
+		}
+		PlayWeaponAnim(PulseAnim, PulseAnimHands);
 	}
 }
