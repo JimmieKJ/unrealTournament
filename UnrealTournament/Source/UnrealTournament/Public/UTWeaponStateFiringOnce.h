@@ -36,15 +36,17 @@ UUTWeaponStateFiringOnce(const class FObjectInitializer& ObjectInitializer)
 			GetUTOwner()->StopFiring();
 		}
 
+		if (GetOuterAUTWeapon()->GetUTOwner()->GetPendingWeapon() != NULL || !GetOuterAUTWeapon()->GetUTOwner()->IsPendingFire(GetOuterAUTWeapon()->GetCurrentFireMode()) || !GetOuterAUTWeapon()->HasAmmo(GetOuterAUTWeapon()->GetCurrentFireMode()))
+		{
+			GetOuterAUTWeapon()->GotoActiveState();
+		}
 		bFinishedCooldown = true;
-		EndFiringSequence(GetOuterAUTWeapon()->GetCurrentFireMode());
 	}
 
 	virtual void EndFiringSequence(uint8 FireModeNum)
 	{
-		if (bFinishedCooldown && GetUTOwner() && GetOuterAUTWeapon())
+		if (bFinishedCooldown)
 		{
-			GetUTOwner()->ClearPendingFire();
 			GetOuterAUTWeapon()->GotoActiveState();
 		}
 	}
