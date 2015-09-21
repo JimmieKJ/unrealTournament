@@ -72,6 +72,8 @@ protected:
 
 	TSharedPtr<SUTChallengePanel> ChallengePanel;
 
+	virtual void OnOwnerLoginStatusChanged(UUTLocalPlayer* LocalPlayerOwner, ELoginStatus::Type NewStatus, const FUniqueNetId& UniqueID) override;
+
 public:
 	virtual ~SUWindowsMainMenu();
 
