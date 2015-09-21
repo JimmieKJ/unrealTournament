@@ -2560,6 +2560,7 @@ void UUTLocalPlayer::CloseMapVote()
 void UUTLocalPlayer::OpenMatchSummary(AUTGameState* GameState)
 {
 #if !UE_SERVER
+	PlayerController->DisableInput(PlayerController);
 	if (MatchSummaryWindow.IsValid())
 	{
 		CloseMatchSummary();
@@ -2580,6 +2581,9 @@ void UUTLocalPlayer::OpenMatchSummary(AUTGameState* GameState)
 void UUTLocalPlayer::CloseMatchSummary()
 {
 #if !UE_SERVER
+	PlayerController->FlushPressedKeys();
+	PlayerController->EnableInput(PlayerController);
+
 	UUTGameViewportClient* UTGVC = Cast<UUTGameViewportClient>(GEngine->GameViewport);
 	if (MatchSummaryWindow.IsValid() && UTGVC != nullptr)
 	{

@@ -318,15 +318,18 @@ void AUTPlayerController::SetupInputComponent()
 
 void AUTPlayerController::ProcessPlayerInput(const float DeltaTime, const bool bGamePaused)
 {
-	Super::ProcessPlayerInput(DeltaTime, bGamePaused);
-
-	if (bRequestedDodge)
+	if (InputEnabled())
 	{
-		PerformSingleTapDodge();
+		Super::ProcessPlayerInput(DeltaTime, bGamePaused);
+
+		if (bRequestedDodge)
+		{
+			PerformSingleTapDodge();
+		}
+		bRequestedDodge = false;
+		MovementForwardAxis = 0.f;
+		MovementStrafeAxis = 0.f;
 	}
-	bRequestedDodge = false;
-	MovementForwardAxis = 0.f;
-	MovementStrafeAxis = 0.f;
 }
 
 void AUTPlayerController::InitInputSystem()
