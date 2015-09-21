@@ -3901,7 +3901,7 @@ int32 AUTBot::GetRouteDist() const
 
 void AUTBot::PickNewEnemy()
 {
-	if (GetPawn() != NULL && (Enemy == NULL || Enemy->Controller == NULL || !Squad->MustKeepEnemy(Enemy) || !CanAttack(Enemy, GetEnemyLocation(Enemy, true), false)))
+	if ((Enemy == NULL || Enemy->Controller == NULL || !Squad->MustKeepEnemy(Enemy) || !CanAttack(Enemy, GetEnemyLocation(Enemy, true), false)) && GetPawn() != NULL)
 	{
 		LastPickEnemyTime = GetWorld()->TimeSeconds;
 
