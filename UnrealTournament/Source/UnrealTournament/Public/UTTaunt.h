@@ -18,6 +18,6 @@ class UNREALTOURNAMENT_API AUTTaunt : public AActor
 	UPROPERTY(EditDefaultsOnly)
 	UAnimMontage* TauntMontage;
 
-	UPROPERTY(EditDefaultsOnly)
+	UPROPERTY(EditDefaultsOnly, AssetRegistrySearchable, Meta = (DisplayName = "Requires Online Item"))
 	bool bRequiresItem;
 };
