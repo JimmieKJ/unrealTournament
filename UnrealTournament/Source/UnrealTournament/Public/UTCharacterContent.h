@@ -55,6 +55,9 @@ public:
 	 */
 	UPROPERTY(EditDefaultsOnly, AssetRegistrySearchable)
 	FName RequiredAchievement;
+	
+	USkeletalMeshComponent* GetMesh() { return Mesh; }
+
 protected:
 	UPROPERTY(VisibleDefaultsOnly)
 	USkeletalMeshComponent* Mesh;

@@ -2549,6 +2549,35 @@ void AUTPlayerController::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
+	// Prestream everyone's textures for match summary
+	if (GetNetMode() != NM_DedicatedServer)
+	{
+		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+		if (GS && GS->bPlayPlayerIntro)
+		{
+			if (GS->GetMatchState() == MatchState::WaitingToStart)
+			{
+				for (TActorIterator<AUTPlayerState> It(GetWorld()); It; ++It)
+				{
+					AUTPlayerState* PS = *It;
+
+					if (!PS->bOnlySpectator && !PS->IsPendingKillPending())
+					{
+						TSubclassOf<AUTCharacterContent> Data = PS->GetSelectedCharacter();
+						if (Data)
+						{
+							USkeletalMeshComponent* SkelMesh = Data->GetDefaultObject<AUTCharacterContent>()->GetMesh();
+							if (SkelMesh)
+							{
+								SkelMesh->PrestreamTextures(1, true);
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
 	if ((GetNetMode() == NM_DedicatedServer) && (CurrentlyViewedScorePS != NULL))
 	{
 		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();

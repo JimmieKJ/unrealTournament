@@ -60,6 +60,10 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 	/**If true, had to force balance teams. */
 	UPROPERTY(Replicated, BlueprintReadOnly, Category = GameState)
 	uint32 bForcedBalance : 1;
+	
+	/** If true, the intro cinematic will play just before the countdown to begin */
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = GameState)
+	uint32 bPlayPlayerIntro : 1;
 
 	/** If a single player's (or team's) score hits this limited, the game is over */
 	UPROPERTY(Replicated, EditDefaultsOnly, BlueprintReadOnly, Category = GameState)

@@ -255,6 +255,7 @@ void AUTGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLif
 	DOREPLIFETIME(AUTGameState, VoteTimer);
 
 	DOREPLIFETIME_CONDITION(AUTGameState, bCasterControl, COND_InitialOnly);
+	DOREPLIFETIME_CONDITION(AUTGameState, bPlayPlayerIntro, COND_InitialOnly);
 	DOREPLIFETIME(AUTGameState, bForcedBalance);
 }
 

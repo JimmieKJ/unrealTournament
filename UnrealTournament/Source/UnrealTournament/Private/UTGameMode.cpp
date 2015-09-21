@@ -434,6 +434,7 @@ void AUTGameMode::InitGameState()
 		UTGameState->bTeamGame = bTeamGame;
 		UTGameState->bWeaponStay = bWeaponStayActive;
 		UTGameState->bCasterControl = bCasterControl;
+		UTGameState->bPlayPlayerIntro = bPlayPlayerIntro;
 
 		UTGameState->bIsInstanceServer = IsGameInstanceServer();
 		
