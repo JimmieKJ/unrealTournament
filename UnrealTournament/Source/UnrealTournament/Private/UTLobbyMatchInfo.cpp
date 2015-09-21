@@ -1201,6 +1201,10 @@ uint32 AUTLobbyMatchInfo::GetMatchFlags()
 bool AUTLobbyMatchInfo::ServerInvitePlayer_Validate(AUTLobbyPlayerState* Who, bool bInvite) { return true; }
 void AUTLobbyMatchInfo::ServerInvitePlayer_Implementation(AUTLobbyPlayerState* Who, bool bInvite)
 {
+	if (!Who)
+	{
+		return;
+	}
 	if (bInvite)
 	{
 		if (AllowedPlayerList.Find(Who->UniqueId.ToString()) == INDEX_NONE)
