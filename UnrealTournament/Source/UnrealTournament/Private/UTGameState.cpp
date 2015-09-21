@@ -22,7 +22,7 @@ AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 	MultiKillMessageClass = UUTMultiKillMessage::StaticClass();
 	SpreeMessageClass = UUTSpreeMessage::StaticClass();
 	MultiKillDelay = 3.0f;
-	SpawnProtectionTime = 2.5f;
+	SpawnProtectionTime = 2.f;
 	bWeaponStay = true;
 	bViewKillerOnDeath = true;
 	bAllowTeamSwitches = true;

@@ -389,6 +389,7 @@ void AUTPickupInventory::GiveTo_Implementation(APawn* Target)
 			Params.bNoCollisionFail = true;
 			Params.Instigator = P;
 			P->AddInventory(GetWorld()->SpawnActor<AUTInventory>(InventoryType, GetActorLocation(), GetActorRotation(), Params), true);
+			P->DeactivateSpawnProtection();
 			AnnouncePickup(P);
 		}
 
