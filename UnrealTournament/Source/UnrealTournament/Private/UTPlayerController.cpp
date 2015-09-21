@@ -1919,19 +1919,20 @@ void AUTPlayerController::ServerRestartPlayerAltFire_Implementation()
 		UTPlayerState->ForceNetUpdate();
 	}
 
-	if (!GetWorld()->GetAuthGameMode()->HasMatchStarted())
+	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+	if (GS && !GS->HasMatchStarted())
 	{
-		ServerSwitchTeam();
+		if (GS->GetMatchState() != MatchState::CountdownToBegin && GS->GetMatchState() != MatchState::PlayerIntro)
+		{
+			ServerSwitchTeam();
+		}
 	}
 	else 
 	{
 		AUTGameMode* GameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
-		if (GameMode)
+		if (GameMode && !GameMode->PlayerCanAltRestart(this))
 		{
-			if (!GameMode->PlayerCanAltRestart(this))
-			{
-				return;
-			}
+			return;
 		}
 	}
 
