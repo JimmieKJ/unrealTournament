@@ -28,6 +28,11 @@ namespace UnrealBuildTool.Rules
 
             var LIBPath = Path.Combine("..", "..", "UnrealTournament", "Plugins", "WebMRecord", "Source", "ThirdParty", "vpx");
 
+            if (Target.Platform == UnrealTargetPlatform.Win32)
+            {
+                LIBPath = Path.Combine("..", "..", "UnrealTournament", "Plugins", "WebMRecord", "Source", "ThirdParty", "vpx32");
+            }
+
             var VPXLibPath = Path.Combine(LIBPath, "vpxmd.lib");
             //var VPXLibPath = Path.Combine(LIBPath, "vpxmdd.lib");
             

@@ -11,11 +11,20 @@
 #include "RHIStaticStates.h"
 #include "RendererInterface.h"
 
+#if PLATFORM_32BITS
+#include "vpx32/vpx_encoder.h"
+#include "vpx32/vp8cx.h"
+#include "vpx32/video_writer.h"
+#include "vpx32/webmenc.h"
+#include "vpx32/vpx_mem.h"
+#else
 #include "vpx/vpx_encoder.h"
 #include "vpx/vp8cx.h"
 #include "vpx/video_writer.h"
 #include "vpx/webmenc.h"
 #include "vpx/vpx_mem.h"
+#endif
+
 #include "libyuv/convert.h"
 
 #include <Avrt.h>
