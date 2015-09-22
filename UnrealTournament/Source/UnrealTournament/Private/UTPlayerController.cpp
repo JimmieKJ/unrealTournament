@@ -1198,7 +1198,10 @@ void AUTPlayerController::TogglePlayerInfo()
 		if (PS == nullptr)
 		{
 			APawn* Pawn = Cast<APawn>(GetViewTarget());
-			PS = Cast<AUTPlayerState>(Pawn->PlayerState);
+			if (Pawn)
+			{
+				PS = Cast<AUTPlayerState>(Pawn->PlayerState);
+			}
 		}
 
 		UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
