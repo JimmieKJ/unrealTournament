@@ -2226,7 +2226,17 @@ AActor* AUTGameMode::ChoosePlayerStart_Implementation(AController* Player)
 	AUTPlayerState* UTPS = Player != NULL ? Cast<AUTPlayerState>(Player->PlayerState) : NULL;
 	if (bHasRespawnChoices && UTPS->RespawnChoiceA != nullptr && UTPS->RespawnChoiceB != nullptr)
 	{
-		if (UTPS->bChosePrimaryRespawnChoice)
+		AUTBot* B = Cast<AUTBot>(Player);
+		if (B != NULL)
+		{
+			// give bot selection now
+			TArray<APlayerStart*> Choices;
+			Choices.Add(UTPS->RespawnChoiceA);
+			Choices.Add(UTPS->RespawnChoiceB);
+			APlayerStart* Pick = B->PickSpawnPoint(Choices);
+			return (Pick != NULL) ? Pick : UTPS->RespawnChoiceA;
+		}
+		else if (UTPS->bChosePrimaryRespawnChoice)
 		{
 			return UTPS->RespawnChoiceA;
 		}

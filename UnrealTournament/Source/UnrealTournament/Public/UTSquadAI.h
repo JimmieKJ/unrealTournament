@@ -174,6 +174,12 @@ public:
 		return true;
 	}
 
+	/** allows squad to choose spawn point for bot when selection is possible. Return NULL to use default AI logic. */
+	virtual APlayerStart* PickSpawnPointFor(AUTBot* B, const TArray<APlayerStart*>& Choices)
+	{
+		return NULL;
+	}
+
 	/** called when bot lost track of enemy and wants a new one. Assigning one is optional.
 	 * @return whether a new enemy was assigned
 	 */

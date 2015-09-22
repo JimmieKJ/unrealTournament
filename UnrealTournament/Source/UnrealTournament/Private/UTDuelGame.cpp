@@ -1,5 +1,4 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
-
 #include "UnrealTournament.h"
 #include "UTHUD_Duel.h"
 #include "UTTimedPowerup.h"
@@ -10,7 +9,7 @@
 #include "UTDuelGame.h"
 #include "StatNames.h"
 #include "UTSpectatorPickupMessage.h"
-
+#include "UTDuelSquadAI.h"
 
 AUTDuelGame::AUTDuelGame(const class FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -29,6 +28,7 @@ AUTDuelGame::AUTDuelGame(const class FObjectInitializer& ObjectInitializer)
 	bOnlyTheStrongSurvive = false;
 	bNoDefaultLeaderHat = true;
 	XPMultiplier = 7.0f;
+	SquadType = AUTDuelSquadAI::StaticClass();
 }
 
 void AUTDuelGame::InitGameState()

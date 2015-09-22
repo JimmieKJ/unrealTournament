@@ -663,6 +663,9 @@ public:
 	virtual void Tick(float DeltaTime) override;
 	virtual void UTNotifyKilled(AController* Killer, AController* KilledPlayer, APawn* KilledPawn, const UDamageType* DamageType);
 
+	/** when the game type supports players selecting a spawn point, this function is called to choose from the allowed options */
+	virtual APlayerStart* PickSpawnPoint(const TArray<APlayerStart*> Choices);
+
 	virtual FVector GetFocalPoint() const
 	{
 		return FinalFocalPoint;

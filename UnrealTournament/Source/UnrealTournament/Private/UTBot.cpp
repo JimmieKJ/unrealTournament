@@ -444,6 +444,17 @@ void AUTBot::Destroyed()
 	Super::Destroyed();
 }
 
+APlayerStart* AUTBot::PickSpawnPoint(const TArray<APlayerStart*> Choices)
+{
+	APlayerStart* Pick = (Squad != NULL) ? Squad->PickSpawnPointFor(this, Choices) : NULL;
+	if (Pick == NULL)
+	{
+		// fallback to pure random
+		Pick = Choices[FMath::RandHelper(Choices.Num())];
+	}
+	return Pick;
+}
+
 uint8 AUTBot::GetTeamNum() const
 {
 	AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
