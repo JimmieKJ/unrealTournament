@@ -911,44 +911,6 @@ void AUTRecastNavMesh::BuildNodeNetwork()
 		}
 	}
 
-	// calculate node locations
-	for (UUTPathNode* Node : PathNodes)
-	{
-		// get center of bounding box encompassing all the polys
-		FBox NodeBB(0);
-		TArray<FVector> PolyCenters;
-		for (NavNodeRef PolyRef : Node->Polys)
-		{
-			const dtPoly* PolyData = NULL;
-			const dtMeshTile* TileData = NULL;
-			InternalMesh->getTileAndPolyByRef(PolyRef, &TileData, &PolyData);
-			if (PolyData != NULL && TileData != NULL)
-			{
-				FVector VertSum(FVector::ZeroVector);
-				for (int32 i = 0; i < PolyData->vertCount; i++)
-				{
-					FVector VertLoc = Recast2UnrealPoint(&TileData->verts[PolyData->verts[i] * 3]);
-					VertSum += VertLoc;
-					NodeBB += VertLoc;
-				}
-				PolyCenters.Add(VertSum / float(PolyData->vertCount));
-			}
-		}
-		FVector BBCenter = NodeBB.GetCenter();
-
-		// use the center of the tile closest to the node's BB center as the node's Location
-		float BestDist = FLT_MAX;
-		for (const FVector& Center : PolyCenters)
-		{
-			float Dist = (Center - BBCenter).SizeSquared();
-			if (Dist < BestDist)
-			{
-				Node->Location = Center;
-				BestDist = Dist;
-			}
-		}
-	}
-
 	// query POIs for special paths
 	for (UUTPathNode* Node : PathNodes)
 	{

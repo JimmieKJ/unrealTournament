@@ -224,11 +224,6 @@ class UNREALTOURNAMENT_API UUTPathNode : public UObject
 	FLinearColor DebugDrawColor;
 #endif
 
-	/** appoximate center point of the tiles this node is contained by
-	* this point is guaranteed to be a walkable point on the navmesh
-	*/
-	UPROPERTY()
-	FVector Location;
 	/** smallest poly edge size (i.e. largest collision capsule that can traverse all polygons and edges in this node) */
 	UPROPERTY(BlueprintReadOnly, Category = PathNode)
 	FCapsuleSize MinPolyEdgeSize;
