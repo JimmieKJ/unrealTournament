@@ -860,10 +860,13 @@ void AUTGameState::CompactSpectatingIDs()
 			const TArray<AController*> Members = Team->GetTeamMembers();
 			for (AController* C : Members)
 			{
-				AUTPlayerState* UTPS = Cast<AUTPlayerState>(C->PlayerState);
-				if (UTPS != NULL && UTPS->SpectatingIDTeam)
+				if (C)
 				{
-					PlayerArrayCopy.Add(UTPS);
+					AUTPlayerState* UTPS = Cast<AUTPlayerState>(C->PlayerState);
+					if (UTPS != NULL && UTPS->SpectatingIDTeam)
+					{
+						PlayerArrayCopy.Add(UTPS);
+					}
 				}
 			}
 			PlayerArrayCopy.Sort([](const AUTPlayerState& A, const AUTPlayerState& B) -> bool
