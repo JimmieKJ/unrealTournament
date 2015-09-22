@@ -1778,7 +1778,7 @@ FText SUWMatchSummary::GetSwitcherText() const
 	{
 		return FText::FromString(ViewedChar->PlayerState->PlayerName);
 	}
-	if (HasCamFlag(CF_Team) && GameState.IsValid() && GameState->Teams.IsValidIndex(ViewedTeamNum))
+	if (HasCamFlag(CF_Team) && GameState.IsValid() && GameState->Teams.IsValidIndex(ViewedTeamNum) && (GameState->Teams[ViewedTeamNum] != NULL))
 	{
 		return FText::Format(NSLOCTEXT("SUWMatchSummary", "Team", "{0} Team"), GameState->Teams[ViewedTeamNum]->TeamName);
 	}
