@@ -71,6 +71,10 @@ UUTGameEngine::UUTGameEngine(const FObjectInitializer& ObjectInitializer)
 
 void UUTGameEngine::Init(IEngineLoop* InEngineLoop)
 {
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	FCommandLine::Append(TEXT(" -ddc=noshared"));
+#endif
+
 	FString Commandline = FCommandLine::Get();
 	if (!Commandline.Contains(TEXT("?game=lobby")))
 	{
