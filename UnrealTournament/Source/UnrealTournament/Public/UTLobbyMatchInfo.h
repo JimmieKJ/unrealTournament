@@ -376,6 +376,10 @@ protected:
 public:
 	UPROPERTY(Replicated)
 	TArray<FString> AllowedPlayerList;
+
+	// When was this server launched.
+	float InstanceLaunchTime;
+
 };
 
 

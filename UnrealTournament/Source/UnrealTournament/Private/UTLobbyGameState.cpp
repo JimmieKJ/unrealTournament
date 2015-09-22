@@ -136,7 +136,8 @@ void AUTLobbyGameState::CheckInstanceHealth()
 
 	for (int32 i=0; i<GameInstances.Num();i++)
 	{
-		if (GameInstances[i].MatchInfo && GameInstances[i].MatchInfo->CurrentState == ELobbyMatchState::Dead)
+		if ( (GameInstances[i].MatchInfo && GameInstances[i].MatchInfo->CurrentState == ELobbyMatchState::Dead) ||
+			 (GameInstances[i].MatchInfo && GameInstances[i].MatchInfo->CurrentState == ELobbyMatchState::Launching && GetWorld()->GetRealTimeSeconds() - GameInstances[i].MatchInfo->InstanceLaunchTime > 600) )
 		{
 			RemoveMatch(GameInstances[i].MatchInfo);
 		}
@@ -375,6 +376,16 @@ void AUTLobbyGameState::SetupLobbyBeacons()
 		{
 			LobbyBeacon_Listener->RegisterHost(LobbyBeacon_Object);
 			GameInstanceListenPort = LobbyBeacon_Listener->ListenPort;
+			
+			UE_LOG(UT,Log,TEXT("---------------------------------------"));
+			UE_LOG(UT,Log,TEXT("Listing for instances on port %i"), GameInstanceListenPort);
+			UE_LOG(UT,Log,TEXT("---------------------------------------"));
+
+			if (AUTServerBeaconLobbyHostListener::StaticClass()->GetDefaultObject<AUTServerBeaconLobbyHostListener>()->ListenPort != GameInstanceListenPort)
+			{
+				UE_LOG(UT,Warning,TEXT("Game could not bind to the proper listen port."));
+			}
+
 			return;
 		}
 	}
@@ -447,6 +458,7 @@ void AUTLobbyGameState::LaunchGameInstance(AUTLobbyMatchInfo* MatchOwner, FStrin
 		{
 			GameInstances.Add(FGameInstanceData(MatchOwner, InstancePort));
 			MatchOwner->SetLobbyMatchState(ELobbyMatchState::Launching);
+			MatchOwner->InstanceLaunchTime = GetWorld()->GetRealTimeSeconds();
 			MatchOwner->GameInstanceID = GameInstanceID;
 		}
 		else

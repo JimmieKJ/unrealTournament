@@ -1,4 +1,3 @@
-
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealTournament.h"
@@ -324,7 +323,7 @@ int32 AUTLobbyGameMode::GetNumMatches()
 	{
 		for (int32 i = 0; i < UTLobbyGameState->GameInstances.Num(); i++)
 		{
-			if (UTLobbyGameState->GameInstances[i].MatchInfo && UTLobbyGameState->GameInstances[i].MatchInfo->CurrentState == ELobbyMatchState::InProgress)
+			if (UTLobbyGameState->GameInstances[i].MatchInfo && ( UTLobbyGameState->GameInstances[i].MatchInfo->CurrentState == ELobbyMatchState::InProgress || UTLobbyGameState->GameInstances[i].MatchInfo->CurrentState == ELobbyMatchState::Launching) )
 			{
 				Cnt++;
 			}
