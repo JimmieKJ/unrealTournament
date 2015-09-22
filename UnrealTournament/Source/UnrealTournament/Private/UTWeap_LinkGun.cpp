@@ -513,7 +513,7 @@ void AUTWeap_LinkGun::CheckBotPulseFire()
 			const FVector SpawnLocation = GetFireStartLoc();
 			const FVector EndTrace = SpawnLocation + GetAdjustedAim(SpawnLocation).Vector() * InstantHitInfo[1].TraceRange;
 
-			bool bTryPulse = FMath::FRand() < 0.2f;
+			bool bTryPulse = FMath::FRand() < (B->IsFavoriteWeapon(GetClass()) ? 0.2f : 0.1f);
 			if (bTryPulse)
 			{
 				// if bot has good reflexes only pulse if enemy is being hit
