@@ -3937,6 +3937,11 @@ void AUTCharacter::PossessedBy(AController* NewController)
 	{
 		UTCharacterMovement->ResetTimers();
 	}
+
+	if (Role == ROLE_Authority)
+	{
+		SetCosmeticsFromPlayerState();
+	}
 }
 
 void AUTCharacter::UnPossessed()
@@ -3980,6 +3985,11 @@ void AUTCharacter::OnRep_PlayerState()
 		NotifyTeamChanged();
 	}
 
+	SetCosmeticsFromPlayerState();
+}
+
+void AUTCharacter::SetCosmeticsFromPlayerState()
+{
 	AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
 	if (PS)
 	{
