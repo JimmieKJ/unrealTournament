@@ -707,7 +707,10 @@ void SUWMapVoteDialog::Tick( const FGeometry& AllottedGeometry, const double InC
 				if (VoteButtons[i].MapVoteInfo.IsValid() && VoteButtons[i].MapVoteInfo->bNeedsUpdate)
 				{
 					VoteButtons[i].VoteCountText->SetText(FText::AsNumber(VoteButtons[i].MapVoteInfo->VoteCount));
-					GameState->MapVoteList[i]->bNeedsUpdate = false;
+					if ((GameState->MapVoteList.Num() > i) && (GameState->MapVoteList[i] != NULL))
+					{
+						GameState->MapVoteList[i]->bNeedsUpdate = false;
+					}
 				}
 			}
 		}
