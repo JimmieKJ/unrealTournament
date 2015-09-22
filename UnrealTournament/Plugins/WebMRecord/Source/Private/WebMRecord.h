@@ -141,6 +141,8 @@ public:
 	bool bCompressionComplete;
 	bool bCompressionSuccessful;
 	void EncodeVideoAndAudio(const FString& Filename);
+	
+	void EncodeAnimatedGIF(const FString& Filename);
 
 	virtual bool IsRecording(uint32& TickRate) override;
 
@@ -184,7 +186,7 @@ protected:
 	bool bRegisteredSlateDelegate;
 
 	FCaptureAudioWorker* AudioWorker;
-	class FCompressVideoWorker* CompressWorker;
+	class FCompressWorker* CompressWorker;
 	
 	// Returns a buffer that you must delete [] later
 	void MakeAudioPrivateData(const ogg_packet& header, const ogg_packet& header_comm, const ogg_packet& header_code, uint8** AudioHeader, uint64& AudioHeaderLength);
@@ -197,8 +199,13 @@ protected:
 	void UnmapReadbackTextures();
 };
 
+class FCompressWorker : public FRunnable
+{
+public:
+	virtual void WaitForCompletion() = 0;
+};
 
-class FCompressVideoWorker : public FRunnable
+class FCompressVideoWorker : public FCompressWorker
 {
 	FCompressVideoWorker(FWebMRecord* InWebMRecorder, const FString& InFilename);
 
@@ -235,4 +242,44 @@ private:
 	FWebMRecord* WebMRecorder;
 	FString Filename;
 	static FCompressVideoWorker* Runnable;
+};
+
+
+class FCreateAnimatedGIFWorker : public FCompressWorker
+{
+	FCreateAnimatedGIFWorker(FWebMRecord* InWebMRecorder, const FString& InFilename);
+
+	~FCreateAnimatedGIFWorker()
+	{
+		delete Thread;
+		Thread = nullptr;
+	}
+
+	uint32 Run();
+
+public:
+	bool bStopCapture;
+
+	void WaitForCompletion()
+	{
+		Thread->WaitForCompletion();
+	}
+
+	static FCreateAnimatedGIFWorker* RunWorkerThread(FWebMRecord* InWebMRecorder, const FString& InFilename)
+	{
+		if (Runnable)
+		{
+			delete Runnable;
+			Runnable = nullptr;
+		}
+
+		Runnable = new FCreateAnimatedGIFWorker(InWebMRecorder, InFilename);
+
+		return Runnable;
+	}
+private:
+	FRunnableThread* Thread;
+	FWebMRecord* WebMRecorder;
+	FString Filename;
+	static FCreateAnimatedGIFWorker* Runnable;
 };
