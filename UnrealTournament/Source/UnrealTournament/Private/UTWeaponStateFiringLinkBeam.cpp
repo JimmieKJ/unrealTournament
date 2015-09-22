@@ -59,7 +59,7 @@ void UUTWeaponStateFiringLinkBeam::Tick(float DeltaTime)
 	HandleDelayedShot();
 	
 	AUTWeap_LinkGun* LinkGun = Cast<AUTWeap_LinkGun>(GetOuterAUTWeapon());
-    if (!LinkGun->FireShotOverride() && LinkGun->InstantHitInfo.IsValidIndex(LinkGun->GetCurrentFireMode()))
+    if (LinkGun && !LinkGun->FireShotOverride() && LinkGun->InstantHitInfo.IsValidIndex(LinkGun->GetCurrentFireMode()))
     {
         const FInstantHitDamageInfo& DamageInfo = LinkGun->InstantHitInfo[LinkGun->GetCurrentFireMode()]; //Get and store reference to DamageInfo, Damage = 34, Momentum = -100000, TraceRange = 1800
 		FHitResult Hit; 
@@ -84,7 +84,7 @@ void UUTWeaponStateFiringLinkBeam::Tick(float DeltaTime)
 
 		AccumulatedFiringTime += DeltaTime;
 		float RefireTime = LinkGun->GetRefireTime(LinkGun->GetCurrentFireMode());
-		AUTPlayerState* PS = (LinkGun->Role == ROLE_Authority) && LinkGun->GetUTOwner()->Controller ? Cast<AUTPlayerState>(LinkGun->GetUTOwner()->Controller->PlayerState) : NULL;
+		AUTPlayerState* PS = (LinkGun->Role == ROLE_Authority) && LinkGun->GetUTOwner() && LinkGun->GetUTOwner()->Controller ? Cast<AUTPlayerState>(LinkGun->GetUTOwner()->Controller->PlayerState) : NULL;
 		if (Hit.Actor != NULL && Hit.Actor->bCanBeDamaged && Hit.Actor != LinkGun->GetUTOwner())
         {   
             // Check to see if our HitActor is linkable, if so, link to it

@@ -718,8 +718,8 @@ void SUWMatchSummary::Tick(const FGeometry& AllottedGeometry, const double InCur
 			TArray<AUTCharacter*> &TeamCharacters = TeamPreviewMeshs[iTeam];
 			for (int32 iPlayer = 0; iPlayer < TeamCharacters.Num(); iPlayer++)
 			{
-				AUTPlayerState* PS = (TeamCharacters[iPlayer] && TeamCharacters[iPlayer]->PlayerState && !TeamCharacters[iPlayer]->PlayerState->IsPendingKillPending()) ? Cast<AUTPlayerState>(TeamCharacters[iPlayer]->PlayerState) : NULL;
-				if (!PS || (GameState->bTeamGame && (!PS->Team || (PS->Team->TeamIndex != iTeam))))
+				AUTPlayerState* PS = (TeamCharacters[iPlayer] && TeamCharacters[iPlayer]->PlayerState) ? Cast<AUTPlayerState>(TeamCharacters[iPlayer]->PlayerState) : NULL;
+				if (!PS || PS->bOnlySpectator || PS->IsPendingKillPending() || (GameState->bTeamGame && (!PS->Team || (PS->Team->TeamIndex != iTeam))))
 				{
 					bPlayersAreValid = false;
 					break;
@@ -976,7 +976,7 @@ void SUWMatchSummary::RecreateAllPlayers()
 		{
 			AUTPlayerState* PS = *It;
 
-			if (!PS->bOnlySpectator)
+			if (!PS->bOnlySpectator && !PS->IsPendingKillPending())
 			{
 				int32 TeamNum = PS->GetTeamNum() == 255 ? 0 : PS->GetTeamNum();
 				if (!TeamPlayerStates.IsValidIndex(TeamNum))
@@ -1551,32 +1551,12 @@ void SUWMatchSummary::ShowCharacter(AUTCharacter* UTC)
 
 void SUWMatchSummary::ShowAllCharacters()
 {
-	// @TODO FIXMESTEVE TEMP return - just keep visible whoever is currently visible.
-	return;
-
-	if (TeamPreviewMeshs.Num() > 1)
+	int32 TeamToView = 0;
+	if ((TeamPreviewMeshs.Num() > 1) && GameState.IsValid() && GameState->GetMatchState() == MatchState::WaitingPostMatch && GameState->WinningTeam != nullptr)
 	{
-		for (int32 i = 0; i< TeamPreviewMeshs.Num(); i++)
-		{
-			TArray<AUTCharacter*> &TeamCharacters = TeamPreviewMeshs[i];
-			for (int32 j = 0; j < TeamCharacters.Num(); j++)
-			{
-				TeamCharacters[j]->HideCharacter(false);
-			}
-		}
-		for (auto Weapon : PreviewWeapons)
-		{
-			AUTCharacter* Holder = Cast<AUTCharacter>(Weapon->Instigator);
-			Weapon->SetActorHiddenInGame(false);
-		}
-		for (int32 i = 0; i < PreviewFlags.Num(); i++)
-		{
-			if (PreviewFlags[i])
-			{
-				PreviewFlags[i]->SetActorHiddenInGame(false);
-			}
-		}
+		TeamToView = GameState->WinningTeam->GetTeamNum();
 	}
+	ShowTeam(TeamToView);
 }
 
 float SUWMatchSummary::GetAllCameraOffset()
@@ -1798,7 +1778,7 @@ FText SUWMatchSummary::GetSwitcherText() const
 	{
 		return FText::FromString(ViewedChar->PlayerState->PlayerName);
 	}
-	if (HasCamFlag(CF_Team) && GameState.IsValid() && GameState->Teams.IsValidIndex(ViewedTeamNum))
+	if (HasCamFlag(CF_Team) && GameState.IsValid() && GameState->Teams.IsValidIndex(ViewedTeamNum) && (GameState->Teams[ViewedTeamNum] != NULL))
 	{
 		return FText::Format(NSLOCTEXT("SUWMatchSummary", "Team", "{0} Team"), GameState->Teams[ViewedTeamNum]->TeamName);
 	}
@@ -1837,9 +1817,29 @@ FOptionalSize SUWMatchSummary::GetStatsWidth() const
 
 FReply SUWMatchSummary::OnClose()
 {
-	if (GameState.IsValid() && ((GameState->GetMatchState() == MatchState::WaitingToStart) || (GameState->GetMatchState() == MatchState::WaitingPostMatch)))
+	if (GameState.IsValid())
 	{
-		ViewAll();
+		int32 TeamToView = 0;
+		if (GameState->GetMatchState() == MatchState::WaitingToStart)
+		{
+			if ((TeamPreviewMeshs.Num() > 1) && GetPlayerOwner().IsValid() && Cast<AUTPlayerController>(GetPlayerOwner()->PlayerController) != nullptr)
+			{
+				TeamToView = Cast<AUTPlayerController>(GetPlayerOwner()->PlayerController)->GetTeamNum();
+			}
+			ViewTeam(TeamToView);
+		}
+		else if (GameState->GetMatchState() == MatchState::WaitingPostMatch)
+		{
+			if ((TeamPreviewMeshs.Num() > 1) && (GameState->WinningTeam != nullptr))
+			{
+				TeamToView = GameState->WinningTeam->GetTeamNum();
+			}
+			ViewTeam(TeamToView);
+		}
+		else
+		{
+			GetPlayerOwner()->CloseMatchSummary();
+		}
 	}
 	else
 	{

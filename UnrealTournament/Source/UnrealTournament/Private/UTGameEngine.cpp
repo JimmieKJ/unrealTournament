@@ -71,6 +71,10 @@ UUTGameEngine::UUTGameEngine(const FObjectInitializer& ObjectInitializer)
 
 void UUTGameEngine::Init(IEngineLoop* InEngineLoop)
 {
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	FCommandLine::Append(TEXT(" -ddc=noshared"));
+#endif
+
 	FString Commandline = FCommandLine::Get();
 	if (!Commandline.Contains(TEXT("?game=lobby")))
 	{
@@ -373,7 +377,7 @@ EBrowseReturnVal::Type UUTGameEngine::Browse( FWorldContext& WorldContext, FURL 
 	}
 	else
 #endif
-	if (!IsRunningDedicatedServer() && !LocallyHasEntitlement(GetRequiredEntitlementFromPackageName(FName(*FPaths::GetBaseFilename(URL.Map)))))
+	if (URL.IsLocalInternal() && !IsRunningDedicatedServer() && !LocallyHasEntitlement(GetRequiredEntitlementFromPackageName(FName(*FPaths::GetBaseFilename(URL.Map)))))
 	{
 		Error = NSLOCTEXT("UT", "NotEntitledMap", "You do not have the rights to start this map. Visit the Marketplace to gain access.").ToString();
 		return EBrowseReturnVal::Failure;

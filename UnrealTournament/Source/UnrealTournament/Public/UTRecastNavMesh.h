@@ -526,16 +526,6 @@ public:
 		return true;
 	}
 
-	virtual void ApplyWorldOffset(const FVector& InOffset, bool bWorldShift)
-	{
-		Super::ApplyWorldOffset(InOffset, bWorldShift);
-
-		for (UUTPathNode* Node : PathNodes)
-		{
-			Node->Location += InOffset;
-		}
-	}
-
 	virtual void PostLoad()
 	{
 		Super::PostLoad();

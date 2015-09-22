@@ -26,7 +26,10 @@ void UUTAIAction_RangedAttack::Started()
 void UUTAIAction_RangedAttack::Ended(bool bAborted)
 {
 	Super::Ended(bAborted);
-	GetCharacter()->GetCharacterMovement()->bWantsToCrouch = false;
+	if (GetCharacter() != NULL) // could have ended because we're dead
+	{
+		GetCharacter()->GetCharacterMovement()->bWantsToCrouch = false;
+	}
 }
 
 bool UUTAIAction_RangedAttack::FindStrafeDest()

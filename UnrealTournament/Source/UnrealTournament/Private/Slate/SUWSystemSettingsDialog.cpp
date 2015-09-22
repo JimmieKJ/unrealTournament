@@ -678,7 +678,6 @@ TSharedRef<SWidget> SUWSystemSettingsDialog::BuildGraphicsTab()
 
 	// these are to restore the 'simple' settings since we apply the changes to them immediately as well
 	// NOTE: IMPORTANT THAT THESE ARE FIRST! When restoring previous settings, we want to start with the combination settings and then restore individual overrides
-	CVarDelegates.Add(MakeShareable(new SSlateConsoleVarDelegate(TEXT("sg.ResolutionQuality"))));
 	CVarDelegates.Add(MakeShareable(new SSlateConsoleVarDelegate(TEXT("sg.ViewDistanceQuality"))));
 	CVarDelegates.Add(MakeShareable(new SSlateConsoleVarDelegate(TEXT("sg.AntiAliasingQuality"))));
 	CVarDelegates.Add(MakeShareable(new SSlateConsoleVarDelegate(TEXT("sg.ShadowQuality"))));
@@ -725,6 +724,7 @@ TSharedRef<SWidget> SUWSystemSettingsDialog::BuildGraphicsTab()
 			+ AddConsoleVarSliderWidget(MakeShareable(new SSlateConsoleVarDelegate(TEXT("r.LensFlareQuality"), FVector2D(0.0f, 2.0f))), NSLOCTEXT("SUWSystemSettingsDialog", "LFQuality", "Lens Flare Quality"))
 			+ AddConsoleVarSliderWidget(MakeShareable(new SSlateConsoleVarDelegate(TEXT("r.SceneColorFringeQuality"), FVector2D(0.0f, 1.0f))), NSLOCTEXT("SUWSystemSettingsDialog", "SceneFringeQuality", "Scene Color Fringe Quality"))
 			+ AddConsoleVarSliderWidget(MakeShareable(new SSlateConsoleVarDelegate(TEXT("r.BloomQuality"), FVector2D(1.0f, 5.0f))), NSLOCTEXT("SUWSystemSettingsDialog", "BloomQuality", "Bloom Quality"))
+			+ AddConsoleVarCheckboxWidget(MakeShareable(new SSlateConsoleVarDelegate(TEXT("r.BloomDirt"))), NSLOCTEXT("SUWSystemSettingsDialog", "BloomDirt", "Screen Dirt Effect"))
 			+ AddConsoleVarSliderWidget(MakeShareable(new SSlateConsoleVarDelegate(TEXT("r.FastBlurThreshold"), FVector2D(0.0f, 7.0f))), NSLOCTEXT("SUWSystemSettingsDialog", "FastBlurThreshold", "Fast Blur Threshold"))
 			+ AddConsoleVarSliderWidget(MakeShareable(new SSlateConsoleVarDelegate(TEXT("r.TonemapperQuality"), FVector2D(0.0f, 1.0f))), NSLOCTEXT("SUWSystemSettingsDialog", "TonemapperQuality", "Tonemapper Quality"))
 			+ AddConsoleVarSliderWidget(MakeShareable(new SSlateConsoleVarDelegate(TEXT("r.LightShaftQuality"), FVector2D(0.0f, 1.0f))), NSLOCTEXT("SUWSystemSettingsDialog", "LightShaftQuality", "Light Shaft Quality"))

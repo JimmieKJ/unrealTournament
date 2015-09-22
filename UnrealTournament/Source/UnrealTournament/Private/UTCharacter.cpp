@@ -2102,15 +2102,24 @@ void AUTCharacter::FiringInfoUpdated()
 		{
 			Weapon->FiringInfoUpdated(FireMode, FlashCount, FlashLocation);
 		}
+		if (FlashCount == 0 && FlashLocation.IsZero() && WeaponAttachment != NULL)
+		{
+			WeaponAttachment->StopFiringEffects();
+		}
 	}
-	else if (WeaponAttachment != NULL && (!IsLocallyControlled() || UTPC == NULL || UTPC->IsBehindView()))
+	else if (WeaponAttachment != NULL)
 	{
 		if (FlashCount != 0 || !FlashLocation.IsZero())
 		{
-			WeaponAttachment->PlayFiringEffects();
+			if ((!IsLocallyControlled() || UTPC == NULL || UTPC->IsBehindView()))
+			{
+				WeaponAttachment->PlayFiringEffects();
+			}
 		}
 		else
 		{
+			// always call Stop to avoid effects mismatches where we switched view modes during a firing sequence
+			// and some effect ends up being left on forever
 			WeaponAttachment->StopFiringEffects();
 		}
 	}
@@ -3126,12 +3135,12 @@ void AUTCharacter::CheckRagdollFallingDamage(const FHitResult& Hit)
 	FVector MeshVelocity = GetMesh()->GetComponentVelocity();
 	// physics numbers don't seem to match up... biasing towards more falling damage over less to minimize exploits
 	// besides, faceplanting ought to hurt more than landing on your feet, right? :)
-	MeshVelocity *= 2.0f;
-	if (MeshVelocity.Size() > MaxSafeFallSpeed)
+	MeshVelocity.Z *= 2.0f;
+	if (MeshVelocity.Z < -1.f * MaxSafeFallSpeed)
 	{
 		FVector SavedVelocity = GetCharacterMovement()->Velocity;
 		GetCharacterMovement()->Velocity = MeshVelocity;
-		TakeFallingDamage(Hit, -GetCharacterMovement()->Velocity.Size());
+		TakeFallingDamage(Hit, GetCharacterMovement()->Velocity.Z);
 		GetCharacterMovement()->Velocity = SavedVelocity;
 		// clear Z velocity on the mesh so that this collision won't happen again unless there's a new fall
 		for (int32 i = 0; i < GetMesh()->Bodies.Num(); i++)
@@ -3155,7 +3164,7 @@ void AUTCharacter::OnRagdollCollision(AActor* OtherActor, UPrimitiveComponent* O
 		}
 	}
 	// cause falling damage on Z axis collisions
-	else if (!bInRagdollRecovery && FMath::Abs<float>(Hit.Normal.Z) > 0.5f)
+	else if (!bInRagdollRecovery)
 	{
 		CheckRagdollFallingDamage(Hit);
 	}
@@ -3928,6 +3937,11 @@ void AUTCharacter::PossessedBy(AController* NewController)
 	{
 		UTCharacterMovement->ResetTimers();
 	}
+
+	if (Role == ROLE_Authority)
+	{
+		SetCosmeticsFromPlayerState();
+	}
 }
 
 void AUTCharacter::UnPossessed()
@@ -3971,6 +3985,11 @@ void AUTCharacter::OnRep_PlayerState()
 		NotifyTeamChanged();
 	}
 
+	SetCosmeticsFromPlayerState();
+}
+
+void AUTCharacter::SetCosmeticsFromPlayerState()
+{
 	AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
 	if (PS)
 	{

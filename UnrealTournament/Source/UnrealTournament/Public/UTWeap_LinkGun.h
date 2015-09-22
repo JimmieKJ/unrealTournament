@@ -52,6 +52,11 @@ class UNREALTOURNAMENT_API AUTWeap_LinkGun : public AUTWeapon
 	float BeamPulseMomentum;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = LinkGun)
 	TSubclassOf<UDamageType> BeamPulseDamageType;
+	// weapon anim for pulse
+	UPROPERTY(EditAnywhere, blueprintReadWrite, Category = LinkGun)
+	UAnimMontage* PulseAnim;
+	UPROPERTY(EditAnywhere, blueprintReadWrite, Category = LinkGun)
+	UAnimMontage* PulseAnimHands;
 
 	UPROPERTY(Transient, BlueprintReadWrite, Category = LinkGun)
 	bool bPendingBeamPulse;

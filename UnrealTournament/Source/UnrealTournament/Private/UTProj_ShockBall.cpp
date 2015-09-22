@@ -181,7 +181,7 @@ void AUTProj_ShockBall::RateShockCombo(AUTPlayerController *PC, AUTPlayerState* 
 	float ComboScore = 4.f * FMath::Min(KillCount, 3);
 
 	AUTCharacter* Shooter = Cast<AUTCharacter>(PC->GetPawn());
-	if (Shooter)
+	if (Shooter && Shooter->GetWeapon())
 	{
 		// difference in angle between shots
 		FVector ShootPos = Shooter->GetWeapon()->GetFireStartLoc();

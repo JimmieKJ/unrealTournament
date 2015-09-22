@@ -21,6 +21,7 @@
 #include "UTFlagInfo.h"
 #include "UTCrosshair.h"
 #include "UTATypes.h"
+#include "UTDemoRecSpectator.h"
 
 AUTHUD::AUTHUD(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
@@ -378,6 +379,11 @@ void AUTHUD::NotifyMatchStateChange()
 
 void AUTHUD::OpenMatchSummary()
 {
+	if (Cast<AUTDemoRecSpectator>(UTPlayerOwner))
+	{
+		return;
+	}
+
 	UUTLocalPlayer* UTLP = UTPlayerOwner ? Cast<UUTLocalPlayer>(UTPlayerOwner->Player) : NULL;
 	AUTGameState* GS = Cast<AUTGameState>(GetWorld()->GetGameState());
 	if (UTLP && GS && !GS->IsPendingKillPending())

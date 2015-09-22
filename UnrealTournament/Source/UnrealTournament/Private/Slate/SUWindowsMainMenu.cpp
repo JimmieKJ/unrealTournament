@@ -1075,4 +1075,18 @@ void SUWindowsMainMenu::OnMenuOpened(const FString& Parameters)
 	}
 }
 
+void SUWindowsMainMenu::OnOwnerLoginStatusChanged(UUTLocalPlayer* LocalPlayerOwner, ELoginStatus::Type NewStatus, const FUniqueNetId& UniqueID)
+{
+	if (NewStatus == ELoginStatus::LoggedIn)
+	{
+		if (TutorialMenu.IsValid())
+		{
+			TutorialMenu->RemoveFromViewport();
+			OpenTutorialMenu();
+		}
+	}
+
+	SUTMenuBase::OnOwnerLoginStatusChanged(LocalPlayerOwner, NewStatus, UniqueID);
+}
+
 #endif

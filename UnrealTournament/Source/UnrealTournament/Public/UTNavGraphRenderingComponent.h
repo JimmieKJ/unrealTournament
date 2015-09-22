@@ -38,8 +38,6 @@ struct UNREALTOURNAMENT_API FUTPathLinkRenderProxy
 };
 struct UNREALTOURNAMENT_API FUTPathNodeRenderProxy
 {
-	/** center of encompassed polys */
-	FVector Location;
 	/** center of each polygon that makes up the node's area */
 	TArray<FVector> PolyCenters;
 	/** location of POIs */

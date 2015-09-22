@@ -278,6 +278,18 @@ void AUTCarriedObject::SetHolder(AUTCharacter* NewHolder)
 
 	if (Role == ROLE_Authority)
 	{
+		if (bWasHome && MessageClass != NULL)
+		{
+			// the "X flag taken" announcement from home implies the new holder's current location, so update enemy bots
+			for (FConstControllerIterator It = GetWorld()->GetControllerIterator(); It; ++It)
+			{
+				AUTBot* B = Cast<AUTBot>(It->Get());
+				if (B != NULL && !B->IsTeammate(HoldingPawn))
+				{
+					B->UpdateEnemyInfo(HoldingPawn, EUT_HeardExact);
+				}
+			}
+		}
 		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 		if (GS != NULL)
 		{

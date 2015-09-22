@@ -396,7 +396,7 @@ bool AUTWeapon::ServerStartFire_Validate(uint8 FireModeNum, bool bClientFired)
 
 void AUTWeapon::ServerStartFireOffset_Implementation(uint8 FireModeNum, uint8 ZOffset, bool bClientFired)
 {
-	if (!UTOwner->IsFiringDisabled())
+	if (UTOwner && !UTOwner->IsFiringDisabled())
 	{
 		FireZOffset = ZOffset - 127;
 		FireZOffsetTime = GetWorld()->GetTimeSeconds();

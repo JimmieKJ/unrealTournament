@@ -444,6 +444,17 @@ void AUTBot::Destroyed()
 	Super::Destroyed();
 }
 
+APlayerStart* AUTBot::PickSpawnPoint(const TArray<APlayerStart*> Choices)
+{
+	APlayerStart* Pick = (Squad != NULL) ? Squad->PickSpawnPointFor(this, Choices) : NULL;
+	if (Pick == NULL)
+	{
+		// fallback to pure random
+		Pick = Choices[FMath::RandHelper(Choices.Num())];
+	}
+	return Pick;
+}
+
 uint8 AUTBot::GetTeamNum() const
 {
 	AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
@@ -1333,13 +1344,29 @@ void AUTBot::ApplyWeaponAimAdjust(FVector TargetLoc, FVector& FocalPoint)
 					}
 					bool bCheckedHead = false;
 					bool bHeadClean = false;
-					if (MyWeap->bSniping && ((IsStopped() && Skill + Personality.Accuracy > 5.0f + 6.0f * FMath::FRand()) || (FMath::FRand() < Personality.Accuracy && MyWeap->GetHeadshotScale() > 0.0f)))
+					if (MyWeap->bSniping)
 					{
-						// try head
-						TargetLoc.Z = FocalPoint.Z + 0.9f * TargetHeight;
-						bClean = !GetWorld()->LineTraceTestByObjectType(FireStart, TargetLoc, ResultParams, Params);
-						bCheckedHead = true;
-						bHeadClean = bClean;
+						float SkillThreshold;
+						if (IsStopped())
+						{
+							SkillThreshold = 4.0f + 6.0f * FMath::FRand();
+						}
+						else
+						{
+							SkillThreshold = 5.5f + 6.0f * FMath::FRand();
+						}
+						if (IsFavoriteWeapon(MyWeap->GetClass()) || FMath::FRand() < Personality.Accuracy)
+						{
+							SkillThreshold -= 1.5f;
+						}
+						if (Skill + Personality.Accuracy < SkillThreshold)
+						{
+							// try head
+							TargetLoc.Z = FocalPoint.Z + 0.9f * TargetHeight;
+							bClean = !GetWorld()->LineTraceTestByObjectType(FireStart, TargetLoc, ResultParams, Params);
+							bCheckedHead = true;
+							bHeadClean = bClean;
+						}
 					}
 
 					if (!bClean)
@@ -1581,9 +1608,39 @@ void AUTBot::NotifyMoveBlocked(const FHitResult& Impact)
 	{
 		if (GetCharacter()->GetCharacterMovement()->MovementMode == MOVE_Walking)
 		{
+			APawn* HitPawn = Cast<APawn>(Impact.Actor.Get());
+			if (HitPawn != NULL && !IsTeammate(HitPawn))
+			{
+				UpdateEnemyInfo(HitPawn, EUT_HeardExact);
+			}
+			// adjust around friendly or inactive Pawns
+			if (HitPawn != NULL && (HitPawn->GetController() == NULL || IsTeammate(HitPawn)))
+			{
+				FVector VelDir = (MoveTarget.GetLocation(GetPawn()) - GetPawn()->GetActorLocation()).GetSafeNormal();
+				VelDir.Z = 0;
+				FVector OtherDir = HitPawn->GetActorLocation() - GetPawn()->GetActorLocation();
+				OtherDir.Z = 0;
+				OtherDir = OtherDir.GetSafeNormal();
+				if ((VelDir | OtherDir) > 0.8f)
+				{
+					FVector SideDir(VelDir.Y, -1.0f * VelDir.X, 0.0f);
+					if ((SideDir | OtherDir) > 0.0f)
+					{
+						SideDir *= -1.0f;
+					}
+					FVector NewAdjustLoc = GetPawn()->GetActorLocation() + 3.0f * HitPawn->GetSimpleCollisionRadius() * (0.5f * VelDir + SideDir);
+					// make sure adjust location isn't through a wall
+					FHitResult AdjustTraceHit;
+					if (GetWorld()->LineTraceSingleByChannel(AdjustTraceHit, GetPawn()->GetActorLocation(), AdjustLoc, ECC_Pawn, FCollisionQueryParams(), WorldResponseParams))
+					{
+						AdjustLoc = AdjustTraceHit.Location - AdjustTraceHit.Normal;
+					}
+					SetAdjustLoc(NewAdjustLoc);
+				}
+			}
 			// crouch if path says we should
 			// FIXME: what if going for detour in the middle of crouch path? (dropped pickup, etc)
-			if (CurrentPath.IsSet() && CurrentPath.CollisionHeight < FMath::TruncToInt(GetCharacter()->GetSimpleCollisionHalfHeight()))
+			else if (CurrentPath.IsSet() && CurrentPath.CollisionHeight < FMath::TruncToInt(GetCharacter()->GetSimpleCollisionHalfHeight()))
 			{
 				if (CurrentPath.CollisionHeight < FMath::TruncToInt(GetCharacter()->GetCharacterMovement()->CrouchedHalfHeight))
 				{
@@ -2891,6 +2948,16 @@ void AUTBot::DoHunt(APawn* NewHuntTarget)
 		{
 			// we know where the enemy is or was recently, just go with that for now
 			NavNodeRef Poly = NavData->FindNearestPoly(EnemyInfo->LastKnownLoc, NavData->GetPOIExtent(EnemyInfo->GetPawn()));
+			if (Poly == INVALID_NAVNODEREF)
+			{
+				// enemy may be jumping, etc so try tracing to ground
+				// note: navmesh raycasts are sadly 2D only so we can't trace against the mesh, have to use world geo first
+				FHitResult Hit;
+				if (GetWorld()->LineTraceSingleByChannel(Hit, EnemyInfo->LastKnownLoc, EnemyInfo->LastKnownLoc - FVector(0.0f, 0.0f, 10000.0f), ECC_Pawn, FCollisionQueryParams(), WorldResponseParams))
+				{
+					Poly = NavData->FindNearestPoly(Hit.Location, NavData->GetPOIExtent(EnemyInfo->GetPawn()));
+				}
+			}
 			if (Poly != INVALID_NAVNODEREF)
 			{
 				new(HuntEndpoints) FRouteCacheItem(NavData->GetNodeFromPoly(Poly), EnemyInfo->LastKnownLoc, Poly);
@@ -2914,7 +2981,12 @@ void AUTBot::DoHunt(APawn* NewHuntTarget)
 				else
 				{
 					// pick a random point for now
-					// TODO
+					FRandomDestEval NodeEval;
+					float Weight = 0.0f;
+					if (NavData->FindBestPath(GetPawn(), GetPawn()->GetNavAgentPropertiesRef(), NodeEval, GetPawn()->GetNavAgentLocation(), Weight, true, RouteCache))
+					{
+						HuntEndpoints.Add(RouteCache.Last());
+					}
 				}
 			}
 			else
@@ -3001,6 +3073,12 @@ void AUTBot::DoHunt(APawn* NewHuntTarget)
 		{
 			HuntingTarget = NULL;
 			HuntingCheckedSpots.Empty();
+			// this function is not supposed to fail so just do a combat move
+			if (Enemy == NULL)
+			{
+				SetEnemy(NewHuntTarget);
+			}
+			DoTacticalMove();
 		}
 	}
 }
@@ -3855,7 +3933,7 @@ int32 AUTBot::GetRouteDist() const
 
 void AUTBot::PickNewEnemy()
 {
-	if (GetPawn() != NULL && (Enemy == NULL || Enemy->Controller == NULL || !Squad->MustKeepEnemy(Enemy) || !CanAttack(Enemy, GetEnemyLocation(Enemy, true), false)))
+	if ((Enemy == NULL || Enemy->Controller == NULL || !Squad->MustKeepEnemy(Enemy) || !CanAttack(Enemy, GetEnemyLocation(Enemy, true), false)) && GetPawn() != NULL)
 	{
 		LastPickEnemyTime = GetWorld()->TimeSeconds;
 

@@ -186,6 +186,12 @@ void AUTWeap_LinkGun::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 				AddAmmo(-BeamPulseAmmoCost);
 			}
 		}
+		PlayWeaponAnim(PulseAnim, PulseAnimHands);
+		// use an extra muzzle flash slot at the end for the pulse effect
+		if (MuzzleFlash.IsValidIndex(FiringState.Num()) && MuzzleFlash[FiringState.Num()] != NULL)
+		{
+			MuzzleFlash[FiringState.Num()]->ActivateSystem();
+		}
 		LastBeamPulseTime = GetWorld()->TimeSeconds;
 		bPendingBeamPulse = false;
 	}
@@ -507,7 +513,7 @@ void AUTWeap_LinkGun::CheckBotPulseFire()
 			const FVector SpawnLocation = GetFireStartLoc();
 			const FVector EndTrace = SpawnLocation + GetAdjustedAim(SpawnLocation).Vector() * InstantHitInfo[1].TraceRange;
 
-			bool bTryPulse = FMath::FRand() < 0.2f;
+			bool bTryPulse = FMath::FRand() < (B->IsFavoriteWeapon(GetClass()) ? 0.2f : 0.1f);
 			if (bTryPulse)
 			{
 				// if bot has good reflexes only pulse if enemy is being hit
@@ -545,5 +551,11 @@ void AUTWeap_LinkGun::FiringExtraUpdated_Implementation(uint8 NewFlashExtra, uin
 	if (NewFlashExtra > 0 && InFireMode == 1)
 	{
 		LastBeamPulseTime = GetWorld()->TimeSeconds;
+		// use an extra muzzle flash slot at the end for the pulse effect
+		if (MuzzleFlash.IsValidIndex(FiringState.Num()) && MuzzleFlash[FiringState.Num()] != NULL)
+		{
+			MuzzleFlash[FiringState.Num()]->ActivateSystem();
+		}
+		PlayWeaponAnim(PulseAnim, PulseAnimHands);
 	}
 }

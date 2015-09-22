@@ -104,6 +104,10 @@ void AUTCTFFlag::OnObjectStateChanged()
 			GetWorldTimerManager().ClearTimer(SendHomeWithNotifyHandle);
 		}
 	}
+	if (GetMesh())
+	{
+		GetMesh()->ClothBlendWeight = (ObjectState == CarriedObjectState::Held) ? 0.5f : 0.f;
+	}
 }
 
 void AUTCTFFlag::SendHomeWithNotify()

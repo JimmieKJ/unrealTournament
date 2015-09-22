@@ -102,6 +102,7 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	DOREPLIFETIME(AUTPlayerState, KickPercent);
 	DOREPLIFETIME(AUTPlayerState, AvailableCurrency);
 	DOREPLIFETIME(AUTPlayerState, StatsID);
+	DOREPLIFETIME(AUTPlayerState, FavoriteWeapon);
 
 	DOREPLIFETIME_CONDITION(AUTPlayerState, RespawnChoiceA, COND_None); // also used when replicating spawn choice to other players
 	DOREPLIFETIME_CONDITION(AUTPlayerState, RespawnChoiceB, COND_OwnerOnly);
@@ -394,7 +395,7 @@ void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bE
 
 				if (GetWorld()->GetAuthGameMode() != NULL)
 				{
-					GetWorld()->GetAuthGameMode()->BroadcastLocalized(GetOwner(), GS->SpreeMessageClass, Spree / 5, this, VictimPS);
+					GetWorld()->GetAuthGameMode()->BroadcastLocalized(GetOwner(), GS->SpreeMessageClass, FMath::Min(Spree / 5, 4), this, VictimPS);
 				}
 
 				if (UTChar != NULL && UTChar->IsWearingAnyCosmetic())
@@ -625,27 +626,30 @@ bool AUTPlayerState::ServerReceiveEyewearVariant_Validate(int32 NewVariant)
 
 void AUTPlayerState::ServerReceiveHatClass_Implementation(const FString& NewHatClass)
 {
-	HatClass = LoadClass<AUTHat>(NULL, *NewHatClass, NULL, LOAD_NoWarn, NULL);
+	if (GetNetMode() != NM_Client || HatClass == NULL || !GetWorld()->GetGameState()->HasMatchStarted())
+	{
+		HatClass = LoadClass<AUTHat>(NULL, *NewHatClass, NULL, LOAD_NoWarn, NULL);
 
-	// Allow the game mode to validate the hat.
-	AUTGameMode* GameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
-	if ( GameMode && !GameMode->ValidateHat(this, NewHatClass) )
-	{
-		return;
-	}
+		// Allow the game mode to validate the hat.
+		AUTGameMode* GameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
+		if (GameMode && !GameMode->ValidateHat(this, NewHatClass))
+		{
+			return;
+		}
 
-	if (HatClass != nullptr && !HatClass->IsChildOf(AUTHatLeader::StaticClass()))
-	{
-		OnRepHat();
-	}
-	else
-	{
-		HatClass = nullptr;
-	}
+		if (HatClass != nullptr && !HatClass->IsChildOf(AUTHatLeader::StaticClass()))
+		{
+			OnRepHat();
+		}
+		else
+		{
+			HatClass = nullptr;
+		}
 
-	if (HatClass != nullptr)
-	{
-		ValidateEntitlements();
+		if (HatClass != nullptr)
+		{
+			ValidateEntitlements();
+		}
 	}
 }
 
@@ -656,11 +660,14 @@ bool AUTPlayerState::ServerReceiveHatClass_Validate(const FString& NewHatClass)
 
 void AUTPlayerState::ServerReceiveEyewearClass_Implementation(const FString& NewEyewearClass)
 {
-	EyewearClass = LoadClass<AUTEyewear>(NULL, *NewEyewearClass, NULL, LOAD_NoWarn, NULL);
-	OnRepEyewear();
-	if (EyewearClass != NULL)
+	if (GetNetMode() != NM_Client || EyewearClass == NULL || !GetWorld()->GetGameState()->HasMatchStarted())
 	{
-		ValidateEntitlements();
+		EyewearClass = LoadClass<AUTEyewear>(NULL, *NewEyewearClass, NULL, LOAD_NoWarn, NULL);
+		OnRepEyewear();
+		if (EyewearClass != NULL)
+		{
+			ValidateEntitlements();
+		}
 	}
 }
 
@@ -900,17 +907,20 @@ bool AUTPlayerState::ServerSetCharacter_Validate(const FString& CharacterPath)
 }
 void AUTPlayerState::ServerSetCharacter_Implementation(const FString& CharacterPath)
 {
-	// TODO: maybe ignore if already have valid character to avoid trolls?
-	AUTCharacter* MyPawn = GetUTCharacter();
-	// suicide if feign death because the mesh reset causes physics issues
-	if (MyPawn != NULL && MyPawn->IsFeigningDeath())
+	if (GetNetMode() != NM_Client || SelectedCharacter == NULL || !GetWorld()->GetGameState()->HasMatchStarted())
 	{
-		MyPawn->PlayerSuicide();
-	}
-	SetCharacter(CharacterPath);
-	if (CharacterPath.Len() > 0)
-	{
-		ValidateEntitlements();
+		// TODO: maybe ignore if already have valid character to avoid trolls?
+		AUTCharacter* MyPawn = GetUTCharacter();
+		// suicide if feign death because the mesh reset causes physics issues
+		if (MyPawn != NULL && MyPawn->IsFeigningDeath())
+		{
+			MyPawn->PlayerSuicide();
+		}
+		SetCharacter(CharacterPath);
+		if (CharacterPath.Len() > 0)
+		{
+			ValidateEntitlements();
+		}
 	}
 }
 

@@ -39,5 +39,9 @@ class UNREALTOURNAMENT_API AUTProj_StingerShard : public AUTProjectile
 
 	/** Pawns we've attached via constraint (to avoid duplicate hits) */
 	UPROPERTY()
-	TArray<APawn*> AttachedPawns;
+	TArray<AUTCharacter*> AttachedPawns;
+
+	/** detaches any currently attached ragdolls if still moving */
+	UFUNCTION()
+	virtual void DetachRagdollsInFlight();
 };

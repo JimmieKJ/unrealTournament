@@ -47,6 +47,7 @@ DEFINE_STAT(STAT_NumShapesAsync);
 
 
 FPhysCommandHandler * GPhysCommandHandler = NULL;
+FDelegateHandle GPreGarbageCollectDelegateHandle;
 
 // CVars
 static TAutoConsoleVariable<float> CVarToleranceScaleLength(
@@ -349,7 +350,7 @@ void InitGamePhys()
 
 	GPhysCommandHandler = new FPhysCommandHandler();
 
-	FCoreUObjectDelegates::PreGarbageCollect.AddRaw(GPhysCommandHandler, &FPhysCommandHandler::Flush);
+	GPreGarbageCollectDelegateHandle = FCoreUObjectDelegates::PreGarbageCollect.AddRaw(GPhysCommandHandler, &FPhysCommandHandler::Flush);
 
 	// Init Extensions
 	PxInitExtensions(*GPhysXSDK);
@@ -473,6 +474,7 @@ void TermGamePhys()
 	if (GPhysCommandHandler != NULL)
 	{
 		GPhysCommandHandler->Flush();	//finish off any remaining commands
+		FCoreUObjectDelegates::PreGarbageCollect.Remove(GPreGarbageCollectDelegateHandle);
 		delete GPhysCommandHandler;
 		GPhysCommandHandler = NULL;
 	}

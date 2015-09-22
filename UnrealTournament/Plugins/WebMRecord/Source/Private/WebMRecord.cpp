@@ -11,14 +11,25 @@
 #include "RHIStaticStates.h"
 #include "RendererInterface.h"
 
+#if PLATFORM_32BITS
+#include "vpx32/vpx_encoder.h"
+#include "vpx32/vp8cx.h"
+#include "vpx32/video_writer.h"
+#include "vpx32/webmenc.h"
+#include "vpx32/vpx_mem.h"
+#else
 #include "vpx/vpx_encoder.h"
 #include "vpx/vp8cx.h"
 #include "vpx/video_writer.h"
 #include "vpx/webmenc.h"
 #include "vpx/vpx_mem.h"
+#endif
+
 #include "libyuv/convert.h"
 
 #include <Avrt.h>
+
+#include "libgd/gd.h"
 
 #include "UTGameViewportClient.h"
 
@@ -233,11 +244,13 @@ void FWebMRecord::OnSlateWindowRenderedDuringCapture(SWindow& SlateWindow, void*
 		if (GameViewportClient->GetWindow() == SlateWindow.AsShared())
 		{
 			//UE_LOG(LogUTWebM, Log, TEXT("Saving video frame %f"), VideoDeltaTimeAccum);
-
-			SaveCurrentFrameToDisk();
-
 			const FViewportRHIRef* ViewportRHI = (const FViewportRHIRef*)ViewportRHIPtr;
 			StartCopyingNextGameFrame(*ViewportRHI);
+
+			// Force game frame copy
+			FlushRenderingCommands();
+
+			SaveCurrentFrameToDisk();
 		}
 	}
 }
@@ -310,6 +323,7 @@ void FWebMRecord::SaveCurrentFrameToDisk()
 		while (VideoRecordLagTime > VideoFrameDelay)
 		{
 			WriteFrameToTempFile();
+			//UE_LOG(LogUTWebM, Log, TEXT("Wrote extra frame"));
 			VideoRecordLagTime -= VideoFrameDelay;
 		}
 
@@ -392,6 +406,8 @@ void FWebMRecord::UnmapReadbackTextures()
 
 void FWebMRecord::StartCopyingNextGameFrame(const FViewportRHIRef& ViewportRHI)
 {
+	// There has to be a better way to get the back buffer data.
+
 	const FIntPoint ResizeTo(VideoWidth, VideoHeight);
 
 	static const FName RendererModuleName("Renderer");
@@ -1422,7 +1438,10 @@ void FWebMRecord::StartCompressing(const FString& Filename)
 	bCompressionComplete = false;
 	bCancelCompressing = false;
 	CompressionCompletionPercent = 0;
+	
 	CompressWorker = FCompressVideoWorker::RunWorkerThread(this, Filename);
+
+	//CompressWorker = FCreateAnimatedGIFWorker::RunWorkerThread(this, Filename);
 }
 
 void FWebMRecord::CancelCompressing()
@@ -1458,4 +1477,123 @@ uint32 FCompressVideoWorker::Run()
 	WebMRecorder->bCompressionComplete = true;
 
 	return 0;
+}
+
+
+FCreateAnimatedGIFWorker* FCreateAnimatedGIFWorker::Runnable = nullptr;
+
+FCreateAnimatedGIFWorker::FCreateAnimatedGIFWorker(FWebMRecord* InWebMRecorder, const FString& InFilename)
+{
+	WebMRecorder = InWebMRecorder;
+	Filename = InFilename;
+
+	// This needs to be last or you get race conditions with ::Run()
+	Thread = FRunnableThread::Create(this, TEXT("FCreateAnimatedGIFWorker"), 0, TPri_Highest);
+}
+
+uint32 FCreateAnimatedGIFWorker::Run()
+{
+	WebMRecorder->EncodeAnimatedGIF(Filename);
+	WebMRecorder->bCompressionComplete = true;
+
+	return 0;
+}
+
+void FWebMRecord::EncodeAnimatedGIF(const FString& Filename)
+{
+	FColor* RGBAFrame = new FColor[VideoWidth * VideoHeight];
+	uint8* YPlane = new uint8[VideoWidth * VideoHeight];
+	uint8* UPlane = new uint8[VideoWidth * VideoHeight / 4];
+	uint8* VPlane = new uint8[VideoWidth * VideoHeight / 4];
+
+	FString TempFramesSavePath = FPaths::GameSavedDir() / TEXT("frames.raw");
+	VideoTempFile = IFileManager::Get().CreateFileReader(*TempFramesSavePath);
+	int64 FileSize = IFileManager::Get().FileSize(*TempFramesSavePath);
+
+	int32 TotalFrameCount = FileSize / (VideoHeight * VideoWidth * sizeof(FColor));
+	if (bWriteYUVToTempFile)
+	{
+		TotalFrameCount = FileSize / (VideoWidth * VideoHeight + VideoWidth * VideoHeight / 4 + VideoWidth * VideoHeight / 4);
+	}
+	
+	gdImagePtr im; 
+	gdImagePtr prev = nullptr;
+
+	im = gdImageCreateTrueColor(VideoWidth, VideoHeight);
+	FILE* out = fopen(TCHAR_TO_ANSI(*(Filename + TEXT(".gif"))), "wb");
+
+	if (bWriteYUVToTempFile)
+	{
+		VideoTempFile->Serialize(YPlane, VideoWidth * VideoHeight);
+		VideoTempFile->Serialize(UPlane, VideoWidth * VideoHeight / 4);
+		VideoTempFile->Serialize(VPlane, VideoWidth * VideoHeight / 4);
+
+		// Use libyuv to convert from YUV to ARGB
+		libyuv::I420ToARGB(YPlane, VideoWidth, UPlane, VideoWidth / 2, VPlane, VideoWidth / 2, (uint8*)RGBAFrame, VideoWidth * 4, VideoWidth, VideoHeight);
+	}
+	else
+	{
+		VideoTempFile->Serialize(RGBAFrame, VideoWidth * VideoHeight * 4);
+	}
+
+	int i = 0;
+	for (int y = 0; y < VideoHeight; y++)
+	for (int x = 0; x < VideoWidth; x++)
+	{
+		int Color = gdTrueColor(RGBAFrame[i].R, RGBAFrame[i].G, RGBAFrame[i].B);
+		gdImageSetPixel(im, x, y, Color);
+		i++;
+	}	
+
+	gdImageGifAnimBegin(im, out, 0, 0);
+	
+	for (int32 FrameCount = 0; FrameCount < TotalFrameCount; FrameCount++)
+	{
+		if (FrameCount != 0)
+		{
+			if (bWriteYUVToTempFile)
+			{
+				VideoTempFile->Serialize(YPlane, VideoWidth * VideoHeight);
+				VideoTempFile->Serialize(UPlane, VideoWidth * VideoHeight / 4);
+				VideoTempFile->Serialize(VPlane, VideoWidth * VideoHeight / 4);
+
+				// Use libyuv to convert from YUV to ARGB
+				libyuv::I420ToARGB(YPlane, VideoWidth, UPlane, VideoWidth / 2, VPlane, VideoWidth / 2, (uint8*)RGBAFrame, VideoWidth * 4, VideoWidth, VideoHeight);
+			}
+			else
+			{
+				VideoTempFile->Serialize(RGBAFrame, VideoWidth * VideoHeight * 4);
+			}
+
+			im = gdImageCreateTrueColor(VideoWidth, VideoHeight);
+			i = 0;
+			for (int y = 0; y < VideoHeight; y++)
+			for (int x = 0; x < VideoWidth; x++)
+			{
+				int Color = gdTrueColor(RGBAFrame[i].R, RGBAFrame[i].G, RGBAFrame[i].B);
+				gdImageSetPixel(im, x, y, Color);
+				i++;
+			}
+		}
+
+		gdImageGifAnimAdd(im, out, 1, 0, 0, 100 * VideoFrameDelay, 1, prev);
+
+		if (prev)
+		{
+			gdImageDestroy(prev);
+		}
+
+		prev = im;
+
+		CompressionCompletionPercent = (float)FrameCount / (float)TotalFrameCount;
+	}
+
+	gdImageDestroy(prev);
+	gdImageGifAnimEnd(out);
+	fclose(out);
+
+	delete[] RGBAFrame;
+	delete[] YPlane;
+	delete[] UPlane;
+	delete[] VPlane;
 }

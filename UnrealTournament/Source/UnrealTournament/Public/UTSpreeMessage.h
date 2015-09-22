@@ -204,6 +204,10 @@ class UNREALTOURNAMENT_API UUTSpreeMessage : public UUTLocalMessage
 			TextArray = NULL;
 		}
 		
-		return (TextArray != NULL && TextArray->IsValidIndex(Switch - 1)) ? (*TextArray)[Switch - 1] : TextArray->Last();
+		if (TextArray == NULL)
+		{
+			return FText::GetEmpty();
+		}
+		return TextArray->IsValidIndex(Switch - 1) ? (*TextArray)[Switch - 1] : TextArray->Last();
 	}
 };

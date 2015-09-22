@@ -48,13 +48,16 @@ public:
 	bool bHideInUI;
 
 	/** if set a UTProfileItem is required for this character to be available */
-	UPROPERTY(EditAnywhere, AssetRegistrySearchable)
+	UPROPERTY(EditAnywhere, AssetRegistrySearchable, Meta = (DisplayName = "Requires Online Item"))
 	bool bRequiresItem;
 	/** if set this achievement is required for this character to be available
 	 * (note: achievements are currently client side only and not validated by server)
 	 */
-	UPROPERTY(EditDefaultsOnly, AssetRegistrySearchable)
+	UPROPERTY(EditDefaultsOnly, AssetRegistrySearchable, Meta = (DisplayName = "Required Offline Achievement"))
 	FName RequiredAchievement;
+	
+	USkeletalMeshComponent* GetMesh() { return Mesh; }
+
 protected:
 	UPROPERTY(VisibleDefaultsOnly)
 	USkeletalMeshComponent* Mesh;

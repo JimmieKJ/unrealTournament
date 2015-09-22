@@ -22,7 +22,7 @@ AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 	MultiKillMessageClass = UUTMultiKillMessage::StaticClass();
 	SpreeMessageClass = UUTSpreeMessage::StaticClass();
 	MultiKillDelay = 3.0f;
-	SpawnProtectionTime = 2.5f;
+	SpawnProtectionTime = 2.f;
 	bWeaponStay = true;
 	bViewKillerOnDeath = true;
 	bAllowTeamSwitches = true;
@@ -255,6 +255,7 @@ void AUTGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLif
 	DOREPLIFETIME(AUTGameState, VoteTimer);
 
 	DOREPLIFETIME_CONDITION(AUTGameState, bCasterControl, COND_InitialOnly);
+	DOREPLIFETIME_CONDITION(AUTGameState, bPlayPlayerIntro, COND_InitialOnly);
 	DOREPLIFETIME(AUTGameState, bForcedBalance);
 }
 
@@ -859,10 +860,13 @@ void AUTGameState::CompactSpectatingIDs()
 			const TArray<AController*> Members = Team->GetTeamMembers();
 			for (AController* C : Members)
 			{
-				AUTPlayerState* UTPS = Cast<AUTPlayerState>(C->PlayerState);
-				if (UTPS != NULL && UTPS->SpectatingIDTeam)
+				if (C)
 				{
-					PlayerArrayCopy.Add(UTPS);
+					AUTPlayerState* UTPS = Cast<AUTPlayerState>(C->PlayerState);
+					if (UTPS != NULL && UTPS->SpectatingIDTeam)
+					{
+						PlayerArrayCopy.Add(UTPS);
+					}
 				}
 			}
 			PlayerArrayCopy.Sort([](const AUTPlayerState& A, const AUTPlayerState& B) -> bool

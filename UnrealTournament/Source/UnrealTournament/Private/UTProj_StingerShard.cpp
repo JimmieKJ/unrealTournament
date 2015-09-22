@@ -167,6 +167,23 @@ void AUTProj_StingerShard::AttachToRagdoll(AUTCharacter* HitChar, const FVector&
 		HitChar->RagdollConstraint = NewConstraint;
 	}
 	AttachedPawns.Add(HitChar);
+	SetTimerUFunc(this, FName(TEXT("DetachRagdollsInFlight")), 0.5f);
+}
+
+void AUTProj_StingerShard::DetachRagdollsInFlight()
+{
+	if (ProjectileMovement != NULL && !ProjectileMovement->Velocity.IsZero() && ProjectileMovement->UpdatedComponent != NULL)
+	{
+		for (AUTCharacter* HitChar : AttachedPawns)
+		{
+			if (HitChar != NULL && !HitChar->bPendingKillPending && HitChar->RagdollConstraint != NULL && HitChar->RagdollConstraint->GetOuter() == this)
+			{
+				HitChar->RagdollConstraint->DestroyComponent();
+				HitChar->RagdollConstraint = NULL;
+			}
+		}
+		AttachedPawns.Empty();
+	}
 }
 
 void AUTProj_StingerShard::Explode_Implementation(const FVector& HitLocation, const FVector& HitNormal, UPrimitiveComponent* HitComp)

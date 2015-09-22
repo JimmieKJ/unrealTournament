@@ -9,6 +9,7 @@
 #include "Slate/SlateGameResources.h"
 #include "Slate/SUWindowsStyle.h"
 #include "SNumericEntryBox.h"
+#include "UTShowdownSquadAI.h"
 
 AUTShowdownGame::AUTShowdownGame(const FObjectInitializer& OI)
 : Super(OI)
@@ -20,6 +21,7 @@ AUTShowdownGame::AUTShowdownGame(const FObjectInitializer& OI)
 	GoalScore = 5;
 	SpawnSelectionTime = 5;
 	PowerupDuration = 15.0f;
+	XPMultiplier = 15.0f;
 	bHasRespawnChoices = false; // unique system
 	HUDClass = AUTHUD_Showdown::StaticClass();
 	GameStateClass = AUTShowdownGameState::StaticClass();
@@ -453,6 +455,24 @@ void AUTShowdownGame::DefaultTimer()
 	AUTShowdownGameState* GS = Cast<AUTShowdownGameState>(GameState);
 	if (GetMatchState() == MatchState::MatchIntermission)
 	{
+		// process bot spawn selection
+		if (GS->SpawnSelector != NULL && (GS->IntermissionStageTime == 1 || FMath::FRand() < 0.3f))
+		{
+			AUTBot* B = Cast<AUTBot>(GS->SpawnSelector->GetOwner());
+			if (B != NULL)
+			{
+				TArray<APlayerStart*> Choices;
+				for (TActorIterator<APlayerStart> It(GetWorld()); It; ++It)
+				{
+					if (GS->IsAllowedSpawnPoint(GS->SpawnSelector, *It))
+					{
+						Choices.Add(*It);
+					}
+				}
+				GS->SpawnSelector->RespawnChoiceA = B->PickSpawnPoint(Choices);
+			}
+		}
+
 		if (GS->SpawnSelector != NULL && GS->SpawnSelector->RespawnChoiceA != NULL)
 		{
 			GS->IntermissionStageTime = 0;

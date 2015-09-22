@@ -434,6 +434,7 @@ void AUTGameMode::InitGameState()
 		UTGameState->bTeamGame = bTeamGame;
 		UTGameState->bWeaponStay = bWeaponStayActive;
 		UTGameState->bCasterControl = bCasterControl;
+		UTGameState->bPlayPlayerIntro = bPlayPlayerIntro;
 
 		UTGameState->bIsInstanceServer = IsGameInstanceServer();
 		
@@ -1696,6 +1697,10 @@ void AUTGameMode::AwardXP()
 				{
 					UTPS->ClampXP(XPCapPerMin * (((GameState->ElapsedTime - PS->StartTime) / 60) + 1));
 				}
+				if (GameSession->MaxPlayers > 2 && (NumPlayers == 1 || NumPlayers < NumBots))
+				{
+					UTPS->ApplyBotXPPenalty();
+				}
 				if (bXPCheatEnabled)
 				{
 					UTPS->GiveXP(FNewKillAwardXP(250000));
@@ -2221,7 +2226,17 @@ AActor* AUTGameMode::ChoosePlayerStart_Implementation(AController* Player)
 	AUTPlayerState* UTPS = Player != NULL ? Cast<AUTPlayerState>(Player->PlayerState) : NULL;
 	if (bHasRespawnChoices && UTPS->RespawnChoiceA != nullptr && UTPS->RespawnChoiceB != nullptr)
 	{
-		if (UTPS->bChosePrimaryRespawnChoice)
+		AUTBot* B = Cast<AUTBot>(Player);
+		if (B != NULL)
+		{
+			// give bot selection now
+			TArray<APlayerStart*> Choices;
+			Choices.Add(UTPS->RespawnChoiceA);
+			Choices.Add(UTPS->RespawnChoiceB);
+			APlayerStart* Pick = B->PickSpawnPoint(Choices);
+			return (Pick != NULL) ? Pick : UTPS->RespawnChoiceA;
+		}
+		else if (UTPS->bChosePrimaryRespawnChoice)
 		{
 			return UTPS->RespawnChoiceA;
 		}

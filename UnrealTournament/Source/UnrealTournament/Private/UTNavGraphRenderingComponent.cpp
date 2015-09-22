@@ -38,7 +38,7 @@ FBoxSphereBounds UUTNavGraphRenderingComponent::CalcBounds(const FTransform & Lo
 #if !UE_SERVER
 
 FUTPathNodeRenderProxy::FUTPathNodeRenderProxy(const UUTPathNode* RealNode, const AUTRecastNavMesh* NavData)
-: Location(FVector::ZeroVector),
+: 
 #if WITH_EDITORONLY_DATA
 PolyColor(RealNode->DebugDrawColor)
 #else
@@ -49,7 +49,6 @@ PolyColor(FColor::MakeRandomColor())
 
 	if (RealNode->Polys.Num() > 0)
 	{
-		Location = RealNode->Location;
 		for (NavNodeRef PolyRef : RealNode->Polys)
 		{
 			PolyCenters.Add(NavData->GetPolySurfaceCenter(PolyRef));
@@ -106,7 +105,6 @@ void FNavGraphSceneProxy::GetDynamicMeshElements(const TArray<const FSceneView*>
 
 			for (const FUTPathNodeRenderProxy& Node : PathNodes)
 			{
-				PDI->DrawPoint(Node.Location + FVector(0.0f, 0.0f, 32.0f), Node.PolyColor, NodePointSize, 0);
 				for (const FUTPathLinkRenderProxy& Link : Node.Paths)
 				{
 					bool bDraw = true;

@@ -2560,6 +2560,7 @@ void UUTLocalPlayer::CloseMapVote()
 void UUTLocalPlayer::OpenMatchSummary(AUTGameState* GameState)
 {
 #if !UE_SERVER
+	PlayerController->DisableInput(PlayerController);
 	if (MatchSummaryWindow.IsValid())
 	{
 		CloseMatchSummary();
@@ -2580,6 +2581,9 @@ void UUTLocalPlayer::OpenMatchSummary(AUTGameState* GameState)
 void UUTLocalPlayer::CloseMatchSummary()
 {
 #if !UE_SERVER
+	PlayerController->FlushPressedKeys();
+	PlayerController->EnableInput(PlayerController);
+
 	UUTGameViewportClient* UTGVC = Cast<UUTGameViewportClient>(GEngine->GameViewport);
 	if (MatchSummaryWindow.IsValid() && UTGVC != nullptr)
 	{
@@ -3234,7 +3238,7 @@ void UUTLocalPlayer::ChallengeCompleted(FName ChallengeTag, int32 Stars)
 		CurrentProfileSettings->TotalChallengeStars = TotalStars;
 		SaveProfileSettings();
 
-		bool bEarnedRosterUpgrade = (TotalStars / 5 != (TotalStars - EarnedStars) / 5);
+		bool bEarnedRosterUpgrade = (TotalStars / 5 != (TotalStars - EarnedStars) / 5) && UUTChallengeManager::StaticClass()->GetDefaultObject<UUTChallengeManager>()->PlayerTeamRoster.Roster.IsValidIndex(TotalStars / 5);
 		FText ChallengeToast = FText::Format(NSLOCTEXT("Challenge", "GainedStars", "Challenge Completed!  You earned {0} stars."), FText::AsNumber(Stars));
 		ShowToast(ChallengeToast);
 		if (bEarnedRosterUpgrade)

@@ -251,17 +251,29 @@ bool UUTChallengeManager::IsValidChallenge(AUTGameMode* CurrentGame, const FStri
 	if (CurrentGame->ChallengeTag != NAME_None && Challenges.Contains(CurrentGame->ChallengeTag))
 	{
 		const FUTChallengeInfo* Challenge = Challenges.Find(CurrentGame->ChallengeTag);
-		/*
-		// @TODO FIXMESTEVE verify gametype and map matches challenge
-		UE_LOG(UT, Warning, TEXT("Challenge in %s should be %s"), *MapName, *(Challenge->Map.Right(MapName.Len())));
-
-		if (CurrentGame->GetClass()->GetFullName() != CurrentGame->StaticGetFullGameClassName(Challenge->GameMode))
+		if (MapName != Challenge->Map.Right(MapName.Len()))
+		{
+			UE_LOG(UT, Warning, TEXT("CHALLENGE FAILED - Challenge in %s should be %s"), *MapName, *Challenge->Map);
+			return false;
+		}
+		else if (CurrentGame->GetClass()->GetPathName() != CurrentGame->StaticGetFullGameClassName(Challenge->GameMode))
 		{
 			UE_LOG(UT, Warning, TEXT("CHALLENGE FAILED - Challenge game %s should be %s"), *CurrentGame->GetClass()->GetFullName(), *CurrentGame->StaticGetFullGameClassName(Challenge->GameMode));
 			return false;
-		}*/
-		return true;
+		}
+		else if (!GetModPakFilenameFromPkg(CurrentGame->GetOutermost()->GetName()).IsEmpty())
+		{
+			UE_LOG(UT, Warning, TEXT("CHALLENGE FAILED - Map is overridden by mod pak file %s"), *GetModPakFilenameFromPkg(CurrentGame->GetOutermost()->GetName()));
+			return false;
+		}
+		else
+		{
+			return true;
+		}
 	}
-	UE_LOG(UT, Warning, TEXT("FAILED TO FIND MATCHING CHALLENGE"));
-	return false;
+	else
+	{
+		UE_LOG(UT, Warning, TEXT("FAILED TO FIND MATCHING CHALLENGE"));
+		return false;
+	}
 }

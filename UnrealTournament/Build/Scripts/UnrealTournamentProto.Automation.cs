@@ -676,6 +676,7 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
 			ConfidentialFilter.Include(".../NoRedist/...");
             ConfidentialFilter.Include(".../EpicInternal/...");
             ConfidentialFilter.Include(".../Environments/Outside/TestMaps/...");
+            ConfidentialFilter.Include(".../Environments/Industrial/TestMaps/...");
 			foreach (UnrealTargetPlatform PossiblePlatform in Enum.GetValues(typeof(UnrealTargetPlatform)))
 			{
 				if(PossiblePlatform != Platform && PossiblePlatform != UnrealTargetPlatform.Unknown)
