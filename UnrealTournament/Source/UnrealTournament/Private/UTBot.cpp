@@ -2937,6 +2937,16 @@ void AUTBot::DoHunt(APawn* NewHuntTarget)
 		{
 			// we know where the enemy is or was recently, just go with that for now
 			NavNodeRef Poly = NavData->FindNearestPoly(EnemyInfo->LastKnownLoc, NavData->GetPOIExtent(EnemyInfo->GetPawn()));
+			if (Poly == INVALID_NAVNODEREF)
+			{
+				// enemy may be jumping, etc so try tracing to ground
+				// note: navmesh raycasts are sadly 2D only so we can't trace against the mesh, have to use world geo first
+				FHitResult Hit;
+				if (GetWorld()->LineTraceSingleByChannel(Hit, EnemyInfo->LastKnownLoc, EnemyInfo->LastKnownLoc - FVector(0.0f, 0.0f, 10000.0f), ECC_Pawn, FCollisionQueryParams(), WorldResponseParams))
+				{
+					Poly = NavData->FindNearestPoly(Hit.Location, NavData->GetPOIExtent(EnemyInfo->GetPawn()));
+				}
+			}
 			if (Poly != INVALID_NAVNODEREF)
 			{
 				new(HuntEndpoints) FRouteCacheItem(NavData->GetNodeFromPoly(Poly), EnemyInfo->LastKnownLoc, Poly);
@@ -2960,7 +2970,12 @@ void AUTBot::DoHunt(APawn* NewHuntTarget)
 				else
 				{
 					// pick a random point for now
-					// TODO
+					FRandomDestEval NodeEval;
+					float Weight = 0.0f;
+					if (NavData->FindBestPath(GetPawn(), GetPawn()->GetNavAgentPropertiesRef(), NodeEval, GetPawn()->GetNavAgentLocation(), Weight, true, RouteCache))
+					{
+						HuntEndpoints.Add(RouteCache.Last());
+					}
 				}
 			}
 			else
@@ -3047,6 +3062,12 @@ void AUTBot::DoHunt(APawn* NewHuntTarget)
 		{
 			HuntingTarget = NULL;
 			HuntingCheckedSpots.Empty();
+			// this function is not supposed to fail so just do a combat move
+			if (Enemy == NULL)
+			{
+				SetEnemy(NewHuntTarget);
+			}
+			DoTacticalMove();
 		}
 	}
 }
