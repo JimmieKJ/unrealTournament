@@ -441,14 +441,17 @@ void AUTCTFGameMode::PlacePlayersAroundFlagBase(int32 TeamNum)
 	// respawn dead pawns
 	for (AController* C : Members)
 	{
-		AUTCharacter* UTChar = C ? Cast<AUTCharacter>(C->GetPawn()) : NULL;
-		if (!UTChar || UTChar->IsDead())
+		if (C)
 		{
-			if (C->GetPawn())
+			AUTCharacter* UTChar = Cast<AUTCharacter>(C->GetPawn());
+			if (!UTChar || UTChar->IsDead())
 			{
-				C->UnPossess();
+				if (C->GetPawn())
+				{
+					C->UnPossess();
+				}
+				RestartPlayer(C);
 			}
-			RestartPlayer(C);
 		}
 	}
 
