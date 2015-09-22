@@ -637,7 +637,6 @@ void SUTQuickMatch::RequestQuickPlayResults(AUTServerBeaconClient* Beacon, const
 		if (PC)
 		{
 			PC->ConnectToServerViaGUID(InstanceGuid,-1, false, false);
-			PlayerOwner->CloseQuickMatch();
 		}
 		else
 		{

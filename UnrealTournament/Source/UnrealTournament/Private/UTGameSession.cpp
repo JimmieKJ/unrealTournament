@@ -502,6 +502,10 @@ void AUTGameSession::InitHostBeacon(FOnlineSessionSettings* SessionSettings)
 	if (BeaconHostListener && BeaconHostListener->InitHost())
 	{
 		BeaconHostListener->RegisterHost(BeaconHost);
+		UE_LOG(UT,Log,TEXT("---------------------------------------"));
+		UE_LOG(UT,Log,TEXT("Server Active Port (ignore ip): %s"), *GetNetDriver()->LowLevelGetNetworkNumber());
+		UE_LOG(UT,Log,TEXT("Server Beacon Port: %i"), BeaconHostListener->GetListenPort());
+		UE_LOG(UT,Log,TEXT("---------------------------------------"));
 	}
 
 	// Update the beacon port

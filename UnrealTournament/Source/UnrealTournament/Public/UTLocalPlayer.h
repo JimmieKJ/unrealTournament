@@ -678,4 +678,9 @@ public:
 	void ChallengeCompleted(FName ChallengeTag, int32 Stars);
 
 	void AwardAchievement(FName AchievementName);
+
+
+	bool QuickMatchCheckFull();
+	void RestartQuickMatch();
+	
 };
