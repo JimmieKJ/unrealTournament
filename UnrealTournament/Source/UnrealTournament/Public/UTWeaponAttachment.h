@@ -130,4 +130,14 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
 	virtual void PlayBulletWhip();
+
+	virtual void MarkComponentsAsPendingKill() override
+	{
+		// work around engine bug where components being destroyed try to calc bounding box and end up querying MasterPoseComponent in an invalid state
+		if (OverlayMesh != NULL)
+		{
+			OverlayMesh->SetMasterPoseComponent(NULL);
+		}
+		Super::MarkComponentsAsPendingKill();
+	}
 };

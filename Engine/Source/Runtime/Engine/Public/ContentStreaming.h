@@ -724,11 +724,8 @@ struct FSpawnedTextureInstance
  */
 struct FStreamMemoryTracker
 {
-#if PLATFORM_64BITS
 	typedef int64 TSize;
-#else
-	typedef int32 TSize;
-#endif
+
 	/** Stream-in memory that hasn't been allocated yet. */
 	volatile TSize PendingStreamIn;
 	/** Temp memory that hasn't been allocated yet. */
