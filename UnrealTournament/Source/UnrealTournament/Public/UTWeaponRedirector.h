@@ -73,7 +73,7 @@ public:
 	: Super(OI)
 	{
 		RootComponent = OI.CreateDefaultSubobject<USceneComponent>(this, FName(TEXT("Root")));
-		bWeaponPortal = true;
+		bWeaponPortal = false;
 		bRedirectDamage = true;
 		InitialLifeSpan = 0.15f;
 		bReplicates = true;
