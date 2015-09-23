@@ -3250,3 +3250,21 @@ void UUTLocalPlayer::ChallengeCompleted(FName ChallengeTag, int32 Stars)
 		}
 	}
 }
+
+bool UUTLocalPlayer::QuickMatchCheckFull()
+{
+	if (QuickMatchDialog.IsValid())
+	{
+		FTimerHandle TmpHandle;
+		GetWorld()->GetTimerManager().SetTimer(TmpHandle, this, &UUTLocalPlayer::RestartQuickMatch, 0.5f, false);
+		return true;
+	}
+
+	return false;
+}
+
+void UUTLocalPlayer::RestartQuickMatch()
+{
+	// Restart the quickmatch attempt.
+	QuickMatchDialog->FindHUBToJoin();
+}

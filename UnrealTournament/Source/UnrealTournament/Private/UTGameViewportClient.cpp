@@ -360,8 +360,13 @@ void UUTGameViewportClient::PeekNetworkFailureMessages(UWorld *World, UNetDriver
 			// TODO: Explain to the engine team why you can't localize server error strings :(
 			else if (ErrorString == TEXT("Server full."))
 			{
-				FirstPlayer->ShowMenu(TEXT(""));
-				FirstPlayer->ShowMessage(NSLOCTEXT("UTGameViewportClient","PreLoginError","Unable to Join"), NSLOCTEXT("UTGameViewportClient","SERVERFULL","The game you are trying to join is full!"), UTDIALOG_BUTTON_OK,FDialogResultDelegate::CreateUObject(this, &UUTGameViewportClient::NetworkFailureDialogResult));	
+
+				if (!FirstPlayer->QuickMatchCheckFull())
+				{
+					FirstPlayer->ShowMenu(TEXT(""));
+					FirstPlayer->ShowMessage(NSLOCTEXT("UTGameViewportClient","PreLoginError","Unable to Join"), NSLOCTEXT("UTGameViewportClient","SERVERFULL","The game you are trying to join is full!"), UTDIALOG_BUTTON_OK,FDialogResultDelegate::CreateUObject(this, &UUTGameViewportClient::NetworkFailureDialogResult));	
+				}
+
 				return;
 			}
 			return;

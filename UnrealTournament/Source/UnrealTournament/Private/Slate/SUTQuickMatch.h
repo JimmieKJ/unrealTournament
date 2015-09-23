@@ -124,7 +124,6 @@ private:
 	// Begin the search for a HUB to join
 	void BeginQuickmatch();
 	void OnInitialFindCancel(bool bWasSuccessful);
-	void FindHUBToJoin();
 	void OnSearchCancelled(bool bWasSuccessful);
 
 	virtual void OnServerBeaconResult(AUTServerBeaconClient* Sender, FServerBeaconInfo ServerInfo);
@@ -148,9 +147,12 @@ private:
 
 	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime );
 
+public:
+	virtual void AttemptQuickMatch();
+	void FindHUBToJoin();
+
 protected:
 	virtual void RequestQuickPlayResults(AUTServerBeaconClient* Beacon, const FName& CommandCode, const FString& InstanceGuid);
-	virtual void AttemptQuickMatch();
 
 	TSharedPtr<FServerSearchInfo> BestServer;
 

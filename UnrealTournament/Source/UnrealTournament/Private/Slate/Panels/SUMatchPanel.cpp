@@ -642,9 +642,8 @@ TSharedRef<SWidget> SUMatchPanel::OnGetPopupContent(TSharedPtr<SUTPopOverAnchor>
 				{
 					MatchInfo->FillPlayerColumnsForDisplay(ColumnA, ColumnB, Spectators);
 					bTeamGame = MatchInfo->CurrentRuleset->bTeamGame;
+					RulesList = MatchInfo->CurrentRuleset->Description;
 				}
-
-				RulesList = MatchInfo->CurrentRuleset->Description;
 			}
 		}
 	}

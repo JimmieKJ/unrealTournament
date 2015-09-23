@@ -945,22 +945,26 @@ void AUTLobbyGameState::HandleQuickplayRequest(AUTServerBeaconClient* Beacon, co
 			// We have found a potential quick play match.  See if this player could be added to it.
 			if (bTrainingGround || GameInstances[i].MatchInfo->CanAddPlayer(ELORank, true))
 			{
-				// If we have already found a possibly good match, look to see if this one is better.
-
-				if (BestInstanceIndex >= 0)
+				// Only pick from instances that are not full
+				if (GameInstances[i].MatchInfo->PlayersInMatchInstance.Num() < GameInstances[i].MatchInfo->CurrentRuleset->MaxPlayers)
 				{
-					if ( (GameInstances[i].MatchInfo->CurrentState == ELobbyMatchState::InProgress && GameInstances[BestInstanceIndex].MatchInfo->CurrentState == ELobbyMatchState::Launching) ||
-						 (GameInstances[i].MatchInfo->NumPlayersInMatch() > GameInstances[BestInstanceIndex].MatchInfo->NumPlayersInMatch() ) )
+					// If we have already found a possibly good match, look to see if this one is better.
+
+					if (BestInstanceIndex >= 0)
+					{
+						if ( (GameInstances[i].MatchInfo->CurrentState == ELobbyMatchState::InProgress && GameInstances[BestInstanceIndex].MatchInfo->CurrentState == ELobbyMatchState::Launching) ||
+							 (GameInstances[i].MatchInfo->NumPlayersInMatch() > GameInstances[BestInstanceIndex].MatchInfo->NumPlayersInMatch() ) )
+						{
+							UE_LOG(UT,Log,TEXT("Assigning new Best Instance"));
+							BestInstanceIndex = i;
+						}
+				
+					}
+					else
 					{
 						UE_LOG(UT,Log,TEXT("Assigning new Best Instance"));
 						BestInstanceIndex = i;
 					}
-				
-				}
-				else
-				{
-					UE_LOG(UT,Log,TEXT("Assigning new Best Instance"));
-					BestInstanceIndex = i;
 				}
 			}
 		}
