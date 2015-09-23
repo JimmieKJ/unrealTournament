@@ -369,7 +369,7 @@ void SUPlayerListPanel::Tick( const FGeometry& AllottedGeometry, const double In
 	AUTLobbyPlayerState* OwnerPlayerState = NULL;
 
 	AUTGameState* GameState = PlayerOwner->GetWorld()->GetGameState<AUTGameState>();
-	if (GameState)
+	if (GameState && PlayerOwner.IsValid() && PlayerOwner->PlayerController)
 	{
 	
 		if (PlayerOwner.IsValid() && PlayerOwner->PlayerController && PlayerOwner->PlayerController->PlayerState)
@@ -494,7 +494,8 @@ void SUPlayerListPanel::Tick( const FGeometry& AllottedGeometry, const double In
 					{
 						bListNeedsUpdate = true;
 						// This is a new player.. Add them.
-						TrackedPlayers.Add(FTrackedPlayer::Make(PlayerState, PlayerState->UniqueId, PlayerState->PlayerName, TeamNum, PlayerState->Avatar, PlayerState == PlayerOwner->PlayerController->PlayerState,bIsHost, (LobbyPlayerState->DesiredTeamNum == 255)));
+
+						TrackedPlayers.Add(FTrackedPlayer::Make(PlayerState, PlayerState->UniqueId, PlayerState->PlayerName, TeamNum, PlayerState->Avatar, PlayerState == PlayerOwner->PlayerController->PlayerState,bIsHost, LobbyPlayerState ? (LobbyPlayerState->DesiredTeamNum == 255) : false));
 					}
 				}
 			}

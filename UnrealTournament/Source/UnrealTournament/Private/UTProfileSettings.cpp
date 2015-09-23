@@ -310,20 +310,17 @@ void UUTProfileSettings::ApplyAllSettings(UUTLocalPlayer* ProfilePlayer)
 	//Don't overwrite default crosshair info if nothing has been saved to the profile yet
 	if (CrosshairInfos.Num() > 0)
 	{
-		//Apply crosshair settings to the hud(s)
-		TArray<AUTHUD*> Huds;
-		if (PC != nullptr && PC->MyUTHUD != nullptr)
+		//Copy crosshair settings to every hud class
+		for (TObjectIterator<AUTHUD> It(EObjectFlags::RF_NoFlags, true); It; ++It)
 		{
-			Huds.Add(PC->MyUTHUD);
-		}
-		Huds.Add(AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>());
-
-		for (AUTHUD* Hud : Huds)
-		{
-			Hud->LoadedCrosshairs.Empty(); //Force the hud to rebuild crosshairs after loading
-			Hud->CrosshairInfos = CrosshairInfos;
-			Hud->bCustomWeaponCrosshairs = bCustomWeaponCrosshairs;
-			Hud->SaveConfig();
+			AUTHUD* Hud = *It;
+			if (Hud != nullptr)
+			{
+				Hud->LoadedCrosshairs.Empty();
+				Hud->CrosshairInfos = CrosshairInfos;
+				Hud->bCustomWeaponCrosshairs = bCustomWeaponCrosshairs;
+				Hud->SaveConfig();
+			}
 		}
 	}
 
