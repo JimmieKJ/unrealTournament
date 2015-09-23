@@ -5,7 +5,7 @@
 #include "UTGameUserSettings.generated.h"
 
 UCLASS()
-class UNREALTOURNAMENT_API UUTGameUserSettings : public UGameUserSettings
+class UNREALTOURNAMENT_API UUTGameUserSettings : public UGameUserSettings, public FTickableGameObject
 {
 	GENERATED_UCLASS_BODY()
 
@@ -107,7 +107,16 @@ public:
 	UPROPERTY(config)
 	bool bShouldSuppressLanWarning;
 
+	bool bRequestBenchmark;
 	bool bBenchmarkInProgress;
+	bool bBenchmarkSaveSettingsOnceDetected;
+	int32 TickCount;
+
+	virtual TStatId GetStatId() const override;
+	virtual bool IsTickable() const override;
+	virtual bool IsTickableWhenPaused() const override;
+	virtual void Tick( float DeltaTime ) override;
+
 
 private:
 #if !UE_SERVER
@@ -118,4 +127,5 @@ private:
 
 	TWeakObjectPtr<UUTLocalPlayer> BenchmarkingLocalPlayer;
 #endif // !UE_SERVER
+
 };

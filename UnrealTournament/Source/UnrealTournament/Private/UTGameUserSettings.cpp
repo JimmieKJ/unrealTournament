@@ -233,6 +233,36 @@ void UUTGameUserSettings::BenchmarkDetailSettingsIfNeeded(UUTLocalPlayer* LocalP
 	}
 }
 
+
+TStatId UUTGameUserSettings::GetStatId() const
+{
+	RETURN_QUICK_DECLARE_CYCLE_STAT(UUTGameUserSetting, STATGROUP_Tickables);
+}
+
+bool UUTGameUserSettings::IsTickable() const
+{
+	return true;
+}
+
+bool UUTGameUserSettings::IsTickableWhenPaused() const
+{
+	return true;
+}
+
+
+void UUTGameUserSettings::Tick( float DeltaTime )
+{
+	if (bRequestBenchmark)
+	{
+		TickCount++;
+		if (TickCount > 5)
+		{
+			bRequestBenchmark = false;
+			RunSynthBenchmark(bBenchmarkSaveSettingsOnceDetected);
+		}
+	}
+}
+
 void UUTGameUserSettings::BenchmarkDetailSettings(UUTLocalPlayer* LocalPlayer, bool bSaveSettingsOnceDetected)
 {
 	if (ensure(LocalPlayer))
@@ -243,10 +273,10 @@ void UUTGameUserSettings::BenchmarkDetailSettings(UUTLocalPlayer* LocalPlayer, b
 			0
 			);
 
-		// allow for the dialog to be displayed before running the synth benchmark
-		FTimerHandle UnusedHandle;
+		TickCount = 0;
+		bBenchmarkSaveSettingsOnceDetected = bSaveSettingsOnceDetected;
+		bRequestBenchmark = true;
 		BenchmarkingLocalPlayer = LocalPlayer;
-		LocalPlayer->GetWorld()->GetTimerManager().SetTimer(UnusedHandle, FTimerDelegate::CreateUObject(this, &UUTGameUserSettings::RunSynthBenchmark, bSaveSettingsOnceDetected), 0.5f, false);
 		bBenchmarkInProgress = true;
 	}
 }
