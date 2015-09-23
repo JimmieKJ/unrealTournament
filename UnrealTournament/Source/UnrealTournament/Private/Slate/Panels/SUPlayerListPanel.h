@@ -19,6 +19,7 @@ namespace ETrackedPlayerType
 		EveryoneHeader, 
 		InstancePlayer,
 		InstanceHeader,
+		Spectator,
 		MAX,
 	};
 };
@@ -60,6 +61,8 @@ public:
 	// This is the last known team num.  This will be used to resort the array when a player's team has changed. 
 	uint8 TeamNum;
 
+	bool bIsSpectator;
+
 	float SortOrder;
 
 	TWeakObjectPtr<AUTPlayerState> PlayerState;
@@ -75,7 +78,7 @@ public:
 		bInInstance = false;
 	}
 
-	FTrackedPlayer(TWeakObjectPtr<AUTPlayerState> inPlayerState, FUniqueNetIdRepl inPlayerID, const FString& inPlayerName, uint8 inTeamNum, FName inAvatar, bool inbIsOwner, bool inbIsHost)
+	FTrackedPlayer(TWeakObjectPtr<AUTPlayerState> inPlayerState, FUniqueNetIdRepl inPlayerID, const FString& inPlayerName, uint8 inTeamNum, FName inAvatar, bool inbIsOwner, bool inbIsHost, bool inbIsSpectator)
 		: PlayerID(inPlayerID)
 		, PlayerName(inPlayerName)
 		, Avatar(inAvatar)
@@ -83,6 +86,7 @@ public:
 		, bIsOwner(inbIsOwner)
 		, TeamNum(inTeamNum)
 		, PlayerState(inPlayerState)
+		, bIsSpectator(inbIsSpectator)
 	{
 		bPendingKill = false;
 		TeamNum = 255;
@@ -92,9 +96,9 @@ public:
 		bInInstance = inPlayerState == NULL;
 	}
 
-	static TSharedRef<FTrackedPlayer> Make(TWeakObjectPtr<AUTPlayerState> inPlayerState, FUniqueNetIdRepl inPlayerID, const FString& inPlayerName, uint8 inTeamNum, FName inAvatar, bool inbIsOwner, bool inbIsHost)
+	static TSharedRef<FTrackedPlayer> Make(TWeakObjectPtr<AUTPlayerState> inPlayerState, FUniqueNetIdRepl inPlayerID, const FString& inPlayerName, uint8 inTeamNum, FName inAvatar, bool inbIsOwner, bool inbIsHost, bool inbIsSpectator)
 	{
-		return MakeShareable( new FTrackedPlayer(inPlayerState, inPlayerID, inPlayerName, inTeamNum, inAvatar, inbIsOwner, inbIsHost));
+		return MakeShareable( new FTrackedPlayer(inPlayerState, inPlayerID, inPlayerName, inTeamNum, inAvatar, inbIsOwner, inbIsHost, inbIsSpectator));
 	}
 
 	static TSharedRef<FTrackedPlayer> MakeHeader(FString inHeaderText, ETrackedPlayerType::Type inEntryType)
@@ -109,7 +113,7 @@ public:
 
 	FSlateColor GetNameColor() const
 	{
-		if (bIsInMatch)
+		if (bIsInMatch && !bIsSpectator)
 		{
 			if (TeamNum == 0) return FSlateColor(FLinearColor(1.0f, 0.05f, 0.0f, 1.0f));
 			else if (TeamNum == 1) return FSlateColor(FLinearColor(0.1f, 0.1f, 1.0f, 1.0f));
@@ -172,6 +176,7 @@ protected:
 	void CheckFlags(bool &bIsHost, bool &bIsTeamGame);
 
 	TSharedPtr<FTrackedPlayer> MatchHeader;
+	TSharedPtr<FTrackedPlayer> SpectatorHeader;
 	TSharedPtr<FTrackedPlayer> EveryoneHeader;
 	TSharedPtr<FTrackedPlayer> InstanceHeader;
 
