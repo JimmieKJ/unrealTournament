@@ -3248,23 +3248,35 @@ void UUTLocalPlayer::ChallengeCompleted(FName ChallengeTag, int32 Stars)
 			RosterUpgradeText = FText::Format(NSLOCTEXT("Challenge", "RosterUpgrade", "Roster Upgrade!  {0} replaces {1}."), OldTeammate, NewTeammate);
 			ShowToast(RosterUpgradeText);
 		}
+
+		if (FUTAnalytics::IsAvailable())
+		{
+			TArray<FAnalyticsEventAttribute> ParamArray;
+			ParamArray.Add(FAnalyticsEventAttribute(TEXT("ChallengeTag"), ChallengeTag.ToString()));
+			ParamArray.Add(FAnalyticsEventAttribute(TEXT("Stars"), Stars));
+			ParamArray.Add(FAnalyticsEventAttribute(TEXT("TotalStars"), TotalStars));
+			FUTAnalytics::GetProvider().RecordEvent(TEXT("ChallengeComplete"), ParamArray);
+		}
 	}
 }
 
 bool UUTLocalPlayer::QuickMatchCheckFull()
 {
+#if !UE_SERVER
 	if (QuickMatchDialog.IsValid())
 	{
 		FTimerHandle TmpHandle;
 		GetWorld()->GetTimerManager().SetTimer(TmpHandle, this, &UUTLocalPlayer::RestartQuickMatch, 0.5f, false);
 		return true;
 	}
-
+#endif
 	return false;
 }
 
 void UUTLocalPlayer::RestartQuickMatch()
 {
+#if !UE_SERVER
 	// Restart the quickmatch attempt.
 	QuickMatchDialog->FindHUBToJoin();
+#endif
 }

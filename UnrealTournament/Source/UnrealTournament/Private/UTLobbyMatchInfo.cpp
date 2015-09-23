@@ -337,7 +337,10 @@ void AUTLobbyMatchInfo::ServerManageUser_Implementation(int32 CommandID, AUTLobb
 			{
 				Target->DesiredTeamNum = 0;
 			}
-			UE_LOG(UT, Log, TEXT("Changing %s to team %i"), *Target->PlayerName, Target->DesiredTeamNum)
+		}
+		else
+		{
+			Target->DesiredTeamNum = 0;
 		}
 	}
 	else if (CommandID == 1)

@@ -724,7 +724,12 @@ struct FSpawnedTextureInstance
  */
 struct FStreamMemoryTracker
 {
+#if WINVER < 0x0600
+	// Windows XP does not have InterlockedIncrement64
+	typedef int32 TSize;
+#else
 	typedef int64 TSize;
+#endif
 
 	/** Stream-in memory that hasn't been allocated yet. */
 	volatile TSize PendingStreamIn;

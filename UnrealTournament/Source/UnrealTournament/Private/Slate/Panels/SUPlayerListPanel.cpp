@@ -20,7 +20,6 @@ struct FPlayerCompare
 {
 	FORCEINLINE bool operator()( const TSharedPtr< FTrackedPlayer > A, const TSharedPtr< FTrackedPlayer > B ) const 
 	{
-		
 		if (A->EntryType == ETrackedPlayerType::MatchHeader) 
 		{
 			return true;
@@ -31,7 +30,11 @@ struct FPlayerCompare
 		}
 
 		int32 AValue = 0;
-		if (A->EntryType == ETrackedPlayerType::EveryoneHeader) 
+		if (A->EntryType == ETrackedPlayerType::Spectator) 
+		{
+			AValue = 50;
+		}
+		else if (A->EntryType == ETrackedPlayerType::EveryoneHeader) 
 		{
 			AValue = 100;
 		}
@@ -46,12 +49,18 @@ struct FPlayerCompare
 		else
 		{
 			AValue = (A->bIsInMatch ? 10 : 150) + (A->bInInstance ? 2000 : 0) + (A->bIsHost ? -5 : 0);
+			AValue += (A->TeamNum == 0) ? 0 : 1;
+
+			if (A->bIsSpectator) AValue += 51;
 		}
 
-		AValue += (A->TeamNum==0) ? 0 : ( A->TeamNum==1 ? 1 : 2);
 
 		int32 BValue = 0;
-		if (B->EntryType == ETrackedPlayerType::EveryoneHeader) 
+		if (B->EntryType == ETrackedPlayerType::Spectator) 
+		{
+			BValue = 50;
+		}
+		else if (B->EntryType == ETrackedPlayerType::EveryoneHeader) 
 		{
 			BValue = 100;
 		}
@@ -66,11 +75,13 @@ struct FPlayerCompare
 		else
 		{
 			BValue = (B->bIsInMatch ? 10 : 150) + (B->bInInstance ? 2000 : 0) + (B->bIsHost ? -5 : 0);
+			BValue += (B->TeamNum == 0) ? 0 : 1;
+
+			if (B->bIsSpectator) BValue += 51;
+
 		}
 
-		BValue += (B->TeamNum==0) ? 0 : ( B->TeamNum==1 ? 1 : 2);
-
-		//UE_LOG(UT,Log,TEXT("Sort:  %s vs %s - %i < %i???"), *A->PlayerName, *B->PlayerName, AValue, BValue);			
+		UE_LOG(UT,Log,TEXT("Sort:  %s (%i) vs %s (%i) - %i < %i???"), *A->PlayerName, A->TeamNum, *B->PlayerName, B->TeamNum, AValue, BValue);			
 		return (AValue != BValue) ? AValue < BValue : (A->PlayerName < B->PlayerName);
 	}
 };
@@ -236,19 +247,20 @@ void SUPlayerListPanel::GetMenuContent(FString SearchTag, TArray<FMenuOptionData
 	{
 		if (TrackedPlayers[Idx]->bIsInMatch)
 		{
-			if (!TrackedPlayers[Idx]->bInInstance)
-			{
-				MenuOptions.Add(FMenuOptionData());
-			}
 
 			// Look to see if this player is in a team game...
 
-			if (bTeamGame)
+			if (bIsHost && (bTeamGame || TrackedPlayers[Idx]->bIsSpectator))
 			{
+				MenuOptions.Add(FMenuOptionData());
 				MenuOptions.Add(FMenuOptionData(NSLOCTEXT("PlayerListSubMenu","ChangeTeam","Change Team"), EPlayerListContentCommand::ChangeTeam));
 			}
 
-			MenuOptions.Add(FMenuOptionData(NSLOCTEXT("PlayerListSubMenu","Spectate","Spectate"), EPlayerListContentCommand::Spectate));
+			if (bIsHost && !TrackedPlayers[Idx]->bIsSpectator)
+			{
+				MenuOptions.Add(FMenuOptionData());
+				MenuOptions.Add(FMenuOptionData(NSLOCTEXT("PlayerListSubMenu","Spectate","Spectate"), EPlayerListContentCommand::Spectate));
+			}
 
 			if (bIsHost && (TrackedPlayers[Idx]->PlayerState.Get() != PlayerOwner->PlayerController->PlayerState))
 			{
@@ -375,8 +387,16 @@ void SUPlayerListPanel::Tick( const FGeometry& AllottedGeometry, const double In
 					bListNeedsUpdate = true;
 				}
 
+				if (!SpectatorHeader.IsValid())
+				{
+					SpectatorHeader = FTrackedPlayer::MakeHeader(TEXT("- Spectators - "), ETrackedPlayerType::Spectator);
+					TrackedPlayers.Add(SpectatorHeader);
+					bListNeedsUpdate = true;
+				}
+
 				if (!EveryoneHeader.IsValid())
 				{
+					UE_LOG(UT,Log,TEXT("Adding Not In Match"));
 					EveryoneHeader = FTrackedPlayer::MakeHeader(TEXT("- Not in Match -"), ETrackedPlayerType::EveryoneHeader);
 					TrackedPlayers.Add(EveryoneHeader);
 					bListNeedsUpdate = true;
@@ -388,6 +408,13 @@ void SUPlayerListPanel::Tick( const FGeometry& AllottedGeometry, const double In
 				{
 					TrackedPlayers.Remove(MatchHeader);
 					MatchHeader.Reset();
+					bListNeedsUpdate = true;
+				}
+
+				if (SpectatorHeader.IsValid())
+				{
+					TrackedPlayers.Remove(SpectatorHeader);
+					SpectatorHeader.Reset();
 					bListNeedsUpdate = true;
 				}
 
@@ -422,7 +449,6 @@ void SUPlayerListPanel::Tick( const FGeometry& AllottedGeometry, const double In
 					TeamNum = 255;
 				}
 
-
 				if (ShouldShowPlayer(PlayerState->UniqueId, TeamNum, bIsInMatch))
 				{
 					int32 Idx = IsTracked(GameState->PlayerArray[i]->UniqueId);
@@ -430,6 +456,13 @@ void SUPlayerListPanel::Tick( const FGeometry& AllottedGeometry, const double In
 					{
 						// This player lives to see another day
 						TrackedPlayers[Idx]->bPendingKill = false;
+
+						bool bIsSpec = LobbyPlayerState->DesiredTeamNum == 255;
+						if (TrackedPlayers[Idx]->bIsSpectator != bIsSpec)
+						{
+							TrackedPlayers[Idx]->bIsSpectator = bIsSpec;
+							bListNeedsUpdate = true;
+						}
 
 						if (TrackedPlayers[Idx]->bIsInMatch != bIsInMatch)
 						{
@@ -461,7 +494,7 @@ void SUPlayerListPanel::Tick( const FGeometry& AllottedGeometry, const double In
 					{
 						bListNeedsUpdate = true;
 						// This is a new player.. Add them.
-						TrackedPlayers.Add(FTrackedPlayer::Make(PlayerState, PlayerState->UniqueId, PlayerState->PlayerName, TeamNum, PlayerState->Avatar, PlayerState == PlayerOwner->PlayerController->PlayerState,bIsHost));
+						TrackedPlayers.Add(FTrackedPlayer::Make(PlayerState, PlayerState->UniqueId, PlayerState->PlayerName, TeamNum, PlayerState->Avatar, PlayerState == PlayerOwner->PlayerController->PlayerState,bIsHost, (LobbyPlayerState->DesiredTeamNum == 255)));
 					}
 				}
 			}
@@ -492,7 +525,7 @@ void SUPlayerListPanel::Tick( const FGeometry& AllottedGeometry, const double In
 								TrackedPlayers.Add(FTrackedPlayer::Make(nullptr, MatchInfo->PlayersInMatchInstance[j].PlayerID, 
 																				MatchInfo->PlayersInMatchInstance[j].PlayerName,
 																				MatchInfo->PlayersInMatchInstance[j].TeamNum,
-																				MatchInfo->PlayersInMatchInstance[j].Avatar, false, false));
+																				MatchInfo->PlayersInMatchInstance[j].Avatar, false, false, false));
 							}
 						}
 					}
