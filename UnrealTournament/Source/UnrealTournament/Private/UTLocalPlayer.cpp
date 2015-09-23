@@ -3262,18 +3262,21 @@ void UUTLocalPlayer::ChallengeCompleted(FName ChallengeTag, int32 Stars)
 
 bool UUTLocalPlayer::QuickMatchCheckFull()
 {
+#if !UE_SERVER
 	if (QuickMatchDialog.IsValid())
 	{
 		FTimerHandle TmpHandle;
 		GetWorld()->GetTimerManager().SetTimer(TmpHandle, this, &UUTLocalPlayer::RestartQuickMatch, 0.5f, false);
 		return true;
 	}
-
+#endif
 	return false;
 }
 
 void UUTLocalPlayer::RestartQuickMatch()
 {
+#if !UE_SERVER
 	// Restart the quickmatch attempt.
 	QuickMatchDialog->FindHUBToJoin();
+#endif
 }
