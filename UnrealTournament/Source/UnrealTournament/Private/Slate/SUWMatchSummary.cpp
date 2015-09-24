@@ -449,6 +449,7 @@ SUWMatchSummary::~SUWMatchSummary()
 			PlayerPreviewWorld->DestroyWorld(true);
 			GEngine->DestroyWorldContext(PlayerPreviewWorld);
 			PlayerPreviewWorld = NULL;
+			GetPlayerOwner()->GetWorld()->ForceGarbageCollection(true);
 		}
 	}
 	ViewState.Destroy();
