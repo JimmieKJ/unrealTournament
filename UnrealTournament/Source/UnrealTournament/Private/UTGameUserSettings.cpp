@@ -232,7 +232,7 @@ void UUTGameUserSettings::BenchmarkDetailSettingsIfNeeded(UUTLocalPlayer* LocalP
 		}
 	}
 }
-
+#endif // !UE_SERVER
 
 TStatId UUTGameUserSettings::GetStatId() const
 {
@@ -252,6 +252,7 @@ bool UUTGameUserSettings::IsTickableWhenPaused() const
 
 void UUTGameUserSettings::Tick( float DeltaTime )
 {
+#if !UE_SERVER
 	if (bRequestBenchmark)
 	{
 		TickCount++;
@@ -261,8 +262,10 @@ void UUTGameUserSettings::Tick( float DeltaTime )
 			RunSynthBenchmark(bBenchmarkSaveSettingsOnceDetected);
 		}
 	}
+#endif // !UE_SERVER
 }
 
+#if !UE_SERVER
 void UUTGameUserSettings::BenchmarkDetailSettings(UUTLocalPlayer* LocalPlayer, bool bSaveSettingsOnceDetected)
 {
 	if (ensure(LocalPlayer))
