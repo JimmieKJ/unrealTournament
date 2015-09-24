@@ -85,8 +85,8 @@ public:
 		, bIsHost(inbIsHost)
 		, bIsOwner(inbIsOwner)
 		, TeamNum(inTeamNum)
-		, PlayerState(inPlayerState)
 		, bIsSpectator(inbIsSpectator)
+		, PlayerState(inPlayerState)
 	{
 		bPendingKill = false;
 		TeamNum = 255;
