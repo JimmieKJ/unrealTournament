@@ -396,7 +396,7 @@ void SUPlayerListPanel::Tick( const FGeometry& AllottedGeometry, const double In
 
 				if (!EveryoneHeader.IsValid())
 				{
-					UE_LOG(UT,Log,TEXT("Adding Not In Match"));
+					//UE_LOG(UT,Log,TEXT("Adding Not In Match"));
 					EveryoneHeader = FTrackedPlayer::MakeHeader(TEXT("- Not in Match -"), ETrackedPlayerType::EveryoneHeader);
 					TrackedPlayers.Add(EveryoneHeader);
 					bListNeedsUpdate = true;
