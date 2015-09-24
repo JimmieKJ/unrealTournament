@@ -457,7 +457,7 @@ void SUPlayerListPanel::Tick( const FGeometry& AllottedGeometry, const double In
 						// This player lives to see another day
 						TrackedPlayers[Idx]->bPendingKill = false;
 
-						bool bIsSpec = LobbyPlayerState->DesiredTeamNum == 255;
+						bool bIsSpec = (LobbyPlayerState && LobbyPlayerState->DesiredTeamNum == 255);
 						if (TrackedPlayers[Idx]->bIsSpectator != bIsSpec)
 						{
 							TrackedPlayers[Idx]->bIsSpectator = bIsSpec;
