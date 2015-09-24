@@ -827,10 +827,14 @@ void SUWindowsMainMenu::OnOwnerLoginStatusChanged(UUTLocalPlayer* LocalPlayerOwn
 {
 	if (NewStatus == ELoginStatus::LoggedIn)
 	{
-		if (TutorialMenu.IsValid())
+		if (TutorialMenu.IsValid() && TutorialMenu->IsInViewport())
 		{
 			TutorialMenu->RemoveFromViewport();
-			OpenTutorialMenu();
+			
+			PlayerOwner->ShowMessage(
+				NSLOCTEXT("SUWindowsMainMenu", "TutorialErrorTitle", "User Changed"),
+				NSLOCTEXT("SUWindowsMainMenu", "TutorialErrorMessage", "User changed. Returning to the main menu."), UTDIALOG_BUTTON_OK, nullptr
+				);
 		}
 	}
 
