@@ -24,15 +24,15 @@ class UNREALTOURNAMENT_API SUTButton : public SButton
 		, _DesiredSizeScale( FVector2D(1,1) )
 		, _ContentScale( FVector2D(1,1) )
 		, _ButtonColorAndOpacity(FLinearColor::White)
-		, _ForegroundColor( FCoreStyle::Get().GetSlateColor( "InvertedForeground" ) )
-		, _IsFocusable( true )
-		, _IsToggleButton( false )
-		, _WidgetTag(0)
+		, _ForegroundColor(FCoreStyle::Get().GetSlateColor("InvertedForeground"))
 		, _TextNormalColor(SUTStyle::GetSlateColor("NormalTextColor"))
 		, _TextHoverColor(SUTStyle::GetSlateColor("HoverTextColor"))
 		, _TextFocusColor(SUTStyle::GetSlateColor("FocusTextColor"))
 		, _TextPressedColor(SUTStyle::GetSlateColor("PressedTextColor"))
 		, _TextDisabledColor(SUTStyle::GetSlateColor("DisabledTextColor"))
+		, _IsFocusable( true )
+		, _IsToggleButton(false)
+		, _WidgetTag(0)
 
 		{}
 
