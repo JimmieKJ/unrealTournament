@@ -3289,6 +3289,15 @@ void AUTCharacter::UpdateCharOverlays()
 					Child->DestroyComponent(false);
 				}
 			}
+
+			if (LeaderHat)
+			{
+				LeaderHat->SetActorHiddenInGame(false);
+			}
+			else if (Hat)
+			{
+				Hat->SetActorHiddenInGame(false);
+			}
 		}
 	}
 	else if (GS != NULL)
@@ -3364,6 +3373,15 @@ void AUTCharacter::UpdateCharOverlays()
 					break;
 				}
 			}
+		}
+
+		if (LeaderHat && LeaderHat->bHideWithOverlay)
+		{
+			LeaderHat->SetActorHiddenInGame(true);
+		}
+		if (Hat && Hat->bHideWithOverlay)
+		{
+			Hat->SetActorHiddenInGame(true);
 		}
 	}
 }

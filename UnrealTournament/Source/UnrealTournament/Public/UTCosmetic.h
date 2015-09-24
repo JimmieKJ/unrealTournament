@@ -48,6 +48,9 @@ class UNREALTOURNAMENT_API AUTCosmetic : public AActor
 	UPROPERTY(EditDefaultsOnly)
 	TArray<FColorSwap> VariantColorSwaps;
 
+	UPROPERTY(EditDefaultsOnly)
+	bool bHideWithOverlay;
+
 	UFUNCTION(BlueprintImplementableEvent, meta = (DisplayName = "On Cosmetic Wearer Killed Enemy"))
 	virtual void OnFlashCountIncremented();
 
