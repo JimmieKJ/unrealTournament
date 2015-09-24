@@ -582,6 +582,9 @@ public:
 	FString RecordedReplayTitle;
 	TSharedPtr<SUWDialog> YoutubeDialog;
 	TSharedPtr<class SUWYoutubeConsent> YoutubeConsentDialog;
+
+	void TestYoutubeConsentForUpload(const FString& RequestURL);
+	void TestYoutubeConsentResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
 #endif
 
 	virtual void VerifyGameSession(const FString& ServerSessionId);

@@ -3,7 +3,6 @@
 #include "../Public/UnrealTournament.h"
 #include "SUWYoutubeConsent.h"
 #include "SUWindowsStyle.h"
-#include "SWebBrowser.h"
 
 #if !UE_SERVER
 
@@ -25,6 +24,11 @@ void SUWYoutubeConsent::Construct(const FArguments& InArgs)
 	FString ClientID = TEXT("465724645978-10npjjgfbb03p4ko12ku1vq1ioshts24.apps.googleusercontent.com");
 	FString ConsentURL = TEXT("https://accounts.google.com/o/oauth2/auth?client_id=") + ClientID + TEXT("&redirect_uri=urn:ietf:wg:oauth:2.0:oob&scope=https://www.googleapis.com/auth/youtube.upload&response_type=code&access_type=offline");
 
+	if (!InArgs._RequestURL.IsEmpty())
+	{
+		ConsentURL = InArgs._RequestURL;
+	}
+
 	FVector2D WebBrowserSize = ActualSize;
 	WebBrowserSize.X -= 30;
 	WebBrowserSize.Y -= 30;
@@ -40,7 +44,7 @@ void SUWYoutubeConsent::Construct(const FArguments& InArgs)
 			.VAlign(VAlign_Top)
 			.HAlign(HAlign_Left)
 			[
-				SNew(SWebBrowser)
+				SAssignNew(ConsentBrowser, SWebBrowser)
 				.InitialURL(ConsentURL)
 				.ShowControls(false)
 				.ViewportSize(WebBrowserSize)
@@ -72,6 +76,9 @@ void SUWYoutubeConsent::OnTitleChanged(const FText& NewText)
 
 FReply SUWYoutubeConsent::OnButtonClick(uint16 ButtonID)
 {
+	// cancel the request
+	ConsentBrowser->LoadURL(TEXT("http://google.com"));
+
 	OnDialogResult.ExecuteIfBound(SharedThis(this), UTDIALOG_BUTTON_CANCEL);
 	GetPlayerOwner()->CloseDialog(SharedThis(this));
 

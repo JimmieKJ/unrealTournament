@@ -144,6 +144,14 @@ bool UUTLocalPlayer::Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar)
 	{
 		return true;
 	}
+#else
+	if (FParse::Command(&Cmd, TEXT("YOUTUBEAUTH")))
+	{
+		FString RequestURL;
+		FParse::Token(Cmd, RequestURL, 0);
+		TestYoutubeConsentForUpload(RequestURL);
+		return true;
+	}
 #endif
 	return Super::Exec(InWorld, Cmd, Ar);
 }
@@ -2914,6 +2922,26 @@ void UUTLocalPlayer::YoutubeTokenRefreshComplete(FHttpRequestPtr HttpRequest, FH
 
 		GetYoutubeConsentForUpload();
 	}
+}
+
+void UUTLocalPlayer::TestYoutubeConsentForUpload(const FString& RequestURL)
+{
+	// Get youtube consent
+	OpenDialog(
+		SAssignNew(YoutubeConsentDialog, SUWYoutubeConsent)
+		.PlayerOwner(this)
+		.DialogSize(FVector2D(0.8f, 0.8f))
+		.DialogPosition(FVector2D(0.5f, 0.5f))
+		.DialogTitle(NSLOCTEXT("UUTLocalPlayer", "YoutubeConsent", "Allow UT to post to YouTube?"))
+		.ButtonMask(UTDIALOG_BUTTON_CANCEL)
+		.RequestURL(RequestURL)
+		.OnDialogResult(FDialogResultDelegate::CreateUObject(this, &UUTLocalPlayer::TestYoutubeConsentResult))
+		);
+}
+
+void UUTLocalPlayer::TestYoutubeConsentResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID)
+{
+	UE_LOG(UT, Log, TEXT("TestYoutubeConsentResult %d"), ButtonID);
 }
 
 void UUTLocalPlayer::GetYoutubeConsentForUpload()

@@ -3,7 +3,7 @@
 
 #include "SlateBasics.h"
 #include "SUWDialog.h"
-
+#include "SWebBrowser.h"
 
 #if !UE_SERVER
 
@@ -27,6 +27,7 @@ public:
 		SLATE_ARGUMENT(FVector2D, ContentPadding)
 		SLATE_ARGUMENT(uint16, ButtonMask)
 		SLATE_EVENT(FDialogResultDelegate, OnDialogResult)
+		SLATE_ARGUMENT(FString, RequestURL)
 	SLATE_END_ARGS()
 
 	void Construct(const FArguments& InArgs);
@@ -37,6 +38,8 @@ private:
 	virtual FReply OnButtonClick(uint16 ButtonID);
 
 	void OnTitleChanged(const FText& NewText);
+
+	TSharedPtr<SWebBrowser> ConsentBrowser;
 
 public:
 	virtual void Tick(const FGeometry & AllottedGeometry, const double InCurrentTime, const float InDeltaTime) override;
