@@ -2,6 +2,7 @@
 #include "../Public/UnrealTournament.h"
 #include "SUWWeaponConfigDialog.h"
 #include "SUWindowsStyle.h"
+#include "SUTStyle.h"
 #include "Widgets/SUTTabWidget.h"
 #include "UTCrosshair.h"
 #include "../Public/UTCanvasRenderTarget2D.h"
@@ -679,7 +680,7 @@ TSharedRef<SWidget> SUWWeaponConfigDialog::GenerateCrosshairRow(TWeakObjectPtr<U
 {	
 	return 	SNew(STextBlock)
 		.Text(CrosshairClass->GetDefaultObject<UUTCrosshair>()->CrosshairName)
-		.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle");
+		.TextStyle(SUTStyle::Get(), "UT.Font.ContextMenuItem");
 }
 
 TSharedRef<ITableRow> SUWWeaponConfigDialog::GenerateWeaponListRow(UClass* WeaponType, const TSharedRef<STableViewBase>& OwningList)
@@ -702,7 +703,7 @@ TSharedRef<SWidget> SUWWeaponConfigDialog::GenerateHandListWidget(TSharedPtr<FTe
 		[
 			SNew(STextBlock)
 			.Text(*InItem.Get())
-			.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
+			.TextStyle(SUTStyle::Get(), "UT.Font.ContextMenuItem")
 		];
 }
 

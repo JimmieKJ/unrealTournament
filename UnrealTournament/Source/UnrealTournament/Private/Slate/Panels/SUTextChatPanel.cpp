@@ -162,19 +162,9 @@ void SUTextChatPanel::AddDestination(const FText& Caption, const FName ChatDesti
 		SAssignNew(Button, SUTButton)
 			.IsToggleButton(true)
 			.OnClicked(this, &SUTextChatPanel::OnDestinationClick, Dest)
-			.ButtonStyle(SUTStyle::Get(), "UT.TabButton")
-			[
-				SNew(SVerticalBox)
-				+SVerticalBox::Slot()
-				.HAlign(HAlign_Center)
-				.VAlign(VAlign_Center)
-				[
-					SNew(STextBlock)
-					.Text(TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateSP(Dest.Get(), &FChatDestination::GetButtonCaption) ) )
-					.ColorAndOpacity(TAttribute<FSlateColor>::Create(TAttribute<FSlateColor>::FGetter::CreateSP(Dest.Get(), &FChatDestination::GetButtonColorAndOpacity) ) )
-					.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small")
-				]
-			];
+			.Text(TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateSP(Dest.Get(), &FChatDestination::GetButtonCaption) ) )
+			.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small")
+			.ButtonStyle(SUTStyle::Get(), "UT.TabButton");
 
 		TSharedPtr<SVerticalBox> ChatBox;
 		SAssignNew(ChatBox, SVerticalBox);

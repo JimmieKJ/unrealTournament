@@ -2,6 +2,7 @@
 
 #pragma once
 #include "SlateBasics.h"
+#include "../SUTStyle.h"
 
 #if !UE_SERVER
 
@@ -27,6 +28,12 @@ class UNREALTOURNAMENT_API SUTButton : public SButton
 		, _IsFocusable( true )
 		, _IsToggleButton( false )
 		, _WidgetTag(0)
+		, _TextNormalColor(SUTStyle::GetSlateColor("NormalTextColor"))
+		, _TextHoverColor(SUTStyle::GetSlateColor("HoverTextColor"))
+		, _TextFocusColor(SUTStyle::GetSlateColor("FocusTextColor"))
+		, _TextPressedColor(SUTStyle::GetSlateColor("PressedTextColor"))
+		, _TextDisabledColor(SUTStyle::GetSlateColor("DisabledTextColor"))
+
 		{}
 
 		/** Slot for this button's content (optional) */
@@ -67,6 +74,17 @@ class UNREALTOURNAMENT_API SUTButton : public SButton
 
 		SLATE_ATTRIBUTE( FSlateColor, ForegroundColor )
 
+		SLATE_ATTRIBUTE( FSlateColor, TextNormalColor)
+
+		SLATE_ATTRIBUTE( FSlateColor, TextHoverColor )
+
+		SLATE_ATTRIBUTE( FSlateColor, TextFocusColor )
+
+		SLATE_ATTRIBUTE( FSlateColor, TextPressedColor )
+
+		SLATE_ATTRIBUTE( FSlateColor, TextDisabledColor )
+
+
 		/** Sometimes a button should only be mouse-clickable and never keyboard focusable. */
 		SLATE_ARGUMENT( bool, IsFocusable )
 
@@ -103,6 +121,15 @@ class UNREALTOURNAMENT_API SUTButton : public SButton
 	virtual void BePressed();
 
 protected:
+
+	FSlateColor NormalTextColor;
+	FSlateColor HoverTextColor;
+	FSlateColor FocusTextColor;
+	FSlateColor PressedTextColor;
+	FSlateColor DisabledTextColor;
+
+	TSharedPtr<STextBlock> TextLabel;
+
 	FUTButtonClick OnButtonClick;
 	bool bIsToggleButton;
 
@@ -116,6 +143,7 @@ protected:
 	virtual void Press() { };
 	virtual void Release() { };
 
+	FSlateColor GetLabelColor() const;
 
 };
 

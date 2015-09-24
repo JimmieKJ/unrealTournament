@@ -27,7 +27,7 @@ protected:
 
 	FReply MatchButtonClicked();
 	
-	virtual void BuildExitMenu(TSharedPtr <SComboButton> ExitButton, TSharedPtr<SVerticalBox> MenuSpace);
+	virtual void BuildExitMenu(TSharedPtr <SUTComboButton> ExitButton);
 	virtual TSharedRef<SWidget> BuildBackground();
 	virtual TSharedRef<SWidget> BuildOptionsSubMenu();
 

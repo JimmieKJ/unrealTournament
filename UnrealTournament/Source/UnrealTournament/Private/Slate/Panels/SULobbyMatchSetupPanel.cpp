@@ -218,7 +218,7 @@ void SULobbyMatchSetupPanel::Construct(const FArguments& InArgs)
 						SNew(SButton)
 						.OnClicked(this, &SULobbyMatchSetupPanel::CancelDownloadClicked)
 						.Visibility(this, &SULobbyMatchSetupPanel::CancelButtonVisible)
-						.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
+						.ButtonStyle(SUTStyle::Get(), "UT.ContextMenu.Item")
 						[
 							SNew(STextBlock)
 							.Text(NSLOCTEXT("SULobbyMatchSetupPanel","CancelDownload","[Click to Cancel]"))

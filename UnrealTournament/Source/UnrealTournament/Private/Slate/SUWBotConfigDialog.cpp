@@ -2,6 +2,7 @@
 #include "../Public/UnrealTournament.h"
 #include "../Public/UTLocalPlayer.h"
 #include "SUWindowsStyle.h"
+#include "SUTStyle.h"
 #include "SUWBotConfigDialog.h"
 #include "UTBotCharacter.h"
 
@@ -167,7 +168,7 @@ TSharedRef<ITableRow> SUWBotConfigDialog::GenerateBotListRow(TSharedPtr<FAssetDa
 		.Padding(5)
 		[
 			SNew(STextBlock)
-			.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
+			.TextStyle(SUTStyle::Get(), "UT.Font.ContextMenuItem")
 			.Text(FText::FromName(BotEntry.IsValid() ? BotEntry->AssetName : NAME_None))
 		];
 }

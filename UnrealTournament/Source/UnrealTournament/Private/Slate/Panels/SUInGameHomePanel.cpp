@@ -176,10 +176,10 @@ void SUInGameHomePanel::BuildChatDestinationMenu()
 		.AutoHeight()
 		[
 			SNew(SButton)
-			.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
+			.ButtonStyle(SUTStyle::Get(), "UT.ContextMenu.Item")
 			.ContentPadding(FMargin(10.0f, 5.0f))
 			.Text(NSLOCTEXT("Chat", "ChatDestination_Game", "Game"))
-			.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
+			.TextStyle(SUTStyle::Get(), "UT.Font.ContextMenuItem")
 			.OnClicked(this, &SUInGameHomePanel::ChangeChatDestination, ChatDestinationsButton, ChatDestinations::Local)
 		];
 	
@@ -192,10 +192,10 @@ void SUInGameHomePanel::BuildChatDestinationMenu()
 				.AutoHeight()
 				[
 					SNew(SButton)
-					.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
+					.ButtonStyle(SUTStyle::Get(), "UT.ContextMenu.Item")
 					.ContentPadding(FMargin(10.0f, 5.0f))
 					.Text(NSLOCTEXT("Chat", "ChatDestination_Team", "Team"))
-					.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
+					.TextStyle(SUTStyle::Get(), "UT.Font.ContextMenuItem")
 					.OnClicked(this, &SUInGameHomePanel::ChangeChatDestination, ChatDestinationsButton, ChatDestinations::Team)
 				];
 			}
@@ -206,10 +206,10 @@ void SUInGameHomePanel::BuildChatDestinationMenu()
 				.AutoHeight()
 				[
 					SNew(SButton)
-					.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
+					.ButtonStyle(SUTStyle::Get(), "UT.ContextMenu.Item")
 					.ContentPadding(FMargin(10.0f, 5.0f))
 					.Text(NSLOCTEXT("Chat", "ChatDestination_Lobby", "Lobby"))
-					.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
+					.TextStyle(SUTStyle::Get(), "UT.Font.ContextMenuItem")
 					.OnClicked(this, &SUInGameHomePanel::ChangeChatDestination, ChatDestinationsButton, ChatDestinations::Lobby)
 				];
 			}
@@ -220,10 +220,10 @@ void SUInGameHomePanel::BuildChatDestinationMenu()
 				.AutoHeight()
 				[
 					SNew(SButton)
-					.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
+					.ButtonStyle(SUTStyle::Get(), "UT.ContextMenu.Item")
 					.ContentPadding(FMargin(10.0f, 5.0f))
 					.Text(NSLOCTEXT("Chat", "ChatDestination_Friends", "Friends"))
-					.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
+					.TextStyle(SUTStyle::Get(), "UT.Font.ContextMenuItem")
 					.OnClicked(this, &SUInGameHomePanel::ChangeChatDestination, ChatDestinationsButton, ChatDestinations::Friends)
 				];
 			}

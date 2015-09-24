@@ -1465,7 +1465,7 @@ TSharedRef<SWidget> SUWPlayerSettingsDialog::GenerateFlagListWidget(TWeakObjectP
 			[
 				SNew(STextBlock)
 				.Text(FText::FromString(InItem->GetFriendlyName()))
-				.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
+				.TextStyle(SUTStyle::Get(), "UT.Font.ContextMenuItem")
 			];
 }
 

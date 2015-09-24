@@ -32,6 +32,8 @@ void SUTComboButton::Construct(const FArguments& InArgs)
 	bRightClickOpensMenu = InArgs._bRightClickOpensMenu;
 	bShowDownArrow = InArgs._HasDownArrow;
 
+	ContentHAlign = InArgs._ContentHAlign;
+
 	// Build the actual button space.https://forums.unrealtournament.com/attachment.php?attachmentid=10183&d=1415937070
 	TSharedPtr<SHorizontalBox> HBox;
 
@@ -41,6 +43,8 @@ void SUTComboButton::Construct(const FArguments& InArgs)
 			SAssignNew( MyButton, SUTButton )
 			.ContentPadding( FMargin( 1, 0 ) )
 			.ButtonStyle( OurButtonStyle )
+			.TextStyle(InArgs._TextStyle)
+			.Text(InArgs._Text)
 			.ClickMethod( EButtonClickMethod::MouseDown )
 			.UTOnButtonClicked( this, &SUTComboButton::UTOnButtonClicked )
 			.ContentPadding( InArgs._ContentPadding )
@@ -76,6 +80,10 @@ void SUTComboButton::Construct(const FArguments& InArgs)
 		]
 	);
 
+
+	// Build the menu box that will hold the content.
+	SAssignNew(MenuBox, SVerticalBox);
+
 	// Handle the default menu items
 
 	if (!InArgs._DefaultMenuItems.IsEmpty() && InArgs._DefaultMenuItems != TEXT(""))
@@ -84,67 +92,126 @@ void SUTComboButton::Construct(const FArguments& InArgs)
 		InArgs._DefaultMenuItems.ParseIntoArray(MenuItems, TEXT(","), true);
 		for (int32 i=0; i < MenuItems.Num(); i++)
 		{
-			SubMenuItems.Add(FText::FromString(*MenuItems[i]));
+			if (MenuItems[i] == TEXT("-"))
+			{
+				// Add a spacer
+				SubMenuItems.Add(FUTComboSubMenuItem());
+			}
+			else
+			{
+				// Add an item
+				SubMenuItems.Add(FUTComboSubMenuItem(FText::FromString(*MenuItems[i]), FOnClicked::CreateSP(this, &SUTComboButton::SimpleSubMenuButtonClicked, i)));
+			}
 		}
-	}
-	else
-	{
-		SubMenuItems.Add(FText::GetEmpty());
 	}
 
 	if (SubMenuItems.Num() > 0)
 	{
-		RebuildSubMenu();
+		RebuildMenuContent();
 	}
 }
 
-void SUTComboButton::AddSubMenuItem(const FText& NewItem)
+void SUTComboButton::AddSpacer(bool bUpdate)
 {
-	SubMenuItems.Add(NewItem);
-	RebuildSubMenu();
+	SubMenuItems.Add(FUTComboSubMenuItem());
+	if (bUpdate)
+	{
+		RebuildMenuContent();
+	}
 }
+
+
+void SUTComboButton::AddSubMenuItem(const FText& NewItem, FOnClicked OnClickDelegate, bool bUpdate)
+{
+	SubMenuItems.Add(FUTComboSubMenuItem(NewItem, OnClickDelegate));
+	if (bUpdate)
+	{
+		RebuildMenuContent();
+	}
+}
+
 void SUTComboButton::ClearSubMenuItems()
 {
 	SubMenuItems.Empty();
-	RebuildSubMenu();
+	RebuildMenuContent();
 }
 
-void SUTComboButton::RebuildSubMenu()
+void SUTComboButton::RebuildMenuContent()
 {
-	TSharedPtr<SVerticalBox> MenuBox;
-	SAssignNew(MenuBox, SVerticalBox);
-
-	for (int32 i=0;i<SubMenuItems.Num();i++)
+	if (MenuBox.IsValid())
 	{
-		MenuBox->AddSlot()
-		.AutoHeight()
-		[
-			SNew(SButton)
-			.ButtonStyle(MenuButtonStyle)
-			.ContentPadding(FMargin(10.0f, 5.0f))
-			.Text(SubMenuItems[i])
-			.TextStyle(MenuButtonTextStyle)
-			.OnClicked(this, &SUTComboButton::SubMenuButtonClicked, i)
-		];
+		MenuBox->ClearChildren();
+		for (int32 i=0;i<SubMenuItems.Num();i++)
+		{
+
+			if (SubMenuItems[i].bSpacer)
+			{
+				MenuBox->AddSlot()
+				.VAlign(VAlign_Center)
+				.HAlign(HAlign_Fill)
+				.AutoHeight()
+				.Padding(FMargin(10.0f, 6.0f, 10.0f, 6.0f))
+				[
+					SNew(SBox)
+					.HeightOverride(3)
+					[
+						SNew(SImage )
+						.Image(SUTStyle::Get().GetBrush("UT.ContextMenu.Item.Spacer"))
+					]
+				];
+			}
+			else
+			{
+				MenuBox->AddSlot()
+				.AutoHeight()
+				.HAlign(ContentHAlign)
+				[
+					SNew(SUTButton)
+					.ButtonStyle(SUTStyle::Get(), "UT.ContextMenu.Item")
+					.ContentPadding(FMargin(10.0f, 5.0f))
+					.Text(SubMenuItems[i].MenuCaption)
+					.TextStyle(SUTStyle::Get(), "UT.Font.ContextMenuItem")
+					.OnClicked(this, &SUTComboButton::InteralSubMenuButtonClickedHandler, i)
+				];
+			}
+		}
+
+		SetMenus(MenuBox.ToSharedRef());
+
+	}
+}
+
+FReply SUTComboButton::InteralSubMenuButtonClickedHandler(int32 MenuItemIndex)
+{
+	// First, close the submenu
+	SetIsOpen(false);
+
+	// Now verify the index
+	if ( MenuItemIndex >= 0 && MenuItemIndex < SubMenuItems.Num())
+	{
+		if (SubMenuItems[MenuItemIndex].OnClickedDelegate.IsBound())
+		{
+			SubMenuItems[MenuItemIndex].OnClickedDelegate.Execute();
+		}
 	}
 
-	SetMenus(MenuBox.ToSharedRef());
+	return FReply::Handled();
 }
 
-FReply SUTComboButton::SubMenuButtonClicked(int32 ButtonIndex)
+
+FReply SUTComboButton::SimpleSubMenuButtonClicked(int32 MenuItemIndex)
 {
+	SetIsOpen(false);
+
 	if (OnButtonSubMenuSelect.IsBound())
 	{
-		OnButtonSubMenuSelect.Execute(ButtonIndex, SharedThis(this));
+		OnButtonSubMenuSelect.Execute(MenuItemIndex, SharedThis(this));
 	}
-
-	SetIsOpen(false);
 	return FReply::Handled();
 }
 
 void SUTComboButton::UTOnButtonClicked(int32 ButtonIndex)
 {
-
 	if (!bRightClickOpensMenu || ButtonIndex > 0)
 	{
 		bDismissedThisTick = false;
@@ -224,5 +291,14 @@ void SUTComboButton::BePressed()
 	if (MyButton.IsValid()) MyButton->BePressed();
 }
 
+FReply SUTComboButton::OnMouseButtonUp(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
+{
+	return FReply::Unhandled();
+}
+
+int32 SUTComboButton::GetSubMenuItemCount()
+{
+	return SubMenuItems.Num();
+}
 
 #endif

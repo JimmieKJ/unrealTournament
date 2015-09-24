@@ -857,10 +857,10 @@ void SUWServerBrowser::AddGameFilters()
 				.AutoHeight()
 				[
 					SNew(SButton)
-					.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
+					.ButtonStyle(SUTStyle::Get(), "UT.ContextMenu.Item")
 					.ContentPadding(FMargin(10.0f, 5.0f))
 					.Text(FText::FromString(GameTypes[i]))
-					.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
+					.TextStyle(SUTStyle::Get(), "UT.Font.ContextMenuItem")
 					.OnClicked(this, &SUWServerBrowser::OnGameFilterSelection, GameTypes[i])
 				];
 			}

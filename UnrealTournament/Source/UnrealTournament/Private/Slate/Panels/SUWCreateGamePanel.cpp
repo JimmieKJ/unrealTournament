@@ -477,7 +477,7 @@ TSharedRef<SWidget> SUWCreateGamePanel::GenerateGameNameWidget(UClass* InItem)
 		.Padding(5)
 		[
 			SNew(STextBlock)
-			.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
+			.TextStyle(SUTStyle::Get(), "UT.Font.ContextMenuItem")
 			.Text(InItem->GetDefaultObject<AUTGameMode>()->DisplayName)
 		];
 }
@@ -488,7 +488,7 @@ TSharedRef<SWidget> SUWCreateGamePanel::GenerateMapNameWidget(TWeakObjectPtr<AUT
 		.Padding(5)
 		[
 			SNew(STextBlock)
-			.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
+			.TextStyle(SUTStyle::Get(), "UT.Font.ContextMenuItem")
 			.Text(FText::FromString(InItem->Title))
 		];
 }
@@ -610,7 +610,7 @@ TSharedRef<ITableRow> SUWCreateGamePanel::GenerateMutatorListRow(UClass* Mutator
 		.Padding(5)
 		[
 			SNew(STextBlock)
-			.TextStyle(SUWindowsStyle::Get(),"UT.ContextMenu.TextStyle")
+			.TextStyle(SUTStyle::Get(), "UT.Font.ContextMenuItem")
 			.Text(FText::FromString(MutatorName))
 		]; 
 }

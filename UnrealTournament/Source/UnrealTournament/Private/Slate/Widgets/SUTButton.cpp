@@ -15,29 +15,83 @@ void SUTButton::Construct(const FArguments& InArgs)
 	WidgetTag = InArgs._WidgetTag;
 
 	bIsToggleButton = InArgs._IsToggleButton;
-	SButton::Construct( SButton::FArguments()
-		.Content()
-		[
-			InArgs._Content.Widget
-		]
-		.ButtonStyle(InArgs._ButtonStyle)
-		.TextStyle(InArgs._TextStyle)
-		.HAlign(InArgs._HAlign)
-		.VAlign(InArgs._VAlign)
-		.ContentPadding(InArgs._ContentPadding)
-		.Text(InArgs._Text)
-		.ClickMethod(InArgs._ClickMethod)
-		.TouchMethod(InArgs._TouchMethod)
-		.DesiredSizeScale(InArgs._DesiredSizeScale)
-		.ContentScale(InArgs._ContentScale)
-		.ButtonColorAndOpacity(InArgs._ButtonColorAndOpacity)
-		.ForegroundColor(InArgs._ForegroundColor)
-		.IsFocusable(InArgs._IsFocusable)
-		.PressedSoundOverride(InArgs._PressedSoundOverride)
-		.HoveredSoundOverride(InArgs._HoveredSoundOverride)
-		.OnClicked(InArgs._OnClicked)
-	);
+
+	NormalTextColor = InArgs._TextNormalColor.Get();
+	HoverTextColor = InArgs._TextHoverColor.Get();
+	FocusTextColor = InArgs._TextFocusColor.Get();
+	PressedTextColor = InArgs._TextPressedColor.Get();
+	DisabledTextColor = InArgs._TextDisabledColor.Get();
+
+
+	if (InArgs._Text.IsSet())
+	{
+		SButton::Construct( SButton::FArguments()
+			.Content()
+			[
+				SNew(SHorizontalBox)
+				+ SHorizontalBox::Slot()
+				.VAlign(VAlign_Center)
+				.HAlign(HAlign_Center)
+				[
+					SAssignNew(TextLabel, STextBlock)
+					.TextStyle(InArgs._TextStyle)
+					.Text(InArgs._Text)
+					.ColorAndOpacity(this, &SUTButton::GetLabelColor)
+				]
+			]
+			.ButtonStyle(InArgs._ButtonStyle)
+			.HAlign(InArgs._HAlign)
+			.VAlign(InArgs._VAlign)
+			.ContentPadding(InArgs._ContentPadding)
+			.ClickMethod(InArgs._ClickMethod)
+			.TouchMethod(InArgs._TouchMethod)
+			.DesiredSizeScale(InArgs._DesiredSizeScale)
+			.ContentScale(InArgs._ContentScale)
+			.ButtonColorAndOpacity(InArgs._ButtonColorAndOpacity)
+			.ForegroundColor(InArgs._ForegroundColor)
+			.IsFocusable(InArgs._IsFocusable)
+			.PressedSoundOverride(InArgs._PressedSoundOverride)
+			.HoveredSoundOverride(InArgs._HoveredSoundOverride)
+			.OnClicked(InArgs._OnClicked)
+		);
+	
+	}
+	else
+	{
+		SButton::Construct( SButton::FArguments()
+			.Content()
+			[
+				InArgs._Content.Widget
+			]
+			.ButtonStyle(InArgs._ButtonStyle)
+			.TextStyle(InArgs._TextStyle)
+			.HAlign(InArgs._HAlign)
+			.VAlign(InArgs._VAlign)
+			.ContentPadding(InArgs._ContentPadding)
+			.Text(InArgs._Text)
+			.ClickMethod(InArgs._ClickMethod)
+			.TouchMethod(InArgs._TouchMethod)
+			.DesiredSizeScale(InArgs._DesiredSizeScale)
+			.ContentScale(InArgs._ContentScale)
+			.ButtonColorAndOpacity(InArgs._ButtonColorAndOpacity)
+			.ForegroundColor(InArgs._ForegroundColor)
+			.IsFocusable(InArgs._IsFocusable)
+			.PressedSoundOverride(InArgs._PressedSoundOverride)
+			.HoveredSoundOverride(InArgs._HoveredSoundOverride)
+			.OnClicked(InArgs._OnClicked)
+		);
+	}
 }
+
+FSlateColor SUTButton::GetLabelColor() const
+{
+	if (IsHovered()) return HoverTextColor;
+	if (bIsPressed) return PressedTextColor;
+	if (!IsEnabled()) return DisabledTextColor;
+	if (HasAnyUserFocus()) return FocusTextColor;
+	return NormalTextColor;;
+}
+
 
 FReply SUTButton::Pressed(int32 MouseButtonIndex)
 {

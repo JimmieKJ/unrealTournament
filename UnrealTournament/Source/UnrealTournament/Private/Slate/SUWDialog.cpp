@@ -5,6 +5,7 @@
 #include "SScaleBox.h"
 #include "SUWDialog.h"
 #include "SUWindowsStyle.h"
+#include "SUTStyle.h"
 #include "Engine/UserInterfaceSettings.h"
 
 
@@ -315,7 +316,7 @@ TSharedRef<SWidget> SUWDialog::GenerateStringListWidget(TSharedPtr<FString> InIt
 		[
 			SNew(STextBlock)
 			.Text(FText::FromString(*InItem.Get()))
-			.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
+			.TextStyle(SUTStyle::Get(), "UT.Font.ContextMenuItem")
 		];
 }
 

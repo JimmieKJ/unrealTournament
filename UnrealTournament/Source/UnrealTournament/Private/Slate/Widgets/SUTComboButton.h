@@ -11,13 +11,36 @@ class SUTComboButton;
 
 DECLARE_DELEGATE_TwoParams( FUTButtonSubMenuSelect, int32, TSharedPtr<SUTComboButton> );
 
+struct FUTComboSubMenuItem
+{
+	FText MenuCaption;
+	bool bSpacer;
+	FOnClicked OnClickedDelegate;
+
+	FUTComboSubMenuItem()
+		: MenuCaption(FText::GetEmpty())
+		, bSpacer(true)
+		, OnClickedDelegate(nullptr)
+
+	{
+	}
+
+	FUTComboSubMenuItem(FText inText, FOnClicked inOnClick)
+		: MenuCaption(inText)
+		, bSpacer(false)
+		, OnClickedDelegate(inOnClick)
+	{
+	}
+};
+
 class UNREALTOURNAMENT_API SUTComboButton : public SMenuAnchor
 {
 	SLATE_BEGIN_ARGS(SUTComboButton)
-		: _ComboButtonStyle( &FCoreStyle::Get().GetWidgetStyle< FComboButtonStyle >( "ComboButton" ) )
+		: _ComboButtonStyle( &SUTStyle::Get().GetWidgetStyle< FComboButtonStyle >( "UT.ComboButton" ) )
 		, _ButtonStyle(nullptr)
-		, _MenuButtonStyle(nullptr)
-		, _MenuButtonTextStyle(nullptr)
+		, _TextStyle( &SUTStyle::Get().GetWidgetStyle< FTextBlockStyle >("UT.Font.NormalText.Small.Bold") )
+		, _MenuButtonStyle(&SUTStyle::Get().GetWidgetStyle<FButtonStyle>("UT.Button.MenuBar"))
+		, _MenuButtonTextStyle(&SUTStyle::Get().GetWidgetStyle< FTextBlockStyle >("UT.Font.NormalText.Small"))
 		, _ButtonContent()
 		, _MenuContent()
 		, _IsFocusable(true)
@@ -28,6 +51,7 @@ class UNREALTOURNAMENT_API SUTComboButton : public SMenuAnchor
 		, _HAlign(HAlign_Fill)
 		, _VAlign(VAlign_Center)
 		, _IsToggleButton(false)
+		, _ContentHAlign(HAlign_Left)
 		{}
 
 		// Styles
@@ -37,6 +61,9 @@ class UNREALTOURNAMENT_API SUTComboButton : public SMenuAnchor
 		/** The visual style of the button (overrides ComboButtonStyle) */
 		SLATE_STYLE_ARGUMENT( FButtonStyle, ButtonStyle )
 		
+		/** The text style of the button */
+		SLATE_STYLE_ARGUMENT( FTextBlockStyle, TextStyle )
+
 		/** Style of the submenu buttons */
 		SLATE_STYLE_ARGUMENT( FButtonStyle, MenuButtonStyle)
 
@@ -85,27 +112,44 @@ class UNREALTOURNAMENT_API SUTComboButton : public SMenuAnchor
 		/** Determines if this is a toggle button or not. */
 		SLATE_ARGUMENT( bool, IsToggleButton )
 
+		/** The text to display in this button, if no custom content is specified */
+		SLATE_TEXT_ATTRIBUTE( Text )
+
+		SLATE_ARGUMENT( EHorizontalAlignment, ContentHAlign )
+
+
 	SLATE_END_ARGS()
 
 public:
 	/** needed for every widget */
 	void Construct(const FArguments& InArgs);
 	
-	void AddSubMenuItem(const FText& NewItem);
+	void AddSpacer(bool bUpdate = false);
+	void AddSubMenuItem(const FText& NewItem, FOnClicked OnClickDelegate, bool bUpdate = false);
 	void ClearSubMenuItems();
+
+	// Rebuilds the submenu
+	void RebuildMenuContent();
+
 
 	void SetButtonStyle(const FButtonStyle* NewButtonStyle);
 
 	virtual void UnPressed();
 	virtual void BePressed();
 
+	int32 GetSubMenuItemCount();
+
 protected:
+
+	EHorizontalAlignment ContentHAlign;
 
 	/** Area where the button's content resides */
 	SHorizontalBox::FSlot* ButtonContentSlot;
 
 	TSharedPtr<SImage> DownArrowImage;
 	TSharedPtr<SUTButton> MyButton;
+
+	TSharedPtr<SVerticalBox> MenuBox;
 
 	const FButtonStyle* MenuButtonStyle;
 	const FTextBlockStyle* MenuButtonTextStyle;
@@ -134,15 +178,22 @@ protected:
 	// If true, only the right button opens the menu
 	bool bRightClickOpensMenu;
 
-	TArray<FText> SubMenuItems;
-	void RebuildSubMenu();
+	TArray<FUTComboSubMenuItem> SubMenuItems;
 
 	void UTOnButtonClicked(int32 ButtonIndex);
 
-	// Handles when the user clicks on a submenu button
-	FReply SubMenuButtonClicked(int32 ButtonIndex);
+	// The internal handler for when a menu item is clicked.  This will look up the menu item in the 
+	// array and pass along the delegate call
+	FReply InteralSubMenuButtonClickedHandler(int32 MenuItemIndex);
+
+	// This is a simple handler for the DefaultMenuItems array.  The goal here is to make setting up a simple menu
+	// as painless and possible.  You pass in a an array of strings, and a single delegate for handling the results.  This
+	// is great for simple drop-downs that have only a few limited options.
+	FReply SimpleSubMenuButtonClicked(int32 MenuItemIndex);
 
 	virtual void SetMenus( const TSharedRef< SWidget >& InContent );
+
+	virtual FReply OnMouseButtonUp(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent);
 
 };
 

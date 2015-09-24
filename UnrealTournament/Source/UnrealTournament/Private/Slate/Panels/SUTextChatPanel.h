@@ -44,11 +44,6 @@ public:
 		return MakeShareable(new FChatDestination(inCaption, inChatDestination, inWeight));
 	}
 
-	FSlateColor GetButtonColorAndOpacity() const
-	{
-		return (Button.IsValid() && Button->IsPressed() ? FSlateColor(FLinearColor::White) : FSlateColor(FLinearColor::Gray));
-	}	
-
 	FText GetButtonCaption()
 	{
 		return Caption;

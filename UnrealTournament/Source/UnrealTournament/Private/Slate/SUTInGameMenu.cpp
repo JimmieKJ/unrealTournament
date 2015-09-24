@@ -40,8 +40,8 @@ void SUTInGameMenu::BuildLeftMenuBar()
 			.Padding(5.0f,0.0f,0.0f,0.0f)
 			.AutoWidth()
 			[
-				SNew(SButton)
-				.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button")
+				SNew(SUTButton)
+				.ButtonStyle(SUTStyle::Get(), "UT.Button.MenuBar")
 				.OnClicked(this, &SUTInGameMenu::OnTeamChangeClick)
 				.ContentPadding(FMargin(25.0,0.0,25.0,5.0))
 				[
@@ -64,8 +64,8 @@ void SUTInGameMenu::BuildLeftMenuBar()
 					.Padding(5.0f, 0.0f, 0.0f, 0.0f)
 					.AutoWidth()
 					[
-						SNew(SButton)
-						.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button")
+						SNew(SUTButton)
+						.ButtonStyle(SUTStyle::Get(), "UT.Button.MenuBar")
 						.OnClicked(this, &SUTInGameMenu::OnReadyChangeClick)
 						.ContentPadding(FMargin(25.0, 0.0, 25.0, 5.0))
 						[
@@ -86,8 +86,8 @@ void SUTInGameMenu::BuildLeftMenuBar()
 					.Padding(5.0f, 0.0f, 0.0f, 0.0f)
 					.AutoWidth()
 					[
-						SNew(SButton)
-						.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button")
+						SNew(SUTButton)
+						.ButtonStyle(SUTStyle::Get(), "UT.Button.MenuBar")
 						.OnClicked(this, &SUTInGameMenu::OnReadyChangeClick)
 						.ContentPadding(FMargin(25.0, 0.0, 25.0, 5.0))
 						[
@@ -109,8 +109,8 @@ void SUTInGameMenu::BuildLeftMenuBar()
 			.Padding(5.0f,0.0f,0.0f,0.0f)
 			.AutoWidth()
 			[
-				SNew(SButton)
-				.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button")
+				SNew(SUTButton)
+				.ButtonStyle(SUTStyle::Get(), "UT.Button.MenuBar")
 				.OnClicked(this, &SUTInGameMenu::OnMapVoteClick)
 				.ContentPadding(FMargin(25.0,0.0,25.0,5.0))
 				[
@@ -133,67 +133,27 @@ void SUTInGameMenu::BuildLeftMenuBar()
 
 }
 
-void SUTInGameMenu::BuildExitMenu(TSharedPtr<SComboButton> ExitButton, TSharedPtr<SVerticalBox> MenuSpace)
+void SUTInGameMenu::BuildExitMenu(TSharedPtr<SUTComboButton> ExitButton)
 {
-	MenuSpace->AddSlot()
-	.AutoHeight()
-	[
-		SNew(SButton)
-		.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
-		.ContentPadding(FMargin(10.0f, 5.0f))
-		.Text(NSLOCTEXT("SUTMenuBase", "MenuBar_Exit_ReturnToGame", "Close Menu"))
-		.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
-		.OnClicked(this, &SUTInGameMenu::OnCloseMenu, ExitButton)
-	];
-
-	MenuSpace->AddSlot()
-	.VAlign(VAlign_Center)
-	.HAlign(HAlign_Fill)
-	.Padding(FMargin(0.0f, 2.0f))
-	[
-		SNew(SImage)
-		.Image(SUWindowsStyle::Get().GetBrush("UT.ContextMenu.Spacer"))
-	];
-
+	ExitButton->AddSubMenuItem(NSLOCTEXT("SUTMenuBase", "MenuBar_Exit_ReturnToGame", "Close Menu"), FOnClicked::CreateSP(this, &SUTInGameMenu::OnCloseMenu));
+	ExitButton->AddSpacer();
 	AUTGameState* GameState = PlayerOwner->GetWorld()->GetGameState<AUTGameState>();
 	if ( GameState && GameState->HubGuid.IsValid() )
 	{
-		MenuSpace->AddSlot()
-		.AutoHeight()
-		[
-			SNew(SButton)
-			.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
-			.ContentPadding(FMargin(10.0f, 5.0f))
-			.Text(NSLOCTEXT("SUTInGameMenu", "MenuBar_ReturnToLobby", "Return to Hub"))
-			.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
-			.OnClicked(this, &SUTInGameMenu::OnReturnToLobby, ExitButton)
-		];
+		ExitButton->AddSubMenuItem(NSLOCTEXT("SUTInGameMenu", "MenuBar_ReturnToLobby", "Return to Hub"), FOnClicked::CreateSP(this, &SUTInGameMenu::OnReturnToLobby));
 	}
-	
-	MenuSpace->AddSlot()
-	.AutoHeight()
-	[
-		SNew(SButton)
-		.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
-		.ContentPadding(FMargin(10.0f, 5.0f))
-		.Text(NSLOCTEXT("SUTInGameMenu","MenuBar_ReturnToMainMenu","Return to Main Menu"))
-		.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
-		.OnClicked(this, &SUTInGameMenu::OnReturnToMainMenu, ExitButton)
-	];
 
+	ExitButton->AddSubMenuItem(NSLOCTEXT("SUTInGameMenu","MenuBar_ReturnToMainMenu","Return to Main Menu"), FOnClicked::CreateSP(this, &SUTInGameMenu::OnReturnToMainMenu));
 }
 
-FReply SUTInGameMenu::OnCloseMenu(TSharedPtr<SComboButton> MenuButton)
+FReply SUTInGameMenu::OnCloseMenu()
 {
-	if (MenuButton.IsValid()) MenuButton->SetIsOpen(false);
 	CloseMenus();
-
 	return FReply::Handled();
 }
 
-FReply SUTInGameMenu::OnReturnToLobby(TSharedPtr<SComboButton> MenuButton)
+FReply SUTInGameMenu::OnReturnToLobby()
 {
-	if (MenuButton.IsValid()) MenuButton->SetIsOpen(false);
 	AUTGameState* GameState = PlayerOwner->GetWorld()->GetGameState<AUTGameState>();
 	if ( GameState && GameState->HubGuid.IsValid() )
 	{
@@ -235,10 +195,8 @@ void SUTInGameMenu::WriteQuitMidGameAnalytics()
 	}
 }
 
-FReply SUTInGameMenu::OnReturnToMainMenu(TSharedPtr<SComboButton> MenuButton)
+FReply SUTInGameMenu::OnReturnToMainMenu()
 {
-	if (MenuButton.IsValid()) MenuButton->SetIsOpen(false);	
-
 	WriteQuitMidGameAnalytics();
 	PlayerOwner->CloseMapVote();
 	CloseMenus();
@@ -285,9 +243,8 @@ void SUTInGameMenu::SetInitialPanel()
 	}
 }
 
-FReply SUTInGameMenu::OpenHUDSettings(TSharedPtr<SComboButton> MenuButton)
+FReply SUTInGameMenu::OpenHUDSettings()
 {
-	if (MenuButton.IsValid()) MenuButton->SetIsOpen(false);
 	CloseMenus();
 	PlayerOwner->ShowHUDSettings();
 	return FReply::Handled();

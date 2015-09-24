@@ -1,7 +1,7 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 #pragma once
 #if !UE_SERVER
-class UNREALTOURNAMENT_API SUTStyle
+class UNREALTOURNAMENT_API SUTStyle 
 {
 public:
 	static void Initialize();
@@ -14,6 +14,8 @@ public:
 	static FSlateSound MessageSound;
 	static FSlateSound PauseSound;
 
+	static const FSlateColor GetSlateColor( const FName PropertyName, const ANSICHAR* Specifier = nullptr );
+
 private:
 	static TSharedRef<class FSlateStyleSet> Create();
 	static TSharedPtr<class FSlateStyleSet> UWindowsStyleInstance;
@@ -23,6 +25,7 @@ private:
 	static void SetAvatars(TSharedRef<FSlateStyleSet> StyleRef);
 	static void SetRankBadges(TSharedRef<FSlateStyleSet> StyleRef);
 	static void SetChallengeBadges(TSharedRef<FSlateStyleSet> StyleRef);
+	static void SetContextMenus(TSharedRef<FSlateStyleSet> StyleRef);
 
 	static FSlateSound ButtonPressSound;
 	static FSlateSound ButtonHoverSound;

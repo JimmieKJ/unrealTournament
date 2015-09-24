@@ -9,6 +9,7 @@
 #include "Slate/SlateGameResources.h"
 #include "SUHomePanel.h"
 #include "../SUWindowsMainMenu.h"
+#include "../Widgets/SUTButton.h"
 
 
 
@@ -100,6 +101,7 @@ void SUHomePanel::BuildAnnouncement()
 	if (Year == 2015 && Month <= 9 && Day <= 19)
 	{
 		AnnouncmentFadeTimer = 0.8;
+
 		AnnouncementBox->AddSlot().FillHeight(1.0)
 		[
 			SNew(SCanvas)
@@ -200,6 +202,7 @@ TSharedRef<SWidget> SUHomePanel::BuildHomePanel()
 		[
 			SNew(SVerticalBox)
 			+SVerticalBox::Slot()
+
 			.AutoHeight()
 			[
 				SNew(SHorizontalBox)
