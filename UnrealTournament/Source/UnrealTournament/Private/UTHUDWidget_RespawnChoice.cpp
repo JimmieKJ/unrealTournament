@@ -88,6 +88,8 @@ void UUTHUDWidget_RespawnChoice::Draw_Implementation(float DeltaTime)
 	}
 	else
 	{
+		RespawnChoiceACaptureComponent->SetVisibility(false);
+		RespawnChoiceBCaptureComponent->SetVisibility(false);
 		bHasValidRespawnCapture = false;
 	}
 	Super::Draw_Implementation(DeltaTime);
@@ -100,6 +102,11 @@ bool UUTHUDWidget_RespawnChoice::ShouldDraw_Implementation(bool bShowScores)
 	{
 		return true;
 	}
-	bHasValidRespawnCapture = false;
+	if (bHasValidRespawnCapture)
+	{
+		RespawnChoiceACaptureComponent->SetVisibility(false);
+		RespawnChoiceBCaptureComponent->SetVisibility(false);
+		bHasValidRespawnCapture = false;
+	}
 	return false;
 }
