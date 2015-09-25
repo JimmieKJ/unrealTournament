@@ -7,10 +7,7 @@ class UNREALTOURNAMENT_API UUTHUDWidgetMessage_DeathMessages : public UUTHUDWidg
 {
 	GENERATED_UCLASS_BODY()
 
-	virtual bool ShouldDraw_Implementation(bool bShowScores) override
-	{
-		return !bShowScores;
-	}
+	virtual bool ShouldDraw_Implementation(bool bShowScores) override;
 
 protected:
 	virtual void DrawMessages(float DeltaTime);
