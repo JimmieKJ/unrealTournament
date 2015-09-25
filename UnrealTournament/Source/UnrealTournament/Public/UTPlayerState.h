@@ -134,6 +134,10 @@ public:
 	UPROPERTY(BlueprintReadWrite, replicated, Category = PlayerState)
 	uint32 bPendingTeamSwitch : 1;
 
+	/** Persistent so deathmessage can know about it. */
+	UPROPERTY()
+		uint32 bAnnounceWeaponSpree : 1;
+
 	/** Color to display ready text. */
 	FLinearColor ReadyColor;
 

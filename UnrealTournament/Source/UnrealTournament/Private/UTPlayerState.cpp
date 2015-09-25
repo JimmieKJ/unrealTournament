@@ -59,6 +59,7 @@ AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer
 	TotalChallengeStars = 0;
 	EmoteSpeed = 1.0f;
 	BotELOLimit = 1500;
+	bAnnounceWeaponSpree = false;
 }
 
 void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
@@ -342,7 +343,7 @@ void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bE
 			MultiKillLevel = 0;
 		}
 
-		bool bAnnounceWeaponSpree = false;
+		bAnnounceWeaponSpree = false;
 		if (UTDamage)
 		{
 			if (!UTDamage.GetDefaultObject()->StatsName.IsEmpty())

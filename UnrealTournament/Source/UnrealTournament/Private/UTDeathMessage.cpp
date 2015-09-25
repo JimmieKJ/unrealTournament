@@ -45,7 +45,7 @@ void UUTDeathMessage::ClientReceive(const FClientReceiveData& ClientData) const
 			UUTKillIconMessage::StaticClass(),
 			ClientData.RelatedPlayerState_1,
 			ClientData.RelatedPlayerState_2,
-			0,
+			ClientData.MessageIndex,
 			FText::FromString(TEXT("Hax")), //need some text to route the msg
 			ClientData.OptionalObject);
 

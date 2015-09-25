@@ -1143,7 +1143,6 @@ void AUTGameMode::Killed(AController* Killer, AController* KilledPlayer, APawn* 
 				UTDamage.GetDefaultObject()->ScoreKill(KillerPlayerState, KilledPlayerState, KilledPawn);
 			}
 
-			BroadcastDeathMessage(Killer, KilledPlayer, DamageType);
 			if (!bEnemyKill && (Killer != KilledPlayer) && (Killer != NULL))
 			{
 				ScoreTeamKill(Killer, KilledPlayer, KilledPawn, DamageType);
@@ -1152,7 +1151,8 @@ void AUTGameMode::Killed(AController* Killer, AController* KilledPlayer, APawn* 
 			{
 				ScoreKill(Killer, KilledPlayer, KilledPawn, DamageType);
 			}
-			
+			BroadcastDeathMessage(Killer, KilledPlayer, DamageType);
+
 			if (bHasRespawnChoices)
 			{
 				KilledPlayerState->RespawnChoiceA = nullptr;
@@ -2031,11 +2031,28 @@ void AUTGameMode::BroadcastDeathMessage(AController* Killer, AController* Other,
 	{
 		if ( (Killer == Other) || (Killer == NULL) )
 		{
+			// Message index 1 reserved for suicides
 			BroadcastLocalized(this, DeathMessageClass, 1, NULL, Other->PlayerState, DamageType);
 		}
 		else
 		{
-			BroadcastLocalized(this, DeathMessageClass, 0, Killer->PlayerState, Other->PlayerState, DamageType);
+			// MessageIndex 10s digit represents multikill level
+			// 100s plus represents spree level
+			int32 MessageIndex = 0;
+			AUTPlayerState* KillerPS = Cast<AUTPlayerState>(Killer->PlayerState);
+			if (KillerPS)
+			{
+				MessageIndex = 10 * FMath::Clamp(KillerPS->MultiKillLevel, 0, 9);
+				if (KillerPS->Spree % 5 == 0)
+				{
+					MessageIndex += 100 * KillerPS->Spree / 5;
+				}
+				if (KillerPS->bAnnounceWeaponSpree)
+				{
+					MessageIndex += 1000;
+				}
+			}
+			BroadcastLocalized(this, DeathMessageClass, MessageIndex, Killer->PlayerState, Other->PlayerState, DamageType);
 		}
 	}
 }
