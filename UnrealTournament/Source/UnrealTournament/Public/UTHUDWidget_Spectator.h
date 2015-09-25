@@ -26,6 +26,12 @@ protected:
 	UTexture2D* TextureAtlas;
 	virtual float GetDrawScaleOverride();
 
-private:
+	/** Last viewed player. */
+	UPROPERTY()
+	class AUTPlayerState* LastViewedPS;
 
+	/** Last time viewed player changed. */
+	float ViewCharChangeTime;
+
+private:
 };
