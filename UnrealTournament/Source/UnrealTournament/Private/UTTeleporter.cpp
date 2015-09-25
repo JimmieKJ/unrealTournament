@@ -84,7 +84,7 @@ void AUTTeleporter::OnOverlapBegin(AActor* OtherActor)
 		}
 		else
 		{
-			UE_LOG(UT, Warning, TEXT("Teleporter %s failed to teleport %s"), *GetName(), *OtherActor->GetName());
+			// UE_LOG(UT, Warning, TEXT("Teleporter %s failed to teleport %s"), *GetName(), *OtherActor->GetName());
 		}
 
 		if (P != NULL)
