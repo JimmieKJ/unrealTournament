@@ -294,3 +294,24 @@ void UUTCheatManager::God()
 		Super::God();
 	}
 }
+
+void UUTCheatManager::Teleport()
+{
+	AUTCharacter* UTChar = Cast<AUTCharacter>(GetOuterAPlayerController()->GetPawn());
+	if (UTChar != NULL)
+	{
+		FHitResult Hit(1.f);
+		ECollisionChannel TraceChannel = COLLISION_TRACE_WEAPONNOCHARACTER;
+		FCollisionQueryParams QueryParams(GetClass()->GetFName(), true, UTChar);
+		FVector StartLocation(0.f);
+		FRotator SpawnRotation(0.f);
+		UTChar->GetActorEyesViewPoint(StartLocation, SpawnRotation);
+		const FVector EndTrace = StartLocation + SpawnRotation.Vector() * 20000.f;
+
+		if (!GetWorld()->LineTraceSingleByChannel(Hit, StartLocation, EndTrace, TraceChannel, QueryParams))
+		{
+			Hit.Location = EndTrace;
+		}
+		UTChar->TeleportTo(Hit.Location, SpawnRotation);
+	}
+}
