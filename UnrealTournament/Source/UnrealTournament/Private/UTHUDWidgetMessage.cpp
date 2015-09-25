@@ -180,9 +180,10 @@ void UUTHUDWidgetMessage::ClearMessage(FLocalizedMessageData& Message)
 
 void UUTHUDWidgetMessage::ReceiveLocalMessage(TSubclassOf<class UUTLocalMessage> MessageClass, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, uint32 MessageIndex, FText LocalMessageText, UObject* OptionalObject)
 {
+	const UUTLocalMessage* DefaultMessageObject = GetDefault<UUTLocalMessage>(MessageClass);
 	if (MessageClass && (MessageClass->IsChildOf(UUTEngineMessage::StaticClass()) || MessageClass->IsChildOf(UUTCharacterVoice::StaticClass())))
 	{
-		LocalMessageText = GetDefault<UUTLocalMessage>(MessageClass)->ResolveMessage(MessageIndex, true, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
+		LocalMessageText = DefaultMessageObject->ResolveMessage(MessageIndex, true, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
 	}
 	if (MessageClass == NULL || LocalMessageText.IsEmpty())
 	{
@@ -190,13 +191,13 @@ void UUTHUDWidgetMessage::ReceiveLocalMessage(TSubclassOf<class UUTLocalMessage>
 	}
 	int32 QueueIndex = MessageQueue.Num();
 	int32 MessageCount = 0;
-	if (GetDefault<UUTLocalMessage>(MessageClass)->bIsUnique)
+	if (DefaultMessageObject->bIsUnique)
 	{
 		for (QueueIndex = 0; QueueIndex < MessageQueue.Num(); QueueIndex++)
 		{
 			if (MessageQueue[QueueIndex].MessageClass == MessageClass)
 			{
-				if ( GetDefault<UUTLocalMessage>(MessageClass)->bCountInstances && MessageQueue[QueueIndex].Text.EqualTo(LocalMessageText) )
+				if (DefaultMessageObject->ShouldCountInstances(MessageIndex) && MessageQueue[QueueIndex].Text.EqualTo(LocalMessageText))
 				{
 					MessageCount = (MessageQueue[QueueIndex].MessageCount == 0) ? 2 : MessageQueue[QueueIndex].MessageCount + 1;
 				}
@@ -210,7 +211,7 @@ void UUTHUDWidgetMessage::ReceiveLocalMessage(TSubclassOf<class UUTLocalMessage>
 		for (QueueIndex = 0; QueueIndex < MessageQueue.Num(); QueueIndex++)
 		{
 			if (MessageQueue[QueueIndex].MessageClass == MessageClass && 
-					MessageClass->GetDefaultObject<UUTLocalMessage>()->PartiallyDuplicates(MessageIndex, MessageQueue[QueueIndex].MessageIndex, OptionalObject, MessageQueue[QueueIndex].OptionalObject) )
+				DefaultMessageObject->PartiallyDuplicates(MessageIndex, MessageQueue[QueueIndex].MessageIndex, OptionalObject, MessageQueue[QueueIndex].OptionalObject))
 			{
 				break;
 			}

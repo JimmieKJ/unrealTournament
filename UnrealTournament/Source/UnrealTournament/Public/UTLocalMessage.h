@@ -37,10 +37,6 @@ class UNREALTOURNAMENT_API UUTLocalMessage : public ULocalMessage
 	UPROPERTY(EditDefaultsOnly, Category = Message)
 	uint32 bIsConsoleMessage:1;    
 
-	// if true, if sent to HUD multiple times, count up instances (only if bIsUnique)
-	UPROPERTY(EditDefaultsOnly, Category = Message)
-	uint32 bCountInstances:1;    
-
 	// if true, allow overriding by anything else 
 	UPROPERTY(EditDefaultsOnly, Category = Message)
 	uint32 bOptionalSpoken : 1;
@@ -98,6 +94,11 @@ class UNREALTOURNAMENT_API UUTLocalMessage : public ULocalMessage
 	UFUNCTION(BlueprintNativeEvent)
 	float GetScaleInSize(int32 MessageIndex) const;
 
+	/** if true, if sent to HUD multiple times, count up instances (only if bIsUnique) */
+	/** return whether this announcement should be cancelled by the passed in announcement */
+	UFUNCTION(BlueprintNativeEvent)
+		bool ShouldCountInstances(int32 MessageIndex) const;
+
 	/** return whether this announcement should interrupt/cancel the passed in announcement */
 	UFUNCTION(BlueprintNativeEvent)
 	bool InterruptAnnouncement(int32 Switch, const UObject* OptionalObject, TSubclassOf<UUTLocalMessage> OtherMessageClass, int32 OtherSwitch, const UObject* OtherOptionalObject) const;
@@ -132,7 +133,7 @@ class UNREALTOURNAMENT_API UUTLocalMessage : public ULocalMessage
 	float Blueprint_GetLifeTime(int32 Switch) const;
 
 	virtual bool IsConsoleMessage(int32 Switch) const;
-	bool PartiallyDuplicates(int32 Switch1, int32 Switch2, class UObject* OptionalObject1, class UObject* OptionalObject2 );
+	bool PartiallyDuplicates(int32 Switch1, int32 Switch2, class UObject* OptionalObject1, class UObject* OptionalObject2 ) const;
 };
 
 
