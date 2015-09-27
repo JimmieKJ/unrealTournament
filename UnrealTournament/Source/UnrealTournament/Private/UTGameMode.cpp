@@ -2051,6 +2051,10 @@ void AUTGameMode::BroadcastDeathMessage(AController* Killer, AController* Other,
 				{
 					MessageIndex += 1000;
 				}
+				if (KillerPS->bAnnounceWeaponReward)
+				{
+					MessageIndex += 10000;
+				}
 			}
 			BroadcastLocalized(this, DeathMessageClass, MessageIndex, Killer->PlayerState, Other->PlayerState, DamageType);
 		}

@@ -38,6 +38,7 @@ UUTDamageType::UUTDamageType(const FObjectInitializer& ObjectInitializer)
 	FemaleSuicideMessage = NSLOCTEXT("UTDeathMessages","GenericFemaleSuicideMessage","{Player2Name} killed herself with the {WeaponName}.");
 	SelfVictimMessage = NSLOCTEXT("UTDeathMessages", "SelfVictimMessage", "You killed yourself.");
 	AssociatedWeaponName = NSLOCTEXT("UTDeathMessages","EnvironmentMessage","Environmental");
+	SpecialRewardText = NSLOCTEXT("UTDeathMessages", "GenericSpecialReward", "Special!");
 
 	static ConstructorHelpers::FObjectFinder<UTexture> SkullTex(TEXT("Texture'/Game/RestrictedAssets/UI/HUDAtlas01.HUDAtlas01'"));
 	HUDIcon.Texture = SkullTex.Object;

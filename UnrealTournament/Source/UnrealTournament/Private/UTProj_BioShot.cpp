@@ -982,11 +982,11 @@ void AUTProj_BioShot::ProcessHit_Implementation(AActor* OtherActor, UPrimitiveCo
 void AUTProj_BioShot::DamageImpactedActor_Implementation(AActor* OtherActor, UPrimitiveComponent* OtherComp, const FVector& HitLocation, const FVector& HitNormal)
 {
 	AUTCharacter* HitCharacter = Cast<AUTCharacter>(OtherActor);
-	bool bPossibleReward = !bLanded && !bCanTrack && HitCharacter && AirSnotRewardClass && (HitCharacter->Health > 0) && (GlobStrength >= MaxRestingGlobStrength) && (Role == ROLE_Authority);
-	bool bPossibleAirSnot = bPossibleReward && HitCharacter->GetCharacterMovement() != NULL && (HitCharacter->GetCharacterMovement()->MovementMode == MOVE_Falling) && (GetWorld()->GetTimeSeconds() - HitCharacter->FallingStartTime > 0.3f);
+	bPendingSpecialReward = !bLanded && !bCanTrack && HitCharacter && AirSnotRewardClass && (HitCharacter->Health > 0) && (GlobStrength >= MaxRestingGlobStrength) && (Role == ROLE_Authority);
+	bool bPossibleAirSnot = bPendingSpecialReward && HitCharacter->GetCharacterMovement() != NULL && (HitCharacter->GetCharacterMovement()->MovementMode == MOVE_Falling) && (GetWorld()->GetTimeSeconds() - HitCharacter->FallingStartTime > 0.3f);
 	int32 PreHitStack = HitCharacter ? HitCharacter->Health + HitCharacter->ArmorAmount : 0.f;
 	Super::DamageImpactedActor_Implementation(OtherActor, OtherComp, HitLocation, HitNormal);
-	if (bPossibleReward && HitCharacter && (HitCharacter->Health <= 0))
+	if (bPendingSpecialReward && HitCharacter && (HitCharacter->Health <= 0))
 	{
 		// Air Snot reward
 		AUTPlayerController* PC = Cast<AUTPlayerController>(InstigatorController);

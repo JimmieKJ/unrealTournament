@@ -176,6 +176,15 @@ void UUTHUDWidgetMessage_KillIconMessages::DrawMessage(int32 QueueIndex, float X
 	if ((MessageQueue[QueueIndex].MessageIndex >= 10) || (DmgType && DmgType->RewardAnnouncementClass))
 	{
 		int32 MsgIndex = MessageQueue[QueueIndex].MessageIndex;
+		bool bHasWeaponReward = (MsgIndex >= 10000);
+		if (bHasWeaponReward)
+		{
+			MsgIndex -= 10000 * (MsgIndex / 10000);
+			FText RewardMessage = DmgType->SpecialRewardText;
+			DrawText(RewardMessage, X, VictimSize.Y, MessageQueue[QueueIndex].DisplayFont, bShadowedText, ShadowDirection, ShadowColor, bOutlinedText, OutlineColor, CurrentScale, Alpha * UTHUDOwner->HUDWidgetOpacity, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
+			Canvas->TextSize(MessageQueue[QueueIndex].DisplayFont, RewardMessage.ToString(), XL, YL, CurrentScale);
+			X += XL;
+		}
 		bool bHasWeaponSpree = (MsgIndex >= 1000);
 		if (bHasWeaponSpree)
 		{

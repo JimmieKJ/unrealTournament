@@ -72,5 +72,6 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Announcement)
 		TSubclassOf<class UUTRewardMessage> ComboRewardMessageClass;
 
-	virtual void RateShockCombo(AUTPlayerController *PC, AUTPlayerState* PS, int32 OldComboKillCount);
+	virtual float RateComboMovement(AUTPlayerController *PC);
+	virtual void RateShockCombo(AUTPlayerController *PC, AUTPlayerState* PS, int32 OldComboKillCount, float ComboScore);
 };

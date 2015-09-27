@@ -138,6 +138,10 @@ public:
 	UPROPERTY()
 		uint32 bAnnounceWeaponSpree : 1;
 
+	/** Persistent so deathmessage can know about it. */
+	UPROPERTY()
+		uint32 bAnnounceWeaponReward : 1;
+
 	/** Color to display ready text. */
 	FLinearColor ReadyColor;
 

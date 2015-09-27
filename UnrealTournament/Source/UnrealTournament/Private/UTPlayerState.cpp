@@ -60,6 +60,7 @@ AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer
 	EmoteSpeed = 1.0f;
 	BotELOLimit = 1500;
 	bAnnounceWeaponSpree = false;
+	bAnnounceWeaponReward = false;
 }
 
 void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const

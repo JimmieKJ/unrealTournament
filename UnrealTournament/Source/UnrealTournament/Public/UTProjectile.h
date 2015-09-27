@@ -144,6 +144,10 @@ class UNREALTOURNAMENT_API AUTProjectile : public AActor, public IUTResetInterfa
 	UPROPERTY()
 	AActor* ImpactedActor;
 
+	/** If true, projectile will trigger special reward announcement if hit player dies. */
+	UPROPERTY()
+		bool bPendingSpecialReward;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Effects)
 	TSubclassOf<class AUTImpactEffect> ExplosionEffects;
 

@@ -193,6 +193,10 @@ class UNREALTOURNAMENT_API UUTDamageType : public UDamageType
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Announcement)
 		int32 WeaponSpreeCount;
 
+	/** Text of special reward messages (Air Rocket, etc.) used for icon death messages. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Announcement)
+		FText SpecialRewardText;
+
 	/** icon for drawing kill messages */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = HUD)
 	FCanvasIcon HUDIcon;

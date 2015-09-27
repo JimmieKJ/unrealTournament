@@ -902,7 +902,17 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 			SetLastTakeHitInfo(Damage, ResultDamage, ResultMomentum, HitArmor, DamageEvent);
 			if (Health <= 0)
 			{
+				AUTPlayerState* KillerPS = EventInstigator ? Cast<AUTPlayerState>(EventInstigator->PlayerState) : NULL;
+				if (KillerPS)
+				{
+					AUTProjectile* Proj = Cast<AUTProjectile>(DamageCauser);
+					KillerPS->bAnnounceWeaponReward = Proj && Proj->bPendingSpecialReward;
+				}
 				Died(EventInstigator, DamageEvent);
+				if (KillerPS)
+				{
+					KillerPS->bAnnounceWeaponReward = false;
+				}
 			}
 		}
 		else if (IsRagdoll())
@@ -1250,6 +1260,10 @@ bool AUTCharacter::Died(AController* EventInstigator, const FDamageEvent& Damage
 				}
 			}
 		}
+		if ((GetWorld()->GetTimeSeconds() - FlakShredTime < 0.05f) && FlakShredInstigator && (FlakShredInstigator == EventInstigator))
+		{
+			AnnounceShred(Cast<AUTPlayerController>(EventInstigator));
+		}
 
 		GetWorld()->GetAuthGameMode<AUTGameMode>()->Killed(EventInstigator, ControllerKilled, this, DamageEvent.DamageTypeClass);
 
@@ -1268,10 +1282,6 @@ bool AUTCharacter::Died(AController* EventInstigator, const FDamageEvent& Damage
 		OnDied.Broadcast(EventInstigator, DamageEvent.DamageTypeClass ? DamageEvent.DamageTypeClass.GetDefaultObject() : NULL);
 
 		PlayDying();
-		if ((GetWorld()->GetTimeSeconds() - FlakShredTime < 0.05f) && FlakShredInstigator && (FlakShredInstigator == EventInstigator))
-		{
-			AnnounceShred(Cast<AUTPlayerController>(EventInstigator));
-		}
 
 		//Stop ghosts on death
 		if (GhostComponent->bGhostRecording)
@@ -1293,7 +1303,9 @@ void AUTCharacter::AnnounceShred(AUTPlayerController *KillerPC)
 	if (KillerPS && CloseFlakRewardMessageClass)
 	{
 		KillerPS->ModifyStatsValue(FlakShredStatName, 1);
+		KillerPS->bAnnounceWeaponReward = true;
 		KillerPC->SendPersonalMessage(CloseFlakRewardMessageClass, KillerPS->GetStatsValue(FlakShredStatName), PlayerState, KillerPS);
+
 	}
 }
 

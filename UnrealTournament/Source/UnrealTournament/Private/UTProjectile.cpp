@@ -81,7 +81,7 @@ AUTProjectile::AUTProjectile(const class FObjectInitializer& ObjectInitializer)
 	MasterProjectile = NULL;
 	bHasSpawnedFully = false;
 	bLowPriorityLight = false;
-
+	bPendingSpecialReward = false;
 	StatsHitCredit = 1.f;
 }
 

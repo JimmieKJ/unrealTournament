@@ -19,10 +19,11 @@ void AUTProj_FlakShardMain::DamageImpactedActor_Implementation(AActor* OtherActo
 {
 	AUTCharacter* UTC = Cast<AUTCharacter>(OtherActor);
 	int32 OldHealth = UTC ? UTC->Health : 0;
+	bPendingSpecialReward = (UTC && (UTC != Instigator) && Role == ROLE_Authority && Instigator != NULL && (InitialLifeSpan - GetLifeSpan() < 0.5f*MaxBonusTime));
 	Super::DamageImpactedActor_Implementation(OtherActor, OtherComp, HitLocation, HitNormal);
 
 	// check for camera shake
-	if (UTC && (UTC != Instigator) && Role == ROLE_Authority && Instigator != NULL && (InitialLifeSpan - GetLifeSpan() < 0.5f*MaxBonusTime))
+	if (bPendingSpecialReward)
 	{
 		AUTPlayerController* PC = Cast<AUTPlayerController>(Instigator->Controller);
 		if (PC && UTC->IsDead() && (UTC->TimeOfDeath == GetWorld()->GetTimeSeconds()))
