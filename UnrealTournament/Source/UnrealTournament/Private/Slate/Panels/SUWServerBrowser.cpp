@@ -1433,7 +1433,7 @@ void SUWServerBrowser::AddHub(TSharedPtr<FServerData> Hub)
 	if (HUBServerList->GetNumItemsSelected() > 0)
 	{
 		TArray<TSharedPtr<FServerData>> Hubs = HUBServerList->GetSelectedItems();
-		if (Hubs.Num() >= 1 && Hubs[0]->SearchResult.Session.SessionInfo->GetSessionId() == Hub->SearchResult.Session.SessionInfo->GetSessionId())
+		if (Hubs.Num() >= 1 && Hubs[0].IsValid() && Hubs[0]->SearchResult.IsValid() && Hubs[0]->SearchResult.Session.SessionInfo->GetSessionId() == Hub->SearchResult.Session.SessionInfo->GetSessionId())
 		{
 			AddHUBInfo(Hub);
 		}
@@ -1441,7 +1441,7 @@ void SUWServerBrowser::AddHub(TSharedPtr<FServerData> Hub)
 
 	for (int32 i=0; i < AllHubServers.Num() ; i++)
 	{
-		if (!AllHubServers[i]->bFakeHUB)
+		if (AllHubServers[i].IsValid() && AllHubServers[i]->SearchResult.IsValid() && !AllHubServers[i]->bFakeHUB)
 		{
 			if (AllHubServers[i]->SearchResult.Session.SessionInfo->GetSessionId() == Hub->SearchResult.Session.SessionInfo->GetSessionId())
 			{
