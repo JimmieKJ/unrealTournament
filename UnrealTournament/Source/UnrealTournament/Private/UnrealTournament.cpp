@@ -489,7 +489,7 @@ FString GetModPakFilenameFromPkg(const FString& PkgName)
 		{
 			FPakFile* Pak = NULL;
 			PakFileMgr->FindFileInPakFiles(*Filename, &Pak);
-			return (Pak != NULL && !Pak->GetFilename().StartsWith(TEXT("unrealtournament-"))) ? Pak->GetFilename() : FString();
+			return (Pak != NULL && !FPaths::GetBaseFilename(Pak->GetFilename()).StartsWith(TEXT("unrealtournament-"))) ? Pak->GetFilename() : FString();
 		}
 		else
 		{
