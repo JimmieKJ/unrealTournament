@@ -1164,6 +1164,14 @@ void UControlChannel::ReceivedBunch( FInBunch& Bunch )
 			{
 				Connection->Driver->World->GetGameInstance()->HandleGameNetControlMessage(Connection, MessageByte, MessageStr);
 			}
+			else
+			{
+				FWorldContext* Context = GEngine->GetWorldContextFromPendingNetGameNetDriver(Connection->Driver);
+				if (Context != NULL && Context->OwningGameInstance != NULL)
+				{
+					Context->OwningGameInstance->HandleGameNetControlMessage(Connection, MessageByte, MessageStr);
+				}
+			}
 		}
 		else
 		{
