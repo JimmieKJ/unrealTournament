@@ -452,7 +452,7 @@ void SUPlayerListPanel::Tick( const FGeometry& AllottedGeometry, const double In
 				if (ShouldShowPlayer(PlayerState->UniqueId, TeamNum, bIsInMatch))
 				{
 					int32 Idx = IsTracked(GameState->PlayerArray[i]->UniqueId);
-					if (Idx != INDEX_NONE)
+					if (Idx != INDEX_NONE && Idx < GameState->PlayerArray.Num() && GameState->PlayerArray[Idx] != NULL)
 					{
 						// This player lives to see another day
 						TrackedPlayers[Idx]->bPendingKill = false;
@@ -490,7 +490,7 @@ void SUPlayerListPanel::Tick( const FGeometry& AllottedGeometry, const double In
 							TrackedPlayers[Idx]->Avatar = UTPlayerState->Avatar;
 						}
 					}
-					else
+					else if (PlayerState && !PlayerState->bPendingKillPending)
 					{
 						bListNeedsUpdate = true;
 						// This is a new player.. Add them.
