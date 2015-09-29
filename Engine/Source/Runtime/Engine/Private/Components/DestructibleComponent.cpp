@@ -363,9 +363,15 @@ void UDestructibleComponent::CreatePhysicsState()
 	PhysxChunkUserData.Reset(ChunkCount);
 	PhysxChunkUserData.AddZeroed(ChunkCount);
 
-	// Create an APEX NxDestructibleActor from the Destructible asset and actor descriptor
-	ApexDestructibleActor = static_cast<NxDestructibleActor*>(TheDestructibleMesh->ApexDestructibleAsset->createApexActor(*ActorParams, *ApexScene));
-	check(ApexDestructibleActor);
+	{
+		// Lock and flush deferred command handler here to stop any currently pending deletions from affecting new actors.
+		SCOPED_SCENE_WRITE_LOCK(PScene);
+		GPhysCommandHandler->Flush();
+
+		// Create an APEX NxDestructibleActor from the Destructible asset and actor descriptor
+		ApexDestructibleActor = static_cast<NxDestructibleActor*>(TheDestructibleMesh->ApexDestructibleAsset->createApexActor(*ActorParams, *ApexScene));
+		check(ApexDestructibleActor);
+	}
 
 	// Make a backpointer to this component
 	PhysxUserData = FPhysxUserData(this);
@@ -409,7 +415,7 @@ void UDestructibleComponent::DestroyPhysicsState()
 		{
 			if (FPhysScene * PhysScene = World->GetPhysicsScene())
 			{
-				PhysScene->DeferredCommandHandler.DeferredRelease(ApexDestructibleActor);
+				GPhysCommandHandler->DeferredRelease(ApexDestructibleActor);
 			}
 		}
 		
