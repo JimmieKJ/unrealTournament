@@ -1011,7 +1011,14 @@ void AUTLobbyGameState::HandleQuickplayRequest(AUTServerBeaconClient* Beacon, co
 
 			if (NewRuleset.IsValid())
 			{
-				NewMatchInfo->SetRules(NewRuleset, NewRuleset->DefaultMap);
+				FString MapToPlay = NewRuleset->DefaultMap;
+				if (NewRuleset->QuickPlayMaps.Num() > 0)
+				{
+					int32 Index = FMath::RandRange(0, NewRuleset->QuickPlayMaps.Num()-1);
+					MapToPlay = NewRuleset->QuickPlayMaps[Index];
+				}
+
+				NewMatchInfo->SetRules(NewRuleset, MapToPlay);
 			}
 
 			NewMatchInfo->bQuickPlayMatch = true;
