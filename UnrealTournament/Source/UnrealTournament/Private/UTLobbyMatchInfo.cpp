@@ -375,7 +375,7 @@ void AUTLobbyMatchInfo::ServerStartMatch_Implementation()
 #endif
 		if (Players.Num() < CurrentRuleset->MinPlayersToStart)
 		{
-			if (BotSkillLevel < 0)
+			if (!bJoinAnytime || (BotSkillLevel < 0 && LobbyGameState->GameInstances.Num() > 1))
 			{
 				GetOwnerPlayerState()->ClientMatchError(NSLOCTEXT("LobbyMessage", "NotEnoughPlayers","There are not enough players in the match to start."));
 				return;

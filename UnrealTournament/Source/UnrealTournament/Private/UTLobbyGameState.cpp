@@ -27,6 +27,7 @@ void AUTLobbyGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > &
 	DOREPLIFETIME(AUTLobbyGameState, AvailableGameRulesets);
 	DOREPLIFETIME(AUTLobbyGameState, AvailabelGameRulesetCount);
 	DOREPLIFETIME(AUTLobbyGameState, AllMapsOnServer);
+	DOREPLIFETIME(AUTLobbyGameState, NumGameInstances);
 }
 
 void AUTLobbyGameState::PostInitializeComponents()
@@ -457,6 +458,7 @@ void AUTLobbyGameState::LaunchGameInstance(AUTLobbyMatchInfo* MatchOwner, FStrin
 		if (MatchOwner->GameInstanceProcessHandle.IsValid())
 		{
 			GameInstances.Add(FGameInstanceData(MatchOwner, InstancePort));
+			NumGameInstances = GameInstances.Num();
 			MatchOwner->SetLobbyMatchState(ELobbyMatchState::Launching);
 			MatchOwner->InstanceLaunchTime = GetWorld()->GetRealTimeSeconds();
 			MatchOwner->GameInstanceID = GameInstanceID;
@@ -505,6 +507,7 @@ void AUTLobbyGameState::TerminateGameInstance(AUTLobbyMatchInfo* MatchOwner, boo
 		if (GameInstances[i].MatchInfo == MatchOwner)
 		{
 			GameInstances.RemoveAt(i);
+			NumGameInstances = GameInstances.Num();
 			break;
 		}
 	}
@@ -894,6 +897,7 @@ bool AUTLobbyGameState::AddDedicatedInstance(FGuid InstanceGUID, const FString& 
 
 		AvailableMatches.Add(NewMatchInfo);
 		GameInstances.Add(FGameInstanceData(NewMatchInfo, 7777));
+		NumGameInstances = GameInstances.Num();
 
 		NewMatchInfo->GameInstanceID = GameInstanceID;
 		NewMatchInfo->SetSettings(this, NULL);

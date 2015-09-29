@@ -68,7 +68,7 @@ public:
 			NewRuleset->Title = TEXT("Deathmatch");
 			NewRuleset->Tooltip = TEXT("Standard free-for-all Deathmatch.");
 			NewRuleset->Description = TEXT("Standard free-for-all deathmatch.\n\n<UT.Hub.RulesText_Small>TimeLimit : 10 minutes</>\n<UT.Hub.RulesText_Small>Maximum players : 6</>");
-			NewRuleset->MinPlayersToStart = 2;
+			NewRuleset->MinPlayersToStart = 3;
 			NewRuleset->MaxPlayers = 6;
 			NewRuleset->DisplayTexture = TEXT("Texture2D'/Game/RestrictedAssets/UI/GameModeBadges/GB_DM.GB_DM'");
 			NewRuleset->GameMode = TEXT("/Script/UnrealTournament.UTDMGameMode");
@@ -106,7 +106,7 @@ public:
 			NewRuleset->Title = TEXT("Big Deathmatch");
 			NewRuleset->Tooltip = TEXT("Deathmatch with large player counts on big maps.");
 			NewRuleset->Description = TEXT("Deathmatch with large player counts on big maps.\n\n<UT.Hub.RulesText_Small>TimeLimit : 10 minutes</>\n<UT.Hub.RulesText_Small>Maximum players: 16</>");
-			NewRuleset->MinPlayersToStart = 2;
+			NewRuleset->MinPlayersToStart = 8;
 			NewRuleset->MaxPlayers = 16;
 			NewRuleset->DisplayTexture = TEXT("Texture2D'/Game/RestrictedAssets/UI/GameModeBadges/GB_LargeDM.GB_LargeDM'");
 			NewRuleset->GameMode = TEXT("/Script/UnrealTournament.UTDMGameMode");
@@ -136,7 +136,7 @@ public:
 			NewRuleset->Title = TEXT("Team Deathmatch");
 			NewRuleset->Tooltip = TEXT("Red versus blue team deathmatch.");
 			NewRuleset->Description = TEXT("Red versus blue team deathmatch.\n\n<UT.Hub.RulesText_Small>TimeLimit : 20 minutes</>\n<UT.Hub.RulesText_Small>Mercy Rule : On</>\n<UT.Hub.RulesText_Small>Maximum players: 10</>");
-			NewRuleset->MinPlayersToStart = 2;
+			NewRuleset->MinPlayersToStart = 4;
 			NewRuleset->MaxPlayers = 10;
 			NewRuleset->DisplayTexture = TEXT("Texture2D'/Game/RestrictedAssets/UI/GameModeBadges/GB_TDM.GB_TDM'");
 			NewRuleset->GameMode = TEXT("/Script/UnrealTournament.UTTeamDMGameMode");
@@ -221,7 +221,7 @@ public:
 			NewRuleset->Title = TEXT("Capture the Flag");
 			NewRuleset->Tooltip = TEXT("Capture the Flag.");
 			NewRuleset->Description = TEXT("Capture the Flag, with guns.\n\n<UT.Hub.RulesText_Small>TimeLimit : 2x 10 minute halfs</>\n<UT.Hub.RulesText_Small>Mercy Rule : On</>\n<UT.Hub.RulesText_Small>Maximum players : 10</>");
-			NewRuleset->MinPlayersToStart = 2;
+			NewRuleset->MinPlayersToStart = 6;
 			NewRuleset->MaxPlayers = 10;
 			NewRuleset->DisplayTexture = TEXT("Texture2D'/Game/RestrictedAssets/UI/GameModeBadges/GB_CTF.GB_CTF'");
 			NewRuleset->GameMode = TEXT("/Script/UnrealTournament.UTCTFGameMode");
@@ -251,7 +251,7 @@ public:
 			NewRuleset->Title = TEXT("Big Capture the Flag");
 			NewRuleset->Tooltip = TEXT("Capture the Flag with large teams.");
 			NewRuleset->Description = TEXT("Capture the Flag with large teams.\n\n<UT.Hub.RulesText_Small>TimeLimit : 2x 10 minute halfs</>\n<UT.Hub.RulesText_Small>Mercy Rule : On</>\n<UT.Hub.RulesText_Small>Maximum players : 20</>");
-			NewRuleset->MinPlayersToStart = 2;
+			NewRuleset->MinPlayersToStart = 10;
 			NewRuleset->MaxPlayers = 20;
 			NewRuleset->DisplayTexture = TEXT("Texture2D'/Game/RestrictedAssets/UI/GameModeBadges/GB_LargeCTF.GB_LargeCTF'");
 			NewRuleset->GameMode = TEXT("/Script/UnrealTournament.UTCTFGameMode");
@@ -276,7 +276,7 @@ public:
 			NewRuleset->Title = TEXT("Instagib DM");
 			NewRuleset->Tooltip = TEXT("One hit one kill Deathmatch.");
 			NewRuleset->Description = TEXT("One hit one kill Deathmatch.\n\n<UT.Hub.RulesText_Small>Mutators : Instagib</>\n<UT.Hub.RulesText_Small>TimeLimit : 10 minutes</>\n<UT.Hub.RulesText_Small>Maximum players : 10</>");
-			NewRuleset->MinPlayersToStart = 2;
+			NewRuleset->MinPlayersToStart = 3;
 			NewRuleset->MaxPlayers = 10;
 			NewRuleset->DisplayTexture = TEXT("Texture2D'/Game/RestrictedAssets/UI/GameModeBadges/GB_InstagibDM.GB_InstagibDM'");
 			NewRuleset->GameMode = TEXT("/Script/UnrealTournament.UTDMGameMode");
@@ -311,7 +311,7 @@ public:
 			NewRuleset->Title = TEXT("Instagib TDM");
 			NewRuleset->Tooltip = TEXT("One hit one kill Team Deathmatch.");
 			NewRuleset->Description = TEXT("One hit one kill Team Deathmatch.\n\n<UT.Hub.RulesText_Small>Mutators : Instagib</>\n<UT.Hub.RulesText_Small>TimeLimit : 20 minutes</>\n<UT.Hub.RulesText_Small>Mercy Rule : On</>\n<UT.Hub.RulesText_Small>Maximum players : 16</>");
-			NewRuleset->MinPlayersToStart = 2;
+			NewRuleset->MinPlayersToStart = 4;
 			NewRuleset->MaxPlayers = 16;
 			NewRuleset->DisplayTexture = TEXT("Texture2D'/Game/RestrictedAssets/UI/GameModeBadges/GB_InstagibDuel.GB_InstagibDuel'");
 			NewRuleset->GameMode = TEXT("/Script/UnrealTournament.UTTeamDMGameMode");
@@ -346,7 +346,7 @@ public:
 			NewRuleset->Title = TEXT("Instagib CTF");
 			NewRuleset->Tooltip = TEXT("Instagib CTF");
 			NewRuleset->Description = TEXT("Capture the Flag with Instagib rifles.\n\n<UT.Hub.RulesText_Small>Mutators : Instagib</>\n<UT.Hub.RulesText_Small>TimeLimit : 2x 10 minute halfs</>\n<UT.Hub.RulesText_Small>Mercy Rule : On</>\n<UT.Hub.RulesText_Small>Maximum players : 16</>");
-			NewRuleset->MinPlayersToStart = 2;
+			NewRuleset->MinPlayersToStart = 6;
 			NewRuleset->MaxPlayers = 16;
 			NewRuleset->DisplayTexture = TEXT("Texture2D'/Game/RestrictedAssets/UI/GameModeBadges/GB_InstagibCTF.GB_InstagibCTF'");
 			NewRuleset->GameMode = TEXT("/Script/UnrealTournament.UTCTFGameMode");
@@ -376,7 +376,7 @@ public:
 			NewRuleset->Title = TEXT("Translocator iCTF");
 			NewRuleset->Tooltip = TEXT("Translocator iCTF");
 			NewRuleset->Description = TEXT("Capture the Flag with Instagib rifles and Translocators.\n\n<UT.Hub.RulesText_Small>Mutators : Instagib</>\n<UT.Hub.RulesText_Small>TimeLimit : 2x 10 minute halfs</>\n<UT.Hub.RulesText_Small>Mercy Rule : On</>\n<UT.Hub.RulesText_Small>Maximum players : 16</>");
-			NewRuleset->MinPlayersToStart = 2;
+			NewRuleset->MinPlayersToStart = 6;
 			NewRuleset->MaxPlayers = 16;
 			NewRuleset->DisplayTexture = TEXT("Texture2D'/Game/RestrictedAssets/UI/GameModeBadges/GB_InstagibCTF.GB_InstagibCTF'");
 			NewRuleset->GameMode = TEXT("/Script/UnrealTournament.UTCTFGameMode");

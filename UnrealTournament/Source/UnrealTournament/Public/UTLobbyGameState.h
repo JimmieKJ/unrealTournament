@@ -238,6 +238,9 @@ public:
 	UPROPERTY()
 	bool bTrainingGround;
 
+	// Holds the # of game instances currently running
+	UPROPERTY(Replicated)
+	int32 NumGameInstances;
 
 };
 
