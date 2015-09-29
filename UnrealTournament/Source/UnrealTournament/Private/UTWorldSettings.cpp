@@ -436,7 +436,7 @@ bool AUTWorldSettings::EffectIsRelevant(AActor* RelevantActor, const FVector& Sp
 	// if effect is spawning near me, always spawn if being rendered
 	if (bSpawnNearSelf && RelevantActor != NULL)
 	{
-		return (GetWorld()->GetTimeSeconds() - RelevantActor->GetLastRenderTime() < 0.3f);
+		return (GetWorld()->GetTimeSeconds() - RelevantActor->GetLastRenderTime() < 0.1f);
 	}
 
 	return true;
