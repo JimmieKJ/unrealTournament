@@ -86,7 +86,9 @@ class UNREALTOURNAMENT_API AUTProjectile : public AActor, public IUTResetInterfa
 
 	virtual void GatherCurrentMovement() override;
 
-	virtual bool DisableEmitterLights() const override;
+	virtual bool DisableEmitterLights() const;
+
+	virtual void OnRep_Instigator() override;
 
 	/** Sphere collision component */
 	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = Projectile)

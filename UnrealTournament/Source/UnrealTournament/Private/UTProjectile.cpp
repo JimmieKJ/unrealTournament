@@ -134,19 +134,7 @@ void AUTProjectile::PreInitializeComponents()
 		MeshComponents[i]->SetCastShadow(false);
 	}
 
-	// turn off other player's projectile flight lights at low/medium effects quality
-	bool bTurnOffLights = DisableEmitterLights();
-	TArray<ULightComponent*> LightComponents;
-	GetComponents<ULightComponent>(LightComponents);
-	for (int32 i = 0; i < LightComponents.Num(); i++)
-	{
-		if (bTurnOffLights)
-		{
-			LightComponents[i]->SetVisibility(false);
-		}
-		LightComponents[i]->SetCastShadows(false);
-		LightComponents[i]->bAffectTranslucentLighting = false;
-	}
+	OnRep_Instigator();
 
 	/*
 	if (CollisionComp && (CollisionComp->GetUnscaledSphereRadius() > 0.f))
@@ -160,6 +148,45 @@ void AUTProjectile::PreInitializeComponents()
 	{
 		UE_LOG(UT, Warning, TEXT("%s found LIGHT %s cast shadow %d"), , LightComponents[i]->CastShadows);
 	}*/
+}
+
+
+void AUTProjectile::OnRep_Instigator()
+{
+	if (Instigator != NULL)
+	{
+		InstigatorController = Instigator->Controller;
+	}
+
+	// turn off other player's projectile flight lights at low/medium effects quality
+	bool bTurnOffLights = Instigator && DisableEmitterLights();
+	TArray<ULightComponent*> LightComponents;
+	GetComponents<ULightComponent>(LightComponents);
+	for (int32 i = 0; i < LightComponents.Num(); i++)
+	{
+		if (bTurnOffLights)
+		{
+			LightComponents[i]->SetVisibility(false);
+		}
+		LightComponents[i]->SetCastShadows(false);
+		LightComponents[i]->bAffectTranslucentLighting = false;
+	}
+
+	if (bTurnOffLights)
+	{
+		TArray<UParticleSystemComponent*> ParticleComponents;
+		GetComponents<UParticleSystemComponent>(ParticleComponents);
+		for (int32 i = 0; i < ParticleComponents.Num(); i++)
+		{
+			for (int32 Idx = 0; Idx < ParticleComponents[i]->EmitterInstances.Num(); Idx++)
+			{
+				if (ParticleComponents[i]->EmitterInstances[Idx])
+				{
+					ParticleComponents[i]->EmitterInstances[Idx]->LightDataOffset = 0;
+				}
+			}
+		}
+	}
 }
 
 void AUTProjectile::BeginPlay()
