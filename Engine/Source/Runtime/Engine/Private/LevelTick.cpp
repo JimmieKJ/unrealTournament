@@ -1187,7 +1187,7 @@ void UWorld::Tick( ELevelTick TickType, float DeltaSeconds )
 		RunTickGroup(TG_EndPhysics);
 		if ( PhysicsScene != NULL )
 		{
-			PhysicsScene->DeferredCommandHandler.Flush();
+			GPhysCommandHandler->Flush();
 		}
 		RunTickGroup(TG_PreCloth);
 		RunTickGroup(TG_StartCloth);
