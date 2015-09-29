@@ -1445,6 +1445,10 @@ void SUWServerBrowser::AddHub(TSharedPtr<FServerData> Hub)
 		{
 			if (AllHubServers[i]->SearchResult.Session.SessionInfo->GetSessionId() == Hub->SearchResult.Session.SessionInfo->GetSessionId())
 			{
+				if (AllHubServers[i] != Hub)
+				{
+					AllHubServers[i]->Update(Hub);
+				}
 				return; 
 			}
 		}
