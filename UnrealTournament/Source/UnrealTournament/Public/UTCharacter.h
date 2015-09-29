@@ -1097,6 +1097,13 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Effects")
 		UParticleSystem* WaterFootstepEffect;
 
+	/** particle component for water entry */
+	UPROPERTY(EditAnywhere, Category = "Effects")
+		UParticleSystem* WaterEntryEffect;
+
+	UFUNCTION(BlueprintCallable, Category = Effects)
+		virtual void PlayWaterEntryEffect(const FVector& InWaterLoc, const FVector& OutofWaterLoc);
+
 	/** plays a footstep effect; called via animation when anims are active (in vis range and not server), otherwise on interval via Tick() */
 	UFUNCTION(BlueprintCallable, Category = Effects)
 	virtual void PlayFootstep(uint8 FootNum);

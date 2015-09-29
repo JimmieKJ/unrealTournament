@@ -3078,6 +3078,7 @@ void AUTCharacter::Landed(const FHitResult& Hit)
 		else if (FeetAreInWater())
 		{
 			UUTGameplayStatics::UTPlaySound(GetWorld(), WaterEntrySound, this, SRT_None);
+			PlayWaterEntryEffect(GetActorLocation() - FVector(0.f, 0.f, GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight()), GetActorLocation());
 		}
 		else
 		{
@@ -3109,6 +3110,21 @@ void AUTCharacter::EnteredWater(AUTWaterVolume* WaterVolume)
 		}
 		UTCharacterMovement->Velocity.Z *= WaterVolume->PawnEntryVelZScaling;
 		UTCharacterMovement->BrakingDecelerationSwimming = WaterVolume->BrakingDecelerationSwimming;
+		PlayWaterEntryEffect(GetActorLocation(), GetActorLocation() + FVector(0.f, 0.f, 100.f));
+	}
+}
+
+void AUTCharacter::PlayWaterEntryEffect(const FVector& InWaterLoc, const FVector& OutofWaterLoc)
+{
+	if (GetMesh() && (GetWorld()->GetTimeSeconds() - GetMesh()->LastRenderTime < 0.05f)
+		&& (GetCachedScalabilityCVars().DetailMode != 0))
+	{
+		AUTWorldSettings* WS = Cast<AUTWorldSettings>(GetWorld()->GetWorldSettings());
+		if (WS->EffectIsRelevant(this, GetActorLocation(), true, true, 10000.f, 0.f, false))
+		{
+			FVector EffectLocation = UTCharacterMovement->FindWaterLine(InWaterLoc, OutofWaterLoc);
+			UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), WaterEntryEffect, EffectLocation, GetActorRotation(), true);
+		}
 	}
 }
 
