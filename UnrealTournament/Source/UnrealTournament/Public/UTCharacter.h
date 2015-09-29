@@ -1093,6 +1093,10 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Effects")
 	TArray< TSubclassOf<class AUTReplicatedEmitter> > TeleportEffect;
 
+	/** particle component for water footstep */
+	UPROPERTY(EditAnywhere, Category = "Effects")
+		UParticleSystem* WaterFootstepEffect;
+
 	/** plays a footstep effect; called via animation when anims are active (in vis range and not server), otherwise on interval via Tick() */
 	UFUNCTION(BlueprintCallable, Category = Effects)
 	virtual void PlayFootstep(uint8 FootNum);

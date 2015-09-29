@@ -2897,6 +2897,17 @@ void AUTCharacter::PlayFootstep(uint8 FootNum)
 	if (FeetAreInWater())
 	{
 		UUTGameplayStatics::UTPlaySound(GetWorld(), WaterFootstepSound, this, SRT_IfSourceNotReplicated);
+		if (GetMesh() && (GetWorld()->GetTimeSeconds() - GetMesh()->LastRenderTime < 0.05f)
+			&& (GetCachedScalabilityCVars().DetailMode != 0))
+		{
+			AUTWorldSettings* WS = Cast<AUTWorldSettings>(GetWorld()->GetWorldSettings());
+			if (WS->EffectIsRelevant(this, GetActorLocation(), true, true, 5000.f, 0.f, false))
+			{
+				FVector EffectLocation = GetActorLocation();
+				EffectLocation.Z = EffectLocation.Z + 4.f - GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
+				UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), WaterFootstepEffect, EffectLocation, GetActorRotation(), true);
+			}
+		}
 	}
 	else if (GetLocalViewer())
 	{
