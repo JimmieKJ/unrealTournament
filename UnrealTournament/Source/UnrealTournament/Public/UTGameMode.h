@@ -664,13 +664,13 @@ protected:
 	uint32 HostLobbyListenPort;
 
 	// Update the Lobby with the current stats of the game
-	virtual void UpdateLobbyMatchStats(FString Update);
+	virtual void UpdateLobbyMatchStats();
 
 	// Updates the lobby with the current player list
 	virtual void UpdateLobbyPlayerList();
 
-	// Updates the badge for the Lobby.  This is called from UpdateLobbyMatchStats() and should be gametype specific
-	virtual void UpdateLobbyBadge(FString BadgeText);
+	// Gets the updated score information
+	virtual void UpdateLobbyScore(FMatchUpdate& MatchUpdate);
 
 	virtual void SendEveryoneBackToLobby();
 	
@@ -708,7 +708,7 @@ public:
 	virtual void GetGameURLOptions(const TArray<TSharedPtr<TAttributePropertyBase>>& MenuProps, TArray<FString>& OptionsList, int32& DesiredPlayerCount);
 
 	// Called from the Beacon, it makes this server become a dedicated instance
-	virtual void BecomeDedicatedInstance(FGuid HubGuid);
+	virtual void BecomeDedicatedInstance(FGuid HubGuid, int32 InstanceID);
 
 	FString GetMapPrefix()
 	{
@@ -755,6 +755,8 @@ private:
 public:
 	UPROPERTY(Config)
 	bool bDisableMapVote;
+
+	FString GetGameRulesDescription();
 
 };
 

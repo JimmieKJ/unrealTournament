@@ -125,7 +125,7 @@ void AUTLobbyGameState::CheckInstanceHealth()
 			}
 			else
 			{
-				if (MatchInfo->CurrentState == ELobbyMatchState::InProgress)
+				if (MatchInfo->CurrentState == ELobbyMatchState::InProgress && !MatchInfo->bDedicatedMatch)
 				{
 					UE_LOG(UT,Warning,TEXT("Terminating an invalid match that is inprogress"));
 					MatchInfo->SetLobbyMatchState(ELobbyMatchState::Recycling);
@@ -530,30 +530,17 @@ void AUTLobbyGameState::GameInstance_Ready(uint32 InGameInstanceID, FGuid GameIn
 	}
 }
 
-void AUTLobbyGameState::GameInstance_MatchUpdate(uint32 InGameInstanceID, const FString& Update)
+void AUTLobbyGameState::GameInstance_MatchUpdate(uint32 InGameInstanceID, const FMatchUpdate& MatchUpdate)
 {
 	for (int32 i = 0; i < GameInstances.Num(); i++)
 	{
 		if (GameInstances[i].MatchInfo->GameInstanceID == InGameInstanceID)
 		{
-			GameInstances[i].MatchInfo->SetMatchStats(Update);
+			GameInstances[i].MatchInfo->ProcessMatchUpdate(MatchUpdate);
 			break;
 		}
 	}
 }
-
-void AUTLobbyGameState::GameInstance_MatchBadgeUpdate(uint32 InGameInstanceID, const FString& Update)
-{
-	for (int32 i = 0; i < GameInstances.Num(); i++)
-	{
-		if (GameInstances[i].MatchInfo->GameInstanceID == InGameInstanceID)
-		{
-			GameInstances[i].MatchInfo->MatchBadge = Update;
-			break;
-		}
-	}
-}
-
 
 void AUTLobbyGameState::GameInstance_PlayerUpdate(uint32 InGameInstanceID, FUniqueNetIdRepl PlayerID, const FString& PlayerName, int32 PlayerScore, bool bSpectator, uint8 TeamNum, bool bLastUpdate, int32 PlayerRank, FName Avatar)
 {
@@ -600,7 +587,7 @@ void AUTLobbyGameState::GameInstance_PlayerUpdate(uint32 InGameInstanceID, FUniq
 }
 
 
-void AUTLobbyGameState::GameInstance_EndGame(uint32 InGameInstanceID, const FString& FinalUpdate)
+void AUTLobbyGameState::GameInstance_EndGame(uint32 InGameInstanceID, const FMatchUpdate& FinalMatchUpdate)
 {
 	AUTLobbyGameMode* GM = GetWorld()->GetAuthGameMode<AUTLobbyGameMode>();
 	if (GM)
@@ -611,7 +598,7 @@ void AUTLobbyGameState::GameInstance_EndGame(uint32 InGameInstanceID, const FStr
 		{
 			if (GameInstances[i].MatchInfo->GameInstanceID == InGameInstanceID)
 			{
-				GameInstances[i].MatchInfo->MatchStats= FinalUpdate;
+				GameInstances[i].MatchInfo->ProcessMatchUpdate(FinalMatchUpdate);
 				break;
 			}
 		}
@@ -852,7 +839,7 @@ AUTReplicatedMapInfo* AUTLobbyGameState::CreateMapInfo(const FAssetData& MapAsse
 }
 
 
-void AUTLobbyGameState::AuthorizeDedicatedInstance(AUTServerBeaconLobbyClient* Beacon, FGuid InstanceGUID, const FString& HubKey, const FString& ServerName)
+void AUTLobbyGameState::AuthorizeDedicatedInstance(AUTServerBeaconLobbyClient* Beacon, FGuid InstanceGUID, const FString& HubKey, const FString& ServerName, const FString& ServerGameMode, const FString& ServerDescription, int32 MaxPlayers, bool bTeamGame)
 {
 	// Look through the current matches to see if this key is in use
 
@@ -881,29 +868,44 @@ void AUTLobbyGameState::AuthorizeDedicatedInstance(AUTServerBeaconLobbyClient* B
 		{
 			UE_LOG(UT,Verbose,TEXT("... Adding Instance"),*AccessKeys[i], *HubKey);
 			// Yes.. take the key and build a dedicated instance.
-			if ( AddDedicatedInstance(InstanceGUID, HubKey, ServerName) )
+
+			if ( AddDedicatedInstance(InstanceGUID, HubKey, ServerName, ServerGameMode, ServerDescription, MaxPlayers, bTeamGame) )
 			{
 				UE_LOG(UT,Verbose,TEXT("... !!! Authorized !!!"),*AccessKeys[i], *HubKey);
 				// authorize the instance and pass my ServerInstanceGUID
-				Beacon->AuthorizeDedicatedInstance(HubGuid);
+				Beacon->AuthorizeDedicatedInstance(HubGuid, GameInstanceID);
 			}
 			break;
 		}
 	}
 }
 
-bool AUTLobbyGameState::AddDedicatedInstance(FGuid InstanceGUID, const FString& AccessKey, const FString& ServerName)
+bool AUTLobbyGameState::AddDedicatedInstance(FGuid InstanceGUID, const FString& AccessKey, const FString& ServerName, const FString& ServerGameMode, const FString& ServerDescription, int32 MaxPlayers, bool bTeamGame)
 {
 	// Create the Match info...
 	AUTLobbyMatchInfo* NewMatchInfo = GetWorld()->SpawnActor<AUTLobbyMatchInfo>();
 	if (NewMatchInfo)
 	{	
+		GameInstanceID++;
+		if (GameInstanceID == 0) GameInstanceID = 1;	// Always skip 0.
+
+
+		UE_LOG(UT,Verbose,TEXT("... Creating Dedicated Instance data for InstanceId %i"), GameInstanceID)
+
 		AvailableMatches.Add(NewMatchInfo);
+		GameInstances.Add(FGameInstanceData(NewMatchInfo, 7777));
+
+		NewMatchInfo->GameInstanceID = GameInstanceID;
 		NewMatchInfo->SetSettings(this, NULL);
 		NewMatchInfo->bDedicatedMatch = true;
 		NewMatchInfo->AccessKey = AccessKey;
 		NewMatchInfo->DedicatedServerName = ServerName;
+		NewMatchInfo->DedicatedServerGameMode = ServerGameMode;
+		NewMatchInfo->DedicatedServerDescription = ServerDescription;
+		NewMatchInfo->DedicatedServerMaxPlayers = MaxPlayers;
+		NewMatchInfo->bDedicatedTeamGame = bTeamGame;
 		NewMatchInfo->GameInstanceGUID = InstanceGUID.ToString();
+		NewMatchInfo->ServerSetLobbyMatchState(ELobbyMatchState::InProgress);
 		return true;
 	}			
 
@@ -939,17 +941,17 @@ void AUTLobbyGameState::HandleQuickplayRequest(AUTServerBeaconClient* Beacon, co
 	{
 		UE_LOG(UT,Verbose,TEXT("Checking Instance for joinability: %i %i %i vs %i [%s]"), GameInstances[i].MatchInfo->bQuickPlayMatch, GameInstances[i].MatchInfo->IsMatchofType(MatchType), GameInstances[i].MatchInfo->AverageRank, ELORank, ( GameInstances[i].MatchInfo->CurrentState == ELobbyMatchState::InProgress ? TEXT("InProgress") : TEXT("Not in Progress")));
 
-		if (GameInstances[i].MatchInfo && GameInstances[i].MatchInfo->IsMatchofType(MatchType) && 
+		if (GameInstances[i].MatchInfo && GameInstances[i].MatchInfo->IsMatchofType(MatchType) && !GameInstances[i].MatchInfo->bDedicatedMatch && 
 				(GameInstances[i].MatchInfo->CurrentState == ELobbyMatchState::Launching || GameInstances[i].MatchInfo->CurrentState == ELobbyMatchState::InProgress))
 		{
 			// We have found a potential quick play match.  See if this player could be added to it.
 			if (bTrainingGround || GameInstances[i].MatchInfo->CanAddPlayer(ELORank, true))
 			{
 				// Only pick from instances that are not full
+
 				if (GameInstances[i].MatchInfo->PlayersInMatchInstance.Num() < GameInstances[i].MatchInfo->CurrentRuleset->MaxPlayers)
 				{
 					// If we have already found a possibly good match, look to see if this one is better.
-
 					if (BestInstanceIndex >= 0)
 					{
 						if ( (GameInstances[i].MatchInfo->CurrentState == ELobbyMatchState::InProgress && GameInstances[BestInstanceIndex].MatchInfo->CurrentState == ELobbyMatchState::Launching) ||

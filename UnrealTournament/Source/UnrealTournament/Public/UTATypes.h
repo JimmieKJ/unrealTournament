@@ -687,6 +687,37 @@ struct FMatchPlayerListCompare
 
 
 USTRUCT()
+struct FMatchUpdate
+{
+	GENERATED_USTRUCT_BODY()
+
+	// The current game time of this last update
+	UPROPERTY()
+	float GameTime;
+
+	// # of players in this match
+	UPROPERTY()
+	int32 NumPlayers;
+
+	// # of spectators in this match
+	UPROPERTY()
+	int32 NumSpectators;
+
+	// Team Scores.. non-team games will be 0 entries
+	UPROPERTY()
+	TArray<int32> TeamScores;
+
+	FMatchUpdate()
+	{
+		GameTime = 0.0f;
+		NumPlayers = 0;
+		NumSpectators = 0;
+		TeamScores.Empty();
+	}
+
+};
+
+USTRUCT()
 struct FServerInstanceData 
 {
 	GENERATED_USTRUCT_BODY()
@@ -728,6 +759,9 @@ struct FServerInstanceData
 
 	UPROPERTY()
 	FString Score;
+
+	UPROPERTY()
+	FMatchUpdate MatchUpdate;
 
 	UPROPERTY(NotReplicated)
 	TArray<FMatchPlayerListStruct> Players;

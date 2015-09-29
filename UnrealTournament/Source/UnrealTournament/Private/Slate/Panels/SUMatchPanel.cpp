@@ -563,6 +563,9 @@ TSharedRef<SWidget> SUMatchPanel::OnGetPopupContent(TSharedPtr<SUTPopOverAnchor>
 	TArray<FMatchPlayerListStruct> ColumnB;
 	FString Spectators;
 
+	TArray<int32> Scores;
+	float GameTime = 0.0f;
+
 	// Holds a list of mutators running on this map.
 	FString RulesList = TEXT("");
 
@@ -629,6 +632,9 @@ TSharedRef<SWidget> SUMatchPanel::OnGetPopupContent(TSharedPtr<SUTPopOverAnchor>
 			}
 			bTeamGame = Instance->bTeamGame;
 			RulesList = Instance->MutatorList;
+	
+			Scores = Instance->MatchUpdate.TeamScores;
+			GameTime = Instance->MatchUpdate.GameTime;
 		}
 	}
 	else
@@ -638,84 +644,91 @@ TSharedRef<SWidget> SUMatchPanel::OnGetPopupContent(TSharedPtr<SUTPopOverAnchor>
 			AUTLobbyMatchInfo* MatchInfo = Cast<AUTLobbyMatchInfo>(Anchor->AssociatedActor.Get());
 			if (MatchInfo)
 			{
+				MatchInfo->FillPlayerColumnsForDisplay(ColumnA, ColumnB, Spectators);
 				if (MatchInfo->CurrentRuleset.IsValid())
 				{
-					MatchInfo->FillPlayerColumnsForDisplay(ColumnA, ColumnB, Spectators);
 					bTeamGame = MatchInfo->CurrentRuleset->bTeamGame;
 					RulesList = MatchInfo->CurrentRuleset->Description;
 				}
+				else if (MatchInfo->bDedicatedMatch)
+				{
+					bTeamGame = MatchInfo->bDedicatedTeamGame;
+					RulesList = MatchInfo->DedicatedServerDescription;
+				}
+
+				Scores = MatchInfo->MatchUpdate.TeamScores;
+				GameTime = MatchInfo->MatchUpdate.GameTime;
 			}
 		}
 	}
 
 	// Generate a info widget from the UTLobbyMatchInfo
 
-
 	int32 Max = FMath::Max<int32>(ColumnA.Num(), ColumnB.Num());
 
 	// First we add the player list...
 
+	if (bTeamGame)
+	{
+		VertBox->AddSlot()
+		.Padding(0.0,0.0,0.0,5.0)
+		[
+			SNew(SHorizontalBox)
+			+SHorizontalBox::Slot()
+			.Padding(0.0,0.0,5.0,0.0)
+			.AutoWidth()
+			[
+				SNew(SBox).WidthOverride(200)
+				[
+					SNew(SVerticalBox)
+					+SVerticalBox::Slot().HAlign(HAlign_Left).AutoHeight().Padding(5.0f,0.0f,0.0f,0.0f)
+					[
+						SNew(STextBlock)
+						.Text(NSLOCTEXT("SUMatchPanel","RedTeam","Red Team"))
+						.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Tiny.Bold")
+					]
+				]
+			]
+			+SHorizontalBox::Slot()
+			.Padding(5.0,0.0,0.0,0.0)
+			.AutoWidth()
+			.HAlign(HAlign_Right)
+			[
+				SNew(SBox).WidthOverride(200)
+				[
+					SNew(SVerticalBox)
+					+SVerticalBox::Slot().HAlign(HAlign_Right).AutoHeight().Padding(0.0f,0.0f,5.0f,0.0f)
+					[
+						SNew(STextBlock)
+						.Text(NSLOCTEXT("SUMatchPanel","BlueTeam","Blue Team"))
+						.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Tiny.Bold")
+					]
+				]
+			]
+		];
+	}
+	else
+	{
+		VertBox->AddSlot()
+		.Padding(0.0,0.0,0.0,5.0)
+		.HAlign(HAlign_Center)
+		.AutoHeight()
+		[
+			SNew(STextBlock)
+			.Text(NSLOCTEXT("SUMatchPanel","Players","Players in Match"))
+			.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Tiny.Bold")
+		];
+	}
+
+	TSharedPtr<SBox> ListBox;
+	TSharedPtr<SVerticalBox> ListVBox;
+	SAssignNew(ListBox, SBox).MinDesiredHeight(150)
+	[
+		SAssignNew(ListVBox, SVerticalBox)				
+	];
+
 	if (Max > 0)
 	{
-		if (bTeamGame)
-		{
-			VertBox->AddSlot()
-			.Padding(0.0,0.0,0.0,5.0)
-			[
-				SNew(SHorizontalBox)
-				+SHorizontalBox::Slot()
-				.Padding(0.0,0.0,5.0,0.0)
-				.AutoWidth()
-				[
-					SNew(SBox).WidthOverride(200)
-					[
-						SNew(SVerticalBox)
-						+SVerticalBox::Slot().HAlign(HAlign_Left).AutoHeight().Padding(5.0f,0.0f,0.0f,0.0f)
-						[
-							SNew(STextBlock)
-							.Text(NSLOCTEXT("SUMatchPanel","RedTeam","Red Team"))
-							.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Tiny.Bold")
-						]
-					]
-				]
-				+SHorizontalBox::Slot()
-				.Padding(5.0,0.0,0.0,0.0)
-				.AutoWidth()
-				.HAlign(HAlign_Right)
-				[
-					SNew(SBox).WidthOverride(200)
-					[
-						SNew(SVerticalBox)
-						+SVerticalBox::Slot().HAlign(HAlign_Right).AutoHeight().Padding(0.0f,0.0f,5.0f,0.0f)
-						[
-							SNew(STextBlock)
-							.Text(NSLOCTEXT("SUMatchPanel","BlueTeam","Blue Team"))
-							.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Tiny.Bold")
-						]
-					]
-				]
-			];
-		}
-		else
-		{
-			VertBox->AddSlot()
-			.Padding(0.0,0.0,0.0,5.0)
-			.HAlign(HAlign_Center)
-			.AutoHeight()
-			[
-				SNew(STextBlock)
-				.Text(NSLOCTEXT("SUMatchPanel","Players","Players in Match"))
-				.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Tiny.Bold")
-			];
-		}
-
-		TSharedPtr<SBox> ListBox;
-		TSharedPtr<SVerticalBox> ListVBox;
-		SAssignNew(ListBox, SBox).MinDesiredHeight(150)
-		[
-			SAssignNew(ListVBox, SVerticalBox)				
-		];
-
 		for (int32 i = 0; i < Max; i++)
 		{
 			ListVBox->AddSlot()
@@ -808,70 +821,121 @@ TSharedRef<SWidget> SUMatchPanel::OnGetPopupContent(TSharedPtr<SUTPopOverAnchor>
 				]
 			];
 		}
-
-		VertBox->AddSlot().AutoHeight()
+	}
+	else
+	{
+		ListVBox->AddSlot()
+		.AutoHeight()
+		.Padding(0.0,0.0,0.0,2.0)
 		[
-			ListBox.ToSharedRef()
-		];
-
-		if (!Spectators.IsEmpty())
-		{
-			// Add Spectators
-
-			VertBox->AddSlot()
+			SNew(SHorizontalBox)
+			+SHorizontalBox::Slot()
+			.Padding(0.0,0.0,5.0,0.0)
+			.FillWidth(1.0)
 			.HAlign(HAlign_Center)
-			.Padding(0.0f,10.0f,0.0f,5.0)
 			[
-				SNew(STextBlock)
-				.Text(NSLOCTEXT("SUMatchPanel","Spectators","Spectators"))
-				.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Tiny.Bold")
-			];
-
-			VertBox->AddSlot()
-			.HAlign(HAlign_Center)
-			.Padding(5.0f,0.0f,5.0f,5.0)
-			[
-				SNew(SHorizontalBox)
-				+SHorizontalBox::Slot()
-				.FillWidth(1.0)
+				SNew(SVerticalBox)
+				+SVerticalBox::Slot().HAlign(HAlign_Left).AutoHeight()
+				.Padding(5.0,0.0,0.0,0.0)
 				[
 					SNew(STextBlock)
-					.Text(FText::FromString(Spectators))
-					.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Tiny")
-					.AutoWrapText(true)
+					.Text(NSLOCTEXT("SUMatchPanel","NoPlayers","No one is playing, join now!"))
+					.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small")
 				]
-			];
-		}
+			]
+		];
+	}
 
+	VertBox->AddSlot().AutoHeight()
+	[
+		ListBox.ToSharedRef()
+	];
 
-		if (!RulesList.IsEmpty())
-		{
-			VertBox->AddSlot().AutoHeight().Padding(0.0,0.0,0.0,5.0).HAlign(HAlign_Fill)
+	if (!Spectators.IsEmpty())
+	{
+		// Add Spectators
+
+		VertBox->AddSlot()
+		.HAlign(HAlign_Center)
+		.Padding(0.0f,10.0f,0.0f,5.0)
+		[
+			SNew(STextBlock)
+			.Text(NSLOCTEXT("SUMatchPanel","Spectators","Spectators"))
+			.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Tiny.Bold")
+		];
+
+		VertBox->AddSlot()
+		.HAlign(HAlign_Center)
+		.Padding(5.0f,0.0f,5.0f,5.0)
+		[
+			SNew(SHorizontalBox)
+			+SHorizontalBox::Slot()
+			.FillWidth(1.0)
 			[
-				SNew(SBorder)
-				.BorderImage(SUTStyle::Get().GetBrush("UT.HeaderBackground.SuperLight"))
+				SNew(STextBlock)
+				.Text(FText::FromString(Spectators))
+				.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Tiny")
+				.AutoWrapText(true)
+			]
+		];
+	}
+
+
+	if (Scores.Num() == 2)
+	{
+		FText ScoreText = FText::Format( NSLOCTEXT("SUMatchPanel","ScoreTextFormat","<UT.Font.TeamScore.Red>{0}</> - <UT.Font.TeamScore.Blue>{1}</>"), FText::AsNumber(Scores[0]), FText::AsNumber(Scores[1]) );
+		VertBox->AddSlot()
+		.AutoHeight()
+		.Padding(0.0,10.0,0.0,0.0)
+		.HAlign(HAlign_Center)
+		[
+			SNew(SRichTextBlock)
+			.Text(ScoreText)
+			.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Large")
+			.Justification(ETextJustify::Center)
+			.DecoratorStyleSet(&SUTStyle::Get())
+			.AutoWrapText(false)
+		];
+	}
+
+	VertBox->AddSlot()
+	.Padding(0.0,0.0,0.0,10.0)
+	.AutoHeight()
+	.HAlign(HAlign_Center)
+	[
+		SNew(STextBlock)
+		.Text(UUTGameEngine::ConvertTime(FText::GetEmpty(), FText::GetEmpty(), GameTime, true, true, true))
+		.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
+	];
+
+
+
+	if (!RulesList.IsEmpty())
+	{
+		VertBox->AddSlot().AutoHeight().Padding(0.0,0.0,0.0,5.0).HAlign(HAlign_Fill)
+		[
+			SNew(SBorder)
+			.BorderImage(SUTStyle::Get().GetBrush("UT.HeaderBackground.SuperLight"))
+			[
+				SNew(SVerticalBox)
+				+SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Center)
 				[
-					SNew(SVerticalBox)
-					+SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Center)
-					[
-						SNew(STextBlock)
-						.Text(NSLOCTEXT("SUMatchPanel","RulesTitle","Game Rules"))
-						.TextStyle(SUTStyle::Get(),"UT.Font.NormalText.Tiny.Bold")
-					]
+					SNew(STextBlock)
+					.Text(NSLOCTEXT("SUMatchPanel","RulesTitle","Game Rules"))
+					.TextStyle(SUTStyle::Get(),"UT.Font.NormalText.Tiny.Bold")
 				]
-			];
+			]
+		];
 
-			VertBox->AddSlot().AutoHeight().Padding(5.0,0.0,5.0,5.0)
-			[
-				SNew(SRichTextBlock)
-				.TextStyle(SUTStyle::Get(),"UT.Font.NormalText.Tiny")
-				.Justification(ETextJustify::Left)
-				.DecoratorStyleSet( &SUWindowsStyle::Get() )
-				.AutoWrapText( true )
-				.Text(FText::FromString(RulesList))
-			];
-		}
-
+		VertBox->AddSlot().AutoHeight().Padding(5.0,0.0,5.0,5.0)
+		[
+			SNew(SRichTextBlock)
+			.TextStyle(SUTStyle::Get(),"UT.Font.NormalText.Tiny")
+			.Justification(ETextJustify::Left)
+			.DecoratorStyleSet( &SUWindowsStyle::Get() )
+			.AutoWrapText( true )
+			.Text(FText::FromString(RulesList))
+		];
 	}
 	return VertBox.ToSharedRef();
 

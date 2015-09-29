@@ -98,13 +98,10 @@ public:
 
 	// Holds data about the match.  In matches that are not started yet, it holds the description of the match.  In matches in progress, it's 
 	// replicated data from the instance about the state of the match.  NOTE: Player information is not replicated from the instance to the server here
-	// it's replicated in the PlayersInMatchInstance array.
+	// it's replicated in the PlayersInMatchInstance array.  But this contains important information regarding the match in ?Key=Value form.
 
-	UPROPERTY(Replicated, ReplicatedUsing = OnRep_MatchStats)
-	FString MatchStats;
-
-	UPROPERTY(Replicated)
-	FString MatchBadge;
+	UPROPERTY(Replicated, ReplicatedUsing = OnRep_MatchUpdate)
+	FMatchUpdate MatchUpdate;
 
 	UPROPERTY(Replicated, ReplicatedUsing = OnRep_InitialMap)
 	FString InitialMap;
@@ -229,12 +226,24 @@ public:
 	UPROPERTY(Replicated)
 	bool bDedicatedMatch;
 
+	UPROPERTY(Replicated)
+	bool bDedicatedTeamGame;
+
 	// The Key used to associated this match with a dedicated instance
 	FString AccessKey;
 
 	// The name for this server
 	UPROPERTY(Replicated)
 	FString DedicatedServerName;
+
+	UPROPERTY(Replicated)
+	FString DedicatedServerGameMode;
+
+	UPROPERTY(Replicated)
+	FString DedicatedServerDescription;
+
+	UPROPERTY(Replicated)
+	int32 DedicatedServerMaxPlayers;
 
 	FText GetDebugInfo();
 
@@ -278,12 +287,11 @@ protected:
 	bool CheckLobbyGameState();
 
 	UFUNCTION()
-	virtual void OnRep_MatchStats();
+	virtual void OnRep_MatchUpdate();
 
 	/** return current size of teams for team game */
 	TArray<int32> GetTeamSizes() const;
 public:
-	int32 MatchGameTime;
 
 	// This is called by the host when he has received his owner id and the default ruleset
 	UFUNCTION(Server, Reliable, WithValidation)
@@ -300,7 +308,8 @@ public:
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerSetRules(const FString& RulesetTag, const FString& StartingMap, int32 NewBotSkillLevel);
 
-	virtual void SetMatchStats(FString Update);
+	// Processing an update to the match coming from an instance
+	virtual void ProcessMatchUpdate(const FMatchUpdate& NewMatchUpdate);
 
 	UFUNCTION(Server, Reliable, WithValidation)
 	void ServerCreateCustomRule(const FString& GameMode, const FString& StartingMap, const FString& Description, const TArray<FString>& GameOptions, int32 DesiredSkillLevel, int32 DesiredPlayerCount, bool bTeamGame);

@@ -124,13 +124,7 @@ class UNREALTOURNAMENT_API AUTLobbyGameState : public AUTGameState
 	/**
 	 *	Called when an instance needs to update it's match information
 	 **/
-	void GameInstance_MatchUpdate(uint32 GameInstanceID, const FString& NewDescription);
-
-	/**
-	 *	Called when an instance needs to update it's badge information
-	 **/
-	void GameInstance_MatchBadgeUpdate(uint32 GameInstanceID, const FString& NewDescription);
-
+	void GameInstance_MatchUpdate(uint32 GameInstanceID, const FMatchUpdate& MatchUpdate);
 
 	/**
 	 *	Called when an instance needs to update a player in a match's info
@@ -141,7 +135,7 @@ class UNREALTOURNAMENT_API AUTLobbyGameState : public AUTGameState
 	 *	Called when an instance's game is over.  It this called via GameEnded and doesn't mean any of the
 	 *  players have started to transition back.  But the Panel should no longer allow spectators to join
 	 **/
-	void GameInstance_EndGame(uint32 GameInstanceID, const FString& FinalDescription);
+	void GameInstance_EndGame(uint32 GameInstanceID, const FMatchUpdate& FinalMatchUpdate);
 
 	/**
 	 *	Called when the instance server is ready.  When it is called, the Lobby will kill the server instance.
@@ -219,7 +213,7 @@ public:
 	 **/
 	virtual void GetMapList(const TArray<FString>& AllowedMapPrefixes, TArray<AUTReplicatedMapInfo*>& MapList, bool bUseCache=false);
 
-	virtual void AuthorizeDedicatedInstance(AUTServerBeaconLobbyClient* Beacon, FGuid InstanceGUID, const FString& HubKey, const FString& ServerName);
+	virtual void AuthorizeDedicatedInstance(AUTServerBeaconLobbyClient* Beacon, FGuid InstanceGUID, const FString& HubKey, const FString& ServerName, const FString& ServerGameMode, const FString& ServerDescription, int32 MaxPlayers, bool bTeamGame);
 
 	AUTLobbyMatchInfo* FindMatch(FGuid MatchID);
 
@@ -228,7 +222,7 @@ public:
 	TArray<AUTReplicatedMapInfo*> AllMapsOnServer;
 
 protected:
-	virtual bool AddDedicatedInstance(FGuid InstanceGUID, const FString& AccessKey, const FString& ServerName);
+	virtual bool AddDedicatedInstance(FGuid InstanceGUID, const FString& AccessKey, const FString& ServerName, const FString& ServerGameMode, const FString& ServerDescription, int32 MaxPlayers, bool bTeamGame);
 public:
 	virtual void HandleQuickplayRequest(AUTServerBeaconClient* Beacon, const FString& MatchType, int32 ELORank);
 

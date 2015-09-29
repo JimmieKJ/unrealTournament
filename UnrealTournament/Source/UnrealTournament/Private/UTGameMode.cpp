@@ -1013,7 +1013,7 @@ void AUTGameMode::DefaultTimer()
 	{
 		if (GetWorld()->GetTimeSeconds() - LastLobbyUpdateTime >= 10.0f) // MAKE ME CONIFG!!!!
 		{
-			UpdateLobbyMatchStats(TEXT(""));
+			UpdateLobbyMatchStats();
 		}
 
 		if (!bDedicatedInstance)
@@ -1797,7 +1797,14 @@ void AUTGameMode::EndGame(AUTPlayerState* Winner, FName Reason )
 	if (IsGameInstanceServer() && LobbyBeacon)
 	{
 		FString MatchStats = FString::Printf(TEXT("%i"), GetWorld()->GetGameState()->ElapsedTime);
-		LobbyBeacon->EndGame(MatchStats);
+
+		FMatchUpdate MatchUpdate;
+		MatchUpdate.GameTime = UTGameState->ElapsedTime;
+		MatchUpdate.NumPlayers = NumPlayers;
+		MatchUpdate.NumSpectators = NumSpectators;
+
+		UpdateLobbyScore(MatchUpdate);
+		LobbyBeacon->EndGame(MatchUpdate);
 	}
 
 	SetEndGameFocus(Winner);
@@ -3056,6 +3063,40 @@ void AUTGameMode::GetSeamlessTravelActorList(bool bToEntry, TArray<AActor*>& Act
 	}
 }
 
+FString AUTGameMode::GetGameRulesDescription()
+{
+	TArray<TSharedPtr<TAttributePropertyBase>> MenuProps;
+	TArray<FString> OptionsList;
+	int32 PlayerCount;
+
+	CreateGameURLOptions(MenuProps);
+	GetGameURLOptions(MenuProps, OptionsList, PlayerCount);
+
+	FString Description = FString::Printf(TEXT("A dedicated %s match!"), *DisplayName.ToString());			
+	
+	if (BotFillCount > 0)
+	{
+		OptionsList.Add(FString::Printf(TEXT("Difficulty=%i"), GameDifficulty));
+	}
+
+	FString Mutators = TEXT("");
+	AUTMutator* NextMutator = BaseMutator;
+	while (NextMutator != NULL)
+	{
+		Mutators = Mutators == TEXT("") ? NextMutator->DisplayName.ToString() : TEXT(", ") + NextMutator->DisplayName.ToString();
+		NextMutator = NextMutator->NextMutator;
+	}
+
+	if (Mutators != TEXT("")) OptionsList.Add(FString::Printf(TEXT("Mutators=%s"), *Mutators));
+
+	for (int32 i = 0; i < OptionsList.Num(); i++)
+	{
+		Description += FString::Printf(TEXT("\n%s"), *OptionsList[i]);
+	}
+
+	return Description;
+}
+
 void AUTGameMode::GetGameURLOptions(const TArray<TSharedPtr<TAttributePropertyBase>>& MenuProps, TArray<FString>& OptionsList, int32& DesiredPlayerCount)
 {
 	for (TSharedPtr<TAttributePropertyBase> Prop : MenuProps)
@@ -3407,26 +3448,33 @@ void AUTGameMode::NotifyLobbyGameIsReady()
 {
 	if (IsGameInstanceServer() && LobbyBeacon)
 	{
+		UE_LOG(UT,Verbose,TEXT("Calling Lobby_NotifyInstanceIsReady with %s"), * GetWorld()->GetMapName());
 		LobbyBeacon->Lobby_NotifyInstanceIsReady(LobbyInstanceID, ServerInstanceGUID, GetWorld()->GetMapName());
 	}
 }
 
-void AUTGameMode::UpdateLobbyMatchStats(FString Update)
+void AUTGameMode::UpdateLobbyMatchStats()
 {
 	// Update the players
 
 	UpdateLobbyPlayerList();
-	UpdateLobbyBadge(TEXT(""));
 
 	if (ensure(LobbyBeacon) && UTGameState)
 	{
-		// Add the time remaining command
-		if (Update != TEXT("")) Update += TEXT("?");
-		Update += FString::Printf(TEXT("GameTime=%i"), TimeLimit > 0 ? UTGameState->RemainingTime : UTGameState->ElapsedTime);
-		LobbyBeacon->UpdateMatch(Update);
+		FMatchUpdate MatchUpdate;
+		MatchUpdate.GameTime = TimeLimit > 0 ? UTGameState->RemainingTime : UTGameState->ElapsedTime;
+		MatchUpdate.NumPlayers = NumPlayers;
+		MatchUpdate.NumSpectators = NumSpectators;
+
+		UpdateLobbyScore(MatchUpdate);
+		LobbyBeacon->UpdateMatch(MatchUpdate);
 	}
 
 	LastLobbyUpdateTime = GetWorld()->GetTimeSeconds();
+}
+
+void AUTGameMode::UpdateLobbyScore(FMatchUpdate& MatchUpdate)
+{
 }
 
 void AUTGameMode::UpdateLobbyPlayerList()
@@ -3444,28 +3492,6 @@ void AUTGameMode::UpdateLobbyPlayerList()
 	}
 }
 
-void AUTGameMode::UpdateLobbyBadge(FString BadgeText)
-{
-	if (BadgeText != "") BadgeText += TEXT("\n");
-
-	AUTWorldSettings* WS = Cast<AUTWorldSettings>(GetWorld()->GetWorldSettings());
-	FString MapName = GetWorld()->GetMapName();
-	if (WS)
-	{
-		const UUTLevelSummary* Summary = WS->GetLevelSummary();
-		if ( Summary && Summary->Title != TEXT("") )
-		{
-			MapName = Summary->Title;
-		}
-	}
-
-	BadgeText += FString::Printf(TEXT("<UWindows.Standard.MatchBadge.Small>%s</>\n<UWindows.Standard.MatchBadge.Small>%i Players</>"), *MapName, NumPlayers);
-
-	if (BadgeText != TEXT("") && ensure(LobbyBeacon))
-	{
-		LobbyBeacon->Lobby_UpdateBadge(LobbyInstanceID, BadgeText);
-	}
-}
 
 void AUTGameMode::SendEveryoneBackToLobby()
 {
@@ -3872,11 +3898,16 @@ bool AUTGameMode::PlayerCanAltRestart_Implementation( APlayerController* Player 
 	return PlayerCanRestart(Player);
 }
 
-void AUTGameMode::BecomeDedicatedInstance(FGuid HubGuid)
+void AUTGameMode::BecomeDedicatedInstance(FGuid HubGuid, int32 InstanceID)
 {
 	UTGameState->bIsInstanceServer = true;
+	LobbyInstanceID = InstanceID;
 	UTGameState->HubGuid = HubGuid;
-	UE_LOG(UT,Log,TEXT("Becoming a Dedicated Instance"));
+	bDedicatedInstance = true;
+
+	NotifyLobbyGameIsReady();
+
+	UE_LOG(UT,Verbose,TEXT("Becoming a Dedicated Instance HubGuid=%s InstanceID=%i"), *HubGuid.ToString(), InstanceID);
 }
 
 void AUTGameMode::HandleMapVote()

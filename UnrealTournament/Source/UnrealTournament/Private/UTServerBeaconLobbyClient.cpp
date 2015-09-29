@@ -24,14 +24,18 @@ void AUTServerBeaconLobbyClient::OnConnected()
 {
 	UE_LOG(UT,Verbose,TEXT("Instance %i [%s] has Connected to the hub (%i)"), GameInstanceID, *GameInstanceGUID.ToString(),bDedicatedInstance);
 
+	AUTGameMode* UTGameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
+
 	if (bDedicatedInstance)
 	{
 		UE_LOG(UT,Verbose,TEXT("Becoming a dedicated instances"));
 		AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
-		Lobby_IsDedicatedInstance(GameInstanceGUID, HubKey, GameState ? GameState->ServerName : TEXT("My Instance"));
+		int32 NumPlayers = UTGameMode != NULL ? UTGameMode->GameSession->MaxPlayers : 0;
+		bool bTeamGame = UTGameMode != NULL ? UTGameMode->bTeamGame : false;
+		FString Description = UTGameMode->GetGameRulesDescription();
+		Lobby_IsDedicatedInstance(GameInstanceGUID, HubKey, GameState ? GameState->ServerName : TEXT("My Instance"), UTGameMode->DisplayName.ToString(), Description, NumPlayers, bTeamGame );
 	}
 
-	AUTGameMode* UTGameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
 	if (UTGameMode)
 	{
 		Lobby_PrimeMapList(GameInstanceID);
@@ -54,10 +58,10 @@ void AUTServerBeaconLobbyClient::OnFailure()
 }
 
 
-void AUTServerBeaconLobbyClient::UpdateMatch(FString Update)
+void AUTServerBeaconLobbyClient::UpdateMatch(const FMatchUpdate& MatchUpdate)
 {
-	UE_LOG(UT,Verbose,TEXT("UpdateMatch: Instance %i [%s] Update = %s"), GameInstanceID, *GameInstanceGUID.ToString(), *Update);
-	Lobby_UpdateMatch(GameInstanceID, Update);
+	UE_LOG(UT,Verbose,TEXT("UpdateMatch: Instance %i [%s]"), GameInstanceID, *GameInstanceGUID.ToString());
+	Lobby_UpdateMatch(GameInstanceID, MatchUpdate);
 }
 
 void AUTServerBeaconLobbyClient::UpdatePlayer(FUniqueNetIdRepl PlayerID, const FString& PlayerName, int32 PlayerScore, bool bSpectator, uint8 TeamNum, bool bLastUpdate, int32 PlayerRank, FName Avatar)
@@ -66,10 +70,9 @@ void AUTServerBeaconLobbyClient::UpdatePlayer(FUniqueNetIdRepl PlayerID, const F
 	Lobby_UpdatePlayer(GameInstanceID, PlayerID, PlayerName, PlayerScore, bSpectator, TeamNum, bLastUpdate, PlayerRank, Avatar);
 }
 
-void AUTServerBeaconLobbyClient::EndGame(FString FinalUpdate)
+void AUTServerBeaconLobbyClient::EndGame(const FMatchUpdate& FinalMatchUpdate)
 {
-	UE_LOG(UT,Verbose,TEXT("EndGame: Instance %i [%s] Update = %s"), GameInstanceID, *GameInstanceGUID.ToString(), *FinalUpdate);
-	Lobby_EndGame(GameInstanceID, FinalUpdate);
+	Lobby_EndGame(GameInstanceID, FinalMatchUpdate);
 }
 
 void AUTServerBeaconLobbyClient::Empty()
@@ -98,14 +101,13 @@ void AUTServerBeaconLobbyClient::Lobby_NotifyInstanceIsReady_Implementation(uint
 
 }
 
-bool AUTServerBeaconLobbyClient::Lobby_UpdateMatch_Validate(uint32 InstanceID, const FString& Update) { return true; }
-void AUTServerBeaconLobbyClient::Lobby_UpdateMatch_Implementation(uint32 InstanceID, const FString& Update)
+bool AUTServerBeaconLobbyClient::Lobby_UpdateMatch_Validate(uint32 InstanceID, const FMatchUpdate& MatchUpdate) { return true; }
+void AUTServerBeaconLobbyClient::Lobby_UpdateMatch_Implementation(uint32 InstanceID, const FMatchUpdate& MatchUpdate)
 {
-	UE_LOG(UT,Verbose,TEXT("[HUB] UpdateMatch: Instance %i Update = %s"), InstanceID, *Update);
 	AUTLobbyGameState* LobbyGameState = GetWorld()->GetGameState<AUTLobbyGameState>();
 	if (LobbyGameState)
 	{
-		LobbyGameState->GameInstance_MatchUpdate(InstanceID, Update);
+		LobbyGameState->GameInstance_MatchUpdate(InstanceID, MatchUpdate);
 	}
 }
 
@@ -123,14 +125,13 @@ void AUTServerBeaconLobbyClient::Lobby_UpdatePlayer_Implementation(uint32 Instan
 
 
 
-bool AUTServerBeaconLobbyClient::Lobby_EndGame_Validate(uint32 InstanceID, const FString& FinalDescription) { return true; }
-void AUTServerBeaconLobbyClient::Lobby_EndGame_Implementation(uint32 InstanceID, const FString& FinalDescription)
+bool AUTServerBeaconLobbyClient::Lobby_EndGame_Validate(uint32 InstanceID, const FMatchUpdate& FinalMatchUpdate) { return true; }
+void AUTServerBeaconLobbyClient::Lobby_EndGame_Implementation(uint32 InstanceID, const FMatchUpdate& FinalMatchUpdate)
 {
-	UE_LOG(UT,Verbose,TEXT("[HUB] EndGame: Instance %i FinalUpdate = %s"), InstanceID, *FinalDescription);
 	AUTLobbyGameState* LobbyGameState = GetWorld()->GetGameState<AUTLobbyGameState>();
 	if (LobbyGameState)
 	{
-		LobbyGameState->GameInstance_EndGame(InstanceID,FinalDescription);
+		LobbyGameState->GameInstance_EndGame(InstanceID,FinalMatchUpdate);
 	}
 }
 
@@ -147,35 +148,25 @@ void AUTServerBeaconLobbyClient::Lobby_InstanceEmpty_Implementation(uint32 Insta
 }
 
 
-bool AUTServerBeaconLobbyClient::Lobby_UpdateBadge_Validate(uint32 InstanceID, const FString& Update) { return true; }
-void AUTServerBeaconLobbyClient::Lobby_UpdateBadge_Implementation(uint32 InstanceID, const FString& Update)
-{
-	UE_LOG(UT,Verbose,TEXT("[HUB] UpdateBadge: Instance %i Update = %s"), InstanceID, *Update);
-	AUTLobbyGameState* LobbyGameState = GetWorld()->GetGameState<AUTLobbyGameState>();
-	if (LobbyGameState)
-	{
-		LobbyGameState->GameInstance_MatchBadgeUpdate(InstanceID, Update);
-	}
-}
-
-bool AUTServerBeaconLobbyClient::Lobby_IsDedicatedInstance_Validate(FGuid InstanceGUID, const FString& InHubKey, const FString& ServerName) { return true; }
-void AUTServerBeaconLobbyClient::Lobby_IsDedicatedInstance_Implementation(FGuid InstanceGUID, const FString& InHubKey, const FString& ServerName)
+bool AUTServerBeaconLobbyClient::Lobby_IsDedicatedInstance_Validate(FGuid InstanceGUID, const FString& InHubKey, const FString& ServerName, const FString& ServerGameMode, const FString& ServerDescription, int32 MaxPlayers, bool bTeamGame) { return true; }
+void AUTServerBeaconLobbyClient::Lobby_IsDedicatedInstance_Implementation(FGuid InstanceGUID, const FString& InHubKey, const FString& ServerName, const FString& ServerGameMode, const FString& ServerDescription,  int32 MaxPlayers, bool bTeamGame)
 {
 	UE_LOG(UT, Verbose, TEXT("Dedicated Instance (%s) requesting authorization with key %s"), *ServerName, *InHubKey);
 	AUTLobbyGameState* LobbyGameState = GetWorld()->GetGameState<AUTLobbyGameState>();
 	if (LobbyGameState)
 	{
-		LobbyGameState->AuthorizeDedicatedInstance(this, InstanceGUID, InHubKey, ServerName);
+		LobbyGameState->AuthorizeDedicatedInstance(this, InstanceGUID, InHubKey, ServerName, ServerGameMode, ServerDescription, MaxPlayers, bTeamGame);
 	}
 }
 
-void AUTServerBeaconLobbyClient::AuthorizeDedicatedInstance_Implementation(FGuid HubGuid)
+void AUTServerBeaconLobbyClient::AuthorizeDedicatedInstance_Implementation(FGuid HubGuid, int32 InstanceID)
 {
-	UE_LOG(UT, Verbose, TEXT("This server has been authorized as a dedicated instance!"));
+	UE_LOG(UT, Verbose, TEXT("This server has been authorized as a dedicated instance with id: %i!"), InstanceID);
 	AUTGameMode* CurrentGameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
 	if (CurrentGameMode)
 	{
-		CurrentGameMode->BecomeDedicatedInstance(HubGuid);
+		GameInstanceID = InstanceID;
+		CurrentGameMode->BecomeDedicatedInstance(HubGuid, InstanceID);
 	}
 }
 

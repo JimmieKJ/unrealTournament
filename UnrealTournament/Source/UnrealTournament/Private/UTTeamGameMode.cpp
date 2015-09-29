@@ -757,13 +757,10 @@ void AUTTeamGameMode::FindAndMarkHighScorer()
 	}
 }
 
-void AUTTeamGameMode::UpdateLobbyBadge(FString BadgeText)
+void AUTTeamGameMode::UpdateLobbyScore(FMatchUpdate& MatchUpdate)
 {
-	TArray<int32> Scores;
-	Scores.Add( UTGameState->Teams.Num() > 0 ? UTGameState->Teams[0]->Score : 0);
-	Scores.Add( UTGameState->Teams.Num() > 1 ? UTGameState->Teams[1]->Score : 0);
-
-	if (BadgeText != TEXT("")) BadgeText += TEXT("\n");
-	BadgeText += FString::Printf(TEXT("<UWindows.Standard.MatchBadge.Red>%i</><UWindows.Standard.MatchBadge> - </><UWindows.Standard.MatchBadge.Blue>%i</>"), Scores[0], Scores[1]);
-	Super::UpdateLobbyBadge(BadgeText);
+	for (int32 i = 0; i < UTGameState->Teams.Num(); i++)
+	{
+		MatchUpdate.TeamScores.Add(UTGameState->Teams[i]->Score);
+	}
 }
