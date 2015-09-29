@@ -89,6 +89,11 @@ bool UUTCTFGameMessage::InterruptAnnouncement_Implementation(int32 Switch, const
 	return false;
 }
 
+float UUTCTFGameMessage::GetAnnouncementSpacing_Implementation(int32 Switch, const UObject* OptionalObject) const
+{
+	return 0.1f;
+}
+
 bool UUTCTFGameMessage::CancelByAnnouncement_Implementation(int32 Switch, const UObject* OptionalObject, TSubclassOf<UUTLocalMessage> OtherMessageClass, int32 OtherSwitch, const UObject* OtherOptionalObject) const
 {
 	if ((Switch == 2) || (Switch == 8) || (Switch == 9) || (Switch == 10))

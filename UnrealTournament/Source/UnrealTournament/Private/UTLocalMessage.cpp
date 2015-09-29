@@ -168,6 +168,11 @@ FName UUTLocalMessage::GetAnnouncementName_Implementation(int32 Switch, const UO
 	return NAME_None;
 }
 
+float UUTLocalMessage::GetAnnouncementSpacing_Implementation(int32 Switch, const UObject* OptionalObject) const
+{
+	return 0.2f;
+}
+
 USoundBase* UUTLocalMessage::GetAnnouncementSound_Implementation(int32 Switch, const UObject* OptionalObject) const
 {
 	return NULL;

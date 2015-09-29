@@ -65,6 +65,10 @@ class UNREALTOURNAMENT_API UUTLocalMessage : public ULocalMessage
 	UFUNCTION(BlueprintNativeEvent)
 	FText ResolveMessage(int32 Switch = 0, bool bTargetsPlayerState1 = false, class APlayerState* RelatedPlayerState_1 = NULL, class APlayerState* RelatedPlayerState_2 = NULL, class UObject* OptionalObject = NULL) const;
 
+	/** return the spacing to wait before playing this announcement if directly following another announcement. */
+	UFUNCTION(BlueprintNativeEvent)
+		float GetAnnouncementSpacing(int32 Switch, const UObject* OptionalObject) const;
+
 	/** return the name of announcement to play for this message (if any); UTAnnouncer will map to an actual sound */
 	UFUNCTION(BlueprintNativeEvent)
 	FName GetAnnouncementName(int32 Switch, const UObject* OptionalObject) const;

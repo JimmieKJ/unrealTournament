@@ -9,7 +9,7 @@ UUTAnnouncer::UUTAnnouncer(const FObjectInitializer& ObjectInitializer)
 	AnnouncementComp = ObjectInitializer.CreateDefaultSubobject<UAudioComponent>(this, TEXT("AnnouncementComp"));
 	AnnouncementComp->OnAudioFinished.AddDynamic(this, &UUTAnnouncer::AnnouncementFinished);
 
-	Spacing = 0.25f;
+	Spacing = 0.2f;
 }
 
 void UUTAnnouncer::PostInitProperties()
@@ -105,7 +105,13 @@ void UUTAnnouncer::AnnouncementFinished()
 {
 	ReactionAnnouncement = (CurrentAnnouncement.MessageClass && CurrentAnnouncement.MessageClass.GetDefaultObject()->bWantsBotReaction) ? CurrentAnnouncement : FAnnouncementInfo();
 	CurrentAnnouncement = FAnnouncementInfo();
-	GetWorld()->GetTimerManager().SetTimer(PlayNextAnnouncementHandle, this, &UUTAnnouncer::PlayNextAnnouncement, Spacing, false);
+	float AnnouncementDelay = Spacing;
+	if (QueuedAnnouncements.Num() > 0)
+	{
+		FAnnouncementInfo Next = QueuedAnnouncements[0];
+		AnnouncementDelay = Next.MessageClass.GetDefaultObject()->GetAnnouncementSpacing(Next.Switch, Next.OptionalObject);
+	}
+	GetWorld()->GetTimerManager().SetTimer(PlayNextAnnouncementHandle, this, &UUTAnnouncer::PlayNextAnnouncement, AnnouncementDelay, false);
 }
 
 void UUTAnnouncer::PlayNextAnnouncement()
