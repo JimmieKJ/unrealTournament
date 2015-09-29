@@ -131,6 +131,19 @@ bool AUTImpactEffect::ComponentCreated_Implementation(USceneComponent* NewComp, 
 			((UParticleSystemComponent*)Prim)->bAutoDestroy = true;
 			((UParticleSystemComponent*)Prim)->SecondsBeforeInactive = 0.0f;
 			((UParticleSystemComponent*)Prim)->InstanceParameters += EffectParams.ParticleParams;
+
+			UUTGameUserSettings* UserSettings = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
+			Scalability::FQualityLevels QualitySettings = UserSettings->ScalabilityQuality;
+			if ((QualitySettings.EffectsQuality < 2) && !Cast<APlayerController>(InstigatedBy))
+			{
+				for (int32 Idx = 0; Idx < ((UParticleSystemComponent*)Prim)->EmitterInstances.Num(); Idx++)
+				{
+					if (((UParticleSystemComponent*)Prim)->EmitterInstances[Idx])
+					{
+						((UParticleSystemComponent*)Prim)->EmitterInstances[Idx]->LightDataOffset = 0;
+					}
+				}
+			}
 		}
 		else if (Prim->IsA(UAudioComponent::StaticClass()))
 		{

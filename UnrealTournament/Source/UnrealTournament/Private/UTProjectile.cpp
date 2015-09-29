@@ -85,13 +85,6 @@ AUTProjectile::AUTProjectile(const class FObjectInitializer& ObjectInitializer)
 	StatsHitCredit = 1.f;
 }
 
-bool AUTProjectile::DisableEmitterLights() const 
-{ 
-	UUTGameUserSettings* UserSettings = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
-	Scalability::FQualityLevels QualitySettings = UserSettings->ScalabilityQuality;
-	return (bLowPriorityLight || (QualitySettings.EffectsQuality < 2)) && Instigator && (!Instigator->IsLocallyControlled() || !Cast<APlayerController>(Instigator->GetController()));
-}
-
 void AUTProjectile::PreInitializeComponents()
 {
 	// FIXME: engine bug with blueprints and C++ delegate assignments
@@ -150,6 +143,12 @@ void AUTProjectile::PreInitializeComponents()
 	}*/
 }
 
+bool AUTProjectile::DisableEmitterLights() const
+{
+	UUTGameUserSettings* UserSettings = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
+	Scalability::FQualityLevels QualitySettings = UserSettings->ScalabilityQuality;
+	return (bLowPriorityLight || (QualitySettings.EffectsQuality < 2)) && Instigator && !Cast<APlayerController>(Instigator->GetController());
+}
 
 void AUTProjectile::OnRep_Instigator()
 {
