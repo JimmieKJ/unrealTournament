@@ -663,7 +663,8 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	}
 
 	/** Return true if needs HUD ammo display widget drawn. */
-	virtual bool NeedsAmmoDisplay() const;
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, BlueprintCosmetic, Category = HUD)
+	bool NeedsAmmoDisplay() const;
 
 	/** returns crosshair color taking into account user settings, red flash on hit, etc */
 	UFUNCTION(BlueprintCallable, Category = Weapon)

@@ -984,7 +984,7 @@ bool AUTWeapon::HasAmmo(uint8 FireModeNum)
 	return (AmmoCost.IsValidIndex(FireModeNum) && Ammo >= AmmoCost[FireModeNum]);
 }
 
-bool AUTWeapon::NeedsAmmoDisplay() const
+bool AUTWeapon::NeedsAmmoDisplay_Implementation() const
 {
 	for (int32 i = GetNumFireModes() - 1; i >= 0; i--)
 	{

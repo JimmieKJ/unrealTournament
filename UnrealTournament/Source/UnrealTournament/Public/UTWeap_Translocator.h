@@ -81,7 +81,7 @@ class UNREALTOURNAMENT_API AUTWeap_Translocator : public AUTWeapon
 		return true;
 	}
 
-	virtual bool NeedsAmmoDisplay() const override
+	virtual bool NeedsAmmoDisplay_Implementation() const override
 	{
 		return false;
 	}
