@@ -99,9 +99,6 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 	int32 PlayersNeeded;
 
 	UPROPERTY(Replicated)
-	uint32 bOnlyTheStrongSurvive:1;
-
-	UPROPERTY(Replicated)
 	uint32 bViewKillerOnDeath:1;
 
 	/** How much time is remaining in this match. */

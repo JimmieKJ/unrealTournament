@@ -19,13 +19,6 @@ AUTTeamDMGameMode::AUTTeamDMGameMode(const FObjectInitializer& ObjectInitializer
 	XPMultiplier = 3.0f;
 }
 
-void AUTTeamDMGameMode::InitGame( const FString& MapName, const FString& Options, FString& ErrorMessage )
-{
-	Super::InitGame(MapName, Options, ErrorMessage);
-	bOnlyTheStrongSurvive = false;
-}
-
-
 void AUTTeamDMGameMode::ScoreTeamKill_Implementation(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType)
 {
 	AUTPlayerState* KillerState = (Killer != NULL) ? Cast<AUTPlayerState>(Killer->PlayerState) : NULL;

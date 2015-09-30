@@ -25,7 +25,6 @@ AUTDuelGame::AUTDuelGame(const class FObjectInitializer& ObjectInitializer)
 	bHighScorerPerTeamBasis = false;
 	bHasRespawnChoices = true;
 	bWeaponStayActive = false;
-	bOnlyTheStrongSurvive = false;
 	bNoDefaultLeaderHat = true;
 	XPMultiplier = 7.0f;
 	SquadType = AUTDuelSquadAI::StaticClass();

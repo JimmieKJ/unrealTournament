@@ -80,7 +80,6 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	bHasRespawnChoices = false;
 	MinPlayersToStart = 2;
 	MaxWaitForPlayers = 90.f;
-	bOnlyTheStrongSurvive = false;
 	EndScoreboardDelay = 4.f;
 	MainScoreboardDisplayTime = 5.f;
 	ScoringPlaysDisplayTime = 0.f; 
@@ -203,9 +202,6 @@ void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FStr
 	HostLobbyListenPort = GetIntOption(Options, TEXT("HostPort"), 14000);
 	FString InOpt = ParseOption(Options, TEXT("ForceRespawn"));
 	bForceRespawn = EvalBoolOptions(InOpt, bForceRespawn);
-
-	InOpt = ParseOption(Options, TEXT("OnlyStrong"));
-	bOnlyTheStrongSurvive = EvalBoolOptions(InOpt, bOnlyTheStrongSurvive);
 
 	MaxWaitForPlayers = GetIntOption(Options, TEXT("MaxPlayerWait"), MaxWaitForPlayers);
 	MaxReadyWaitTime = GetIntOption(Options, TEXT("MaxReadyWait"), MaxReadyWaitTime);
@@ -1164,11 +1160,6 @@ void AUTGameMode::Killed(AController* Killer, AController* KilledPlayer, APawn* 
 		}
 
 		DiscardInventory(KilledPawn, Killer);
-
-		if (UTGameState->IsMatchInOvertime() && UTGameState->bOnlyTheStrongSurvive)
-		{
-			KilledPlayer->ChangeState(NAME_Spectating);
-		}
 	}
 	NotifyKilled(Killer, KilledPlayer, KilledPawn, DamageType);
 }
@@ -2652,82 +2643,6 @@ void AUTGameMode::HandleMatchHasEnded()
 
 void AUTGameMode::HandleEnteringOvertime()
 {
-	if (bOnlyTheStrongSurvive)
-	{
-		// We are entering overtime, kill off anyone not at the top of the leader board....
-
-		AUTPlayerState* BestPlayer = NULL;
-		AUTPlayerState* KillPlayer = NULL;
-		float BestScore = 0.0;
-
-		for (int32 PlayerIdx = 0; PlayerIdx < UTGameState->PlayerArray.Num(); PlayerIdx++)
-		{
-			if (UTGameState->PlayerArray[PlayerIdx] != NULL)
-			{
-				if (BestPlayer == NULL || UTGameState->PlayerArray[PlayerIdx]->Score > BestScore)
-				{
-					if (BestPlayer != NULL)
-					{
-						KillPlayer = BestPlayer;
-					}
-					BestPlayer = Cast<AUTPlayerState>(UTGameState->PlayerArray[PlayerIdx]);
-					BestScore = BestPlayer->Score;
-				}
-				else if (UTGameState->PlayerArray[PlayerIdx]->Score < BestScore)
-				{
-					KillPlayer = Cast<AUTPlayerState>(UTGameState->PlayerArray[PlayerIdx]);
-				}
-			}
-
-			if (KillPlayer != NULL)
-			{
-				// No longer the best.. kill him.. KILL HIM NOW!!!!!
-				AController* COwner = Cast<AController>(KillPlayer->GetOwner());
-				if (COwner != NULL )
-				{
-					if (COwner->GetPawn() != NULL)
-					{
-						AUTCharacter* UTChar = Cast<AUTCharacter>(COwner->GetPawn());
-						if (UTChar != NULL)
-						{
-							//UE_LOG(UT, Log, TEXT("    -- Calling Died"));
-							// Kill off the pawn...
-							UTChar->Died(NULL, FDamageEvent(UUTDamageType::StaticClass()));
-							// Send this character a message/taunt about not making the cut....
-						}
-					}
-
-					// Tell the player they didn't make the cut
-					AUTPlayerController* PC = Cast<AUTPlayerController>(COwner);
-					if (PC)
-					{
-						PC->ClientReceiveLocalizedMessage(UUTGameMessage::StaticClass(), 8);					
-						PC->ChangeState(NAME_Spectating);
-					}
-				}
-				KillPlayer = NULL;
-			}
-		}
-		
-		// force respawn any players that are applicable for overtime but are currently dead
-		if (BestPlayer != NULL)
-		{
-			for (APlayerState* TestPlayer : UTGameState->PlayerArray)
-			{
-				if (TestPlayer->Score == BestPlayer->Score && !TestPlayer->bOnlySpectator)
-				{
-					AController* C = Cast<AController>(TestPlayer->GetOwner());
-					if (C != NULL && C->GetPawn() == NULL)
-					{
-						RestartPlayer(C);
-					}
-				}
-			}
-		}
-
-		UTGameState->bOnlyTheStrongSurvive = true;
-	}
-
 	SetMatchState(MatchState::MatchIsInOvertime);
 }
 
@@ -2975,19 +2890,6 @@ void AUTGameMode::Logout(AController* Exiting)
 		}
 	}
 
-}
-
-bool AUTGameMode::PlayerCanRestart_Implementation( APlayerController* Player )
-{
-	// Can't restart in overtime
-	if (bOnlyTheStrongSurvive && UTGameState->IsMatchInOvertime())
-	{
-		return false;
-	}
-	else
-	{
-		return Super::PlayerCanRestart_Implementation(Player);
-	}
 }
 
 bool AUTGameMode::ModifyDamage_Implementation(int32& Damage, FVector& Momentum, APawn* Injured, AController* InstigatedBy, const FHitResult& HitInfo, AActor* DamageCauser, TSubclassOf<UDamageType> DamageType)
@@ -3355,12 +3257,11 @@ FText AUTGameMode::BuildServerRules(AUTGameState* GameState)
 
 void AUTGameMode::BuildServerResponseRules(FString& OutRules)
 {
-	// TODO: need to rework this so it can be displayed in the clien't local language
+	// TODO: need to rework this so it can be displayed in the client's local language
 	OutRules += FString::Printf(TEXT("Goal Score\t%i\t"), GoalScore);
 	OutRules += FString::Printf(TEXT("Time Limit\t%i\t"), int32(TimeLimit/60.0));
 	OutRules += FString::Printf(TEXT("Allow Overtime\t%s\t"), bAllowOvertime ? TEXT("True") : TEXT("False"));
 	OutRules += FString::Printf(TEXT("Forced Respawn\t%s\t"), bForceRespawn ?  TEXT("True") : TEXT("False"));
-	OutRules += FString::Printf(TEXT("Only The Strong\t%s\t"), bOnlyTheStrongSurvive ? TEXT("True") : TEXT("False"));
 
 	AUTMutator* Mut = BaseMutator;
 	while (Mut)

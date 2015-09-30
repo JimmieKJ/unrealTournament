@@ -78,9 +78,6 @@ void AUTTeamGameMode::InitGame(const FString& MapName, const FString& Options, F
 	}
 
 	MercyScore = FMath::Max(0, GetIntOption(Options, TEXT("MercyScore"), MercyScore));
-
-	// TDM never kills off players going in to overtime
-	bOnlyTheStrongSurvive = false;
 }
 
 void AUTTeamGameMode::InitGameState()

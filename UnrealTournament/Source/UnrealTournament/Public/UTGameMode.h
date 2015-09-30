@@ -124,10 +124,6 @@ public:
 	UPROPERTY(Config, EditDefaultsOnly)
 	bool bForceRespawn;
 
-	/** If true, only those who are tied going in to overtime will be allowed to player - Otherwise everyone will be allowed to fight on until there is a winner */
-	UPROPERTY()
-	bool bOnlyTheStrongSurvive;
-
 	UPROPERTY(EditDefaultsOnly)
 	bool bHasRespawnChoices;
 
@@ -459,7 +455,6 @@ public:
 	virtual void DefaultTimer() override;
 	virtual void CheckGameTime();
 	virtual AUTPlayerState* IsThereAWinner(uint32& bTied);
-	virtual bool PlayerCanRestart_Implementation(APlayerController* Player);
 
 	// Allows gametypes to build their rules settings for the mid game menu.
 	virtual FText BuildServerRules(AUTGameState* GameState);
