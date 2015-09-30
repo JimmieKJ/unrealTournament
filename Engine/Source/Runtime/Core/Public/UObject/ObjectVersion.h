@@ -470,7 +470,7 @@ enum EUnrealEngineObjectUE4Version
 	VER_UE4_OPTIONALLY_CLEAR_GPU_EMITTERS_ON_INIT,
 	// Also store the Material guid with the landscape grass data
 	VER_UE4_SERIALIZE_LANDSCAPE_GRASS_DATA_MATERIAL_GUID,
-	// Make sure that all template components from blueprint generated classes are flagged as public
+	// Make sure that all template components from blueprint generated classes are flagged as public 
 	VER_UE4_BLUEPRINT_GENERATED_CLASS_COMPONENT_TEMPLATES_PUBLIC,
 	// Split out creation method on ActorComponents to distinguish between native, instance, and simple or user construction script
 	VER_UE4_ACTOR_COMPONENT_CREATION_METHOD,
