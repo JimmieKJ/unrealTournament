@@ -24,7 +24,6 @@ AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 	MultiKillDelay = 3.0f;
 	SpawnProtectionTime = 2.f;
 	bWeaponStay = true;
-	bViewKillerOnDeath = true;
 	bAllowTeamSwitches = true;
 	bCasterControl = false;
 	bForcedBalance = false;
@@ -227,7 +226,6 @@ void AUTGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLif
 	DOREPLIFETIME(AUTGameState, RespawnWaitTime);  
 	DOREPLIFETIME_CONDITION(AUTGameState, ForceRespawnTime, COND_InitialOnly);  
 	DOREPLIFETIME_CONDITION(AUTGameState, bTeamGame, COND_InitialOnly);  
-	DOREPLIFETIME_CONDITION(AUTGameState, bViewKillerOnDeath, COND_InitialOnly);
 	DOREPLIFETIME(AUTGameState, TeamSwapSidesOffset);
 	DOREPLIFETIME_CONDITION(AUTGameState, bIsInstanceServer, COND_InitialOnly);
 	DOREPLIFETIME(AUTGameState, PlayersNeeded);  

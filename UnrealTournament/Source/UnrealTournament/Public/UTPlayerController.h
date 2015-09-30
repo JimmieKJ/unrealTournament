@@ -81,9 +81,6 @@ public:
 	virtual void ClientSetLocation_Implementation(FVector NewLocation, FRotator NewRotation) override;
 
 	virtual void BeginInactiveState() override;
-	virtual void EndInactiveState() override;
-	virtual void SpectateKiller();
-	FTimerHandle SpectateKillerHandle;
 
 	virtual void CheckAutoWeaponSwitch(class AUTWeapon* TestWeapon);
 

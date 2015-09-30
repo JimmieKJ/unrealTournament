@@ -98,9 +98,6 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 	UPROPERTY(Replicated)
 	int32 PlayersNeeded;
 
-	UPROPERTY(Replicated)
-	uint32 bViewKillerOnDeath:1;
-
 	/** How much time is remaining in this match. */
 	UPROPERTY(Replicated, ReplicatedUsing = OnRep_RemainingTime, BlueprintReadOnly, Category = GameState)
 	int32 RemainingTime;

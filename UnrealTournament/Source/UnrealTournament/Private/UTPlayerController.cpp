@@ -3122,35 +3122,8 @@ void AUTPlayerController::BeginInactiveState()
 	SetPawn(NULL);
 
 	AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
-
 	float const MinRespawnDelay = GameState ? GameState->RespawnWaitTime : 1.0f;
 	GetWorldTimerManager().SetTimer(TimerHandle_UnFreeze, this, &APlayerController::UnFreeze, MinRespawnDelay);
-	GetWorldTimerManager().SetTimer(SpectateKillerHandle, this, &AUTPlayerController::SpectateKiller, KillerSpectateDelay);
-}
-
-void AUTPlayerController::EndInactiveState()
-{
-	Super::EndInactiveState();
-
-	GetWorldTimerManager().ClearTimer(SpectateKillerHandle);
-}
-
-void AUTPlayerController::SpectateKiller()
-{
-	/*
-	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-	if (GS != nullptr && GS->bViewKillerOnDeath && UTPlayerState->LastKillerPlayerState != nullptr && UTPlayerState->LastKillerPlayerState != UTPlayerState)
-	{
-		for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
-		{
-			AUTCharacter *UTChar = Cast<AUTCharacter>(*It);
-			if (UTChar != nullptr && UTChar->PlayerState == UTPlayerState->LastKillerPlayerState)
-			{
-				ServerViewPlaceholderAtLocation(UTChar->GetActorLocation() + FVector(0, 0, UTChar->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight()));
-			}
-		}
-	}
-	*/
 }
 
 void AUTPlayerController::ServerViewPlaceholderAtLocation_Implementation(FVector Location)
