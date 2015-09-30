@@ -465,10 +465,18 @@ void GetAllBlueprintAssetData(UClass* BaseClass, TArray<FAssetData>& AssetList, 
 			}
 			else
 			{
-				const FString* NeedsItem = AssetList[i].TagsAndValues.Find(FName(TEXT("bRequiresItem")));
-				if (NeedsItem != NULL && NeedsItem->ToBool() && !LocallyOwnsItemFor(AssetList[i].ObjectPath.ToString()))
+				const FString* ReqAchievement = AssetList[i].TagsAndValues.Find(FName(TEXT("RequiredAchievement")));
+				if (ReqAchievement != NULL && !LocallyHasAchievement(**ReqAchievement))
 				{
 					AssetList.RemoveAt(i);
+				}
+				else
+				{
+					const FString* NeedsItem = AssetList[i].TagsAndValues.Find(FName(TEXT("bRequiresItem")));
+					if (NeedsItem != NULL && NeedsItem->ToBool() && !LocallyOwnsItemFor(AssetList[i].ObjectPath.ToString()))
+					{
+						AssetList.RemoveAt(i);
+					}
 				}
 			}
 		}
