@@ -22,8 +22,6 @@ namespace MatchState
 	const FName MatchEnteringHalftime = FName(TEXT("MatchEnteringHalftime"));
 	const FName MatchIsAtHalftime = FName(TEXT("MatchIsAtHalftime"));
 	const FName MatchExitingHalftime = FName(TEXT("MatchExitingHalftime"));
-	const FName MatchEnteringSuddenDeath = FName(TEXT("MatchEnteringSuddenDeath"));
-	const FName MatchIsInSuddenDeath = FName(TEXT("MatchIsInSuddenDeath"));
 }
 
 AUTCTFGameMode::AUTCTFGameMode(const FObjectInitializer& ObjectInitializer)
@@ -38,7 +36,6 @@ AUTCTFGameMode::AUTCTFGameMode(const FObjectInitializer& ObjectInitializer)
 	OvertimeDuration = 5;
 	AdvantageDuration = 5;
 	bUseTeamStarts = true;
-	bSuddenDeath = true;
 	MercyScore = 5;
 	GoalScore = 0;
 	TimeLimit = 14;
@@ -65,8 +62,6 @@ void AUTCTFGameMode::InitGame(const FString& MapName, const FString& Options, FS
 	{
 		TimeLimit = 900;
 	}
-
-	bSuddenDeath = EvalBoolOptions(ParseOption(Options, TEXT("SuddenDeath")), bSuddenDeath);
 
 	// HalftimeDuration is in seconds and used in seconds,
 	HalftimeDuration = FMath::Max(0, GetIntOption(Options, TEXT("HalftimeDuration"), HalftimeDuration));
@@ -707,7 +702,7 @@ void AUTCTFGameMode::GameObjectiveInitialized(AUTGameObjective* Obj)
 bool AUTCTFGameMode::PlayerCanRestart_Implementation(APlayerController* Player)
 {
 	// Can't restart in overtime
-	if (!CTFGameState->IsMatchInProgress() || CTFGameState->IsMatchAtHalftime() || CTFGameState->IsMatchInSuddenDeath()|| 
+	if (!CTFGameState->IsMatchInProgress() || CTFGameState->IsMatchAtHalftime() || 
 			Player == NULL || Player->IsPendingKillPending())
 	{
 		return false;
@@ -749,11 +744,6 @@ void AUTCTFGameMode::ScoreKill_Implementation(AController* Killer, AController* 
 	FindAndMarkHighScorer();
 }
 
-bool AUTCTFGameMode::IsMatchInSuddenDeath()
-{
-	return CTFGameState->IsMatchInSuddenDeath();
-}
-
 void AUTCTFGameMode::CallMatchStateChangeNotify()
 {
 	Super::CallMatchStateChangeNotify();
@@ -770,31 +760,12 @@ void AUTCTFGameMode::CallMatchStateChangeNotify()
 	{
 		HandleExitingHalftime();
 	}
-	else if (MatchState == MatchState::MatchEnteringSuddenDeath)
-	{
-		HandleEnteringSuddenDeath();
-	}
-	else if (MatchState == MatchState::MatchIsInSuddenDeath)
-	{
-		HandleSuddenDeath();
-	}
 }
 
 void AUTCTFGameMode::HandleEnteringOvertime()
 {
 	CTFGameState->SetTimeLimit(OvertimeDuration);
 	SetMatchState(MatchState::MatchIsInOvertime);
-	CTFGameState->bPlayingAdvantage = false;
-}
-
-void AUTCTFGameMode::HandleEnteringSuddenDeath()
-{
-	BroadcastLocalized(this, UUTCTFGameMessage::StaticClass(), 12, NULL, NULL, NULL);
-	CTFGameState->bPlayingAdvantage = false;
-}
-
-void AUTCTFGameMode::HandleSuddenDeath()
-{
 	CTFGameState->bPlayingAdvantage = false;
 }
 
@@ -897,11 +868,6 @@ void AUTCTFGameMode::BuildServerResponseRules(FString& OutRules)
 	if (bAllowOvertime)
 	{
 		OutRules += FString::Printf(TEXT("Overtime Duration\t%i\t"), OvertimeDuration);;
-	}
-
-	if (bSuddenDeath)
-	{
-		OutRules += FString::Printf(TEXT("Sudden Death\tTrue\t"));
 	}
 
 	AUTMutator* Mut = BaseMutator;

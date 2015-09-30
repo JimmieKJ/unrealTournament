@@ -139,9 +139,6 @@ class UNREALTOURNAMENT_API AUTCTFGameState: public AUTGameState
 	UPROPERTY(BlueprintReadOnly,Replicated,ReplicatedUsing=OnHalftimeChanged, Category = CTF)
 	uint32 bHalftime : 1;
 
-	UPROPERTY(BlueprintReadOnly,Replicated,Category = CTF)
-	uint32 bAllowSuddenDeath : 1;
-
 	/** The Elapsed time at which Overtime began */
 	UPROPERTY(BlueprintReadOnly, Category = CTF)
 	int32 OvertimeStartTime;
@@ -180,7 +177,6 @@ class UNREALTOURNAMENT_API AUTCTFGameState: public AUTGameState
 	virtual float GetClockTime() override;
 	virtual bool IsMatchInProgress() const override;
 	virtual bool IsMatchInOvertime() const override;
-	virtual bool IsMatchInSuddenDeath() const override;
 	virtual bool IsMatchAtHalftime() const override;
 	virtual void OnRep_MatchState() override;
 

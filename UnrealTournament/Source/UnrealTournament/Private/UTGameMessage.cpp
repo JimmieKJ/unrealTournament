@@ -12,7 +12,6 @@ UUTGameMessage::UUTGameMessage(const class FObjectInitializer& ObjectInitializer
 
 	GameBeginsMessage = NSLOCTEXT("UTGameMessage","GameBeginsMessage","START!");
 	OvertimeMessage = NSLOCTEXT("UTGameMessage","OvertimeMessage","OVERTIME");
-	SuddenDeathMessage = NSLOCTEXT("UTGameMessage", "SuddenDeathMessage", "SUDDEN DEATH");
 	CantBeSpectator = NSLOCTEXT("UTGameMessage", "CantBeSpectator", "You can not become a spectator!");
 	CantBePlayer = NSLOCTEXT("UTGameMessage","CantBePlayer","Sorry, you can not become a player!");
 	SwitchLevelMessage = NSLOCTEXT("UTGameMessage","SwitchLevelMessage","Loading....");
@@ -81,9 +80,6 @@ FText UUTGameMessage::GetText(int32 Switch = 0, bool bTargetsPlayerState1 = fals
 		case 6:
 			return GetDefault<UUTGameMessage>(GetClass())->BecameSpectator;
 			break;
-		case 7:
-			return GetDefault<UUTGameMessage>(GetClass())->SuddenDeathMessage;
-			break;
 		case 8:
 			return GetDefault<UUTGameMessage>(GetClass())->DidntMakeTheCut;
 			break;
@@ -113,7 +109,6 @@ FName UUTGameMessage::GetAnnouncementName_Implementation(int32 Switch, const UOb
 	switch (Switch)
 	{
 		case 1: return TEXT("Overtime"); break;
-		case 7: return TEXT("SuddenDeath"); break;
 		case 9: return TEXT("YouAreOnRedTeam"); break;
 		case 10: return TEXT("YouAreOnBlueTeam"); break;
 	}

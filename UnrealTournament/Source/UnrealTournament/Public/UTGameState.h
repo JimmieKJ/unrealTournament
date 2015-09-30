@@ -188,9 +188,6 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 	virtual bool IsMatchAtHalftime() const;
 
 	UFUNCTION(BlueprintCallable, Category = GameState)
-	virtual bool IsMatchInSuddenDeath() const;
-
-	UFUNCTION(BlueprintCallable, Category = GameState)
 	virtual bool IsMatchInOvertime() const;
 
 	UFUNCTION(BlueprintCallable, Category = GameState)

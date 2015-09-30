@@ -11,18 +11,12 @@ namespace MatchState
 	extern UNREALTOURNAMENT_API const FName MatchEnteringHalftime;		// Entering Halftime
 	extern UNREALTOURNAMENT_API const FName MatchIsAtHalftime;			// The match has entered halftime
 	extern UNREALTOURNAMENT_API const FName MatchExitingHalftime;		// Exiting Halftime
-	extern UNREALTOURNAMENT_API const FName MatchEnteringSuddenDeath;	// The match is entering sudden death
-	extern UNREALTOURNAMENT_API const FName MatchIsInSuddenDeath;		// The match is in sudden death
 } 
 
 UCLASS()
 class UNREALTOURNAMENT_API AUTCTFGameMode : public AUTTeamGameMode
 {
 	GENERATED_UCLASS_BODY()
-
-	/** If true, CTF allow for a sudden death after overtime */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=CTF)
-	uint32 bSuddenDeath:1;	
 
 	/** Cached reference to the CTF game state */
 	UPROPERTY(BlueprintReadOnly, Category=CTF)
@@ -76,8 +70,6 @@ class UNREALTOURNAMENT_API AUTCTFGameMode : public AUTTeamGameMode
 	virtual void HandleEnteringHalftime();
 	virtual void HandleHalftime();
 	virtual void HandleExitingHalftime();
-	virtual void HandleEnteringSuddenDeath();
-	virtual void HandleSuddenDeath();
 	virtual void HandleEnteringOvertime();
 	virtual void HandleMatchInOvertime() override;
 
@@ -98,9 +90,6 @@ protected:
 
 	UFUNCTION()
 	virtual void HalftimeIsOver();
-
-	UFUNCTION()
-	virtual bool IsMatchInSuddenDeath();
 
 	virtual void ScoreDamage_Implementation(int32 DamageAmount, AController* Victim, AController* Attacker) override;
 	virtual void ScoreKill_Implementation(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType) override;

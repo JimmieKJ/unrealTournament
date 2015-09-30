@@ -15,9 +15,6 @@ class UNREALTOURNAMENT_API UUTGameMessage : public UUTLocalMessage
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Message")
 	FText OvertimeMessage;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Message")
-	FText SuddenDeathMessage;
-
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Message")
 	FText CantBeSpectator;
 
