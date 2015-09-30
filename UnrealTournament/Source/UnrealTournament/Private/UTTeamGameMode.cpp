@@ -420,6 +420,17 @@ void AUTTeamGameMode::DefaultTimer()
 	}
 }
 
+void AUTTeamGameMode::BroadcastDeathMessage(AController* Killer, AController* Other, TSubclassOf<UDamageType> DamageType)
+{
+	TSubclassOf<UUTDamageType> UTDamage(*DamageType);
+	if (Killer && UTDamage && UTDamage.GetDefaultObject()->bCausedByWorld && !IsEnemy(Killer, Other) && (TeamDamagePct == 0.f))
+	{
+		// Don't show "killer" in death message if death was actually from environmental damage
+		Killer = NULL;
+	}
+	Super::BroadcastDeathMessage(Killer, Other, DamageType);
+}
+
 bool AUTTeamGameMode::ModifyDamage_Implementation(int32& Damage, FVector& Momentum, APawn* Injured, AController* InstigatedBy, const FHitResult& HitInfo, AActor* DamageCauser, TSubclassOf<UDamageType> DamageType)
 {
 	if (InstigatedBy != NULL && InstigatedBy != Injured->Controller && Cast<AUTGameState>(GameState)->OnSameTeam(Injured, InstigatedBy))
