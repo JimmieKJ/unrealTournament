@@ -36,6 +36,15 @@ void UUTWeaponStateFiringLinkBeam::FireShot()
 			}
 		}
     }
+
+	if (FiringLoopAnim != NULL)
+	{
+		UAnimInstance* AnimInstance = GetOuterAUTWeapon()->GetMesh()->GetAnimInstance();
+		if (AnimInstance != NULL && !AnimInstance->Montage_IsPlaying(FiringLoopAnim))
+		{
+			GetOuterAUTWeapon()->PlayWeaponAnim(FiringLoopAnim, FiringLoopAnimHands, 1.0f);
+		}
+	}
     
 	if (GetUTOwner() != NULL)
     {

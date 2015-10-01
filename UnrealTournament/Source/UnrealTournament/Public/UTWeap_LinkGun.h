@@ -198,6 +198,8 @@ public:
 
 	virtual void StateChanged() override;
 
+	virtual void PlayWeaponAnim(UAnimMontage* WeaponAnim, UAnimMontage* HandsAnim = NULL, float RateOverride = 0.0f) override;
+
 	/** check if bot should use pulse while firing beam */
 	UFUNCTION()
 	virtual void CheckBotPulseFire();

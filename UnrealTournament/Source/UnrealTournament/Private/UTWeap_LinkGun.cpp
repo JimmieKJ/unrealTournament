@@ -197,6 +197,15 @@ void AUTWeap_LinkGun::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 	}
 }
 
+void AUTWeap_LinkGun::PlayWeaponAnim(UAnimMontage* WeaponAnim, UAnimMontage* HandsAnim, float RateOverride)
+{
+	// give pull anim priority
+	if (WeaponAnim == PulseAnim || PulseAnim == NULL || Mesh->GetAnimInstance() == NULL || !Mesh->GetAnimInstance()->Montage_IsPlaying(PulseAnim))
+	{
+		Super::PlayWeaponAnim(WeaponAnim, HandsAnim, RateOverride);
+	}
+}
+
 void AUTWeap_LinkGun::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);

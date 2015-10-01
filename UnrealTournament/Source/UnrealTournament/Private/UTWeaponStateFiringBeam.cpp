@@ -20,6 +20,36 @@ void UUTWeaponStateFiringBeam::FireShot()
 	{
 		GetUTOwner()->InventoryEvent(InventoryEventName::FiredWeapon);
 	}
+
+	if (FiringLoopAnim != NULL)
+	{
+		UAnimInstance* AnimInstance = GetOuterAUTWeapon()->GetMesh()->GetAnimInstance();
+		if (AnimInstance != NULL && !AnimInstance->Montage_IsPlaying(FiringLoopAnim))
+		{
+			GetOuterAUTWeapon()->PlayWeaponAnim(FiringLoopAnim, FiringLoopAnimHands, 1.0f);
+		}
+	}
+}
+
+void UUTWeaponStateFiringBeam::EndState()
+{
+	Accumulator = 0.0f;
+	if (FiringLoopAnim != NULL)
+	{
+		UAnimInstance* AnimInstance = GetOuterAUTWeapon()->GetMesh()->GetAnimInstance();
+		if (AnimInstance != NULL)
+		{
+			if (EndAnimSection == NAME_None)
+			{
+				AnimInstance->Montage_Stop(0.1f, FiringLoopAnim);
+			}
+			else
+			{
+				AnimInstance->Montage_JumpToSection(EndAnimSection, FiringLoopAnim);
+			}
+		}
+	}
+	Super::EndState();
 }
 
 void UUTWeaponStateFiringBeam::Tick(float DeltaTime)
