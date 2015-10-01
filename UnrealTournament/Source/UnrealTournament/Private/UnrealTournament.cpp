@@ -234,20 +234,27 @@ bool LocallyOwnsItemFor(const FString& Path)
 
 bool LocallyHasAchievement(FName Achievement)
 {
-	const TIndirectArray<FWorldContext>& AllWorlds = GEngine->GetWorldContexts();
-	for (const FWorldContext& Context : AllWorlds)
+	if (Achievement == NAME_None)
 	{
-		for (FLocalPlayerIterator It(GEngine, Context.World()); It; ++It)
+		return true;
+	}
+	else
+	{
+		const TIndirectArray<FWorldContext>& AllWorlds = GEngine->GetWorldContexts();
+		for (const FWorldContext& Context : AllWorlds)
 		{
-			UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(*It);
-			if (LP != NULL && LP->GetProfileSettings() != NULL && LP->GetProfileSettings()->Achievements.Contains(Achievement))
+			for (FLocalPlayerIterator It(GEngine, Context.World()); It; ++It)
 			{
-				return true;
+				UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(*It);
+				if (LP != NULL && LP->GetProfileSettings() != NULL && LP->GetProfileSettings()->Achievements.Contains(Achievement))
+				{
+					return true;
+				}
 			}
 		}
-	}
 
-	return false;
+		return false;
+	}
 }
 
 void GetAllAssetData(UClass* BaseClass, TArray<FAssetData>& AssetList, bool bRequireEntitlements)

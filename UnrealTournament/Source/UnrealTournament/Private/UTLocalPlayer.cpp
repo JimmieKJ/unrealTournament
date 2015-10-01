@@ -686,6 +686,10 @@ void UUTLocalPlayer::OnLoginComplete(int32 LocalUserNum, bool bWasSuccessful, co
 
 		PendingLoginUserName = TEXT("");
 
+		// reset cached online items in case this is a different user
+		ProfileItems.Empty();
+		OnlineXP = 0;
+
 		LoadProfileSettings();
 		FText WelcomeToast = FText::Format(NSLOCTEXT("MCP","MCPWelcomeBack","Welcome back {0}"), FText::FromString(*GetOnlinePlayerNickname()));
 		ShowToast(WelcomeToast);
@@ -791,6 +795,8 @@ void UUTLocalPlayer::OnLoginStatusChanged(int32 LocalUserNum, ELoginStatus::Type
 	// If we have logged out, or started using the local profile, then clear the online profile.
 	if (LoginStatus == ELoginStatus::NotLoggedIn || LoginStatus == ELoginStatus::UsingLocalProfile)
 	{
+		ProfileItems.Empty();
+		OnlineXP = 0;
 		CurrentProfileSettings = NULL;
 		FUTAnalytics::LoginStatusChanged(FString());
 
