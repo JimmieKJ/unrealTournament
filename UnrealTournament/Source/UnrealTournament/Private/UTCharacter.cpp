@@ -637,7 +637,7 @@ FVector AUTCharacter::GetWeaponBobOffset(float DeltaTime, AUTWeapon* MyWeapon)
 	FVector Z = RotMatrix.GetScaledAxis(EAxis::Z);
 
 	float InterpTime = FMath::Min(1.f, WeaponJumpBobInterpRate*DeltaTime);
-	if (!GetCharacterMovement() || GetCharacterMovement()->IsFalling() || !MyWeapon)
+	if (!GetCharacterMovement() || GetCharacterMovement()->IsFalling())
 	{
 		// interp out weapon bob if falling
 		BobTime = 0.f;
@@ -690,7 +690,7 @@ FVector AUTCharacter::GetWeaponBobOffset(float DeltaTime, AUTWeapon* MyWeapon)
 	CurrentJumpBob.Z = (1.f - InterpTime)*CurrentJumpBob.Z + InterpTime*DesiredJumpBob.Z;
 
 	AUTPlayerController* MyPC = Cast<AUTPlayerController>(GetController()); // fixmesteve use the viewer rather than the controller (when can do everywhere)
-	float WeaponBobGlobalScaling = MyWeapon->WeaponBobScaling * (MyPC ? MyPC->WeaponBobGlobalScaling : 1.f);
+	float WeaponBobGlobalScaling = (MyWeapon ? MyWeapon->WeaponBobScaling : 1.f) * (MyPC ? MyPC->WeaponBobGlobalScaling : 1.f);
 	return WeaponBobGlobalScaling*(CurrentWeaponBob.Y + CurrentJumpBob.Y)*Y + WeaponBobGlobalScaling*(CurrentWeaponBob.Z + CurrentJumpBob.Z)*Z + CrouchEyeOffset + GetTransformedEyeOffset();
 }
 
@@ -3750,6 +3750,10 @@ void AUTCharacter::Tick(float DeltaTime)
 	if (GetWeapon())
 	{
 		GetWeapon()->UpdateViewBob(DeltaTime);
+	}
+	else
+	{
+		GetWeaponBobOffset(DeltaTime, NULL);
 	}
 	AUTPlayerController* MyPC = GetLocalViewer();
 	if (MyPC && GetCharacterMovement()) 
