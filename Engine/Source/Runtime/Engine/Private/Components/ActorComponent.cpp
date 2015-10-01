@@ -1380,7 +1380,7 @@ bool UActorComponent::IsNameStableForNetworking() const
 
 bool UActorComponent::IsSupportedForNetworking() const
 {
-	return IsNameStableForNetworking() || GetIsReplicated();
+	return GetIsReplicated() || IsNameStableForNetworking();
 }
 
 void UActorComponent::SetIsReplicated(bool ShouldReplicate)
