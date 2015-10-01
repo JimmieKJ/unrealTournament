@@ -6,6 +6,7 @@
 #include "StatNames.h"
 #include "UTCTFGameMessage.h"
 #include "UTMutator.h"
+#include "UTTeamScoreboard.h"
 
 AUTTeamDMGameMode::AUTTeamDMGameMode(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)

@@ -8,7 +8,6 @@
 #include "UTLevelSummary.h"
 #include "../SUWScaleBox.h"
 #include "UTMutator.h"
-#include "../SUWBotConfigDialog.h"
 #include "UTGameEngine.h"
 #include "SocketSubsystem.h"
 #include "IPAddress.h"
@@ -676,12 +675,6 @@ FReply SUWCreateGamePanel::ConfigureMutator()
 			}
 		}
 	}
-	return FReply::Handled();
-}
-
-FReply SUWCreateGamePanel::ConfigureBots()
-{
-	GetPlayerOwner()->OpenDialog(SNew(SUWBotConfigDialog).PlayerOwner(GetPlayerOwner()).GameClass(SelectedGameClass).NumBots(SelectedGameClass->GetDefaultObject<AUTGameMode>()->BotFillCount - 1));
 	return FReply::Handled();
 }
 

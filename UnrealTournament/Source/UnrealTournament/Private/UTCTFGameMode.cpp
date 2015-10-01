@@ -16,6 +16,7 @@
 #include "Slate/SUWPlayerInfoDialog.h"
 #include "StatNames.h"
 #include "Engine/DemoNetDriver.h"
+#include "UTCTFScoreboard.h"
 
 namespace MatchState
 {

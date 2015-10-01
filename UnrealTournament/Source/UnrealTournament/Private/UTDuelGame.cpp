@@ -10,6 +10,7 @@
 #include "StatNames.h"
 #include "UTSpectatorPickupMessage.h"
 #include "UTDuelSquadAI.h"
+#include "UTDuelScoreboard.h"
 
 AUTDuelGame::AUTDuelGame(const class FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)

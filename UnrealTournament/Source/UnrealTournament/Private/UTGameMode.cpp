@@ -101,6 +101,7 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	bForceRespawn = false;
 	XPMultiplier = 1.0f;
 	XPCapPerMin = 20;
+	GameDifficulty = 3.f;
 
 	DefaultPlayerName = FText::FromString(TEXT("Player"));
 	MapPrefix = TEXT("DM");
@@ -495,12 +496,6 @@ void AUTGameMode::PreInitializeComponents()
 	{
 		ObjIt->InitializeObjective();	
 		GameObjectiveInitialized(*ObjIt);
-	}
-
-	// init startup bots
-	for (int32 i = 0; i < SelectedBots.Num() && NumPlayers + NumBots < BotFillCount; i++)
-	{
-		AddAssetBot(SelectedBots[i].BotAsset, SelectedBots[i].Team);
 	}
 }
 

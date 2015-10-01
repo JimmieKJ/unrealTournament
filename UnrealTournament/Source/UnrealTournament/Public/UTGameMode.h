@@ -87,7 +87,7 @@ public:
 	AUTGameState* UTGameState;		
 
 	/** base difficulty of bots */
-	UPROPERTY(globalconfig)
+	UPROPERTY()
 	float GameDifficulty;		
 
 	/* How long after the end of the match before we display the scoreboard */
@@ -117,7 +117,7 @@ public:
 	uint32 bAllowOvertime:1;
 
 	/**If enabled, the server grants special control for casters*/
-	UPROPERTY(globalconfig)
+	UPROPERTY()
 	uint32 bCasterControl:1;
 
 	/** If TRUE, force dead players to respawn immediately. Can be overridden with ForceRespawn=x on the url */
@@ -161,12 +161,6 @@ public:
 	UPROPERTY(BlueprintReadWrite, Category = "Game")
 	bool bFirstBloodOccurred;
 
-	/** if set, this setting overrides the number of players that are needed to start a hub instance
-	 * (defaults to UTLobbyGameMode's MinPlayersToStart)
-	 */
-	UPROPERTY(config)
-	int32 HubMinPlayers;
-
 	/** Minimum number of players that must have joined match before it will start. */
 	UPROPERTY()
 	int32 MinPlayersToStart;
@@ -182,7 +176,7 @@ public:
 	virtual void StartPlay() override;
 
 	/** add bots until NumPlayers + NumBots is this number */
-	UPROPERTY(config)
+	UPROPERTY()
 	int32 BotFillCount;
 
 	// How long a player must wait before respawning.  Set to 0 for no delay.
@@ -221,10 +215,6 @@ public:
 
 	UPROPERTY(EditDefaultsOnly, Category = Game)
 	TSubclassOf<class UUTLocalMessage> VictoryMessageClass;
-
-	/** Name of the Scoreboard */
-	UPROPERTY(Config)
-	FStringClassReference ScoreboardClassName;
 
 	/** Remove all items from character inventory list, before giving him game mode's default inventory. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Inventory")
@@ -313,9 +303,6 @@ public:
 	UPROPERTY(EditAnywhere, NoClear, BlueprintReadWrite, Category = Classes)
 	TSubclassOf<class AUTBot> BotClass;
 
-	UPROPERTY(Config)
-	TArray<FSelectedBot> SelectedBots;
-
 	/** cached list of UTBotCharacter assets from the asset registry, so we don't need to query the registry every time we add a bot */
 	TArray<FAssetData> BotAssets;
 
@@ -336,6 +323,7 @@ public:
 	/** whether to record a demo (starts when the countdown starts) */
 	UPROPERTY(GlobalConfig)
 	bool bRecordDemo;
+
 	/** filename for demos... should use one of the replacement strings or it'll overwrite every game */
 	UPROPERTY(GlobalConfig)
 	FString DemoFilename;
