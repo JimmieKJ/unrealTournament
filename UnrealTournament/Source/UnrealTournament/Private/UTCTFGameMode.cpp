@@ -34,7 +34,6 @@ AUTCTFGameMode::AUTCTFGameMode(const FObjectInitializer& ObjectInitializer)
 	HUDClass = AUTHUD_CTF::StaticClass();
 	GameStateClass = AUTCTFGameState::StaticClass();
 	bAllowOvertime = true;
-	OvertimeDuration = 5;
 	AdvantageDuration = 5;
 	bUseTeamStarts = true;
 	MercyScore = 5;
@@ -66,10 +65,6 @@ void AUTCTFGameMode::InitGame(const FString& MapName, const FString& Options, FS
 
 	// HalftimeDuration is in seconds and used in seconds,
 	HalftimeDuration = FMath::Max(0, GetIntOption(Options, TEXT("HalftimeDuration"), HalftimeDuration));
-
-	// OvertimeDuration is in minutes
-	OvertimeDuration = FMath::Max(1, GetIntOption(Options, TEXT("OvertimeDuration"), OvertimeDuration));
-	OvertimeDuration *= 60;
 
 	// AdvantageDuration is in seconds 
 	AdvantageDuration = FMath::Max(0, GetIntOption(Options, TEXT("AdvantageDuration"), AdvantageDuration));
@@ -608,8 +603,8 @@ void AUTCTFGameMode::DefaultTimer()
 		float OvertimeElapsed = CTFGameState->ElapsedTime - CTFGameState->OvertimeStartTime;
 		if (OvertimeElapsed > TimeLimit)
 		{
-			// once overtime has gone too long, start increasing respawn delay
-			RespawnWaitTime = 10.f * (1.f + (OvertimeElapsed - TimeLimit) / 200.f);
+			// once overtime has gone too long, increase respawn delay
+			RespawnWaitTime = 10.f;
 			CTFGameState->RespawnWaitTime = RespawnWaitTime;
 		}
 	}
@@ -765,7 +760,7 @@ void AUTCTFGameMode::CallMatchStateChangeNotify()
 
 void AUTCTFGameMode::HandleEnteringOvertime()
 {
-	CTFGameState->SetTimeLimit(OvertimeDuration);
+	CTFGameState->SetTimeLimit(6000);
 	SetMatchState(MatchState::MatchIsInOvertime);
 	CTFGameState->bPlayingAdvantage = false;
 }
@@ -820,7 +815,7 @@ bool AUTCTFGameMode::CheckAdvantage()
 	// If our flag is held, then look to see if our advantage is lost.. has to be held for 5 seconds.
 	if (Flags[CTFGameState->AdvantageTeamIndex]->ObjectState == CarriedObjectState::Held)
 	{
-		//Starting the Advantage so play the "Loosing advantage" announcement
+		//Starting the Advantage so play the "Losing advantage" announcement
 		if (RemainingAdvantageTime == AdvantageDuration)
 		{
 			BroadcastLocalized(this, UUTCTFGameMessage::StaticClass(), 7, NULL, NULL, CTFGameState->Teams[CTFGameState->AdvantageTeamIndex]);
@@ -863,12 +858,6 @@ void AUTCTFGameMode::BuildServerResponseRules(FString& OutRules)
 			OutRules += FString::Printf(TEXT("Halftime\tTrue\t"));
 			OutRules += FString::Printf(TEXT("Halftime Duration\t%i\t"), HalftimeDuration);
 		}
-	}
-
-	OutRules += FString::Printf(TEXT("Allow Overtime\t%s\t"), bAllowOvertime ? TEXT("True") : TEXT("False"));
-	if (bAllowOvertime)
-	{
-		OutRules += FString::Printf(TEXT("Overtime Duration\t%i\t"), OvertimeDuration);;
 	}
 
 	AUTMutator* Mut = BaseMutator;

@@ -33,9 +33,6 @@ class UNREALTOURNAMENT_API AUTCTFGameMode : public AUTTeamGameMode
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=CTF)
 	int32 HalftimeDuration;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=CTF)
-	int32 OvertimeDuration;
-
 	/**Holds the amount of time to give a flag carrier who has the flag out going in to half-time*/
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = CTF)
 	int32 AdvantageDuration;
