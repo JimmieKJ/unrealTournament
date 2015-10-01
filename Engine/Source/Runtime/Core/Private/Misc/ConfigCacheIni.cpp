@@ -3293,8 +3293,9 @@ void ApplyCVarSettingsFromIni(const TCHAR* InSectionName, const TCHAR* InIniFile
 			}
 			else
 			{
-				UE_LOG(LogConsoleResponse, Warning, TEXT("Skipping Unknown console variable: '%s = %s'"), *CVarName, *CVarValue);
-				UE_LOG(LogConsoleResponse, Warning, TEXT("  Found in ini file '%s', in section '[%s]'"), InIniFilename, InSectionName);
+				// Create a dummy that is used when someone registers the variable later on.
+				// this is important for variables created in external modules, such as the game module
+				IConsoleManager::Get().RegisterConsoleVariable(*CVarName, *CVarValue, TEXT("IAmNoRealVariable"), (uint32)ECVF_Unregistered | (uint32)ECVF_CreatedFromIni | SetBy);
 			}
 		}
 	}

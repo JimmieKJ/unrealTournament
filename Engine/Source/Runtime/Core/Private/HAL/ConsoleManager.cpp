@@ -121,12 +121,25 @@ public:
 		{
 			FConsoleManager& ConsoleManager = (FConsoleManager&)IConsoleManager::Get();
 			FString CVarName = ConsoleManager.FindConsoleObjectName(this);
-			UE_LOG(LogConsoleManager, Warning,
-				TEXT("Console variable '%s' wasn't set ('%s' has a lower priority than '%s')"),
-				CVarName.IsEmpty() ? TEXT("unknown?") : *CVarName,
-				GetSetByTCHAR((EConsoleVariableFlags)NewPri),
-				GetSetByTCHAR((EConsoleVariableFlags)OldPri)
-				);
+			// if it's an "expected" failure because the user manually overrode the setting, then don't print the warning by default
+			if (NewPri & (ECVF_SetByConsoleVariablesIni | ECVF_SetByCommandline))
+			{
+				UE_LOG(LogConsoleManager, Verbose,
+					TEXT("Console variable '%s' wasn't set ('%s' has a lower priority than '%s')"),
+					CVarName.IsEmpty() ? TEXT("unknown?") : *CVarName,
+					GetSetByTCHAR((EConsoleVariableFlags)NewPri),
+					GetSetByTCHAR((EConsoleVariableFlags)OldPri)
+					);
+			}
+			else
+			{
+				UE_LOG(LogConsoleManager, Warning,
+					TEXT("Console variable '%s' wasn't set ('%s' has a lower priority than '%s')"),
+					CVarName.IsEmpty() ? TEXT("unknown?") : *CVarName,
+					GetSetByTCHAR((EConsoleVariableFlags)NewPri),
+					GetSetByTCHAR((EConsoleVariableFlags)OldPri)
+					);
+			}
 		}
 
 		return bRet;
