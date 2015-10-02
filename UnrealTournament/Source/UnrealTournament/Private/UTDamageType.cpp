@@ -7,10 +7,6 @@
 UUTDamageType::UUTDamageType(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
-	// hack to allow blueprint damagetypes to have an event graph
-	// TODO: disabled at the moment as blueprints have all kinds of issues interacting with functions on default objects due to implicit variable creation
-	//GetClass()->ClassFlags &= ~CLASS_Const;
-
 	SelfMomentumBoost = 1.f;
 	DamageImpulse = 50000.0f;
 	DestructibleImpulse = 50000.0f;

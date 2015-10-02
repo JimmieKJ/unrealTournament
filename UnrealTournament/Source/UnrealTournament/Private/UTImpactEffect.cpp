@@ -110,7 +110,7 @@ bool AUTImpactEffect::ShouldCreateComponent_Implementation(const USceneComponent
 	}
 }
 
-bool AUTImpactEffect::ComponentCreated_Implementation(USceneComponent* NewComp, UPrimitiveComponent* HitComp, AActor* SpawnedBy, AController* InstigatedBy, FImpactEffectNamedParameters EffectParams) const
+void AUTImpactEffect::ComponentCreated_Implementation(USceneComponent* NewComp, UPrimitiveComponent* HitComp, AActor* SpawnedBy, AController* InstigatedBy, FImpactEffectNamedParameters EffectParams) const
 {
 	UPrimitiveComponent* Prim = Cast<UPrimitiveComponent>(NewComp);
 	if (Prim != NULL)
@@ -185,9 +185,6 @@ bool AUTImpactEffect::ComponentCreated_Implementation(USceneComponent* NewComp, 
 			}
 		}
 	}
-
-	// unused, see header comment
-	return true;
 }
 
 void AUTImpactEffect::CreateEffectComponents(UWorld* World, const FTransform& BaseTransform, UPrimitiveComponent* HitComp, AActor* SpawnedBy, AController* InstigatedBy, const FImpactEffectNamedParameters& EffectParams, USceneComponent* CurrentAttachment, FName TemplateName, const TArray<USceneComponent*>& NativeCompList, const TArray<USCS_Node*>& BPNodes) const

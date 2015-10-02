@@ -71,11 +71,9 @@ class UNREALTOURNAMENT_API AUTImpactEffect : public AActor
 	UFUNCTION(BlueprintNativeEvent, BlueprintCosmetic, Category = Effects)
 	bool ShouldCreateComponent(const USceneComponent* TestComp, FName CompTemplateName, const FTransform& BaseTransform, UPrimitiveComponent* HitComp, AActor* SpawnedBy, AController* InstigatedBy) const;
 
-	/** called on each created component for further modification
-	 * HACK: the return value is unused; it is there to force the function out of the blueprint event graph as the event graph is not safe to use on default objects
-	 */
+	/** called on each created component for further modification */
 	UFUNCTION(BlueprintNativeEvent, BlueprintCosmetic, Category = Effects)
-	bool ComponentCreated(USceneComponent* NewComp, UPrimitiveComponent* HitComp, AActor* SpawnedBy, AController* InstigatedBy, FImpactEffectNamedParameters EffectParams) const;
+	void ComponentCreated(USceneComponent* NewComp, UPrimitiveComponent* HitComp, AActor* SpawnedBy, AController* InstigatedBy, FImpactEffectNamedParameters EffectParams) const;
 
 	/** spawns the effect's components as appropriate for the viewing distance, system settings, etc
 	 * some aspects may be replicated (particularly audio), so call even on dedicated server and let the effect sort it out
