@@ -80,9 +80,14 @@ bool UUTHUDWidget_Paperdoll::ShouldDraw_Implementation(bool bShowScores)
 
 void UUTHUDWidget_Paperdoll::Draw_Implementation(float DeltaTime)
 {
+	AUTCharacter* UTC = Cast<AUTCharacter>(UTHUDOwner->UTPlayerOwner->GetViewTarget());
+	AUTPlayerState* PS = UTC ? Cast<AUTPlayerState>(UTC->PlayerState) : NULL;
+	FlagIconTemplate.RenderColor = (PS && PS->CarriedObject && PS->CarriedObject->Team) ? PS->CarriedObject->Team->TeamColor : FLinearColor::Blue;
+	FlagIconTemplate.bHidden = !PS || !PS->Team || !PS->CarriedObject;
+	PaperDollBase.RenderColor = (PS && PS->Team) ? PS->Team->TeamColor : FLinearColor::White;
+
 	ProcessArmor();
 
-	AUTCharacter* UTC = Cast<AUTCharacter>(UTHUDOwner->UTPlayerOwner->GetViewTarget());
 	UUTHUDWidget_Paperdoll* DefObj = GetClass()->GetDefaultObject<UUTHUDWidget_Paperdoll>();
 
 	if (UTC != NULL && !UTC->IsDead())
