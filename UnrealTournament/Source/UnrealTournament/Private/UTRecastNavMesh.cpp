@@ -12,6 +12,7 @@
 #include "UTDroppedPickup.h"
 #include "UTReachSpec_HighJump.h"
 #include "UTTeleporter.h"
+#include "UTWaterVolume.h"
 #include "UTNavMeshRenderingComponent.h"
 #include "MessageLog.h"
 #include "UObjectToken.h"
@@ -593,6 +594,8 @@ void AUTRecastNavMesh::BuildNodeNetwork()
 	// make sure generation params are in the list
 	SizeSteps.AddUnique(FCapsuleSize(FMath::TruncToInt(AgentRadius), FMath::TruncToInt(AgentMaxHeight) / 2));
 
+	FCollisionShape AgentCapsule = FCollisionShape::MakeCapsule(GetHumanPathSize().GetExtent());
+
 	// list of IUTPathBuilderInterface implementing Actors that don't want to be added as POIs but still want path building callbacks
 	TArray<IUTPathBuilderInterface*> NonPOIBuilders;
 
@@ -640,6 +643,8 @@ void AUTRecastNavMesh::BuildNodeNetwork()
 						UUTPathNode* Node = NewObject<UUTPathNode>(this);
 						Node->bDestinationOnly = true;
 						Node->POIs.Add(*It);
+						// warning: not handling the edge case of physics volume changing between polys that intersect the destination - very rare and probably wouldn't matter even if it happened
+						Node->PhysicsVolume = FindPhysicsVolume(GetWorld(), GetPolyCenter(FinalPolys[0]) + FVector(0.0f, 0.0f, AgentCapsule.GetCapsuleHalfHeight()), AgentCapsule);
 						PathNodes.Add(Node);
 						for (NavNodeRef Poly : FinalPolys)
 						{
@@ -674,11 +679,12 @@ void AUTRecastNavMesh::BuildNodeNetwork()
 					NavNodeRef Poly = FindNearestPoly(It->GetActorLocation(), GetPOIExtent(*It));
 					if (Poly != INVALID_NAVNODEREF)
 					{
-						// find node for this tile or create it
+						// find node for this poly or create it
 						UUTPathNode* Node = PolyToNode.FindRef(Poly);
 						if (Node == NULL)
 						{
 							Node = NewObject<UUTPathNode>(this);
+							Node->PhysicsVolume = FindPhysicsVolume(GetWorld(), GetPolyCenter(Poly) + FVector(0.0f, 0.0f, AgentCapsule.GetCapsuleHalfHeight()), AgentCapsule);
 							PathNodes.Add(Node);
 							PolyToNode.Add(Poly, Node);
 							Node->Polys.Add(Poly);
@@ -729,9 +735,9 @@ void AUTRecastNavMesh::BuildNodeNetwork()
 							if (InternalMesh->isValidPolyRef(Link.ref))
 							{
 								FCapsuleSize OtherSize = GetSteppedEdgeSize(PolyRef, PolyData, TileData, Link);
-								// TODO: any other checks needed?
+								APhysicsVolume* OtherVolume = FindPhysicsVolume(GetWorld(), GetPolyCenter(Link.ref) + FVector(0.0f, 0.0f, AgentCapsule.GetCapsuleHalfHeight()), AgentCapsule);
 								// TODO: max distance between nodes? Maybe based on pct of mesh size?
-								if (!bOffMeshLink && OtherSize == Node->MinPolyEdgeSize && /*TileData->header->walkableClimb == DestTile->header->walkableClimb &&*/ !PolyToNode.Contains(Link.ref))
+								if (!bOffMeshLink && OtherSize == Node->MinPolyEdgeSize && OtherVolume == Node->PhysicsVolume && !PolyToNode.Contains(Link.ref))
 								{
 									ensure(!Node->Polys.Contains(Link.ref)); // should have ended up below if this is the case
 									Node->Polys.Add(Link.ref);
@@ -740,104 +746,110 @@ void AUTRecastNavMesh::BuildNodeNetwork()
 								}
 								else
 								{
-									// create a path link to the neighboring tile
-									UUTPathNode* DestNode = PolyToNode.FindRef(Link.ref);
-									if (DestNode != NULL && DestNode != Node)
+									// prevent path from being generated if the node's zone velocity prevents travel in this direction
+									AUTWaterVolume* Water = Cast<AUTWaterVolume>(Node->PhysicsVolume);
+									if (Water == NULL || Water->WaterCurrentDirection.IsZero() || (Water->WaterCurrentDirection | (GetPolyCenter(Link.ref) - GetPolyCenter(PolyRef))) > 0.0f)
 									{
-										bool bFound = false;
-										for (const FUTPathLink& UTPath : Node->Paths)
+										// create a path link to the neighboring tile
+										UUTPathNode* DestNode = PolyToNode.FindRef(Link.ref);
+										if (DestNode != NULL && DestNode != Node)
 										{
-											if (UTPath.End == DestNode)
+											bool bFound = false;
+											for (const FUTPathLink& UTPath : Node->Paths)
 											{
-												if (UTPath.EndPoly != Link.ref)
+												if (UTPath.End == DestNode)
 												{
-													// if there are multiple polys connecting these two nodes, split the destination node so there is only one connection point between any two nodes
-													// this is important for pathfinding as otherwise the correct path to use depends on later points which would make pathing very complex
-													UUTPathNode* NewNode = NewObject<UUTPathNode>(this);
-													NewNode->MinPolyEdgeSize = DestNode->MinPolyEdgeSize;
-													DestNode->Polys.Remove(Link.ref);
-													NewNode->Polys.Add(Link.ref);
-													PolyToNode.Add(Link.ref, NewNode);
-													// TODO: should we claim more than one poly from DestNode?
+													if (UTPath.EndPoly != Link.ref)
+													{
+														// if there are multiple polys connecting these two nodes, split the destination node so there is only one connection point between any two nodes
+														// this is important for pathfinding as otherwise the correct path to use depends on later points which would make pathing very complex
+														UUTPathNode* NewNode = NewObject<UUTPathNode>(this);
+														NewNode->MinPolyEdgeSize = DestNode->MinPolyEdgeSize;
+														NewNode->PhysicsVolume = DestNode->PhysicsVolume;
+														DestNode->Polys.Remove(Link.ref);
+														NewNode->Polys.Add(Link.ref);
+														PolyToNode.Add(Link.ref, NewNode);
+														// TODO: should we claim more than one poly from DestNode?
 
-													// move over POIs that are inside the split polygons
-													for (int32 POIIndex = 0; POIIndex < DestNode->POIs.Num(); POIIndex++)
-													{
-														if (NewNode->Polys.Contains(FindNearestPoly(DestNode->POIs[POIIndex]->GetActorLocation(), GetPOIExtent(DestNode->POIs[POIIndex].Get()))))
+														// move over POIs that are inside the split polygons
+														for (int32 POIIndex = 0; POIIndex < DestNode->POIs.Num(); POIIndex++)
 														{
-															NewNode->POIs.Add(DestNode->POIs[POIIndex]);
-															DestNode->POIs.RemoveAt(POIIndex--);
-														}
-													}
-													// if there was a path from Dest -> source, redirect it to Dest -> NewNode
-													for (int32 LinkIndex = 0; LinkIndex < DestNode->Paths.Num(); LinkIndex++)
-													{
-														if (DestNode->Paths[LinkIndex].End == Node && DestNode->Paths[LinkIndex].EndPoly == PolyRef)
-														{
-															// find poly in DestNode that links to NewNode
-															NavNodeRef NewSrcPoly = INVALID_NAVNODEREF;
-															for (NavNodeRef DestPolyRef : DestNode->Polys)
+															if (NewNode->Polys.Contains(FindNearestPoly(DestNode->POIs[POIIndex]->GetActorLocation(), GetPOIExtent(DestNode->POIs[POIIndex].Get()))))
 															{
-																const dtPoly* TestPolyData = NULL;
-																const dtMeshTile* TestTileData = NULL;
-																InternalMesh->getTileAndPolyByRef(PolyRef, &TestTileData, &TestPolyData);
-																if (PolyData != NULL && TileData != NULL)
+																NewNode->POIs.Add(DestNode->POIs[POIIndex]);
+																DestNode->POIs.RemoveAt(POIIndex--);
+															}
+														}
+														// if there was a path from Dest -> source, redirect it to Dest -> NewNode
+														for (int32 LinkIndex = 0; LinkIndex < DestNode->Paths.Num(); LinkIndex++)
+														{
+															if (DestNode->Paths[LinkIndex].End == Node && DestNode->Paths[LinkIndex].EndPoly == PolyRef)
+															{
+																// find poly in DestNode that links to NewNode
+																NavNodeRef NewSrcPoly = INVALID_NAVNODEREF;
+																for (NavNodeRef DestPolyRef : DestNode->Polys)
 																{
-																	uint32 j = PolyData->firstLink;
-																	while (j != DT_NULL_LINK)
+																	const dtPoly* TestPolyData = NULL;
+																	const dtMeshTile* TestTileData = NULL;
+																	InternalMesh->getTileAndPolyByRef(PolyRef, &TestTileData, &TestPolyData);
+																	if (PolyData != NULL && TileData != NULL)
 																	{
-																		const dtLink& TestLink = InternalMesh->getLink(TileData, j);
-																		j = TestLink.next;
-																		if (TestLink.ref == Link.ref)
+																		uint32 j = PolyData->firstLink;
+																		while (j != DT_NULL_LINK)
 																		{
-																			NewSrcPoly = DestPolyRef;
-																			break;
+																			const dtLink& TestLink = InternalMesh->getLink(TileData, j);
+																			j = TestLink.next;
+																			if (TestLink.ref == Link.ref)
+																			{
+																				NewSrcPoly = DestPolyRef;
+																				break;
+																			}
 																		}
+																	}
+																	if (NewSrcPoly != INVALID_NAVNODEREF)
+																	{
+																		break;
 																	}
 																}
 																if (NewSrcPoly != INVALID_NAVNODEREF)
 																{
-																	break;
+																	DestNode->Paths[LinkIndex] = FUTPathLink(DestNode, NewSrcPoly, NewNode, Link.ref, NULL, FMath::Min<int32>(NewNode->MinPolyEdgeSize.Radius, DestNode->MinPolyEdgeSize.Radius), FMath::Min<int32>(NewNode->MinPolyEdgeSize.Height, DestNode->MinPolyEdgeSize.Height), 0);
+																}
+																else
+																{
+																	// shouldn't happen
+																	UE_LOG(UT, Warning, TEXT("NODE BUILDER: Link error trying to split PathNodes"));
+																}
+																break;
+															}
+														}
+														// redirect other nodes' paths that point to polys that have been redirected
+														for (UUTPathNode* OtherNode : PathNodes)
+														{
+															for (FUTPathLink& OtherLink : OtherNode->Paths)
+															{
+																if (NewNode->Polys.Contains(OtherLink.EndPoly))
+																{
+																	OtherLink.End = NewNode;
 																}
 															}
-															if (NewSrcPoly != INVALID_NAVNODEREF)
-															{
-																DestNode->Paths[LinkIndex] = FUTPathLink(DestNode, NewSrcPoly, NewNode, Link.ref, NULL, FMath::Min<int32>(NewNode->MinPolyEdgeSize.Radius, DestNode->MinPolyEdgeSize.Radius), FMath::Min<int32>(NewNode->MinPolyEdgeSize.Height, DestNode->MinPolyEdgeSize.Height), 0);
-															}
-															else
-															{
-																// shouldn't happen
-																UE_LOG(UT, Warning, TEXT("NODE BUILDER: Link error trying to split PathNodes"));
-															}
-															break;
 														}
-													}
-													// redirect other nodes' paths that point to polys that have been redirected
-													for (UUTPathNode* OtherNode : PathNodes)
-													{
-														for (FUTPathLink& OtherLink : OtherNode->Paths)
-														{
-															if (NewNode->Polys.Contains(OtherLink.EndPoly))
-															{
-																OtherLink.End = NewNode;
-															}
-														}
-													}
 
-													DestNode = NewNode;
-													PathNodes.Add(NewNode);
+														DestNode = NewNode;
+														PathNodes.Add(NewNode);
+													}
+													else
+													{
+														bFound = true;
+													}
+													break;
 												}
-												else
-												{
-													bFound = true;
-												}
-												break;
 											}
-										}
-										if (!bFound)
-										{
-											new(Node->Paths) FUTPathLink(Node, PolyRef, DestNode, Link.ref, NULL, FMath::Min<int32>(Node->MinPolyEdgeSize.Radius, DestNode->MinPolyEdgeSize.Radius), FMath::Min<int32>(Node->MinPolyEdgeSize.Height, DestNode->MinPolyEdgeSize.Height), 0);
-											// note: reverse path will be created when we iterate that node
+											if (!bFound)
+											{
+												new(Node->Paths) FUTPathLink(Node, PolyRef, DestNode, Link.ref, NULL, FMath::Min<int32>(Node->MinPolyEdgeSize.Radius, DestNode->MinPolyEdgeSize.Radius), FMath::Min<int32>(Node->MinPolyEdgeSize.Height, DestNode->MinPolyEdgeSize.Height), 0);
+												// note: reverse path will be created when we iterate that node
+											}
 										}
 									}
 								}
@@ -861,6 +873,7 @@ void AUTRecastNavMesh::BuildNodeNetwork()
 						UUTPathNode* Node = NewObject<UUTPathNode>(this);
 						PathNodes.Add(Node);
 						PolyToNode.Add(PolyRef, Node);
+						Node->PhysicsVolume = FindPhysicsVolume(GetWorld(), GetPolyCenter(PolyRef) + FVector(0.0f, 0.0f, AgentCapsule.GetCapsuleHalfHeight()), AgentCapsule);
 						Node->Polys.Add(PolyRef);
 						SetNodeSize(Node);
 						bNodesAdded = true;
@@ -873,6 +886,12 @@ void AUTRecastNavMesh::BuildNodeNetwork()
 				}
 			}
 		}
+	}
+	
+	// construct PhysicsVolume -> Node mapping
+	for (UUTPathNode* Node : PathNodes)
+	{
+		VolumeToNode.Add(Node->PhysicsVolume, Node);
 	}
 
 	// sanity check our data
@@ -1064,10 +1083,9 @@ void AUTRecastNavMesh::BuildSpecialLinks(int32 NumToProcess)
 				BaseJumpZ = DefaultScout->GetCharacterMovement()->JumpZVelocity * 0.95f; // slightly less so we can be more confident in the jumps
 			}
 
-			float MoveSpeed = ScoutClass.GetDefaultObject()->GetCharacterMovement()->MaxWalkSpeed;
-			FVector HeightAdjust(0.0f, 0.0f, AgentHeight * 0.5f);
-
-			FCapsuleSize PathSize = GetHumanPathSize();
+			const float MoveSpeed = ScoutClass.GetDefaultObject()->GetCharacterMovement()->MaxWalkSpeed;
+			const FCapsuleSize PathSize = GetHumanPathSize();
+			const FVector HeightAdjust(0.0f, 0.0f, PathSize.Height);
 
 			// HACK: avoid placing jumps to extra lift navmesh geometry created to work around lack of movable navmeshes
 			TArray<FVector> LiftHackLocs;
@@ -1125,9 +1143,8 @@ void AUTRecastNavMesh::BuildSpecialLinks(int32 NumToProcess)
 									FVector TestLoc = GetPolyCenter(It.Key());
 									// if there's a valid jump more than ~45 degrees off the direction to the wall there is probably another poly wall in this polygon that will handle it
 									// we add a little leeway to ~50 degrees since we're only testing the wall center and not the whole thing
-									// FIXME: replace NumSegments hack and threshold dot test with loop that uses wall with best angle
-									if ((TestLoc - WallCenter).Size2D() < JumpTestThreshold2D && (NumSegments == 1 || ((TestLoc - WallCenter).GetSafeNormal2D() | (WallCenter - PolyCenter).GetSafeNormal2D()) > 0.64f) &&
-										!IsInPain(GetWorld(), TestLoc)) // TODO: need to allow pain volumes (flag node)
+									// FIXME: is NumSegments hack still needed now that second pass adds extra jump paths?
+									if ((TestLoc - WallCenter).Size2D() < JumpTestThreshold2D && (NumSegments == 1 || ((TestLoc - WallCenter).GetSafeNormal2D() | (WallCenter - PolyCenter).GetSafeNormal2D()) > 0.64f))
 									{
 										if (!IsValidJumpPoint(TestLoc))
 										{
@@ -1164,54 +1181,177 @@ void AUTRecastNavMesh::BuildSpecialLinks(int32 NumToProcess)
 										if (!bWalkReachable && !bSkipForLift)
 										{
 											TestLoc += HeightAdjust;
-											float RequiredJumpZ = 0.0f;
-											if (OnlyJumpReachable(DefaultScout, WallCenter, TestLoc, PolyRef, It.Key(), -1.0f, &RequiredJumpZ))
+											if (Node->PhysicsVolume->bWaterVolume)
 											{
-												bool bNeedsJumpSpec = RequiredJumpZ > BaseJumpZ;
-												// TODO: account for MaxFallSpeed
-												bool bFound = false;
-												for (FUTPathLink& ExistingLink : Node->Paths)
+												// check for swim reachable
+												bool bSwimReachable = false;
+												bool bRequiresJumpUp = false;
+												const FCollisionShape ScoutShape = FCollisionShape::MakeCapsule(PathSize.Radius, PathSize.Height);
+												// ignore the NumSegments thing above for water volumes; we can definitely be more restrictive here because the AI can generally float to some other node if necessary
+												if (NumSegments > 1 || ((TestLoc - WallCenter).GetSafeNormal2D() | (WallCenter - PolyCenter).GetSafeNormal2D()) > 0.64f)
 												{
-													if (ExistingLink.End == It.Value() && ExistingLink.StartEdgePoly == PolyRef)
+													if (!GetWorld()->SweepTestByChannel(WallCenter, TestLoc, FQuat::Identity, ECC_Pawn, ScoutShape))
 													{
-														bool bValid = false;
-														if (!bNeedsJumpSpec)
+														bSwimReachable = true;
+													}
+													else if (It.Value()->PhysicsVolume->bWaterVolume)
+													{
+														// try moving trace locs up
+														FVector NewTestLoc = TestLoc;
+														FVector NewWallCenter = WallCenter;
+														if (NewTestLoc.Z > NewWallCenter.Z)
 														{
-															if (ExistingLink.Spec.Get() == NULL)
+															NewWallCenter.Z = NewTestLoc.Z;
+															FHitResult Hit;
+															if (GetWorld()->LineTraceSingleByChannel(Hit, WallCenter, NewWallCenter, ECC_Pawn))
 															{
-																bValid = true;
+																NewWallCenter = Hit.Location;
 															}
 														}
 														else
 														{
-															// accept if existing jump is reasonably close in requirements
-															UUTReachSpec_HighJump* JumpSpec = Cast<UUTReachSpec_HighJump>(ExistingLink.Spec.Get());
-															if (JumpSpec != NULL && JumpSpec->RequiredJumpZ > RequiredJumpZ && RequiredJumpZ > JumpSpec->RequiredJumpZ * 0.9f)
+															NewTestLoc.Z = NewWallCenter.Z;
+															FHitResult Hit;
+															if (GetWorld()->LineTraceSingleByChannel(Hit, TestLoc, NewTestLoc, ECC_Pawn))
 															{
-																bValid = true;
+																NewTestLoc = Hit.Location;
 															}
 														}
-														if (bValid)
+														bSwimReachable = !GetWorld()->SweepTestByChannel(NewWallCenter, NewTestLoc, FQuat::Identity, ECC_Pawn, ScoutShape);
+													}
+													else
+													{
+														// go as far as we can and check for jump out
+														FVector Step = (TestLoc - WallCenter).GetSafeNormal() * PathSize.Radius;
+														FVector CurrentLoc = WallCenter;
+														while (true)
 														{
-															ExistingLink.AdditionalEndPolys.Add(It.Key());
-															bFound = true;
-															break;
+															FBox TestBox(0);
+															TestBox += CurrentLoc + PathSize.GetExtent();
+															TestBox += CurrentLoc - PathSize.GetExtent();
+															if (FMath::PointBoxIntersection(TestLoc, TestBox))
+															{
+																bSwimReachable = true;
+																break;
+															}
+															else if ((Step | (TestLoc - CurrentLoc)) < 0.0f)
+															{
+																// hit a wall then floated past the target, fail
+																break;
+															}
+															else
+															{
+																APhysicsVolume* NewVolume = FindPhysicsVolume(GetWorld(), CurrentLoc, ScoutShape);
+																if (!NewVolume->bWaterVolume)
+																{
+																	// jump test the rest
+																	if (JumpTraceTest(CurrentLoc, TestLoc, INVALID_NAVNODEREF, It.Key(), ScoutShape, MoveSpeed, NewVolume->GetGravityZ(), BaseJumpZ, BaseJumpZ, NULL, NULL))
+																	{
+																		bSwimReachable = true;
+																		bRequiresJumpUp = true;
+																	}
+																	break;
+																}
+																else if (GetWorld()->SweepTestByChannel(CurrentLoc, CurrentLoc + Step, FQuat::Identity, ECC_Pawn, ScoutShape))
+																{
+																	if (Step.Size2D() < KINDA_SMALL_NUMBER || Step.Z < KINDA_SMALL_NUMBER)
+																	{
+																		// failure
+																		break;
+																	}
+																	else
+																	{
+																		// try floating upward
+																		Step.X = Step.Y = 0.0f;
+																	}
+																}
+																else
+																{
+																	CurrentLoc += Step;
+																}
+															}
+														}
+													}
+													if (bSwimReachable)
+													{
+														uint32 ReachFlags = R_SWIM;
+														if (bRequiresJumpUp)
+														{
+															ReachFlags |= R_JUMP;
+														}
+														bool bFound = false;
+														for (FUTPathLink& ExistingLink : Node->Paths)
+														{
+															if (ExistingLink.End == It.Value() && ExistingLink.StartEdgePoly == PolyRef && ExistingLink.ReachFlags == ReachFlags)
+															{
+																ExistingLink.AdditionalEndPolys.Add(It.Key());
+																bFound = true;
+																break;
+															}
+														}
+														if (!bFound)
+														{
+															new(Node->Paths) FUTPathLink(Node, PolyRef, It.Value(), It.Key(), NULL, PathSize.Radius, PathSize.Height, ReachFlags);
 														}
 													}
 												}
-
-												if (!bFound)
+											}
+											else
+											{
+												float RequiredJumpZ = 0.0f;
+												if (OnlyJumpReachable(DefaultScout, WallCenter, TestLoc, PolyRef, It.Key(), -1.0f, &RequiredJumpZ))
 												{
-													UUTReachSpec_HighJump* JumpSpec = NULL;
-													if (bNeedsJumpSpec)
+													bool bNeedsJumpSpec = RequiredJumpZ > BaseJumpZ;
+													// TODO: account for MaxFallSpeed
+													bool bFound = false;
+													for (FUTPathLink& ExistingLink : Node->Paths)
 													{
-														JumpSpec = NewObject<UUTReachSpec_HighJump>(Node);
-														JumpSpec->RequiredJumpZ = RequiredJumpZ;
-														JumpSpec->GravityVolume = FindPhysicsVolume(GetWorld(), WallCenter, FCollisionShape::MakeSphere(0.0f));
-														JumpSpec->OriginalGravityZ = (JumpSpec->GravityVolume != NULL) ? JumpSpec->GravityVolume->GetGravityZ() : GetWorld()->GetGravityZ();
-														AllReachSpecs.Add(JumpSpec);
+														if (ExistingLink.End == It.Value() && ExistingLink.StartEdgePoly == PolyRef)
+														{
+															bool bValid = false;
+															if (!bNeedsJumpSpec)
+															{
+																if (ExistingLink.Spec.Get() == NULL)
+																{
+																	bValid = true;
+																}
+															}
+															else
+															{
+																// accept if existing jump is reasonably close in requirements
+																UUTReachSpec_HighJump* JumpSpec = Cast<UUTReachSpec_HighJump>(ExistingLink.Spec.Get());
+																if (JumpSpec != NULL && JumpSpec->RequiredJumpZ > RequiredJumpZ && RequiredJumpZ > JumpSpec->RequiredJumpZ * 0.9f)
+																{
+																	bValid = true;
+																}
+															}
+															if (bValid)
+															{
+																ExistingLink.AdditionalEndPolys.Add(It.Key());
+																bFound = true;
+																break;
+															}
+														}
 													}
-													FUTPathLink* NewLink = new(Node->Paths) FUTPathLink(Node, PolyRef, It.Value(), It.Key(), JumpSpec, PathSize.Radius, PathSize.Height, R_JUMP);
+
+													if (!bFound)
+													{
+														UUTReachSpec_HighJump* JumpSpec = NULL;
+														if (bNeedsJumpSpec)
+														{
+															JumpSpec = NewObject<UUTReachSpec_HighJump>(Node);
+															JumpSpec->RequiredJumpZ = RequiredJumpZ;
+															JumpSpec->GravityVolume = Node->PhysicsVolume;
+															JumpSpec->OriginalGravityZ = (JumpSpec->GravityVolume != NULL) ? JumpSpec->GravityVolume->GetGravityZ() : GetWorld()->GetGravityZ();
+															AllReachSpecs.Add(JumpSpec);
+														}
+														uint32 ReachFlags = R_JUMP;
+														if (It.Value()->PhysicsVolume->bWaterVolume)
+														{
+															ReachFlags |= R_SWIM;
+														}
+														FUTPathLink* NewLink = new(Node->Paths) FUTPathLink(Node, PolyRef, It.Value(), It.Key(), JumpSpec, PathSize.Radius, PathSize.Height, ReachFlags);
+													}
 												}
 											}
 										}
@@ -1251,7 +1391,7 @@ void AUTRecastNavMesh::BuildSpecialLinks(int32 NumToProcess)
 					}
 					for (const FUTPathLink& Link : Node->Paths)
 					{
-						if ( !Link.End->bDestinationOnly && (Link.ReachFlags & R_JUMP) &&
+						if ( !Link.End->bDestinationOnly && (Link.ReachFlags == R_JUMP) &&
 							(!Link.Spec.IsValid() || (Cast<UUTReachSpec_HighJump>(Link.Spec.Get()) != NULL && !((UUTReachSpec_HighJump*)Link.Spec.Get())->bJumpFromEdgePolyCenter)) &&
 							GetPolyCenter(Link.StartEdgePoly).Z > GetPolyCenter(Link.EndPoly).Z )
 						{
@@ -1305,7 +1445,7 @@ void AUTRecastNavMesh::BuildSpecialLinks(int32 NumToProcess)
 										{
 											StartLoc.Z += 0.5f; // avoid precision issues
 
-											APhysicsVolume* GravityVolume = FindPhysicsVolume(GetWorld(), StartLoc, FCollisionShape::MakeSphere(0.0f));
+											APhysicsVolume* GravityVolume = Node->PhysicsVolume;
 											const float GravityZ = (GravityVolume != NULL) ? GravityVolume->GetGravityZ() : GetWorld()->GetGravityZ();
 
 											// test from closest wall as well as center to try to reduce jump requirements
@@ -1410,6 +1550,7 @@ void AUTRecastNavMesh::DeletePaths()
 	PolyToNode.Empty();
 	AllReachSpecs.Empty();
 	POIToNode.Empty();
+	VolumeToNode.Empty();
 	SpecialLinkBuildNodeIndex = INDEX_NONE;
 	SpecialLinkBuildPass = 0;
 
@@ -1485,9 +1626,86 @@ float FSingleEndpointEval::Eval(APawn* Asker, const FNavAgentProperties& AgentPr
 	return (Node == GoalNode) ? 10.0f : 0.0f;
 }
 
+NavNodeRef AUTRecastNavMesh::UTFindNearestPoly(const FVector& Loc, const FVector& Extent) const
+{
+	NavNodeRef Result = Super::FindNearestPoly(Loc, Extent);
+	if (Result == INVALID_NAVNODEREF)
+	{
+		// check for water poly
+		APhysicsVolume* Volume = FindPhysicsVolume(GetWorld(), Loc, FCollisionShape::MakeCapsule(Extent));
+		if (Volume->bWaterVolume)
+		{
+			// search with very large Z to try to find a matching 2D poly in the water
+			const FVector RecastCenter = Unreal2RecastPoint(Loc);
+			FVector RecastExtent(Extent[0], 100000.0f, Extent[1]);
+			TArray<NavNodeRef> Extent2DPolys;
+			{
+				NavNodeRef ResultPolys[10];
+				int32 NumPolys = 0;
+				GetRecastNavMeshImpl()->SharedNavQuery.queryPolygons((float*)&RecastCenter, (float*)&RecastExtent, GetDefaultDetourFilter(), ResultPolys, &NumPolys, ARRAY_COUNT(ResultPolys));
+				Extent2DPolys.Reserve(NumPolys);
+				for (int32 i = 0; i < NumPolys; i++)
+				{
+					Extent2DPolys.Add(ResultPolys[i]);
+				}
+			}
+			float BestDist = FLT_MAX;
+			if (VolumeToNode.Num() == 0)
+			{
+				// this is used during path building for POIs
+				for (NavNodeRef TestPoly : Extent2DPolys)
+				{
+					float Dist = (GetPolyCenter(TestPoly) - Loc).Size();
+					if (Dist < BestDist)
+					{
+						Result = TestPoly;
+						BestDist = Dist;
+					}
+				}
+			}
+			else
+			{
+				for (TMultiMap<TWeakObjectPtr<APhysicsVolume>, UUTPathNode*>::TConstKeyIterator It(VolumeToNode, Volume); It; ++It)
+				{
+					for (NavNodeRef TestPoly : Extent2DPolys)
+					{
+						if (It.Value()->Polys.Contains(TestPoly))
+						{
+							const FVector PolyLoc = GetPolyCenter(TestPoly);
+							float Dist = (PolyLoc - Loc).Size();
+							if (Dist < BestDist && FindPhysicsVolume(GetWorld(), PolyLoc, FCollisionShape::MakeCapsule(Extent)) == Volume)
+							{
+								Result = TestPoly;
+								BestDist = Dist;
+							}
+						}
+					}
+				}
+				if (Result == INVALID_NAVNODEREF)
+				{
+					// fallback, pick closest poly in same volume, period
+					for (TMultiMap<TWeakObjectPtr<APhysicsVolume>, UUTPathNode*>::TConstKeyIterator It(VolumeToNode, Volume); It; ++It)
+					{
+						for (NavNodeRef TestPoly : It.Value()->Polys)
+						{
+							float Dist = (GetPolyCenter(TestPoly) - Loc).Size();
+							if (Dist < BestDist)
+							{
+								Result = TestPoly;
+								BestDist = Dist;
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	return Result;
+}
+
 UUTPathNode* AUTRecastNavMesh::FindNearestNode(const FVector& TestLoc, const FVector& Extent) const
 {
-	NavNodeRef PolyRef = FindNearestPoly(TestLoc, Extent);
+	NavNodeRef PolyRef = UTFindNearestPoly(TestLoc, Extent);
 	return PolyToNode.FindRef(PolyRef);
 }
 
@@ -1623,19 +1841,6 @@ NavNodeRef AUTRecastNavMesh::FindAnchorPoly(const FVector& TestLoc, APawn* Asker
 	else
 	{
 		NavNodeRef StartPoly = FindNearestPoly(TestLoc, FVector(AgentProps.AgentRadius, AgentProps.AgentRadius, AgentProps.AgentHeight * 0.5f));
-		if (StartPoly != INVALID_NAVNODEREF)
-		{
-			// currently in a water volume the polys are at the bottom of the water area
-			APhysicsVolume* Volume = FindPhysicsVolume(GetWorld(), TestLoc, FCollisionShape::MakeCapsule(AgentProps.AgentRadius, AgentProps.AgentHeight * 0.5f));
-			if (Volume->bWaterVolume && Volume->GetBrushComponent() != NULL)
-			{
-				FHitResult Hit;
-				if (Volume->GetBrushComponent()->LineTraceComponent(Hit, TestLoc - FVector(0.0f, 0.0f, 100000.0f), TestLoc, FCollisionQueryParams()))
-				{
-					StartPoly = FindNearestPoly(Hit.Location + FVector(0.0f, 0.0f, AgentProps.AgentHeight * 0.5f), FVector(AgentProps.AgentRadius, AgentProps.AgentRadius, AgentProps.AgentHeight * 0.5f));
-				}
-			}
-		}
 		// HACK: handle lifts (see FindLiftPoly())
 		if (StartPoly == INVALID_NAVNODEREF)
 		{
@@ -1721,6 +1926,10 @@ void AUTRecastNavMesh::CalcReachParams(APawn* Asker, const FNavAgentProperties& 
 	if (AgentProps.bCanJump)
 	{
 		MoveFlags |= R_JUMP;
+	}
+	if (AgentProps.bCanSwim)
+	{
+		MoveFlags |= R_SWIM;
 	}
 
 	if (AgentProps.bCanCrouch)
@@ -1921,19 +2130,12 @@ bool AUTRecastNavMesh::FindBestPath(APawn* Asker, const FNavAgentProperties& Age
 			// ask any ReachSpecs along path if there is an Actor target to assign to the route point
 			if (NodeRoute.Num() > 0)
 			{
-				{
-					int32 LinkIndex = NextRouteNode->Node->GetBestLinkTo(NextRouteNode->Poly, NodeRoute[0], Asker, AgentProps, this);
-					if (LinkIndex != INDEX_NONE && NextRouteNode->Node->Paths[LinkIndex].Spec.IsValid())
-					{
-						NodeRoute[0].Actor = NextRouteNode->Node->Paths[LinkIndex].Spec->GetMoveTargetActor();
-					}
-				}
 				for (int32 i = 1; i < NodeRoute.Num(); i++)
 				{
 					int32 LinkIndex = NodeRoute[i - 1].Node->GetBestLinkTo(NodeRoute[i - 1].TargetPoly, NodeRoute[i], Asker, AgentProps, this);
 					if (LinkIndex != INDEX_NONE && NodeRoute[i - 1].Node->Paths[LinkIndex].Spec.IsValid())
 					{
-						NodeRoute[i].Actor = NodeRoute[i - 1].Node->Paths[LinkIndex].Spec->GetMoveTargetActor();
+						NodeRoute[i - 1].Actor = NodeRoute[i - 1].Node->Paths[LinkIndex].Spec->GetSourceActor();
 					}
 				}
 			}

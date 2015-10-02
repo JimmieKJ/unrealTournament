@@ -27,7 +27,7 @@ class UNREALTOURNAMENT_API UUTReachSpec : public UObject
 	}
 
 	/** get Actor to use as MoveTarget when moving along this path (generally used when completing this path involves a moving object or something that must be touched */
-	virtual TWeakObjectPtr<AActor> GetMoveTargetActor() const
+	virtual TWeakObjectPtr<AActor> GetSourceActor() const
 	{
 		return NULL;
 	}

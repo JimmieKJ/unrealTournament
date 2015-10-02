@@ -21,7 +21,7 @@ AUTLiftExit::AUTLiftExit(const FObjectInitializer& ObjectInitializer)
 bool AUTLiftExit::AddLiftPathsShared(const FVector& ExitLoc, AUTLift* TheLift, bool bRequireLiftJump, bool bOnlyExitPath, AUTRecastNavMesh* NavData)
 {
 	FVector NavExtent = NavData->GetPOIExtent(NULL);
-	NavNodeRef MyPoly = NavData->FindNearestPoly(ExitLoc, NavExtent);
+	NavNodeRef MyPoly = NavData->UTFindNearestPoly(ExitLoc, NavExtent);
 	UUTPathNode* MyNode = NavData->GetNodeFromPoly(MyPoly);
 	TArray<FVector> Stops = TheLift->GetStops();
 	if (Stops.Num() > 0 && MyNode != NULL)
@@ -55,7 +55,7 @@ bool AUTLiftExit::AddLiftPathsShared(const FVector& ExitLoc, AUTLift* TheLift, b
 				bSkipInitialAirControl = TheLift->GetWorld()->LineTraceSingleByChannel(Hit, BestLiftCenter, BestLiftCenter + (ExitLoc - BestLiftCenter) * 0.7f, ECC_Pawn, FCollisionQueryParams()) && Hit.Normal.Z < 0.0f;
 			}
 
-			NavNodeRef LiftPoly = NavData->FindNearestPoly(BestStop + LiftCenterOffset, NavExtent * FVector(1.0f, 1.0f, 1.5f));
+			NavNodeRef LiftPoly = NavData->UTFindNearestPoly(BestStop + LiftCenterOffset, NavExtent * FVector(1.0f, 1.0f, 1.5f));
 			UUTPathNode* LiftNode = NavData->GetNodeFromPoly(LiftPoly);
 			if (MyPoly != INVALID_NAVNODEREF && LiftPoly != INVALID_NAVNODEREF && LiftNode != NULL)
 			{
@@ -79,7 +79,7 @@ bool AUTLiftExit::AddLiftPathsShared(const FVector& ExitLoc, AUTLift* TheLift, b
 				// TODO: when lifts properly have their own movable nav mesh then this will only need to be one path
 				for (const FVector& NextStop : Stops)
 				{
-					NavNodeRef StopPoly = NavData->FindNearestPoly(NextStop + LiftCenterOffset, NavExtent);
+					NavNodeRef StopPoly = NavData->UTFindNearestPoly(NextStop + LiftCenterOffset, NavExtent);
 					UUTPathNode* StopNode = NavData->GetNodeFromPoly(StopPoly);
 					if (StopPoly != INVALID_NAVNODEREF && StopNode != NULL)
 					{

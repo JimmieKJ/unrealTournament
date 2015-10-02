@@ -158,10 +158,10 @@ void AUTTeleporter::EditorApplyScale(const FVector& DeltaScale, const FVector* P
 
 void AUTTeleporter::AddSpecialPaths(UUTPathNode* MyNode, AUTRecastNavMesh* NavData)
 {
-	NavNodeRef MyPoly = NavData->FindNearestPoly(GetActorLocation(), GetSimpleCollisionCylinderExtent());
+	NavNodeRef MyPoly = NavData->UTFindNearestPoly(GetActorLocation(), GetSimpleCollisionCylinderExtent());
 	FTransform WorldTransform = TeleportTarget * ActorToWorld();
 	FVector AdjustedTeleportLoc = WorldTransform.GetLocation();
-	NavNodeRef TargetPoly = NavData->FindNearestPoly(AdjustedTeleportLoc, FVector(NavData->AgentRadius, NavData->AgentRadius, NavData->AgentHeight));
+	NavNodeRef TargetPoly = NavData->UTFindNearestPoly(AdjustedTeleportLoc, FVector(NavData->AgentRadius, NavData->AgentRadius, NavData->AgentHeight));
 	if (MyPoly != INVALID_NAVNODEREF && TargetPoly != INVALID_NAVNODEREF)
 	{
 		UUTPathNode* End = NavData->GetNodeFromPoly(TargetPoly);

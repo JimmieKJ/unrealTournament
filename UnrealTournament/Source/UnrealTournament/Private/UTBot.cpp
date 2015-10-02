@@ -924,7 +924,7 @@ void AUTBot::SetMoveTarget(const FRouteCacheItem& NewMoveTarget, const TArray<FC
 	MoveTargetPoints = NewMovePoints;
 	bAdjusting = false;
 	CurrentPath = FUTPathLink();
-	if (NavData == NULL || !NavData->GetPolyCenter(NavData->FindNearestPoly(GetPawn()->GetNavAgentLocation(), GetPawn()->GetSimpleCollisionCylinderExtent()), LastReachedMovePoint))
+	if (NavData == NULL || !NavData->GetPolyCenter(NavData->UTFindNearestPoly(GetPawn()->GetNavAgentLocation(), GetPawn()->GetSimpleCollisionCylinderExtent()), LastReachedMovePoint))
 	{
 		LastReachedMovePoint = GetPawn()->GetActorLocation();
 	}
@@ -1268,7 +1268,7 @@ void AUTBot::ApplyWeaponAimAdjust(FVector TargetLoc, FVector& FocalPoint)
 							HitLoc.Z += ZDiff * 0.5f;
 							FVector Extent = GetPawn()->GetSimpleCollisionCylinderExtent() * FVector(2.0f, 2.0f, 1.0f);
 							Extent.Z += FMath::Abs<float>(ZDiff) * 0.5f;
-							NavNodeRef WallPoly = NavData->FindNearestPoly(HitLoc, Extent);
+							NavNodeRef WallPoly = NavData->UTFindNearestPoly(HitLoc, Extent);
 							if (WallPoly != INVALID_NAVNODEREF)
 							{
 								TArray<FLine> Walls = NavData->GetPolyWalls(WallPoly);
@@ -2947,7 +2947,7 @@ void AUTBot::DoHunt(APawn* NewHuntTarget)
 		if (RemainingSpots.Num() == 0 && GetWorld()->TimeSeconds - EnemyInfo->LastFullUpdateTime < 2.0f)
 		{
 			// we know where the enemy is or was recently, just go with that for now
-			NavNodeRef Poly = NavData->FindNearestPoly(EnemyInfo->LastKnownLoc, NavData->GetPOIExtent(EnemyInfo->GetPawn()));
+			NavNodeRef Poly = NavData->FindAnchorPoly(EnemyInfo->LastKnownLoc, EnemyInfo->GetPawn(), EnemyInfo->GetPawn()->GetNavAgentPropertiesRef());
 			if (Poly == INVALID_NAVNODEREF)
 			{
 				// enemy may be jumping, etc so try tracing to ground
@@ -2955,7 +2955,7 @@ void AUTBot::DoHunt(APawn* NewHuntTarget)
 				FHitResult Hit;
 				if (GetWorld()->LineTraceSingleByChannel(Hit, EnemyInfo->LastKnownLoc, EnemyInfo->LastKnownLoc - FVector(0.0f, 0.0f, 10000.0f), ECC_Pawn, FCollisionQueryParams(), WorldResponseParams))
 				{
-					Poly = NavData->FindNearestPoly(Hit.Location, NavData->GetPOIExtent(EnemyInfo->GetPawn()));
+					Poly = NavData->FindAnchorPoly(Hit.Location, EnemyInfo->GetPawn(), EnemyInfo->GetPawn()->GetNavAgentPropertiesRef());
 				}
 			}
 			if (Poly != INVALID_NAVNODEREF)
@@ -2993,7 +2993,7 @@ void AUTBot::DoHunt(APawn* NewHuntTarget)
 			{
 				for (const FVector& TestSpot : RemainingSpots)
 				{
-					NavNodeRef Poly = NavData->FindNearestPoly(TestSpot, NavData->GetPOIExtent(EnemyInfo->GetPawn()));
+					NavNodeRef Poly = NavData->UTFindNearestPoly(TestSpot, NavData->GetPOIExtent(EnemyInfo->GetPawn()));
 					if (Poly != INVALID_NAVNODEREF)
 					{
 						new(HuntEndpoints) FRouteCacheItem(NavData->GetNodeFromPoly(Poly), TestSpot, Poly);
@@ -3176,18 +3176,18 @@ bool AUTBot::IsAcceptableTranslocation(const FVector& TeleportLoc, const FVector
 			}
 			else
 			{
-				NavNodeRef TeleportPoly = NavData->FindNearestPoly(TeleportLoc, GetPawn()->GetSimpleCollisionCylinderExtent());
+				NavNodeRef TeleportPoly = NavData->UTFindNearestPoly(TeleportLoc, GetPawn()->GetSimpleCollisionCylinderExtent());
 				if (TeleportPoly != INVALID_NAVNODEREF)
 				{
 					UUTPathNode* Node = NavData->GetNodeFromPoly(TeleportPoly);
 					if (Node != NULL)
 					{
 						FVector AdjustedDest = DesiredDest;
-						NavNodeRef DestPoly = NavData->FindNearestPoly(AdjustedDest, GetPawn()->GetSimpleCollisionCylinderExtent());
+						NavNodeRef DestPoly = NavData->UTFindNearestPoly(AdjustedDest, GetPawn()->GetSimpleCollisionCylinderExtent());
 						if (DestPoly == INVALID_NAVNODEREF)
 						{
 							AdjustedDest.Z -= GetPawn()->GetSimpleCollisionHalfHeight();
-							DestPoly = NavData->FindNearestPoly(AdjustedDest, GetPawn()->GetSimpleCollisionCylinderExtent());
+							DestPoly = NavData->UTFindNearestPoly(AdjustedDest, GetPawn()->GetSimpleCollisionCylinderExtent());
 						}
 						if (DestPoly != INVALID_NAVNODEREF)
 						{

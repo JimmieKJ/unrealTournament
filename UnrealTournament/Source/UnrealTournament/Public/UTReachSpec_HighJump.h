@@ -240,7 +240,7 @@ class UNREALTOURNAMENT_API UUTReachSpec_HighJump : public UUTReachSpec
 						AUTRecastNavMesh* NavData = GetUTNavData(Asker->GetWorld());
 						if (NavData->RaycastWithZCheck(Asker->GetNavAgentLocation(), Target.GetLocation(NULL)))
 						{
-							NavNodeRef CurrentPoly = NavData->FindNearestPoly(Asker->GetNavAgentLocation(), Asker->GetSimpleCollisionCylinderExtent());
+							NavNodeRef CurrentPoly = NavData->UTFindNearestPoly(Asker->GetNavAgentLocation(), Asker->GetSimpleCollisionCylinderExtent());
 							if (CurrentPoly != OwnerLink.StartEdgePoly && (MovePos.Get() - NavData->GetPolyCenter(CurrentPoly)).Size() < (MovePos.Get() - NavData->GetPolyCenter(OwnerLink.StartEdgePoly)).Size() * 0.9f)
 							{
 								bJumpBeforeEdge = true;

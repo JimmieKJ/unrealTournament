@@ -125,7 +125,7 @@ APhysicsVolume* FindPhysicsVolume(UWorld* World, const FVector& TestLoc, const F
 	{
 		const FOverlapResult& Link = Hits[HitIdx];
 		APhysicsVolume* const V = Cast<APhysicsVolume>(Link.GetActor());
-		if (V != NULL && (V->Priority > NewVolume->Priority))
+		if (V != NULL && V->Priority > NewVolume->Priority && (V->bPhysicsOnContact || V->EncompassesPoint(TestLoc)))
 		{
 			NewVolume = V;
 		}

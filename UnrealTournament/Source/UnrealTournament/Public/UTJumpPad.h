@@ -45,9 +45,9 @@ class UNREALTOURNAMENT_API AUTJumpPad : public AActor, public IUTPathBuilderInte
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = JumpPad)
 	bool bMaintainVelocity;
 
-	/** Area type for this Navigation link */
-	UPROPERTY(EditAnywhere, Category = JumpPad)
-	TSubclassOf<class UNavArea> AreaClass;
+	/** cached AI flag for whether this jump pad boosts the user through water */
+	UPROPERTY(BlueprintReadOnly, Category = AI)
+	bool bJumpThroughWater;
 
 	/** Get the Jump Pad Velocity from JumpActor's location */
 	UFUNCTION(BlueprintCallable, Category = JumpPad)
@@ -106,13 +106,16 @@ public:
 	/** Overridden to launch PendingJumpActors */
 	virtual void Tick(float DeltaTime) override;
 
+	/** returns whether this jump pad is currently enabled and will launch actors that touch it and pass CanLaunch() */
+	UFUNCTION(BlueprintNativeEvent)
+	bool IsEnabled() const;
 	/** returns whether the given Actor can be launched by this jumppad */
 	UFUNCTION(BlueprintNativeEvent)
 	bool CanLaunch(AActor* TestActor);
 	/** Launches the actor */
 	UFUNCTION(BlueprintNativeEvent)
 	void Launch(AActor* Actor);
-	
+
 	/** Actors we want to Jump next tick */
 	TArray<AActor*> PendingJumpActors;
 

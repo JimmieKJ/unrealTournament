@@ -42,7 +42,7 @@ bool UUTAIAction_RangedAttack::FindStrafeDest()
 	else
 	{
 		AUTRecastNavMesh* NavData = GetUTNavData(GetWorld());
-		NavNodeRef MyPoly = (NavData != NULL) ? NavData->FindNearestPoly(GetCharacter()->GetNavAgentLocation(), GetCharacter()->GetSimpleCollisionCylinderExtent()) : INVALID_NAVNODEREF;
+		NavNodeRef MyPoly = (NavData != NULL) ? NavData->UTFindNearestPoly(GetCharacter()->GetNavAgentLocation(), GetCharacter()->GetSimpleCollisionCylinderExtent()) : INVALID_NAVNODEREF;
 		if (MyPoly != INVALID_NAVNODEREF)
 		{
 			TArray<NavNodeRef> AdjacentPolys;
