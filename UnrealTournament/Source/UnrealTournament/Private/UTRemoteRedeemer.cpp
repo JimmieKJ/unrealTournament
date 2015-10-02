@@ -136,6 +136,10 @@ bool AUTRemoteRedeemer::DriverLeave(bool bForceLeave)
 		if (UTChar)
 		{
 			UTChar->StopDriving(this);
+			if (UTChar->GetWeapon())
+			{
+				UTChar->GetWeapon()->AddAmmo(0);
+			}
 		}
 		C->Possess(Driver);
 	}

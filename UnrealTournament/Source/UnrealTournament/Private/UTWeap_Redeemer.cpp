@@ -61,7 +61,7 @@ AUTProjectile* AUTWeap_Redeemer::FireProjectile()
 			// spawn the projectile at the muzzle
 			FActorSpawnParameters Params;
 			Params.Instigator = UTOwner;
-			AUTRemoteRedeemer* RemoteRedeemer = GetWorld()->SpawnActor<AUTRemoteRedeemer>(RemoteRedeemerClass, SpawnLocation, SpawnRotation, Params);
+			RemoteRedeemer = GetWorld()->SpawnActor<AUTRemoteRedeemer>(RemoteRedeemerClass, SpawnLocation, SpawnRotation, Params);
 			if (!RemoteRedeemer)
 			{
 				Params.bNoCollisionFail = true;
@@ -90,6 +90,15 @@ AUTProjectile* AUTWeap_Redeemer::FireProjectile()
 	{
 		return NULL;
 	}
+}
+
+void AUTWeap_Redeemer::AddAmmo(int32 Amount)
+{
+	if (RemoteRedeemer && !RemoteRedeemer->IsPendingKillPending())
+	{
+		return;
+	}
+	Super::AddAmmo(Amount);
 }
 
 float AUTWeap_Redeemer::SuggestAttackStyle_Implementation()
