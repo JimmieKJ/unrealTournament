@@ -24,16 +24,26 @@ void UUTConsole::FakeGotoState(FName NextStateName)
 		{
 			bReopenMenus = LP->GetCurrentMenu().IsValid();
 			LP->HideMenu();
+
+			if (World->GetNetMode() == NM_Standalone)
+			{
+				LP->PlayerController->SetPause(true);
+			}
 		}
 	
 	}
-	else if( NextStateName == NAME_None )
+	else if (NextStateName == NAME_None)
 	{
-		if (bReopenMenus)
+		UWorld *World = GetOuterUGameViewportClient()->GetWorld();
+		UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(GEngine->GetFirstGamePlayer(World));
+		if (LP)
 		{
-			UWorld *World = GetOuterUGameViewportClient()->GetWorld();			
-			UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(GEngine->GetFirstGamePlayer(World));
-			if (LP)
+			if (World->GetNetMode() == NM_Standalone)
+			{
+				LP->PlayerController->SetPause(false);
+			}
+
+			if (bReopenMenus)
 			{
 				LP->ShowMenu(TEXT(""));
 			}
