@@ -3072,12 +3072,12 @@ void AUTCharacter::Landed(const FHitResult& Hit)
 			UUTGameplayStatics::UTPlaySound(GetWorld(), FloorSlideSound, this, SRT_None);
 			if (FeetAreInWater())
 			{
-				UUTGameplayStatics::UTPlaySound(GetWorld(), WaterEntrySound, this, SRT_None);
+				PlayWaterSound(WaterEntrySound);
 			}
 		}
 		else if (FeetAreInWater())
 		{
-			UUTGameplayStatics::UTPlaySound(GetWorld(), WaterEntrySound, this, SRT_None);
+			PlayWaterSound(WaterEntrySound);
 			PlayWaterEntryEffect(GetActorLocation() - FVector(0.f, 0.f, GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight()), GetActorLocation());
 		}
 		else
