@@ -725,7 +725,7 @@ void AUTWeapon::PlayWeaponAnim(UAnimMontage* WeaponAnim, UAnimMontage* HandsAnim
 {
 	if (RateOverride <= 0.0f)
 	{
-		RateOverride = UTOwner->GetFireRateMultiplier();
+		RateOverride = UTOwner ? UTOwner->GetFireRateMultiplier() : 1.f;
 	}
 	if (UTOwner != NULL)
 	{
