@@ -4446,9 +4446,9 @@ void AUTCharacter::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector
 			}
 			UFont* TinyFont = AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->TinyFont;
 			Canvas->TextSize(TinyFont, PlayerState->PlayerName, TextXL, YL, Scale, Scale);
-			float X, Y;
-			Canvas->TextSize(TinyFont, FString("+999  A999"), X, Y, Scale, Scale);
-			float XL = bFarAway ? TextXL : FMath::Max(X, TextXL);
+			float BarWidth, Y;
+			Canvas->TextSize(TinyFont, FString("AAAWWW"), BarWidth, Y, Scale, Scale);
+			float XL = bFarAway ? TextXL : FMath::Max(BarWidth, TextXL);
 			FVector WorldPosition = GetMesh()->GetComponentLocation();
 			FVector ScreenPosition = Canvas->Project(WorldPosition + FVector(0.f, 0.f, GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight() * 2.25f));
 			float XPos = ScreenPosition.X - 0.5f*XL;
@@ -4474,29 +4474,36 @@ void AUTCharacter::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector
 
 				if (!bFarAway)
 				{
-					TextItem.SetColor(FLinearColor(0.2f, 0.5f, 0.2f, 0.6f));
-					FFormatNamedArguments Args;
-					Args.Add("Health", FText::AsNumber(Health));
-					TextItem.Text = FText::Format(NSLOCTEXT("UTCharacter", "HealthDisplay", "+{Health}"), Args);
-
-					float XOffset = XPos;
-					if (ArmorAmount == 0)
+					BarWidth -= 2.f*Border;
+					XPos += Border;
+					const float BarHeight = 6.f;
+					const float BarSpacing = 2.f;
+					UTexture* BarTexture = AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->HUDAtlas;
+					FLinearColor BarColor = FLinearColor::Green;
+					BarColor.A = 0.5f;
+					Canvas->SetLinearDrawColor(BarColor);
+					float HealthWidth = BarWidth * FMath::Min(HealthMax, Health) / FMath::Max(Health, HealthMax);
+					float BarY = YPos - YL + Height - 2.5f*BarHeight - BarSpacing;
+					Canvas->DrawTile(BarTexture, XPos, BarY, HealthWidth, BarHeight, 185.f, 400.f, 4.f, 4.f);
+					if (Health != 100)
 					{
-						Canvas->TextSize(TinyFont, TextItem.Text.ToString(), X, Y, Scale, Scale);
-						XOffset += 0.5f * (XL - X);
+						BarColor = (Health > 100) ? FLinearColor(0.4f, 0.6f, 2.f, 0.5f) : FLinearColor(0.f, 0.f, 0.f, 0.4f);
+						Canvas->SetLinearDrawColor(BarColor);
+						Canvas->DrawTile(BarTexture, XPos + HealthWidth, BarY, BarWidth - HealthWidth, BarHeight, 185.f, 400.f, 4.f, 4.f);
 					}
-					TextItem.Position = FVector2D(FMath::TruncToFloat(Canvas->OrgX + XOffset), FMath::TruncToFloat(Canvas->OrgY + YPos - 0.51f*YL));
-					Canvas->DrawItem(TextItem);
-
 					if (ArmorAmount > 0)
 					{
-						TextItem.SetColor(FLinearColor(0.5f, 0.5f, 0.2f, 0.6f));
-						FFormatNamedArguments ArmorArgs;
-						ArmorArgs.Add("Armor", FText::AsNumber(ArmorAmount));
-						TextItem.Text = FText::Format(NSLOCTEXT("UTCharacter", "ArmorDisplay", "A{Armor}"), ArmorArgs);
-						Canvas->TextSize(TinyFont, "A" + TextItem.Text.ToString(), X, Y, Scale, Scale);
-						TextItem.Position = FVector2D(FMath::TruncToFloat(Canvas->OrgX + XPos + XL - Border - X), FMath::TruncToFloat(Canvas->OrgY + YPos - 0.5f*YL));
-						Canvas->DrawItem(TextItem);
+						BarColor = FLinearColor::Yellow;
+						BarColor.A = 0.5f;
+						Canvas->SetLinearDrawColor(BarColor);
+						float ArmorWidth = BarWidth * ArmorAmount / FMath::Max(1.f, float(MaxStackedArmor));
+						Canvas->DrawTile(BarTexture, XPos, BarY + BarHeight + BarSpacing, ArmorWidth, BarHeight, 185.f, 400.f, 4.f, 4.f);
+						if (ArmorAmount < MaxStackedArmor)
+						{
+							BarColor = FLinearColor(0.f, 0.f, 0.f, 0.4f);
+							Canvas->SetLinearDrawColor(BarColor);
+							Canvas->DrawTile(BarTexture, XPos + ArmorWidth, BarY + BarHeight + BarSpacing, BarWidth - ArmorWidth, BarHeight, 185.f, 400.f, 4.f, 4.f);
+						}
 					}
 				}
 			}
