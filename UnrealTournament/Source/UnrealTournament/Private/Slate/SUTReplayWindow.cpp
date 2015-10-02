@@ -44,6 +44,8 @@ void SUTReplayWindow::Construct(const FArguments& InArgs)
 	HideTimeBarTime = 5.0f;
 	bDrawTooltip = false;
 
+	bHandledMouseClick = false;
+
 	ChildSlot
 	.VAlign(VAlign_Fill)
 	.HAlign(HAlign_Fill)
@@ -596,12 +598,26 @@ bool SUTReplayWindow::GetGameMousePosition(FVector2D& MousePosition) const
 
 FReply SUTReplayWindow::OnMouseButtonDown(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
 {
+	FReply Reply = FReply::Unhandled();
 	FGeometry TimeBarGeometry = FindChildGeometry(MyGeometry, TimeBar.ToSharedRef());
-	if (TimeBarGeometry.IsUnderLocation(MouseEvent.GetScreenSpacePosition()))
+	if (TimeBarGeometry.IsUnderLocation(MouseEvent.GetScreenSpacePosition()) || MouseClickHUD())
 	{
-		return FReply::Handled();
+		Reply = FReply::Handled();
 	}
-	return MouseClickHUD() ? FReply::Handled() : FReply::Unhandled();
+
+	bHandledMouseClick = Reply.IsEventHandled();
+	return Reply;
+}
+
+FReply SUTReplayWindow::OnMouseButtonUp(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent)
+{
+	//If mouse down was handled, set to the current position so it doesn't jump around
+	AUTPlayerController* UTPC = Cast<AUTPlayerController>(PlayerOwner->PlayerController);
+	if (bHandledMouseClick && UTPC != nullptr)
+	{
+		UTPC->SavedMouseCursorLocation = FSlateApplication::Get().GetCursorPos();
+	}
+	return FReply::Unhandled();
 }
 
 FReply SUTReplayWindow::OnMouseButtonDoubleClick(const FGeometry& InMyGeometry, const FPointerEvent& InMouseEvent)

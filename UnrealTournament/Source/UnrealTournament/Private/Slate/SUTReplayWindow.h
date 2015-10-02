@@ -88,9 +88,12 @@ protected:
 	//Mouse interaction overrides so it can send input to UUTHUDWidget_SpectatorSlideOut
 	virtual FReply OnMouseMove(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
 	virtual FReply OnMouseButtonDown(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
+	virtual FReply OnMouseButtonUp(const FGeometry& MyGeometry, const FPointerEvent& MouseEvent) override;
 	virtual FReply OnMouseButtonDoubleClick(const FGeometry& InMyGeometry, const FPointerEvent& InMouseEvent) override;
 	bool GetGameMousePosition(FVector2D& MousePosition) const;
 	virtual bool MouseClickHUD();
+
+	bool bHandledMouseClick;
 	
 	void KillsEnumerated(const FReplayEventList& ReplayEventList, bool bSucceeded);
 	void FlagCapsEnumerated(const FReplayEventList& ReplayEventList, bool bSucceeded);
