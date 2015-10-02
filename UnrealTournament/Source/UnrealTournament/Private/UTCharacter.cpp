@@ -4154,6 +4154,10 @@ void AUTCharacter::NotifyTeamChanged()
 		{
 			Weapon->NotifyTeamChanged();
 		}
+		if (WeaponAttachment != nullptr)
+		{
+			WeaponAttachment->NotifyTeamChanged();
+		}
 	}
 }
 

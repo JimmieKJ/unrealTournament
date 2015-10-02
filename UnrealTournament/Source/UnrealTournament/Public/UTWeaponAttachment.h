@@ -140,4 +140,8 @@ public:
 		}
 		Super::MarkComponentsAsPendingKill();
 	}
+
+	/** blueprint hook to modify team color materials */
+	UFUNCTION(BlueprintImplementableEvent, Category = "Weapon")
+	void NotifyTeamChanged();
 };
