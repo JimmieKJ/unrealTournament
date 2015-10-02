@@ -2310,7 +2310,7 @@ void UUTLocalPlayer::ShowPlayerInfo(TWeakObjectPtr<AUTPlayerState> Target)
 	}
 	else
 	{
-		if (DesktopSlateWidget.IsValid() && !IsMenuGame() && Cast<AUTLobbyGameState>(GetWorld()->GameState) == nullptr)
+		if (DesktopSlateWidget.IsValid() && !IsMenuGame() && Cast<AUTLobbyGameState>(GetWorld()->GameState) == nullptr && GetWorld()->GetNetMode() != NM_Standalone)
 		{
 			HideMenu();
 		}
