@@ -822,6 +822,17 @@ void UUTHUDWidget::RenderObj_TextureAt(FHUDRenderObject_Texture& TextureObject, 
 		if (UTGameState && UTGameState->bTeamGame)
 		{
 			uint8 TeamIdx = UTHUDOwner->UTPlayerOwner->GetTeamNum();
+
+			//If spectating, get team of the viewed player
+			if (TeamIdx == 255)
+			{
+				AUTCharacter* ViewedUTC = Cast<AUTCharacter>(UTHUDOwner->UTPlayerOwner->GetViewTarget());
+				if (ViewedUTC != nullptr)
+				{
+					TeamIdx = ViewedUTC->GetTeamNum();
+				}
+			}
+
 			if (TeamIdx < TextureObject.TeamColorOverrides.Num())
 			{
 				RenderColor = TextureObject.TeamColorOverrides[TeamIdx];
