@@ -55,8 +55,11 @@ protected:
 	FSlateBrush* PlayerPreviewBrush;
 	/** Do you want the player model to spin? */
 	bool bSpinPlayer;
-	/** The Zoom offset to apply to the camera. */
-	float ZoomOffset;
+
+	/**Preset cameraloctions when zooming in/out*/
+	TArray<FVector> CameraLocations;
+	int32 CurrentCam;
+	FVector CamLocation;
 
 	/** counter for displaying weapon dialog since we need to display the "Loading Content" message first */
 	int32 WeaponConfigDelayFrames;

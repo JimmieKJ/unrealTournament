@@ -55,7 +55,12 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 	PlayerPreviewMesh = nullptr;
 	PreviewWeapon = nullptr;
 	bSpinPlayer = true;
-	ZoomOffset = 0;
+
+	CameraLocations.Add(FVector(-100.0f, -40, -90));
+	CameraLocations.Add(FVector(0.0f, -55, -60));
+	CameraLocations.Add(FVector(400.0f, -140, -50));
+	CurrentCam = 1;
+	CamLocation = CameraLocations[1];
 
 	AvatarList.Add(FName("UT.Avatar.0"));
 	AvatarList.Add(FName("UT.Avatar.1"));
@@ -629,7 +634,6 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 							.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
 							.Text(FText::FromString(GetFOVLabelText(FOVSliderSetting)))
 						]
-
 						+ SGridPanel::Slot(1, 2)
 						.Padding(ValueColumnPadding)
 						[
@@ -1366,15 +1370,17 @@ void SUWPlayerSettingsDialog::UpdatePlayerRender(UCanvas* C, int32 Width, int32 
 	FSceneViewFamilyContext ViewFamily(FSceneViewFamily::ConstructionValues(PlayerPreviewTexture->GameThread_GetRenderTargetResource(), PlayerPreviewWorld->Scene, ShowFlags).SetRealtimeUpdate(true));
 
 //	EngineShowFlagOverride(ESFIM_Game, VMI_Lit, ViewFamily.EngineShowFlags, NAME_None, false);
-
-	FVector CameraPosition(ZoomOffset, -60, -50);
+	if (PlayerPreviewWorld)
+	{
+		CamLocation = FMath::VInterpTo(CamLocation, CameraLocations[CurrentCam], PlayerPreviewWorld->DeltaTimeSeconds, 10.0f);
+	}
 
 	const float PreviewFOV = 45;
 	const float AspectRatio = Width / (float)Height;
 
 	FSceneViewInitOptions PlayerPreviewInitOptions;
 	PlayerPreviewInitOptions.SetViewRectangle(FIntRect(0, 0, C->SizeX, C->SizeY));
-	PlayerPreviewInitOptions.ViewOrigin = -CameraPosition;
+	PlayerPreviewInitOptions.ViewOrigin = -CamLocation;
 	PlayerPreviewInitOptions.ViewRotationMatrix = FMatrix(FPlane(0, 0, 1, 0), FPlane(1, 0, 0, 0), FPlane(0, 1, 0, 0), FPlane(0, 0, 0, 1));
 	PlayerPreviewInitOptions.ProjectionMatrix = 
 		FReversedZPerspectiveMatrix(
@@ -1399,7 +1405,7 @@ void SUWPlayerSettingsDialog::UpdatePlayerRender(UCanvas* C, int32 Width, int32 
 
 	ViewFamily.Views.Add(View);
 
-	View->StartFinalPostprocessSettings(CameraPosition);
+	View->StartFinalPostprocessSettings(CamLocation);
 
 	//View->OverridePostProcessSettings(PPSettings, 1.0f);
 
@@ -1421,7 +1427,7 @@ void SUWPlayerSettingsDialog::DragPlayerPreview(const FGeometry& MyGeometry, con
 
 void SUWPlayerSettingsDialog::ZoomPlayerPreview(float WheelDelta)
 {
-	ZoomOffset = FMath::Clamp(ZoomOffset + (-WheelDelta * 10.0f), -100.0f, 400.0f);
+	CurrentCam = FMath::Clamp(CurrentCam + (WheelDelta > 0.0f ? -1 : 1), 0, CameraLocations.Num() - 1);
 }
 
 void SUWPlayerSettingsDialog::OnFlagSelected(TWeakObjectPtr<UUTFlagInfo> NewSelection, ESelectInfo::Type SelectInfo)
