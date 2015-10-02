@@ -4428,7 +4428,7 @@ void AUTCharacter::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector
 	if (UTPS != NULL && UTPC != NULL && (bSpectating || (PC->GetViewTarget() != this)) && (GetWorld()->TimeSeconds - GetLastRenderTime() < 0.5f) &&
 		FVector::DotProduct(CameraDir, (GetActorLocation() - CameraPosition)) > 0.0f && GS != NULL)
 	{
-		float Dist = (CameraPosition - GetActorLocation()).Size();
+		float Dist = (CameraPosition - GetActorLocation()).Size() * FMath::Tan(FMath::DegreesToRadians(PC->PlayerCameraManager->GetFOVAngle()*0.5f));
 		if ((GS->OnSameTeam(PC->GetPawn(), this) || bSpectating || GS->HasMatchEnded() || GS->IsMatchAtHalftime()) && (bTacCom || Dist <= (bSpectating ? SpectatorIndicatorMaxDistance : TeamPlayerIndicatorMaxDistance)))
 		{
 			float TextXL, YL;
