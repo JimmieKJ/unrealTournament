@@ -2126,9 +2126,15 @@ void AUTGameMode::RestartPlayer(AController* aPlayer)
 		((AUTBot*)aPlayer)->LastRespawnTime = GetWorld()->TimeSeconds;
 	}
 
-	if (!aPlayer->IsLocalController() && Cast<AUTPlayerController>(aPlayer) != NULL)
+	if (Cast<AUTPlayerController>(aPlayer) != NULL)
 	{
-		((AUTPlayerController*)aPlayer)->ClientSwitchToBestWeapon();
+		// forced camera cut is a good time to GC
+		((APlayerController*)aPlayer)->ClientForceGarbageCollection();
+
+		if (!aPlayer->IsLocalController())
+		{
+			((AUTPlayerController*)aPlayer)->ClientSwitchToBestWeapon();
+		}
 	}
 
 	// clear spawn choices
