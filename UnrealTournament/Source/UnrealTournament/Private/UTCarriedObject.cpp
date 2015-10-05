@@ -5,6 +5,7 @@
 #include "UTCTFScoring.h"
 #include "Net/UnrealNetwork.h"
 #include "UTPainVolume.h"
+#include "UTLift.h"
 
 AUTCarriedObject::AUTCarriedObject(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -20,10 +21,11 @@ AUTCarriedObject::AUTCarriedObject(const FObjectInitializer& ObjectInitializer)
 	MovementComponent->MaxSpeed = 5000.0f; // needed for gravity
 	MovementComponent->InitialSpeed = 360.0f;
 	MovementComponent->SetIsReplicated(true);
+	MovementComponent->OnProjectileStop.AddDynamic(this, &AUTCarriedObject::OnStop);
 
 	SetReplicates(true);
 	bReplicateMovement = true;
-	NetPriority=3.0;
+	NetPriority = 3.0;
 	LastGameMessageTime = 0.f;
 	AutoReturnTime = 30.0f;
 	bMovementEnabled = true;
@@ -56,6 +58,14 @@ void AUTCarriedObject::Init(AUTGameObjective* NewBase)
 	HomeBase->ObjectStateWasChanged(ObjectState);
 	MoveToHome();
 	OnHolderChanged();
+}
+
+void AUTCarriedObject::OnStop(const FHitResult& Hit)
+{
+	if (Hit.Actor.IsValid() && Hit.Component.IsValid() && Cast<AUTLift>(Hit.Actor.Get()))
+	{
+		AttachRootComponentTo(Hit.Component.Get(), NAME_None, EAttachLocation::KeepWorldPosition);
+	}
 }
 
 bool AUTCarriedObject::IsHome()

@@ -217,6 +217,10 @@ class UNREALTOURNAMENT_API AUTCarriedObject : public AActor, public IUTTeamInter
 		MovementComponent->Velocity = NewVelocity;
 	}
 
+	/** Attach flag to lift if it landed on one. */
+	UFUNCTION()
+	virtual void OnStop(const FHitResult& Hit);
+
 protected:
 	// Server Side - Holds a reference to the pawn that is holding this object
 	UPROPERTY(BlueprintReadOnly, Category = GameObject)

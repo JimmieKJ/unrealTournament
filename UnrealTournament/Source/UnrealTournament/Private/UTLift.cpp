@@ -151,8 +151,15 @@ void AUTLift::NotifyHit(class UPrimitiveComponent* MyComp, class AActor* Other, 
 			if (Cast<AUTCarriedObject>(Other))
 			{
 				AUTCarriedObject* DroppedFlag = Cast<AUTCarriedObject>(Other);
-				DroppedFlag->MovementComponent->StopSimulating(Hit);
-				DroppedFlag->AttachRootComponentTo(EncroachComponent, NAME_None, EAttachLocation::KeepWorldPosition);
+				if ((LiftVelocity.Z <= 0.f) && (DroppedFlag->GetActorLocation().Z < MyComp->GetCenterOfMass().Z))
+				{
+					DroppedFlag->SendHomeWithNotify();
+				}
+				else
+				{
+					DroppedFlag->MovementComponent->StopSimulating(Hit);
+					DroppedFlag->AttachRootComponentTo(EncroachComponent, NAME_None, EAttachLocation::KeepWorldPosition);
+				}
 				bMoveWasBlocked = true;
 			}
 
