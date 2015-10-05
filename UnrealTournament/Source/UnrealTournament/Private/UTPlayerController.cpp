@@ -2511,8 +2511,9 @@ void AUTPlayerController::PlayerTick( float DeltaTime )
 		LastPingCalcTime = GetWorld()->GetTimeSeconds();
 		ServerBouncePing(GetWorld()->GetTimeSeconds());
 	}
-
-	if (PlayerState && PlayerState->bOnlySpectator && bAutoCam)
+	APawn* ViewTargetPawn = PlayerCameraManager->GetViewTargetPawn();
+	AUTCharacter* ViewTargetCharacter = Cast<AUTCharacter>(ViewTargetPawn);
+	if (PlayerState && PlayerState->bOnlySpectator && bAutoCam && (!ViewTargetCharacter || !ViewTargetCharacter->IsRecentlyDead()))
 	{
 		// possibly switch cameras
 		ChooseBestCamera();
@@ -2521,9 +2522,9 @@ void AUTPlayerController::PlayerTick( float DeltaTime )
 	// Follow the last spectated player again when they respawn
 	if ((StateName == NAME_Spectating) && LastSpectatedPlayerId >= 0 && IsLocalController() && (!Cast<AUTProjectile>(GetViewTarget()) || GetViewTarget()->IsPendingKillPending()))
 	{
-		APawn* ViewTargetPawn = PlayerCameraManager->GetViewTargetPawn();
-		AUTCharacter* ViewTargetCharacter = Cast<AUTCharacter>(ViewTargetPawn);
-		if (!ViewTargetPawn || (ViewTargetCharacter && ViewTargetCharacter->IsDead()))
+		ViewTargetPawn = PlayerCameraManager->GetViewTargetPawn();
+		ViewTargetCharacter = Cast<AUTCharacter>(ViewTargetPawn);
+		if (!ViewTargetPawn || (ViewTargetCharacter && ViewTargetCharacter->IsDead() && !ViewTargetCharacter->IsRecentlyDead()))
 		{
 			for (FConstPawnIterator Iterator = GetWorld()->GetPawnIterator(); Iterator; ++Iterator)
 			{

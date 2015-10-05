@@ -1484,6 +1484,11 @@ FVector AUTCharacter::GetLocationCenterOffset() const
 	return (!IsRagdoll() || RootComponent != GetMesh()) ? FVector::ZeroVector : (GetMesh()->Bounds.Origin - GetMesh()->GetComponentLocation());
 }
 
+bool AUTCharacter::IsRecentlyDead()
+{
+	return IsDead() && (GetWorld()->GetTimeSeconds() - TimeOfDeath < 1.f);
+}
+
 void AUTCharacter::PlayDying()
 {
 	TimeOfDeath = GetWorld()->TimeSeconds;

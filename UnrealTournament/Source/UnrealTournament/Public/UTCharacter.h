@@ -994,6 +994,8 @@ public:
 		PlayDying();
 	}
 
+	virtual bool IsRecentlyDead();
+
 	virtual void DeactivateSpawnProtection();
 
 	virtual void AddDefaultInventory(TArray<TSubclassOf<AUTInventory>> DefaultInventoryToAdd);
