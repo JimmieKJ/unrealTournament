@@ -257,7 +257,7 @@ void SUWPlayerInfoDialog::RecreatePlayerPreview()
 		}
 
 		PlayerPreviewMesh = PlayerPreviewWorld->SpawnActor<AUTCharacter>(DefaultPawnClass, FVector(300.0f, 0.f, 4.f), ActorRotation);
-		if (PlayerPreviewMesh)
+		if (PlayerPreviewMesh && PlayerPreviewMesh->GetMesh())
 		{
 			PlayerPreviewMesh->ApplyCharacterData(TargetPlayerState->GetSelectedCharacter());
 			PlayerPreviewMesh->SetHatClass(TargetPlayerState->HatClass);
