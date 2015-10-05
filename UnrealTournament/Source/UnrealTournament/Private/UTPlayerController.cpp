@@ -3371,7 +3371,8 @@ void AUTPlayerController::ResolveKeybind(FString Command, TArray<FString>& Keys,
 
 void AUTPlayerController::DebugTest(FString TestCommand)
 {
-	Cast<UUTLocalPlayer>(Player)->ChallengeCompleted(FName(TEXT("InitialDeathmatchChallenge")),3);
+	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
+	if (LP) LP->ChallengeCompleted(NAME_ChallengeDMFFATwo,2);
 }
 
 void AUTPlayerController::ClientRequireContentItemListComplete_Implementation()

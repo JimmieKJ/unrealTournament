@@ -286,14 +286,18 @@ void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FStr
 		InOpt = ParseOption(Options, TEXT("Challenge"));
 		if (!InOpt.IsEmpty())
 		{
-			ChallengeTag = FName(*InOpt);
-			ChallengeDifficulty = GetIntOption(Options, TEXT("ChallengeDiff"), 0);
-			GameDifficulty = 1.f + 2.5f*ChallengeDifficulty;
-			BotFillCount = UUTChallengeManager::StaticClass()->GetDefaultObject<UUTChallengeManager>()->GetNumPlayers(this);
-			bOfflineChallenge = UUTChallengeManager::StaticClass()->GetDefaultObject<UUTChallengeManager>()->IsValidChallenge(this, MapName);
-			bForceRespawn = true;
-			TimeLimit = 600; 
-			GoalScore = 0;
+			TWeakObjectPtr<UUTChallengeManager> ChallengeManager = Cast<UUTGameEngine>(GEngine)->GetChallengeManager();
+			if (ChallengeManager.IsValid())
+			{
+				ChallengeTag = FName(*InOpt);
+				ChallengeDifficulty = GetIntOption(Options, TEXT("ChallengeDiff"), 0);
+				GameDifficulty = 1.f + 2.5f*ChallengeDifficulty;
+				BotFillCount = ChallengeManager->GetNumPlayers(this);
+				bOfflineChallenge = ChallengeManager->IsValidChallenge(this, MapName);
+				bForceRespawn = true;
+				TimeLimit = 600; 
+				GoalScore = 0;
+			}
 		}
 	}
 

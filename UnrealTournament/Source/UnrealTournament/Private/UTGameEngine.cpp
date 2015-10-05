@@ -141,6 +141,13 @@ void UUTGameEngine::Init(IEngineLoop* InEngineLoop)
 			VideoRecorder = &IModularFeatures::Get().GetModularFeature<UTVideoRecordingFeature>(VideoRecordingFeatureName);
 		}
 	}
+
+#if !UE_SERVER
+	ChallengeManager = NewObject<UUTChallengeManager>(GetTransientPackage(),UUTChallengeManager::StaticClass());
+	ChallengeManager->AddToRoot();
+#endif
+
+
 }
 
 void UUTGameEngine::PreExit()

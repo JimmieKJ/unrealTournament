@@ -447,6 +447,12 @@ TSharedRef<SWidget> SUHomePanel::BuildHomePanel()
 								]
 								+ SOverlay::Slot()
 								[
+									SNew(SImage)
+									.Image(SUTStyle::Get().GetBrush("UT.HomePanel.NewChallenge"))
+									.Visibility(this, &SUHomePanel::ShowNewChallengeImage)
+								]
+								+ SOverlay::Slot()
+								[
 									SNew(SVerticalBox)
 									+SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Fill)
 									.Padding(0.0,230.0)
@@ -806,5 +812,17 @@ FReply SUHomePanel::TrainingVideos_Click()
 	return FReply::Handled();
 }
 
+EVisibility SUHomePanel::ShowNewChallengeImage() const
+{
+	if (PlayerOwner.IsValid() && PlayerOwner->MCPPulledData.bValid)
+	{
+		if (PlayerOwner->ChallengeRevisionNumber< PlayerOwner->MCPPulledData.ChallengeRevisionNumber)
+		{
+			return EVisibility::Visible;
+		}
+	}
+
+	return EVisibility::Hidden;
+}
 
 #endif

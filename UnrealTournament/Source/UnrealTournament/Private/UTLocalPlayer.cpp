@@ -5,6 +5,7 @@
 #include "UTCharacter.h"
 #include "Online.h"
 #include "OnlineSubsystemTypes.h"
+#include "OnlineTitleFileInterface.h"
 #include "UTMenuGameMode.h"
 #include "UTProfileSettings.h"
 #include "UTGameViewportClient.h"
@@ -51,6 +52,7 @@
 #include "StatNames.h"
 #include "UTChallengeManager.h"
 #include "UTCharacterContent.h"
+#include "Runtime/JsonUtilities/public/JsonUtilities.h"
 
 UUTLocalPlayer::UUTLocalPlayer(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -86,6 +88,7 @@ void UUTLocalPlayer::InitializeOnlineSubsystem()
 		OnlineSessionInterface = OnlineSubsystem->GetSessionInterface();
 		OnlinePresenceInterface = OnlineSubsystem->GetPresenceInterface();
 		OnlineFriendsInterface = OnlineSubsystem->GetFriendsInterface();
+		OnlineTitleFileInterface = OnlineSubsystem->GetTitleFileInterface();
 	}
 
 	if (OnlineIdentityInterface.IsValid())
@@ -107,7 +110,11 @@ void UUTLocalPlayer::InitializeOnlineSubsystem()
 	{
 		OnJoinSessionCompleteDelegate = OnlineSessionInterface->AddOnJoinSessionCompleteDelegate_Handle(FOnJoinSessionCompleteDelegate::CreateUObject(this, &UUTLocalPlayer::OnJoinSessionComplete));
 	}
-	
+
+	if (OnlineTitleFileInterface.IsValid())
+	{
+		OnReadTitleFileCompleteDelegate = OnlineTitleFileInterface->AddOnReadFileCompleteDelegate_Handle(FOnReadFileCompleteDelegate::CreateUObject(this, &UUTLocalPlayer::OnReadTitleFileComplete));
+	}
 }
 
 void UUTLocalPlayer::CleanUpOnlineSubSystyem()
@@ -797,6 +804,9 @@ void UUTLocalPlayer::OnLoginStatusChanged(int32 LocalUserNum, ELoginStatus::Type
 	{
 		ProfileItems.Empty();
 		OnlineXP = 0;
+		// Clear out the MCP storage
+		MCPPulledData.bValid = false;
+
 		CurrentProfileSettings = NULL;
 		FUTAnalytics::LoginStatusChanged(FString());
 
@@ -816,6 +826,11 @@ void UUTLocalPlayer::OnLoginStatusChanged(int32 LocalUserNum, ELoginStatus::Type
 	}
 	else if (LoginStatus == ELoginStatus::LoggedIn)
 	{
+		if (OnlineTitleFileInterface.IsValid())
+		{
+			OnlineTitleFileInterface->ReadFile(GetMCPStorageFilename());
+		}
+
 		ReadELOFromCloud();
 		UpdatePresence(LastPresenceUpdate, bLastAllowInvites,bLastAllowInvites,bLastAllowInvites,false);
 		ReadCloudFileListing();
@@ -3152,7 +3167,16 @@ void UUTLocalPlayer::CloseJoinInstanceDialog()
 
 int32 UUTLocalPlayer::GetTotalChallengeStars()
 {
-	return (CurrentProfileSettings ? CurrentProfileSettings->TotalChallengeStars : 0);
+	int32 TotalStars = 0;
+	if (CurrentProfileSettings)
+	{
+		for (int32 i = 0 ; i < CurrentProfileSettings->ChallengeResults.Num(); i++)
+		{
+			TotalStars += CurrentProfileSettings->ChallengeResults[i].Stars;
+		}
+	}
+
+	return TotalStars;
 }
 
 int32 UUTLocalPlayer::GetChallengeStars(FName ChallengeTag)
@@ -3169,6 +3193,32 @@ int32 UUTLocalPlayer::GetChallengeStars(FName ChallengeTag)
 	}
 
 	return 0;
+}
+
+int32 UUTLocalPlayer::GetRewardStars(FName RewardTag)
+{
+	// Count all of the stars for this reward type.
+
+	int32 TotalStars = 0;
+
+	UUTGameEngine* UTGameEngine = Cast<UUTGameEngine>(GEngine);
+	if (UTGameEngine )
+	{
+		TWeakObjectPtr<UUTChallengeManager> ChallengeManager = UTGameEngine->GetChallengeManager();
+		if (ChallengeManager.IsValid())
+		{
+			for (auto It = ChallengeManager->Challenges.CreateConstIterator(); It; ++It)
+			{
+				const FUTChallengeInfo Challenge = It.Value();
+				if (Challenge.RewardTag == RewardTag)
+				{
+					FName ChallengeTag = It.Key();
+					TotalStars += GetChallengeStars(ChallengeTag);
+				}
+			}
+		}
+	}
+	return TotalStars;
 }
 
 FString UUTLocalPlayer::GetChallengeDate(FName ChallengeTag)
@@ -3243,52 +3293,69 @@ void UUTLocalPlayer::ChallengeCompleted(FName ChallengeTag, int32 Stars)
 			CurrentProfileSettings->ChallengeResults.Add(FUTChallengeResult(ChallengeTag,Stars));
 		}
 
-		int32 TotalStars = 0;
-		for (int32 i = 0 ; i < CurrentProfileSettings->ChallengeResults.Num(); i++)
+		// Look up the Challenge info for this challenge...
+
+		UUTGameEngine* UTGameEngine = Cast<UUTGameEngine>(GEngine);
+		if (UTGameEngine )
 		{
-			TotalStars += CurrentProfileSettings->ChallengeResults[i].Stars;
-		}
-		if (TotalStars >= 5)
-		{
-			AwardAchievement(AchievementIDs::ChallengeStars5);
-		}
-		if (TotalStars >= 15)
-		{
-			AwardAchievement(AchievementIDs::ChallengeStars15);
-		}
-		if (TotalStars >= 25)
-		{
-			AwardAchievement(AchievementIDs::ChallengeStars25);
-		}
-		if (TotalStars >= 35)
-		{
-			AwardAchievement(AchievementIDs::ChallengeStars35);
-		}
-		if (TotalStars >= 45)
-		{
-			AwardAchievement(AchievementIDs::ChallengeStars45);
+			TWeakObjectPtr<UUTChallengeManager> ChallengeManager = UTGameEngine->GetChallengeManager();
+			if (ChallengeManager.IsValid())
+			{
+				const FUTChallengeInfo* Challenge = ChallengeManager->GetChallenge(ChallengeTag);
+				if (Challenge)
+				{
+					int32 TotalStars = GetRewardStars(Challenge->RewardTag);
+
+					// ============= Put Actually rewards here.
+
+					if (Challenge->RewardTag == NAME_REWARD_GoldStars)
+					{
+						if (TotalStars >= 5)
+						{
+							AwardAchievement(AchievementIDs::ChallengeStars5);
+						}
+						if (TotalStars >= 15)
+						{
+							AwardAchievement(AchievementIDs::ChallengeStars15);
+						}
+						if (TotalStars >= 25)
+						{
+							AwardAchievement(AchievementIDs::ChallengeStars25);
+						}
+						if (TotalStars >= 35)
+						{
+							AwardAchievement(AchievementIDs::ChallengeStars35);
+						}
+						if (TotalStars >= 45)
+						{
+							AwardAchievement(AchievementIDs::ChallengeStars45);
+						}
+
+						bool bEarnedRosterUpgrade = (TotalStars / 5 != (TotalStars - EarnedStars) / 5) && UUTChallengeManager::StaticClass()->GetDefaultObject<UUTChallengeManager>()->PlayerTeamRoster.Roster.IsValidIndex(4 + (TotalStars - Stars) / 5);
+						FText ChallengeToast = FText::Format(NSLOCTEXT("Challenge", "GainedStars", "Challenge Completed!  You earned {0} stars."), FText::AsNumber(Stars));
+						ShowToast(ChallengeToast);
+						if (bEarnedRosterUpgrade)
+						{
+							FText OldTeammate = FText::FromName(UUTChallengeManager::StaticClass()->GetDefaultObject<UUTChallengeManager>()->PlayerTeamRoster.Roster[(TotalStars - Stars) / 5]);
+							FText NewTeammate = FText::FromName(UUTChallengeManager::StaticClass()->GetDefaultObject<UUTChallengeManager>()->PlayerTeamRoster.Roster[4 + (TotalStars - Stars) / 5]);
+							RosterUpgradeText = FText::Format(NSLOCTEXT("Challenge", "RosterUpgrade", "Roster Upgrade!  {0} replaces {1}."), OldTeammate, NewTeammate);
+							ShowToast(RosterUpgradeText);
+						}
+					}
+				}
+			}
 		}
 
-		CurrentProfileSettings->TotalChallengeStars = TotalStars;
+		int32 AllStars = GetTotalChallengeStars();
+		CurrentProfileSettings->TotalChallengeStars = AllStars;
 		SaveProfileSettings();
-
-		bool bEarnedRosterUpgrade = (TotalStars / 5 != (TotalStars - EarnedStars) / 5) && UUTChallengeManager::StaticClass()->GetDefaultObject<UUTChallengeManager>()->PlayerTeamRoster.Roster.IsValidIndex(4 + (TotalStars - Stars) / 5);
-		FText ChallengeToast = FText::Format(NSLOCTEXT("Challenge", "GainedStars", "Challenge Completed!  You earned {0} stars."), FText::AsNumber(Stars));
-		ShowToast(ChallengeToast);
-		if (bEarnedRosterUpgrade)
-		{
-			FText OldTeammate = FText::FromName(UUTChallengeManager::StaticClass()->GetDefaultObject<UUTChallengeManager>()->PlayerTeamRoster.Roster[(TotalStars - Stars) / 5]);
-			FText NewTeammate = FText::FromName(UUTChallengeManager::StaticClass()->GetDefaultObject<UUTChallengeManager>()->PlayerTeamRoster.Roster[4 + (TotalStars - Stars) / 5]);
-			RosterUpgradeText = FText::Format(NSLOCTEXT("Challenge", "RosterUpgrade", "Roster Upgrade!  {0} replaces {1}."), OldTeammate, NewTeammate);
-			ShowToast(RosterUpgradeText);
-		}
 
 		if (FUTAnalytics::IsAvailable())
 		{
 			TArray<FAnalyticsEventAttribute> ParamArray;
 			ParamArray.Add(FAnalyticsEventAttribute(TEXT("ChallengeTag"), ChallengeTag.ToString()));
 			ParamArray.Add(FAnalyticsEventAttribute(TEXT("Stars"), Stars));
-			ParamArray.Add(FAnalyticsEventAttribute(TEXT("TotalStars"), TotalStars));
+			ParamArray.Add(FAnalyticsEventAttribute(TEXT("TotalStars"), AllStars));
 			FUTAnalytics::GetProvider().RecordEvent(TEXT("ChallengeComplete"), ParamArray);
 		}
 	}
@@ -3313,4 +3380,35 @@ void UUTLocalPlayer::RestartQuickMatch()
 	// Restart the quickmatch attempt.
 	QuickMatchDialog->FindHUBToJoin();
 #endif
+}
+
+void UUTLocalPlayer::OnReadTitleFileComplete(bool bWasSuccessful, const FString& Filename)
+{
+	if (Filename == GetMCPStorageFilename())
+	{
+		FString JsonString = TEXT("");
+		if (bWasSuccessful)
+		{
+			TArray<uint8> FileContents;
+			OnlineTitleFileInterface->GetFileContents(GetMCPStorageFilename(), FileContents);
+			FileContents.Add(0);
+			JsonString = ANSI_TO_TCHAR((char*)FileContents.GetData());
+		}
+
+		if (JsonString != TEXT(""))
+		{
+			FMCPPulledData PulledData;
+			if ( FJsonObjectConverter::JsonObjectStringToUStruct(JsonString, &PulledData, 0,0) )
+			{
+				MCPPulledData = PulledData;
+				MCPPulledData.bValid = true;
+
+				UUTGameEngine* GameEngine = Cast<UUTGameEngine>(GEngine);
+				if ( GameEngine && GameEngine->GetChallengeManager().IsValid() )
+				{
+					GameEngine->GetChallengeManager()->UpdateChallengeFromMCP(MCPPulledData);
+				}
+			}
+		}
+	}
 }

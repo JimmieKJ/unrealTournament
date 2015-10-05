@@ -192,8 +192,11 @@ void SUTStyle::SetCommonStyle(TSharedRef<FSlateStyleSet> StyleRef)
 	Style.Set("UT.Box", new FSlateColorBrush(FColor(13,13,13,153)));
 	Style.Set("UT.Divider", new FSlateColorBrush(FColor(25,25,25,255)));
 
-	Style.Set("UT.Star", new IMAGE_BRUSH( "Star24x24", FVector2D(24,24), FLinearColor(1.0f, 1.0f, 0.0f, 1.0f) ));
-	Style.Set("UT.Star.Outline", new IMAGE_BRUSH( "StarOutline24x24", FVector2D(24,24), FLinearColor(1.0f, 1.0f, 0.0f, 1.0f) ));
+	Style.Set("UT.Star", new IMAGE_BRUSH( "Star24x24", FVector2D(24,24) ));
+	Style.Set("UT.Star.Outline", new IMAGE_BRUSH( "StarOutline24x24", FVector2D(24,24) ));
+
+	Style.Set("UT.ScaryStar", new IMAGE_BRUSH( "/UTStyle/ChallengeBadges/PumpkinA", FVector2D(24,24) ));
+	Style.Set("UT.ScaryStar.Completed", new IMAGE_BRUSH( "/UTStyle/ChallengeBadges/PumpkinB", FVector2D(24,24) ));
 
 	Style.Set("UT.Icon.Checkmark", new IMAGE_BRUSH( "/UTStyle/Icons/UT.Icon.Checkmark", FVector2D(64,64), FLinearColor(1.0f, 1.0f, 0.0f, 1.0f) ));
 	Style.Set("UT.Icon.PlayerCard", new IMAGE_BRUSH("/UTStyle/Icons/UT.Icon.PlayCard", FVector2D(48,48)));
@@ -292,6 +295,15 @@ void SUTStyle::SetCommonStyle(TSharedRef<FSlateStyleSet> StyleRef)
 		IABadgeBrushAsset->AddToRoot();
 		Style.Set("UT.HomePanel.IABadge", &IABadgeBrushAsset->Brush);
 	}
+
+	FStringAssetReference NewChallenge(TEXT("/Game/RestrictedAssets/SlateLargeImages/NewChallenge_Brush.NewChallenge_Brush"));
+	USlateBrushAsset* NewChallengeBrushAsset = Cast<USlateBrushAsset>(NewChallenge.TryLoad());
+	if (NewChallengeBrushAsset)
+	{
+		NewChallengeBrushAsset->AddToRoot();
+		Style.Set("UT.HomePanel.NewChallenge", &NewChallengeBrushAsset->Brush);
+	}
+
 
 	Style.Set("UT.HomePanel.FragCenterLogo", new IMAGE_BRUSH("UTStyle/MainPanel/FragCenterEmblem", FVector2D(644, 644), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
 	Style.Set("UT.HomePanel.Flak", new IMAGE_BRUSH( "UTStyle/MainPanel/Flak", FVector2D(180,180), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));

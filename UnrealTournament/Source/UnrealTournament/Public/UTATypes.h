@@ -952,6 +952,35 @@ struct FTeamRoster
 	}
 };
 
+USTRUCT()
+struct FUTRewardInfo
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY()
+	FLinearColor StarColor;
+
+	UPROPERTY()
+	FName StarEmptyStyleTag;
+
+	UPROPERTY()
+	FName StarCompletedStyleTag;
+
+	FUTRewardInfo()
+		: StarColor(FLinearColor::White)
+		, StarEmptyStyleTag(FName(TEXT("UT.Star.Outline")))
+		, StarCompletedStyleTag(FName(TEXT("UT.Star")))
+	{
+	}
+
+	FUTRewardInfo(FLinearColor inColor, FName inEmptyStyle, FName inCompletedStyle)
+		: StarColor(inColor)
+		, StarEmptyStyleTag(inEmptyStyle)
+		, StarCompletedStyleTag(inCompletedStyle)
+	{
+	}
+
+};
 
 USTRUCT()
 struct FUTChallengeInfo
@@ -965,7 +994,7 @@ struct FUTChallengeInfo
 	FString Map;
 
 	UPROPERTY()
-	FString GameMode;
+	FString GameURL;
 
 	UPROPERTY()
 	FString Description;
@@ -982,30 +1011,34 @@ struct FUTChallengeInfo
 	UPROPERTY()
 	FName SlateUIImageName;
 
+	UPROPERTY()
+	FName RewardTag;
 
 	FUTChallengeInfo()
 		: Title(TEXT(""))
 		, Map(TEXT(""))
-		, GameMode(TEXT(""))
+		, GameURL(TEXT(""))
 		, Description(TEXT(""))
 		, PlayerTeamSize(0)
 		, EnemyTeamSize(0)
 		, EnemyTeamName()
 		, SlateUIImageName(NAME_None)
+		, RewardTag(NAME_None)
 	{
 		EnemyTeamName[0] = NAME_None;
 		EnemyTeamName[1] = NAME_None;
 		EnemyTeamName[2] = NAME_None;
 	}
 
-	FUTChallengeInfo(FString inTitle, FString inMap, FString inGameMode, FString inDescription, int32 inPlayerTeamSize, int32 inEnemyTeamSize, FName EasyEnemyTeam, FName MediumEnemyTeam, FName HardEnemyTeam, FName inSlateUIImageName)
+	FUTChallengeInfo(FString inTitle, FString inMap, FString inGameURL, FString inDescription, int32 inPlayerTeamSize, int32 inEnemyTeamSize, FName EasyEnemyTeam, FName MediumEnemyTeam, FName HardEnemyTeam, FName inSlateUIImageName, FName inRewardTag)
 		: Title(inTitle)
 		, Map(inMap)
-		, GameMode(inGameMode)
+		, GameURL(inGameURL)
 		, Description(inDescription)
 		, PlayerTeamSize(inPlayerTeamSize)
 		, EnemyTeamSize(inEnemyTeamSize)
 		, SlateUIImageName(inSlateUIImageName)
+		, RewardTag(inRewardTag)
 	{
 		EnemyTeamName[0] = EasyEnemyTeam;
 		EnemyTeamName[1] = MediumEnemyTeam;
@@ -1013,3 +1046,52 @@ struct FUTChallengeInfo
 	}
 };
 
+USTRUCT()
+struct FStoredUTChallengeInfo
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY()
+	FName ChallengeName;
+
+	UPROPERTY()
+	FUTChallengeInfo Challenge;
+
+	FStoredUTChallengeInfo()
+	{
+		ChallengeName = NAME_None;
+	}
+
+	FStoredUTChallengeInfo(FName inChallengeName, FUTChallengeInfo inChallenge)
+		: ChallengeName(inChallengeName)
+		, Challenge(inChallenge)
+	{
+	}
+
+};
+
+USTRUCT()
+struct FMCPPulledData
+{
+	GENERATED_USTRUCT_BODY()
+
+	bool bValid;
+
+	// Holds the current "version" so to speak.  Just increment it each time we push
+	// a new update.  
+	UPROPERTY()
+	int32 ChallengeRevisionNumber;
+
+	// Holds a list of reward categories
+	UPROPERTY()
+	TArray<FName> RewardTags;
+
+	// Holds a list of challenges 
+	UPROPERTY()
+	TArray<FStoredUTChallengeInfo> Challenges;
+
+	FMCPPulledData()
+	{
+		Challenges.Empty();
+	}
+};

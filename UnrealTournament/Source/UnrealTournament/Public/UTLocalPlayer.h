@@ -326,6 +326,7 @@ private:
 	IOnlineSessionPtr OnlineSessionInterface;
 	IOnlinePresencePtr OnlinePresenceInterface;
 	IOnlineFriendsPtr OnlineFriendsInterface;
+	IOnlineTitleFilePtr OnlineTitleFileInterface;
 
 	// Our delegate references....
 	FDelegateHandle OnLoginCompleteDelegate;		
@@ -342,6 +343,8 @@ private:
 	FDelegateHandle OnDestroySessionCompleteDelegate;
 	FDelegateHandle OnFindFriendSessionCompleteDelegate;
 	
+	FDelegateHandle OnReadTitleFileCompleteDelegate;
+
 public:
 	virtual void LoadProfileSettings();
 	UFUNCTION()
@@ -367,6 +370,8 @@ protected:
 	virtual void OnDeleteUserFileComplete(bool bWasSuccessful, const FUniqueNetId& InUserId, const FString& FileName);
 	virtual void OnEnumerateUserFilesComplete(bool bWasSuccessful, const FUniqueNetId& InUserId);
 	virtual void OnReadProfileItemsComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded);
+
+	virtual void UUTLocalPlayer::OnReadTitleFileComplete(bool bWasSuccessful, const FString& Filename);
 
 #if !UE_SERVER
 	TSharedPtr<class SUWDialog> HUDSettings;
@@ -674,6 +679,9 @@ public:
 	// Returns the # of stars for a given challenge tag.  Returns 0 if this challenge hasn't been started
 	int32 GetChallengeStars(FName ChallengeTag);
 
+	// Returns the total # of stars in a given reward group
+	int32 GetRewardStars(FName RewardTag);
+
 	// Returns the date a challenge was last updated as a string
 	FString GetChallengeDate(FName ChallengeTag);
 
@@ -685,5 +693,20 @@ public:
 
 	bool QuickMatchCheckFull();
 	void RestartQuickMatch();
-	
+
+	static const FString& GetMCPStorageFilename()
+	{
+		const static FString MCPStorageFilename = "UnrealTournmentMCPStorage.json";
+		return MCPStorageFilename;
+	}
+
+
+	// Holds data pulled from the MCP upon login.
+	FMCPPulledData MCPPulledData;
+
+	// Holds the current challenge update count.  It should only be set when you 
+	// enter the challenge menu.
+	UPROPERTY(config)
+	int32 ChallengeRevisionNumber;
+
 };

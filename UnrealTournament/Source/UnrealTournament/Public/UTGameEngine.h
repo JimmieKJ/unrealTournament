@@ -2,6 +2,7 @@
 #pragma once
 
 #include "UTVideoRecordingFeature.h"
+#include "UTChallengeManager.h"
 #include "UTGameEngine.generated.h"
 
 UCLASS()
@@ -183,5 +184,20 @@ public:
 	class UUTFlagInfo* GetFlag(FName FlagName);
 
 	virtual void InitializeObjectReferences() override;
+
+
+protected:
+
+	// Holds the reference to this challenge manager.
+	UUTChallengeManager* ChallengeManager;
+
+public:
+
+	// returns the Challenge manager.
+	TWeakObjectPtr<UUTChallengeManager> GetChallengeManager()
+	{
+		return ChallengeManager;
+	}
+
 };
 

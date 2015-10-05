@@ -81,7 +81,15 @@ static const FName NAME_Picard(TEXT("Picard"));
 
 static const FName NAME_Guardian(TEXT("Guardian"));
 
-UCLASS(Abstract)
+static const FName NAME_REWARD_GoldStars(TEXT("REWARD_GoldStars"));
+static const FName NAME_REWARD_HalloweenStars(TEXT("REWARD_HalloweenStars"));
+
+static const FName NAME_REWARDSTYLE_STAR(TEXT("UT.Star.Outline"));
+static const FName NAME_REWARDSTYLE_STAR_COMPLETED(TEXT("UT.Star"));
+static const FName NAME_REWARDSTYLE_SCARY(TEXT("UT.ScaryStar"));
+static const FName NAME_REWARDSTYLE_SCARY_COMPLETED(TEXT("UT.ScaryStar.Completed"));
+
+UCLASS()
 class UNREALTOURNAMENT_API UUTChallengeManager : public UObject
 {
 	GENERATED_UCLASS_BODY()
@@ -101,4 +109,34 @@ class UNREALTOURNAMENT_API UUTChallengeManager : public UObject
 
 	UPROPERTY()
 	TMap<FName, FUTChallengeInfo> Challenges;
+
+	// Holds a list of possible reward tags in sorted order.  In this case however, higher in this list means display first in 
+	// the menu.  This is because we want the original challenge to be at the bottom of the list and since they lack RewardTags they
+	// will get the value of -1.
+	UPROPERTY()
+	TArray<FName> RewardTags;
+
+	UPROPERTY()
+	TMap<FName, FText> RewardCaptions;
+
+	TMap<FName, FUTRewardInfo> RewardInfo;
+
+
+	// update the challenge information from the MCP
+	void UpdateChallengeFromMCP(const FMCPPulledData& MCPData);
+
+	// The version number of this challegne set.
+	int32 RevisionNumber;
+
+	// Returns a given challenge or NULL if that channge does not exist.
+	const FUTChallengeInfo* GetChallenge(FName Challenge)
+	{
+		if (Challenges.Contains(Challenge))
+		{
+			return &Challenges[Challenge];
+		}
+
+		return NULL;
+	}
+
 };
