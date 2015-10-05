@@ -36,11 +36,11 @@ public:
 		DisplayName = NSLOCTEXT("UT", "UntitledCharacter", "Untitled Character");
 	}
 
-	UPROPERTY(EditDefaultsOnly, AssetRegistrySearchable)
+	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, AssetRegistrySearchable)
 	FText DisplayName;
 
 	/** character gender */
-	UPROPERTY(EditDefaultsOnly)
+	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly)
 	bool bIsFemale;
 
 	/** if set hide from the menus (i.e. intended for testing or built-in to a specific gametype or mod) */
@@ -58,11 +58,15 @@ public:
 	
 	USkeletalMeshComponent* GetMesh() { return Mesh; }
 
+	/** mesh to swap in when the character is skeletized */
+	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly)
+	USkeletalMesh* SkeletonMesh;
+
 protected:
-	UPROPERTY(VisibleDefaultsOnly)
+	UPROPERTY(BlueprintReadOnly, VisibleDefaultsOnly)
 	USkeletalMeshComponent* Mesh;
 
 	//FIXME: TEMP FOR GDC: material overrides when playing a team game (NULL for an entry means use default)
-	UPROPERTY(EditDefaultsOnly)
+	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly)
 	TArray<UMaterialInterface*> TeamMaterials;
 };

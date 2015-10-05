@@ -967,6 +967,10 @@ public:
 	/** Updates Pawn's rotation to the given rotation, assumed to be the Controller's ControlRotation. Respects the bUseControllerRotation* settings. */
 	virtual void FaceRotation(FRotator NewControlRotation, float DeltaTime = 0.f) override;
 
+	// whether gibs are allowed; some death effects can turn it off
+	UPROPERTY(BlueprintReadWrite, Category = Effects)
+	bool bAllowGibs;
+
 	/** blood explosion played when gibbing */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Effects)
 	TSubclassOf<class AUTImpactEffect> GibExplosionEffect;
@@ -1286,9 +1290,6 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category = Effects)
 	virtual UMaterialInstanceDynamic* GetCharOverlayMI();
 	
-	UPROPERTY()
-	TSubclassOf<AUTCharacterContent> DefaultCharContent;
-
 	/** sets weapon overlay effect; effect must be added to the UTGameState's OverlayEffects at level startup to work correctly (for replication reasons)
 	 * multiple overlays can be active at once, but the default in the weapon code is to only display one at a time
 	 */
@@ -1360,6 +1361,13 @@ public:
 
 	virtual void PlayerChangedTeam();
 	virtual void PlayerSuicide();
+
+	UPROPERTY(BlueprintReadOnly)
+	TSubclassOf<class AUTCharacterContent> CharacterData;
+
+	// Temp replacement for CharacterData->GetDefaultObject() until 4.9 enables that in blueprints
+	UFUNCTION(BlueprintCallable, Category = Character)
+	AUTCharacterContent* GetCharacterData() const;
 
 	virtual void ApplyCharacterData(TSubclassOf<class AUTCharacterContent> Data);
 

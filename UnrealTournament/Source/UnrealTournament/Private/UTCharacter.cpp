@@ -45,9 +45,8 @@ DEFINE_LOG_CATEGORY_STATIC(LogUTCharacter, Log, All);
 AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer.SetDefaultSubobjectClass<UUTCharacterMovement>(ACharacter::CharacterMovementComponentName))
 {
-	// FIXME: TEMP FOR GDC: needed because of TeamMaterials
 	static ConstructorHelpers::FObjectFinder<UClass> DefaultCharContentRef(TEXT("Class'/Game/RestrictedAssets/Character/Malcom_New/Malcolm_New.Malcolm_New_C'"));
-	DefaultCharContent = DefaultCharContentRef.Object;
+	CharacterData = DefaultCharContentRef.Object;
 
 	// Set size for collision capsule
 	GetCapsuleComponent()->InitCapsuleSize(42.f, 92.0f);
@@ -124,6 +123,7 @@ AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 	FeignNudgeMag = 100000.f;
 	bCanPickupItems = true;
 	RagdollGravityScale = 1.0f;
+	bAllowGibs = true;
 
 	MinPainSoundInterval = 0.35f;
 	LastPainSoundTime = -100.0f;
@@ -1578,41 +1578,44 @@ void AUTCharacter::PlayDying()
 
 void AUTCharacter::GibExplosion_Implementation()
 {
-	if (GibExplosionEffect != NULL)
+	if (bAllowGibs)
 	{
-		GibExplosionEffect.GetDefaultObject()->SpawnEffect(GetWorld(), RootComponent->GetComponentTransform(), GetMesh(), this, NULL, SRT_None);
-	}
-	for (FName BoneName : GibExplosionBones)
-	{
-		SpawnGib(BoneName, *LastTakeHitInfo.DamageType);
-	}
-
-	// note: if some local PlayerController is using for a ViewTarget, leave around until they switch off to prevent camera issues
-	if ((GetNetMode() == NM_Client || GetNetMode() == NM_Standalone) && !IsLocallyViewed())
-	{
-		Destroy();
-	}
-	else
-	{
-		// need to delay for replication
-		if (IsRagdoll())
+		if (GibExplosionEffect != NULL)
 		{
-			StopRagdoll();
-			bInRagdollRecovery = false;
-			GetMesh()->SetSimulatePhysics(false);
-			GetMesh()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+			GibExplosionEffect.GetDefaultObject()->SpawnEffect(GetWorld(), RootComponent->GetComponentTransform(), GetMesh(), this, NULL, SRT_None);
 		}
-		SetActorHiddenInGame(true);
-		SetActorEnableCollision(false);
-		GetCharacterMovement()->DisableMovement();
-		if (GetNetMode() == NM_DedicatedServer)
+		for (FName BoneName : GibExplosionBones)
 		{
-			SetLifeSpan(0.25f);
+			SpawnGib(BoneName, *LastTakeHitInfo.DamageType);
+		}
+
+		// note: if some local PlayerController is using for a ViewTarget, leave around until they switch off to prevent camera issues
+		if ((GetNetMode() == NM_Client || GetNetMode() == NM_Standalone) && !IsLocallyViewed())
+		{
+			Destroy();
 		}
 		else
 		{
-			FTimerHandle TempHandle;
-			GetWorldTimerManager().SetTimer(TempHandle, this, &AUTCharacter::DeathCleanupTimer, 1.0f, false);
+			// need to delay for replication
+			if (IsRagdoll())
+			{
+				StopRagdoll();
+				bInRagdollRecovery = false;
+				GetMesh()->SetSimulatePhysics(false);
+				GetMesh()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+			}
+			SetActorHiddenInGame(true);
+			SetActorEnableCollision(false);
+			GetCharacterMovement()->DisableMovement();
+			if (GetNetMode() == NM_DedicatedServer)
+			{
+				SetLifeSpan(0.25f);
+			}
+			else
+			{
+				FTimerHandle TempHandle;
+				GetWorldTimerManager().SetTimer(TempHandle, this, &AUTCharacter::DeathCleanupTimer, 1.0f, false);
+			}
 		}
 	}
 }
@@ -1632,7 +1635,7 @@ void AUTCharacter::DeathCleanupTimer()
 
 void AUTCharacter::SpawnGib(FName BoneName, TSubclassOf<UUTDamageType> DmgType)
 {
-	if (GibClass != NULL)
+	if (GibClass != NULL && bAllowGibs)
 	{
 		FTransform SpawnPos = GetMesh()->GetSocketTransform(BoneName);
 		FActorSpawnParameters Params;
@@ -4066,10 +4069,19 @@ void AUTCharacter::SetCosmeticsFromPlayerState()
 	}
 }
 
+AUTCharacterContent* AUTCharacter::GetCharacterData() const
+{
+	return CharacterData.GetDefaultObject();
+}
+
 void AUTCharacter::ApplyCharacterData(TSubclassOf<AUTCharacterContent> CharType)
 {
 	AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
-	const AUTCharacterContent* Data = (CharType != NULL) ? CharType.GetDefaultObject() : (DefaultCharContent != NULL ? DefaultCharContent.GetDefaultObject() : NULL);
+	if (CharType != NULL)
+	{
+		CharacterData = CharType;
+	}
+	const AUTCharacterContent* Data = CharacterData.GetDefaultObject();
 	if (Data->Mesh != NULL)
 	{
 		FComponentReregisterContext ReregisterContext(GetMesh());

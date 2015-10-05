@@ -82,7 +82,7 @@ bool AUTImpactEffect::SpawnEffect_Implementation(UWorld* World, const FTransform
 	}
 }
 
-void AUTImpactEffect::CallSpawnEffect(UObject* WorldContextObject, const AUTImpactEffect* Effect, const FTransform& InTransform, UPrimitiveComponent* HitComp, AActor* SpawnedBy, AController* InstigatedBy, ESoundReplicationType SoundReplication, const FImpactEffectNamedParameters& EffectParams)
+void AUTImpactEffect::CallSpawnEffect(UObject* WorldContextObject, TSubclassOf<AUTImpactEffect> Effect, const FTransform& InTransform, UPrimitiveComponent* HitComp, AActor* SpawnedBy, AController* InstigatedBy, ESoundReplicationType SoundReplication, const FImpactEffectNamedParameters& EffectParams)
 {
 	if (WorldContextObject == NULL)
 	{
@@ -94,7 +94,7 @@ void AUTImpactEffect::CallSpawnEffect(UObject* WorldContextObject, const AUTImpa
 	}
 	else
 	{
-		Effect->SpawnEffect(WorldContextObject->GetWorld(), InTransform, HitComp, SpawnedBy, InstigatedBy, SoundReplication);
+		Effect.GetDefaultObject()->SpawnEffect(WorldContextObject->GetWorld(), InTransform, HitComp, SpawnedBy, InstigatedBy, SoundReplication);
 	}
 }
 
