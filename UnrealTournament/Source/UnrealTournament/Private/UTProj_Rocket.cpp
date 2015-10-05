@@ -10,7 +10,7 @@ AUTProj_Rocket::AUTProj_Rocket(const class FObjectInitializer& ObjectInitializer
 : Super(ObjectInitializer)
 {
 	DamageParams.BaseDamage = 100;
-	DamageParams.OuterRadius = 330.f;  
+	DamageParams.OuterRadius = 320.f;  
 	DamageParams.InnerRadius = 15.f; 
 	DamageParams.MinimumDamage = 20.f;
 	Momentum = 140000.0f;
