@@ -628,7 +628,7 @@ bool AUTPlayerState::ServerReceiveEyewearVariant_Validate(int32 NewVariant)
 
 void AUTPlayerState::ServerReceiveHatClass_Implementation(const FString& NewHatClass)
 {
-	if (GetNetMode() != NM_Client || HatClass == NULL || !GetWorld()->GetGameState()->HasMatchStarted())
+	if (GetNetMode() != NM_Standalone || HatClass == NULL || !GetWorld()->GetGameState()->HasMatchStarted())
 	{
 		HatClass = LoadClass<AUTHat>(NULL, *NewHatClass, NULL, LOAD_NoWarn, NULL);
 
@@ -662,7 +662,7 @@ bool AUTPlayerState::ServerReceiveHatClass_Validate(const FString& NewHatClass)
 
 void AUTPlayerState::ServerReceiveEyewearClass_Implementation(const FString& NewEyewearClass)
 {
-	if (GetNetMode() != NM_Client || EyewearClass == NULL || !GetWorld()->GetGameState()->HasMatchStarted())
+	if (GetNetMode() != NM_Standalone || EyewearClass == NULL || !GetWorld()->GetGameState()->HasMatchStarted())
 	{
 		EyewearClass = LoadClass<AUTEyewear>(NULL, *NewEyewearClass, NULL, LOAD_NoWarn, NULL);
 		OnRepEyewear();
@@ -909,9 +909,8 @@ bool AUTPlayerState::ServerSetCharacter_Validate(const FString& CharacterPath)
 }
 void AUTPlayerState::ServerSetCharacter_Implementation(const FString& CharacterPath)
 {
-	if (GetNetMode() != NM_Client || SelectedCharacter == NULL || !GetWorld()->GetGameState()->HasMatchStarted())
+	if (GetNetMode() != NM_Standalone || SelectedCharacter == NULL || !GetWorld()->GetGameState()->HasMatchStarted())
 	{
-		// TODO: maybe ignore if already have valid character to avoid trolls?
 		AUTCharacter* MyPawn = GetUTCharacter();
 		// suicide if feign death because the mesh reset causes physics issues
 		if (MyPawn != NULL && MyPawn->IsFeigningDeath())
