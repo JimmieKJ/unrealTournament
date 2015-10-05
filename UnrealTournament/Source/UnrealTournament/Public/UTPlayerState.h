@@ -290,9 +290,9 @@ public:
 
 	void GiveXP(const FXPBreakdown& AddXP);
 	void ClampXP(int32 MaxValue);
-	void ApplyBotXPPenalty()
+	void ApplyBotXPPenalty(float GameDifficulty)
 	{
-		XP *= 0.5f;
+		XP = XP * (0.4f + FMath::Clamp(GameDifficulty, 0.f, 7.f) * 0.05f);
 	}
 
 	// How long until this player can respawn.  It's not directly replicated to the clients instead it's set

@@ -85,7 +85,6 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	ScoringPlaysDisplayTime = 0.f; 
 	PersonalSummaryDisplayTime = 8.f;
 	WinnerSummaryDisplayTime = 3.f;
-	GameDifficulty = 3.0f;
 	BotFillCount = 0;
 	bWeaponStayActive = true;
 	VictoryMessageClass = UUTVictoryMessage::StaticClass();
@@ -1669,8 +1668,17 @@ void AUTGameMode::SendEndOfGameStats(FName Reason)
 	}
 }
 
+bool AUTGameMode::CanAwardXP()
+{
+	return ((GetNetMode() != NM_Standalone) || bOfflineChallenge);
+}
+
 void AUTGameMode::AwardXP()
 {
+	if (!CanAwardXP())
+	{
+		return;
+	}
 	// TODO: ideally we wouldn't execute this if the server isn't approved for XP/items, but servers can't easily get their own status...
 	// client does a redundant check anyway so not a huge deal
 	static const bool bXPCheatEnabled = FParse::Param(FCommandLine::Get(), TEXT("XPGiveaway"));
@@ -1689,7 +1697,7 @@ void AUTGameMode::AwardXP()
 				}
 				if (GameSession->MaxPlayers > 2 && (NumPlayers == 1 || NumPlayers < NumBots))
 				{
-					UTPS->ApplyBotXPPenalty();
+					UTPS->ApplyBotXPPenalty(GameDifficulty);
 				}
 				if (bXPCheatEnabled)
 				{
