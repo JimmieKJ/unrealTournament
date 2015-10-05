@@ -161,7 +161,10 @@ class UNREALTOURNAMENT_API SUTextChatPanel : public SCompoundWidget
 public:	
 	/** needed for every widget */
 	void Construct(const FArguments& InArgs);
-	
+
+	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime );
+
+
 	// Make sure to clean up the delegates in the destructor
 	virtual ~SUTextChatPanel();
 	

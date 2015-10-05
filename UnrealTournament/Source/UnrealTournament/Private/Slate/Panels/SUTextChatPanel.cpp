@@ -126,6 +126,17 @@ void SUTextChatPanel::Construct(const FArguments& InArgs)
 	];
 }
 
+void SUTextChatPanel::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
+{
+	// If we don't have keyboard focus, make sure we grab it.
+	if (PlayerOwner->NumDialogsOpened() == 0 && !ChatEditBox->HasKeyboardFocus())
+	{
+		// Force Keyboard force to the chat edit box.
+		FSlateApplication::Get().SetKeyboardFocus(ChatEditBox,EFocusCause::SetDirectly);
+	}
+
+}
+
 void SUTextChatPanel::AddDestination(const FText& Caption, const FName ChatDestionation, float Weight, bool bSelect)
 {
 	bool bFirstButton = ChatDestinationList.Num() == 0;
@@ -321,6 +332,25 @@ void SUTextChatPanel::ChatTextCommited(const FText& NewText, ETextCommit::Type C
 			if (CurrentChatDestination == ChatDestinations::Local)		FinalText = FString::Printf(TEXT("Say %s"), *FinalText);
 			if (CurrentChatDestination == ChatDestinations::Match)		FinalText = FString::Printf(TEXT("Matchchat %s"), *FinalText);
 			if (CurrentChatDestination == ChatDestinations::Team)		FinalText = FString::Printf(TEXT("TeamSay %s"), *FinalText);
+		}
+		else
+		{
+			int32 CurDestIndex = INDEX_NONE;
+			for (int32 i=0; i < ChatDestinationList.Num(); i++)
+			{
+				if (ChatDestinationList[i]->ChatDestination == CurrentChatDestination)
+				{
+					CurDestIndex = i;
+					break;
+				}
+			}
+
+			CurDestIndex++;
+			if (CurDestIndex >= ChatDestinationList.Num()) CurDestIndex = 0;
+			if (CurDestIndex < ChatDestinationList.Num() && ChatDestinationList[CurDestIndex].IsValid() && ChatDestinationList[CurDestIndex]->ChatDestination != CurrentChatDestination)
+			{
+				DestinationChanged(ChatDestinationList[CurDestIndex]->ChatDestination);
+			}
 		}
 
 		if (FinalText != TEXT("") && PlayerOwner.IsValid() && PlayerOwner->PlayerController != NULL)
