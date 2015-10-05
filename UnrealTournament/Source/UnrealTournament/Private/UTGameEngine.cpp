@@ -386,7 +386,7 @@ EBrowseReturnVal::Type UUTGameEngine::Browse( FWorldContext& WorldContext, FURL 
 #endif
 	if (URL.IsLocalInternal() && !IsRunningDedicatedServer() && !LocallyHasEntitlement(GetRequiredEntitlementFromPackageName(FName(*FPaths::GetBaseFilename(URL.Map)))))
 	{
-		Error = NSLOCTEXT("UT", "NotEntitledMap", "You do not have the rights to start this map. Visit the Marketplace to gain access.").ToString();
+		Error = NSLOCTEXT("UT", "NotEntitledMap", "You do not have the rights to start this community created map. Visit the UT Marketplace in the Launcher to gain access (it's free!).").ToString();
 		return EBrowseReturnVal::Failure;
 	}
 	else
