@@ -6,6 +6,17 @@
 
 #include "UTCharacterContent.generated.h"
 
+USTRUCT(BlueprintType)
+struct FGibSlotInfo
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FName BoneName;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	TSubclassOf<AUTGib> GibType;
+};
+
 UCLASS(BlueprintType, Abstract, NotPlaceable)
 class UNREALTOURNAMENT_API AUTCharacterContent : public AActor
 {
@@ -34,6 +45,19 @@ public:
 		Mesh->bReceivesDecals = false;
 
 		DisplayName = NSLOCTEXT("UT", "UntitledCharacter", "Untitled Character");
+
+		static ConstructorHelpers::FObjectFinder<UClass> GibRef[] = { TEXT("/Game/RestrictedAssets/Blueprints/GibHumanHead.GibHumanHead_C"), 
+			TEXT("/Game/RestrictedAssets/Blueprints/GibHumanLegL.GibHumanLegL_C"), TEXT("/Game/RestrictedAssets/Blueprints/GibHumanLegR.GibHumanLegR_C"),
+			TEXT("/Game/RestrictedAssets/Blueprints/GibHumanRibs.GibHumanRibs_C"), TEXT("/Game/RestrictedAssets/Blueprints/GibHumanTorso.GibHumanTorso_C"),
+			TEXT("/Game/RestrictedAssets/Blueprints/GibHumanArmL.GibHumanArmL_C"), TEXT("/Game/RestrictedAssets/Blueprints/GibHumanArmR.GibHumanArmR_C") };
+
+		new(Gibs) FGibSlotInfo{ FName(TEXT("b_head")), GibRef[0].Object };
+		new(Gibs) FGibSlotInfo{ FName(TEXT("b_LeftFoot")), GibRef[1].Object };
+		new(Gibs) FGibSlotInfo{ FName(TEXT("b_RightFoot")), GibRef[2].Object };
+		new(Gibs) FGibSlotInfo{ FName(TEXT("b_Spine1")), GibRef[3].Object };
+		new(Gibs) FGibSlotInfo{ FName(TEXT("b_Spine2")), GibRef[4].Object };
+		new(Gibs) FGibSlotInfo{ FName(TEXT("b_LeftForeArm")), GibRef[5].Object };
+		new(Gibs) FGibSlotInfo{ FName(TEXT("b_RightForeArm")), GibRef[6].Object };
 	}
 
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, AssetRegistrySearchable)
@@ -56,11 +80,21 @@ public:
 	UPROPERTY(EditDefaultsOnly, AssetRegistrySearchable, Meta = (DisplayName = "Required Offline Achievement"))
 	FName RequiredAchievement;
 	
-	USkeletalMeshComponent* GetMesh() { return Mesh; }
+	inline USkeletalMeshComponent* GetMesh() const
+	{
+		return Mesh;
+	}
 
 	/** mesh to swap in when the character is skeletized */
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly)
 	USkeletalMesh* SkeletonMesh;
+
+	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly)
+	TArray<FGibSlotInfo> Gibs;
+
+	/** blood explosion played when gibbing */
+	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly)
+	TSubclassOf<class AUTImpactEffect> GibExplosionEffect;
 
 protected:
 	UPROPERTY(BlueprintReadOnly, VisibleDefaultsOnly)

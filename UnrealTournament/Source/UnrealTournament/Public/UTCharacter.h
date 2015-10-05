@@ -201,26 +201,6 @@ struct FMovementEventInfo
 };
 
 USTRUCT(BlueprintType)
-struct FBloodDecalInfo
-{
-	GENERATED_USTRUCT_BODY()
-
-	/** material to use for the decal */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = DecalInfo)
-	UMaterialInterface* Material;
-	/** Base scale of decal */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = DecalInfo)
-	FVector2D BaseScale;
-	/** range of random scaling applied (always uniform) */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = DecalInfo)
-	FVector2D ScaleMultRange;
-
-	FBloodDecalInfo()
-		: Material(NULL), BaseScale(32.0f, 32.0f), ScaleMultRange(0.8f, 1.2f)
-	{}
-};
-
-USTRUCT(BlueprintType)
 struct FOverlayEffect
 {
 	GENERATED_USTRUCT_BODY()
@@ -971,25 +951,13 @@ public:
 	UPROPERTY(BlueprintReadWrite, Category = Effects)
 	bool bAllowGibs;
 
-	/** blood explosion played when gibbing */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Effects)
-	TSubclassOf<class AUTImpactEffect> GibExplosionEffect;
-
-	/** type of gib to spawn */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Effects)
-	TSubclassOf<class AUTGib> GibClass;
-
-	/** bones to gib when exploding the entire character (i.e. through GibExplosion()) */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Effects)
-	TArray<FName> GibExplosionBones;
-
 	/** gibs the entire Pawn and destroys it (only the blood/gibs remain) */
 	UFUNCTION(BlueprintNativeEvent, BlueprintCosmetic)
 	void GibExplosion();
 
 	/** spawns a gib at the specified bone */
 	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category = Death)
-	virtual void SpawnGib(FName BoneName, TSubclassOf<class UUTDamageType> DmgType = NULL);
+	virtual void SpawnGib(const struct FGibSlotInfo& GibSlot, TSubclassOf<class UUTDamageType> DmgType = NULL);
 
 	/** plays death effects; use LastTakeHitInfo to do damage-specific death effects */
 	virtual void PlayDying();

@@ -101,13 +101,13 @@ void UUTCheatManager::Gibs()
 	AUTCharacter* MyPawn = Cast<AUTCharacter>(GetOuterAPlayerController()->GetPawn());
 	if (MyPawn != NULL)
 	{
-		if (MyPawn->GibExplosionEffect != NULL)
+		if (MyPawn->CharacterData.GetDefaultObject()->GibExplosionEffect != NULL)
 		{
-			MyPawn->GibExplosionEffect.GetDefaultObject()->SpawnEffect(MyPawn->GetWorld(), MyPawn->GetRootComponent()->GetComponentTransform(), MyPawn->GetMesh(), MyPawn, NULL, SRT_None);
+			MyPawn->CharacterData.GetDefaultObject()->GibExplosionEffect.GetDefaultObject()->SpawnEffect(MyPawn->GetWorld(), MyPawn->GetRootComponent()->GetComponentTransform(), MyPawn->GetMesh(), MyPawn, NULL, SRT_None);
 		}
-		for (FName BoneName : MyPawn->GibExplosionBones)
+		for (const FGibSlotInfo& GibInfo : MyPawn->CharacterData.GetDefaultObject()->Gibs)
 		{
-			MyPawn->SpawnGib(BoneName, *MyPawn->LastTakeHitInfo.DamageType);
+			MyPawn->SpawnGib(GibInfo, *MyPawn->LastTakeHitInfo.DamageType);
 		}
 		MyPawn->TeleportTo(MyPawn->GetActorLocation() - 800.f * MyPawn->GetActorRotation().Vector(), MyPawn->GetActorRotation(), true);
 	}

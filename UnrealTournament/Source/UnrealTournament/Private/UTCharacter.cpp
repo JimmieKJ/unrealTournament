@@ -1578,15 +1578,16 @@ void AUTCharacter::PlayDying()
 
 void AUTCharacter::GibExplosion_Implementation()
 {
-	if (bAllowGibs)
+	if (bAllowGibs && CharacterData != NULL)
 	{
-		if (GibExplosionEffect != NULL)
+		const AUTCharacterContent* CharDataObj = CharacterData.GetDefaultObject();
+		if (CharDataObj->GibExplosionEffect != NULL)
 		{
-			GibExplosionEffect.GetDefaultObject()->SpawnEffect(GetWorld(), RootComponent->GetComponentTransform(), GetMesh(), this, NULL, SRT_None);
+			CharDataObj->GibExplosionEffect.GetDefaultObject()->SpawnEffect(GetWorld(), RootComponent->GetComponentTransform(), GetMesh(), this, NULL, SRT_None);
 		}
-		for (FName BoneName : GibExplosionBones)
+		for (const FGibSlotInfo& GibSlot : CharDataObj->Gibs)
 		{
-			SpawnGib(BoneName, *LastTakeHitInfo.DamageType);
+			SpawnGib(GibSlot, *LastTakeHitInfo.DamageType);
 		}
 
 		// note: if some local PlayerController is using for a ViewTarget, leave around until they switch off to prevent camera issues
@@ -1633,16 +1634,16 @@ void AUTCharacter::DeathCleanupTimer()
 	}
 }
 
-void AUTCharacter::SpawnGib(FName BoneName, TSubclassOf<UUTDamageType> DmgType)
+void AUTCharacter::SpawnGib(const FGibSlotInfo& GibInfo, TSubclassOf<UUTDamageType> DmgType)
 {
-	if (GibClass != NULL && bAllowGibs)
+	if (GibInfo.GibType != NULL && bAllowGibs)
 	{
-		FTransform SpawnPos = GetMesh()->GetSocketTransform(BoneName);
+		FTransform SpawnPos = GetMesh()->GetSocketTransform(GibInfo.BoneName);
 		FActorSpawnParameters Params;
 		Params.bNoCollisionFail = true;
 		Params.Instigator = this;
 		Params.Owner = this;
-		AUTGib* Gib = GetWorld()->SpawnActor<AUTGib>(GibClass, SpawnPos.GetLocation(), SpawnPos.Rotator(), Params);
+		AUTGib* Gib = GetWorld()->SpawnActor<AUTGib>(GibInfo.GibType, SpawnPos.GetLocation(), SpawnPos.Rotator(), Params);
 		if (Gib != NULL)
 		{
 			Gib->BloodDecals = BloodDecals;
