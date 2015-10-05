@@ -83,4 +83,7 @@ public:
 	UPROPERTY()
 	bool bNoJoinInProgress;
 
+	UPROPERTY()
+	bool CantBindBeaconPortIsNotFatal;
+
 };

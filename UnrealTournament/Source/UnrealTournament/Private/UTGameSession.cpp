@@ -15,6 +15,7 @@ AUTGameSession::AUTGameSession(const FObjectInitializer& ObjectInitializer)
 {
 	bSessionValid = false;
 	bNoJoinInProgress = false;
+	CantBindBeaconPortIsNotFatal = false;
 }
 
 void AUTGameSession::Destroyed()
@@ -506,6 +507,20 @@ void AUTGameSession::InitHostBeacon(FOnlineSessionSettings* SessionSettings)
 		UE_LOG(UT,Log,TEXT("Server Active Port (ignore ip): %s"), *GetNetDriver()->LowLevelGetNetworkNumber());
 		UE_LOG(UT,Log,TEXT("Server Beacon Port: %i"), BeaconHostListener->GetListenPort());
 		UE_LOG(UT,Log,TEXT("---------------------------------------"));
+
+		int32 DesiredPort = AOnlineBeaconHost::StaticClass()->GetDefaultObject<AOnlineBeaconHost>()->ListenPort;
+		if (BeaconHostListener->GetListenPort() != DesiredPort)
+		{
+			if (CantBindBeaconPortIsNotFatal)
+			{
+				UE_LOG(UT,Warning,TEXT("Could not bind to expected beacon port.  Your server will be unresponsive. [%i vs %i]"),BeaconHostListener->GetListenPort(), DesiredPort);
+			}
+			else
+			{
+				UE_LOG(UT,Fatal,TEXT("Could not bind to expected beacon port.  Restarting server!!! [%i vs %i]"),BeaconHostListener->GetListenPort(), DesiredPort);
+			}
+		}
+
 	}
 
 	// Update the beacon port

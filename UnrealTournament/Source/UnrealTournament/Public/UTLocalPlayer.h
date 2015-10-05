@@ -709,4 +709,8 @@ public:
 	UPROPERTY(config)
 	int32 ChallengeRevisionNumber;
 
+	virtual int32 NumDialogsOpened()
+	{
+		return OpenDialogs.Num();
+	}
 };

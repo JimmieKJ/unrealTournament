@@ -370,7 +370,7 @@ bool AUTLobbyGameMode::IsHandlingReplays()
 
 void AUTLobbyGameMode::DefaultTimer()
 {
-	if (GetWorld()->GetTimeSeconds() > ServerRefreshCheckpoint * 60)
+	if (GetWorld()->GetTimeSeconds() > ServerRefreshCheckpoint * 60 * 60)
 	{
 		if (NumPlayers == 0)
 		{
@@ -393,6 +393,14 @@ void AUTLobbyGameMode::DefaultTimer()
 				if ( FPackageName::IsShortPackageName(MapName) )
 				{
 					FPackageName::SearchForPackageOnDisk(MapName, &MapName); 
+				}
+
+				AUTGameSession* UTGameSession = Cast<AUTGameSession>(GameSession);
+				if (UTGameSession)
+				{
+					// kill the host beacon before we start the travel so hopefully the port will be released before
+					// we are done.
+					UTGameSession->DestroyHostBeacon();
 				}
 
 				GetWorld()->ServerTravel(MapName);
