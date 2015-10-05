@@ -21,8 +21,13 @@ class UNREALTOURNAMENT_API AUTCTFFlagBase : public AUTGameObjective
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Sound)
 	USoundBase* FlagScoreRewardSound;
 
+	/** Own flag taken, play unattenuated sound for all players on team. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sound)
 	USoundBase* FlagTakenSound;
+
+	/** Enemy flag taken, play attenuated sound. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sound)
+		USoundBase* EnemyFlagTakenSound;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sound)
 	USoundBase* FlagReturnedSound;
