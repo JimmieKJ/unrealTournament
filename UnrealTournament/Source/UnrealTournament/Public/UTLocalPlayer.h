@@ -371,7 +371,7 @@ protected:
 	virtual void OnEnumerateUserFilesComplete(bool bWasSuccessful, const FUniqueNetId& InUserId);
 	virtual void OnReadProfileItemsComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded);
 
-	virtual void UUTLocalPlayer::OnReadTitleFileComplete(bool bWasSuccessful, const FString& Filename);
+	virtual void OnReadTitleFileComplete(bool bWasSuccessful, const FString& Filename);
 
 #if !UE_SERVER
 	TSharedPtr<class SUWDialog> HUDSettings;
