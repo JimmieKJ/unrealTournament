@@ -509,7 +509,7 @@ void AUTGameSession::InitHostBeacon(FOnlineSessionSettings* SessionSettings)
 		UE_LOG(UT,Log,TEXT("---------------------------------------"));
 
 		int32 DesiredPort = AOnlineBeaconHost::StaticClass()->GetDefaultObject<AOnlineBeaconHost>()->ListenPort;
-		if (BeaconHostListener->GetListenPort() != DesiredPort)
+		if (UTGameMode && !UTGameMode->IsGameInstanceServer() && BeaconHostListener->GetListenPort() != DesiredPort)
 		{
 			if (CantBindBeaconPortIsNotFatal)
 			{
