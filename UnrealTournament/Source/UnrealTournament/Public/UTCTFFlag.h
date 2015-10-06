@@ -17,8 +17,16 @@ class UNREALTOURNAMENT_API AUTCTFFlag : public AUTCarriedObject
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = GameObject)
 		float FlagHeldScale;
 
+	/** How much to blend in cloth when flag is home. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Flag)
+		float ClothBlendHome;
+
+	/** How much to blend in cloth when flag is held. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Flag)
+		float ClothBlendHeld;
+
 	// The mesh for the flag
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = GameObject)
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Flag)
 	USkeletalMeshComponent* Mesh;
 
 	USkeletalMeshComponent* GetMesh() const

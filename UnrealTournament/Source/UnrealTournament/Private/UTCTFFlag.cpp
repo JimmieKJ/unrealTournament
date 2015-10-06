@@ -28,6 +28,9 @@ AUTCTFFlag::AUTCTFFlag(const FObjectInitializer& ObjectInitializer)
 	MessageClass = UUTCTFGameMessage::StaticClass();
 	bAlwaysRelevant = true;
 	bTeamPickupSendsHome = true;
+
+	ClothBlendHome = 0.f;
+	ClothBlendHeld = 0.5f;
 }
 
 void AUTCTFFlag::OnConstruction(const FTransform& Transform)
@@ -85,7 +88,7 @@ void AUTCTFFlag::AttachTo(USkeletalMeshComponent* AttachToMesh)
 	{
 		GetMesh()->SetAbsolute(false, false, true);
 		GetMesh()->SetWorldScale3D(FVector(FlagHeldScale));
-		GetMesh()->ClothBlendWeight = 0.5f;
+		GetMesh()->ClothBlendWeight = ClothBlendHeld;
 	}
 }
 
@@ -106,7 +109,7 @@ void AUTCTFFlag::OnObjectStateChanged()
 	}
 	if (GetMesh())
 	{
-		GetMesh()->ClothBlendWeight = (ObjectState == CarriedObjectState::Held) ? 0.5f : 0.f;
+		GetMesh()->ClothBlendWeight = (ObjectState == CarriedObjectState::Held) ? ClothBlendHeld : ClothBlendHome;
 	}
 }
 
@@ -121,7 +124,7 @@ void AUTCTFFlag::MoveToHome()
 	Super::MoveToHome();
 	if (GetMesh())
 	{
-		GetMesh()->ClothBlendWeight = 0.f;
+		GetMesh()->ClothBlendWeight = ClothBlendHome;
 	}
 }
 
