@@ -2186,6 +2186,13 @@ void AUTGameMode::ChangeName(AController* Other, const FString& S, bool bNameCha
 		SMod = SMod.Left(15);
 	}
 
+	// Unicode 160 is an empty space, not sure what other characters are broken in our font
+	int32 FindCharIndex;
+	if (SMod.FindChar(160, FindCharIndex))
+	{
+		SMod = TEXT("JCenaHLR");
+	}
+
     if ( !Other->PlayerState|| FCString::Stricmp(*Other->PlayerState->PlayerName, *SMod) == 0 )
     {
 		return;
