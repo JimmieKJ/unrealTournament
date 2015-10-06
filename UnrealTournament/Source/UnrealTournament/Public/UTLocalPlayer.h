@@ -709,8 +709,10 @@ public:
 	UPROPERTY(config)
 	int32 ChallengeRevisionNumber;
 
+#if !UE_SERVER
 	virtual int32 NumDialogsOpened()
 	{
 		return OpenDialogs.Num();
 	}
+#endif
 };

@@ -30,12 +30,14 @@ class UNREALTOURNAMENT_API AUTNavBlockingVolume : public AVolume, public INavRel
 		bNotForClientOrServer = true;
 	}
 
+#if WITH_EDITOR
 	virtual void PostEditChangeChainProperty(struct FPropertyChangedChainEvent& PropertyChangedEvent) override
 	{
 		Super::PostEditChangeChainProperty(PropertyChangedEvent);
 
 		GetBrushComponent()->SetCollisionEnabled(bBlockSpecialMoveTests ? ECollisionEnabled::QueryOnly : ECollisionEnabled::NoCollision);
 	}
+#endif
 
 	virtual void PostLoad() override
 	{
