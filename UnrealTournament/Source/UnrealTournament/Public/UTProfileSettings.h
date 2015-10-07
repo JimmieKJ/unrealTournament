@@ -100,6 +100,8 @@ class UNREALTOURNAMENT_API UUTProfileSettings : public UObject
 	UPROPERTY()
 	FString HatPath;
 	UPROPERTY()
+	FString LeaderHatPath;
+	UPROPERTY()
 	int32 HatVariant;
 	UPROPERTY()
 	FString EyewearPath;

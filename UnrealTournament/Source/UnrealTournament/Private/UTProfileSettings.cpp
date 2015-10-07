@@ -326,6 +326,7 @@ void UUTProfileSettings::ApplyAllSettings(UUTLocalPlayer* ProfilePlayer)
 
 	ProfilePlayer->SetCharacterPath(CharacterPath);
 	ProfilePlayer->SetHatPath(HatPath);
+	ProfilePlayer->SetLeaderHatPath(LeaderHatPath);
 	ProfilePlayer->SetEyewearPath(EyewearPath);
 	ProfilePlayer->SetTauntPath(TauntPath);
 	ProfilePlayer->SetTaunt2Path(Taunt2Path);

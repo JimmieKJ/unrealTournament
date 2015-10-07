@@ -5143,11 +5143,21 @@ void AUTCharacter::HasHighScoreChanged_Implementation()
 		if (LeaderHat == nullptr)
 		{
 			TSubclassOf<class AUTHatLeader> LeaderHatClass;
-			if (Hat && Hat->LeaderHatClass && Hat->LeaderHatClass->IsChildOf(AUTHatLeader::StaticClass()))
+
+			// See if player has selected a leader hat class
+			AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
+			if (PS && PS->LeaderHatClass)
+			{
+				LeaderHatClass = PS->LeaderHatClass;
+			}
+
+			// Check if equipped hat has a leader variant
+			if (LeaderHatClass == nullptr && Hat && Hat->LeaderHatClass && Hat->LeaderHatClass->IsChildOf(AUTHatLeader::StaticClass()))
 			{
 				LeaderHatClass = Hat->LeaderHatClass;
 			}
-
+			
+			// Check if game mode is blocking default leader hat, if not use the default
 			if (LeaderHatClass == nullptr)
 			{
 				AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();

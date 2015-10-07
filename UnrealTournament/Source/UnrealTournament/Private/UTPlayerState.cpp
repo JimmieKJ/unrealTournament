@@ -95,6 +95,7 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	DOREPLIFETIME(AUTPlayerState, TauntClass);
 	DOREPLIFETIME(AUTPlayerState, Taunt2Class);
 	DOREPLIFETIME(AUTPlayerState, HatClass);
+	DOREPLIFETIME(AUTPlayerState, LeaderHatClass);
 	DOREPLIFETIME(AUTPlayerState, EyewearClass);
 	DOREPLIFETIME(AUTPlayerState, HatVariant);
 	DOREPLIFETIME(AUTPlayerState, EyewearVariant);
@@ -656,6 +657,24 @@ void AUTPlayerState::ServerReceiveHatClass_Implementation(const FString& NewHatC
 }
 
 bool AUTPlayerState::ServerReceiveHatClass_Validate(const FString& NewHatClass)
+{
+	return true;
+}
+
+void AUTPlayerState::ServerReceiveLeaderHatClass_Implementation(const FString& NewLeaderHatClass)
+{
+	if (GetNetMode() != NM_Standalone || LeaderHatClass == NULL || !GetWorld()->GetGameState()->HasMatchStarted())
+	{
+		LeaderHatClass = LoadClass<AUTHatLeader>(NULL, *NewLeaderHatClass, NULL, LOAD_NoWarn, NULL);
+
+		if (LeaderHatClass != nullptr)
+		{
+			ValidateEntitlements();
+		}
+	}
+}
+
+bool AUTPlayerState::ServerReceiveLeaderHatClass_Validate(const FString& NewHatClass)
 {
 	return true;
 }
@@ -1562,6 +1581,10 @@ void AUTPlayerState::ValidateEntitlements()
 				if (!HasRightsFor(HatClass))
 				{
 					ServerReceiveHatClass(FString());
+				}
+				if (!HasRightsFor(LeaderHatClass))
+				{
+					ServerReceiveLeaderHatClass(FString());
 				}
 				if (!HasRightsFor(EyewearClass))
 				{

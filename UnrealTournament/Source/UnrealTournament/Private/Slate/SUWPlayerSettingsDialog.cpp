@@ -55,6 +55,7 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 	PlayerPreviewMesh = nullptr;
 	PreviewWeapon = nullptr;
 	bSpinPlayer = true;
+	bLeaderHatSelectedLast = false;
 
 	CameraLocations.Add(FVector(-100.0f, -40, -90));
 	CameraLocations.Add(FVector(0.0f, -55, -60));
@@ -145,6 +146,28 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 						HatList.Add(MakeShareable(new FString(TestClass->GetDefaultObject<AUTHat>()->CosmeticName)));
 						HatPathList.Add(Asset.ObjectPath.ToString() + TEXT("_C"));
 					}
+				}
+			}
+		}
+	}
+
+	{
+		LeaderHatList.Add(MakeShareable(new FString(TEXT("No Hat"))));
+		LeaderHatPathList.Add(TEXT(""));
+
+		TArray<FAssetData> AssetList;
+		GetAllBlueprintAssetData(AUTHatLeader::StaticClass(), AssetList);
+		for (const FAssetData& Asset : AssetList)
+		{
+			static FName NAME_GeneratedClass(TEXT("GeneratedClass"));
+			const FString* ClassPath = Asset.TagsAndValues.Find(NAME_GeneratedClass);
+			if (ClassPath != NULL)
+			{
+				UClass* TestClass = LoadObject<UClass>(NULL, **ClassPath);
+				if (TestClass != NULL && !TestClass->HasAnyClassFlags(CLASS_Abstract) && TestClass->IsChildOf(AUTHatLeader::StaticClass()))
+				{
+					LeaderHatList.Add(MakeShareable(new FString(TestClass->GetDefaultObject<AUTHatLeader>()->CosmeticName)));
+					LeaderHatPathList.Add(Asset.ObjectPath.ToString() + TEXT("_C"));
 				}
 			}
 		}
@@ -376,9 +399,35 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 							]
 						]
 
+						+ SGridPanel::Slot(0, 2)
+						.Padding(NameColumnPadding)
+						[
+							SNew(STextBlock)
+							.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+							.Text(LOCTEXT("LeaderHatSelectionLabel", "Leader Hat"))
+						]
+
+						+ SGridPanel::Slot(1, 2)
+						.Padding(ValueColumnPadding)
+						[
+							SAssignNew(LeaderHatComboBox, SComboBox< TSharedPtr<FString> >)
+							.InitiallySelectedItem(0)
+							.ComboBoxStyle(SUWindowsStyle::Get(), "UT.ComboBox")
+							.ButtonStyle(SUWindowsStyle::Get(), "UT.Button.White")
+							.OptionsSource(&LeaderHatList)
+							.OnGenerateWidget(this, &SUWDialog::GenerateStringListWidget)
+							.OnSelectionChanged(this, &SUWPlayerSettingsDialog::OnLeaderHatSelected)
+							.ContentPadding(FMargin(10.0f, 0.0f, 10.0f, 0.0f))
+							.Content()
+							[
+								SAssignNew(SelectedLeaderHat, STextBlock)
+								.Text(FText::FromString(TEXT("No Leader Hats Available")))
+								.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.Black")
+							]
+						]
 						// Eyewear
 						// ---------------------------------------------------------------------------------
-						+ SGridPanel::Slot(0, 2)
+						+ SGridPanel::Slot(0, 3)
 						.Padding(NameColumnPadding)
 						[
 							SNew(STextBlock)
@@ -386,7 +435,7 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 							.Text(LOCTEXT("EyewearSelectionLabel", "Eyewear"))
 						]
 
-						+ SGridPanel::Slot(1, 2)
+						+ SGridPanel::Slot(1, 3)
 						.Padding(ValueColumnPadding)
 						[
 							SAssignNew(EyewearComboBox, SComboBox< TSharedPtr<FString> >)
@@ -409,7 +458,7 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 							]
 						]
 						
-						+ SGridPanel::Slot(2, 2)
+						+ SGridPanel::Slot(2, 3)
 						.Padding(NameColumnPadding)
 						[
 							SAssignNew(EyewearVariantComboBox, SComboBox< TSharedPtr<FString> >)
@@ -430,7 +479,7 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 						
 						// Taunt
 						// ---------------------------------------------------------------------------------
-						+ SGridPanel::Slot(0, 3)
+						+ SGridPanel::Slot(0, 4)
 						.Padding(NameColumnPadding)
 						[
 							SNew(STextBlock)
@@ -438,7 +487,7 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 							.Text(LOCTEXT("TauntSelectionLabel", "Taunt"))
 						]
 
-						+ SGridPanel::Slot(1, 3)
+						+ SGridPanel::Slot(1, 4)
 						.Padding(ValueColumnPadding)
 						[
 							SAssignNew(TauntComboBox, SComboBox< TSharedPtr<FString> >)
@@ -463,7 +512,7 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 						
 						// Taunt 2
 						// ---------------------------------------------------------------------------------
-						+ SGridPanel::Slot(0, 4)
+						+ SGridPanel::Slot(0, 5)
 						.Padding(NameColumnPadding)
 						[
 							SNew(STextBlock)
@@ -471,7 +520,7 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 							.Text(LOCTEXT("Taunt2SelectionLabel", "Taunt 2"))
 						]
 
-						+ SGridPanel::Slot(1, 4)
+						+ SGridPanel::Slot(1, 5)
 						.Padding(ValueColumnPadding)
 						[
 							SAssignNew(Taunt2ComboBox, SComboBox< TSharedPtr<FString> >)
@@ -496,7 +545,7 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 
 						// Character
 						// ---------------------------------------------------------------------------------
-						+ SGridPanel::Slot(0, 5)
+						+ SGridPanel::Slot(0, 6)
 						.Padding(NameColumnPadding)
 						[
 							SNew(STextBlock)
@@ -504,7 +553,7 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 							.Text(LOCTEXT("CharSelectionLabel", "Character"))
 						]
 
-						+ SGridPanel::Slot(1, 5)
+						+ SGridPanel::Slot(1, 6)
 						.Padding(ValueColumnPadding)
 						[
 							SAssignNew(CharacterComboBox, SComboBox< TSharedPtr<FString> >)
@@ -721,6 +770,21 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 		{
 			HatVariantComboBox->SetSelectedItem(HatVariantList[SelectedHatVariantIndex]);
 		}
+		
+		bool bFoundSelectedLeaderHat = false;
+		for (int32 i = 0; i < LeaderHatPathList.Num(); i++)
+		{
+			if (LeaderHatPathList[i] == GetPlayerOwner()->GetLeaderHatPath())
+			{
+				LeaderHatComboBox->SetSelectedItem(LeaderHatList[i]);
+				bFoundSelectedHat = true;
+				break;
+			}
+		}
+		if (!bFoundSelectedLeaderHat && LeaderHatPathList.Num() > 0)
+		{
+			LeaderHatComboBox->SetSelectedItem(LeaderHatList[0]);
+		}
 
 		bool bFoundSelectedEyewear = false;
 		for (int32 i = 0; i < EyewearPathList.Num(); i++)
@@ -918,6 +982,8 @@ FReply SUWPlayerSettingsDialog::OKClick()
 
 	int32 Index = HatList.Find(HatComboBox->GetSelectedItem());
 	GetPlayerOwner()->SetHatPath(HatPathList.IsValidIndex(Index) ? HatPathList[Index] : FString());
+	Index = LeaderHatList.Find(LeaderHatComboBox->GetSelectedItem());
+	GetPlayerOwner()->SetLeaderHatPath(LeaderHatPathList.IsValidIndex(Index) ? LeaderHatPathList[Index] : FString());
 	Index = EyewearList.Find(EyewearComboBox->GetSelectedItem());
 	GetPlayerOwner()->SetEyewearPath(EyewearPathList.IsValidIndex(Index) ? EyewearPathList[Index] : FString());
 	Index = TauntList.Find(TauntComboBox->GetSelectedItem());
@@ -992,8 +1058,27 @@ void SUWPlayerSettingsDialog::OnHatSelected(TSharedPtr<FString> NewSelection, ES
 {
 	if (NewSelection.IsValid())
 	{
+		bLeaderHatSelectedLast = false;
 		SelectedHat->SetText(*NewSelection.Get());
 		PopulateHatVariants();
+		RecreatePlayerPreview();
+	}
+}
+
+void SUWPlayerSettingsDialog::OnLeaderHatSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)
+{
+	if (NewSelection.IsValid())
+	{
+		if (*NewSelection.Get() == FString(TEXT("No Hat")))
+		{
+			bLeaderHatSelectedLast = false;
+		}
+		else
+		{
+			bLeaderHatSelectedLast = true;
+		}
+
+		SelectedLeaderHat->SetText(*NewSelection.Get());
 		RecreatePlayerPreview();
 	}
 }
@@ -1232,16 +1317,34 @@ void SUWPlayerSettingsDialog::RecreatePlayerPreview()
 		}
 	}*/
 
-	// set hat
-	Index = HatList.Find(HatComboBox->GetSelectedItem());
-	FString NewHatPath = HatPathList.IsValidIndex(Index) ? HatPathList[Index] : FString();
-	if (NewHatPath.Len() > 0)
+	if (bLeaderHatSelectedLast)
 	{
-		TSubclassOf<AUTHat> HatClass = LoadClass<AUTHat>(NULL, *NewHatPath, NULL, LOAD_None, NULL);
-		if (HatClass != NULL)
+		// set leader hat
+		Index = LeaderHatList.Find(LeaderHatComboBox->GetSelectedItem());
+		FString NewHatPath = LeaderHatPathList.IsValidIndex(Index) ? LeaderHatPathList[Index] : FString();
+		if (NewHatPath.Len() > 0)
 		{
-			PlayerPreviewMesh->HatVariant = HatVariantList.Find(HatVariantComboBox->GetSelectedItem());
-			PlayerPreviewMesh->SetHatClass(HatClass);
+			TSubclassOf<AUTHatLeader> HatClass = LoadClass<AUTHatLeader>(NULL, *NewHatPath, NULL, LOAD_None, NULL);
+			if (HatClass != NULL)
+			{
+				PlayerPreviewMesh->SetHatClass(HatClass);
+			}
+		}
+
+	}
+	else
+	{
+		// set hat
+		Index = HatList.Find(HatComboBox->GetSelectedItem());
+		FString NewHatPath = HatPathList.IsValidIndex(Index) ? HatPathList[Index] : FString();
+		if (NewHatPath.Len() > 0)
+		{
+			TSubclassOf<AUTHat> HatClass = LoadClass<AUTHat>(NULL, *NewHatPath, NULL, LOAD_None, NULL);
+			if (HatClass != NULL)
+			{
+				PlayerPreviewMesh->HatVariant = HatVariantList.Find(HatVariantComboBox->GetSelectedItem());
+				PlayerPreviewMesh->SetHatClass(HatClass);
+			}
 		}
 	}
 

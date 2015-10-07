@@ -561,6 +561,11 @@ APlayerController* AUTGameMode::Login(UPlayer* NewPlayer, ENetRole RemoteRole, c
 			{
 				PS->ServerReceiveHatClass(InOpt);
 			}
+			InOpt = ParseOption(Options, TEXT("LeaderHat"));
+			if (InOpt.Len() > 0)
+			{
+				PS->ServerReceiveLeaderHatClass(InOpt);
+			}
 			InOpt = ParseOption(Options, TEXT("Eyewear"));
 			if (InOpt.Len() > 0)
 			{

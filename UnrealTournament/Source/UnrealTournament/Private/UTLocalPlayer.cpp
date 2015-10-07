@@ -1630,6 +1630,28 @@ void UUTLocalPlayer::SetHatPath(const FString& NewHatPath)
 		}
 	}
 }
+
+FString UUTLocalPlayer::GetLeaderHatPath() const
+{
+	return (CurrentProfileSettings != NULL) ? CurrentProfileSettings->LeaderHatPath : GetDefaultURLOption(TEXT("LeaderHat"));
+}
+void UUTLocalPlayer::SetLeaderHatPath(const FString& NewLeaderHatPath)
+{
+	if (CurrentProfileSettings != NULL)
+	{
+		CurrentProfileSettings->LeaderHatPath = NewLeaderHatPath;
+	}
+	SetDefaultURLOption(TEXT("LeaderHat"), NewLeaderHatPath);
+	if (PlayerController != NULL)
+	{
+		AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerController->PlayerState);
+		if (PS != NULL)
+		{
+			PS->ServerReceiveLeaderHatClass(NewLeaderHatPath);
+		}
+	}
+}
+
 FString UUTLocalPlayer::GetEyewearPath() const
 {
 	return (CurrentProfileSettings != NULL) ? CurrentProfileSettings->EyewearPath : GetDefaultURLOption(TEXT("Eyewear"));

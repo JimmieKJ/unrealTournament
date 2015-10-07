@@ -7,6 +7,7 @@
 #include "OnlineSubsystemTypes.h"
 #include "UTDamageType.h"
 #include "UTHat.h"
+#include "UTHatLeader.h"
 #include "UTEyewear.h"
 #include "UTTaunt.h"
 #include "Http.h"
@@ -401,8 +402,14 @@ public:
 	UFUNCTION()
 	virtual void OnRepHat();
 
+	UPROPERTY(replicated)
+	TSubclassOf<AUTHatLeader> LeaderHatClass;
+	
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerReceiveHatClass(const FString& NewHatClass);
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	virtual void ServerReceiveLeaderHatClass(const FString& NewLeaderHatClass);
 
 	UPROPERTY(replicatedUsing = OnRepEyewear)
 	TSubclassOf<AUTEyewear> EyewearClass;

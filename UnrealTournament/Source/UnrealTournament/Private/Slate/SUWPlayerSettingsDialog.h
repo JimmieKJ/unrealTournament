@@ -56,6 +56,8 @@ protected:
 	/** Do you want the player model to spin? */
 	bool bSpinPlayer;
 
+	bool bLeaderHatSelectedLast;
+
 	/**Preset cameraloctions when zooming in/out*/
 	TArray<FVector> CameraLocations;
 	int32 CurrentCam;
@@ -77,6 +79,12 @@ protected:
 	TSharedPtr< SComboBox< TSharedPtr<FString> > > HatComboBox;
 	TSharedPtr<STextBlock> SelectedHat;
 	void OnHatSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
+
+	TArray<TSharedPtr<FString>> LeaderHatList;
+	TArray<FString> LeaderHatPathList;
+	TSharedPtr< SComboBox< TSharedPtr<FString> > > LeaderHatComboBox;
+	TSharedPtr<STextBlock> SelectedLeaderHat;
+	void OnLeaderHatSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
 
 	TSharedPtr< SComboBox< TSharedPtr<FString> > > HatVariantComboBox;
 	TArray<TSharedPtr<FString>> HatVariantList;

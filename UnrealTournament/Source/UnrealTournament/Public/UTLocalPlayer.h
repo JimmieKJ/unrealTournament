@@ -204,6 +204,8 @@ public:
 	 */
 	virtual FString GetHatPath() const;
 	virtual void SetHatPath(const FString& NewHatPath);
+	virtual FString GetLeaderHatPath() const;
+	virtual void SetLeaderHatPath(const FString& NewLeaderHatPath);
 	virtual FString GetEyewearPath() const;
 	virtual void SetEyewearPath(const FString& NewEyewearPath);
 	virtual int32 GetHatVariant() const;
