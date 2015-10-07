@@ -165,6 +165,11 @@ public:
 	/** Push off bottom while swimming. */
 	virtual void PerformWaterJump();
 
+	inline FVector GetPendingImpulse() const
+	{
+		return PendingImpulseToApply;
+	}
+
 protected:
 	virtual void OnMovementModeChanged(EMovementMode PreviousMovementMode, uint8 PreviousCustomMode) override;
 
@@ -209,7 +214,7 @@ public:
 	virtual void ClearPendingImpulse();
 
 	/** true if projectile/hitscan spawned this frame (replicated to synchronize held firing) */
-UPROPERTY()
+	UPROPERTY()
 	bool bShotSpawned;
 
 	//=========================================

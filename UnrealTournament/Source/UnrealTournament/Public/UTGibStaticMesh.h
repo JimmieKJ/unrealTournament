@@ -21,6 +21,7 @@ public:
 			Mesh->SetCollisionProfileName(FName(TEXT("CharacterMesh")));
 			Mesh->SetCollisionObjectType(ECC_PhysicsBody);
 			Mesh->SetCollisionResponseToChannel(ECC_Visibility, ECR_Ignore);
+			Mesh->SetCollisionResponseToChannel(ECC_PhysicsBody, ECR_Ignore);
 			Mesh->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
 			Mesh->SetNotifyRigidBodyCollision(true);
 			Mesh->OnComponentHit.AddDynamic(this, &AUTGib::OnPhysicsCollision);

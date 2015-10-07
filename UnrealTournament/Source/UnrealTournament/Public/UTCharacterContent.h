@@ -51,13 +51,13 @@ public:
 			TEXT("/Game/RestrictedAssets/Blueprints/GibHumanRibs.GibHumanRibs_C"), TEXT("/Game/RestrictedAssets/Blueprints/GibHumanTorso.GibHumanTorso_C"),
 			TEXT("/Game/RestrictedAssets/Blueprints/GibHumanArmL.GibHumanArmL_C"), TEXT("/Game/RestrictedAssets/Blueprints/GibHumanArmR.GibHumanArmR_C") };
 
-		new(Gibs) FGibSlotInfo{ FName(TEXT("b_head")), GibRef[0].Object };
-		new(Gibs) FGibSlotInfo{ FName(TEXT("b_LeftFoot")), GibRef[1].Object };
-		new(Gibs) FGibSlotInfo{ FName(TEXT("b_RightFoot")), GibRef[2].Object };
-		new(Gibs) FGibSlotInfo{ FName(TEXT("b_Spine1")), GibRef[3].Object };
-		new(Gibs) FGibSlotInfo{ FName(TEXT("b_Spine2")), GibRef[4].Object };
-		new(Gibs) FGibSlotInfo{ FName(TEXT("b_LeftForeArm")), GibRef[5].Object };
-		new(Gibs) FGibSlotInfo{ FName(TEXT("b_RightForeArm")), GibRef[6].Object };
+		new(Gibs) FGibSlotInfo{ FName(TEXT("head")), GibRef[0].Object };
+		new(Gibs) FGibSlotInfo{ FName(TEXT("thigh_l")), GibRef[1].Object };
+		new(Gibs) FGibSlotInfo{ FName(TEXT("thigh_r")), GibRef[2].Object };
+		new(Gibs) FGibSlotInfo{ FName(TEXT("Spine_01")), GibRef[3].Object };
+		new(Gibs) FGibSlotInfo{ FName(TEXT("Spine_02")), GibRef[4].Object };
+		new(Gibs) FGibSlotInfo{ FName(TEXT("lowerarm_l")), GibRef[5].Object };
+		new(Gibs) FGibSlotInfo{ FName(TEXT("lowerarm_r")), GibRef[6].Object };
 	}
 
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, AssetRegistrySearchable)

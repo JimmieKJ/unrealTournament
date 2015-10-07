@@ -1639,6 +1639,11 @@ void AUTCharacter::SpawnGib(const FGibSlotInfo& GibInfo, TSubclassOf<UUTDamageTy
 	if (GibInfo.GibType != NULL && bAllowGibs)
 	{
 		FTransform SpawnPos = GetMesh()->GetSocketTransform(GibInfo.BoneName);
+		if (SpawnPos.GetScale3D().Size() <= 0.0f)
+		{
+			// on client headshot scale-to-zero may have already been applied
+			SpawnPos.RemoveScaling();
+		}
 		FActorSpawnParameters Params;
 		Params.bNoCollisionFail = true;
 		Params.Instigator = this;
@@ -1651,8 +1656,8 @@ void AUTCharacter::SpawnGib(const FGibSlotInfo& GibInfo, TSubclassOf<UUTDamageTy
 			Gib->SetActorScale3D(Gib->GetActorScale3D() * SpawnPos.GetScale3D());
 			if (Gib->Mesh != NULL)
 			{
-				FVector Vel = (GetMesh() == RootComponent) ? GetMesh()->GetComponentVelocity() : GetCharacterMovement()->Velocity;
-				Vel += (Gib->GetActorLocation() - GetActorLocation()).GetSafeNormal() * Vel.Size() * 0.25f;
+				FVector Vel = (GetMesh() == RootComponent) ? GetMesh()->GetComponentVelocity() : (UTCharacterMovement->Velocity + UTCharacterMovement->GetPendingImpulse());
+				Vel += (Gib->GetActorLocation() - GetActorLocation()).GetSafeNormal() * FMath::Max<float>(400.0f, Vel.Size() * 0.25f);
 				Gib->Mesh->SetPhysicsLinearVelocity(Vel, false);
 			}
 			if (DmgType != NULL)
