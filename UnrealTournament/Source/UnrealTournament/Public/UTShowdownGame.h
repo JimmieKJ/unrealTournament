@@ -23,10 +23,6 @@ protected:
 	// experimental tiebreaker options
 	// will be removed once we decide on a path
 	UPROPERTY(config)
-	bool bAlternateScoring; // 3 for win by kill, 2 and 1 for time expired
-	UPROPERTY(config)
-	bool bLowHealthRegen; // player low on health regenerates
-	UPROPERTY(config)
 	bool bXRayBreaker; // both players see others through walls after 60 seconds
 	UPROPERTY(config)
 	bool bPowerupBreaker; // spawn super powerup at 60 seconds
@@ -84,6 +80,8 @@ public:
 	virtual float RatePlayerStart(APlayerStart* P, AController* Player) override;
 
 	virtual void CheckGameTime() override;
+	/** score round that ended by timelimit instead of by kill */
+	virtual void ScoreExpiredRoundTime();
 	virtual void CallMatchStateChangeNotify() override;
 	virtual void DefaultTimer() override;
 
