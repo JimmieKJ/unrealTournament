@@ -446,6 +446,16 @@ void AUTPlayerController::ClientRestart_Implementation(APawn* NewPawn)
 
 	SetCameraMode("Default");
 
+	//There is an out of order chance during the initial connection that:
+	// The new players character will be spawned and possessed. Replicating the characters PlayerState.
+	// The GameStates spectator class will be replicated. Since (state == NAME_Spectating), BeginSpectatingState() will cause the Character to be unpossessed, setting PlayerState = NULL locally
+	// This function will be called, setting the pawn back to the Character, leaving Characters PlayerState still NULL
+
+	// Probably not the best solution. Make sure the PlayerState is set
+	if (Role < ROLE_Authority && GetPawn() != nullptr && GetPawn()->PlayerState == nullptr)
+	{
+		GetPawn()->PlayerState = PlayerState;
+	}
 }
 
 void AUTPlayerController::PawnPendingDestroy(APawn* InPawn)
