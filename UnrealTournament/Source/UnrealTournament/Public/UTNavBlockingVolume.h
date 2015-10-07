@@ -43,7 +43,10 @@ class UNREALTOURNAMENT_API AUTNavBlockingVolume : public AVolume, public INavRel
 	{
 		Super::PostLoad();
 
-		GetBrushComponent()->SetCollisionEnabled(bBlockSpecialMoveTests ? ECollisionEnabled::QueryOnly : ECollisionEnabled::NoCollision);
+		if (GetBrushComponent() != NULL) // may be null in game, various versions have not fully respected bNotForClientOrServer on the actor
+		{
+			GetBrushComponent()->SetCollisionEnabled(bBlockSpecialMoveTests ? ECollisionEnabled::QueryOnly : ECollisionEnabled::NoCollision);
+		}
 	}
 
 	virtual void GetNavigationData(struct FNavigationRelevantData& Data) const override
