@@ -471,9 +471,10 @@ void AUTCarriedObject::MoveToHome()
 	HolderRescuers.Empty();
 	if (HomeBase != NULL)
 	{
-		FVector BaseLocation = HomeBase->GetActorLocation() + HomeBase->GetActorRotation().RotateVector(HomeBaseOffset) + FVector(0.f, 0.f, Collision->GetScaledCapsuleHalfHeight());
+		const FVector BaseLocation = HomeBase->GetActorLocation() + HomeBase->GetActorRotation().RotateVector(HomeBaseOffset) + FVector(0.f, 0.f, Collision->GetScaledCapsuleHalfHeight());
 		MovementComponent->Velocity = FVector(0.0f,0.0f,0.0f);
 		SetActorLocationAndRotation(BaseLocation, HomeBase->GetActorRotation());
+		ensure((GetActorLocation() - BaseLocation).Size() < 1.0f);
 		ForceNetUpdate();
 	}
 }
