@@ -157,6 +157,7 @@ public:
 	/** Count of fast ready state changes. */
 	int32 ReadySwitchCount;
 
+	UFUNCTION(BlueprintCallable, Category = PlayerState)
 	virtual void UpdateReady();
 
 	/** Voice used by this player/bot for speech (taunts, etc.). */
