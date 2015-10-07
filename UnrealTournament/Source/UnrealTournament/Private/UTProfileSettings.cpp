@@ -10,6 +10,7 @@ const FName AchievementIDs::ChallengeStars15(TEXT("ChallengeStars15"));
 const FName AchievementIDs::ChallengeStars25(TEXT("ChallengeStars25"));
 const FName AchievementIDs::ChallengeStars35(TEXT("ChallengeStars35"));
 const FName AchievementIDs::ChallengeStars45(TEXT("ChallengeStars45"));
+const FName AchievementIDs::PumpkinHead2015(TEXT("PumpkinHead2015"));
 
 UUTProfileSettings::UUTProfileSettings(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)

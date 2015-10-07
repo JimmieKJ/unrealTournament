@@ -3290,6 +3290,18 @@ void UUTLocalPlayer::AwardAchievement(FName AchievementName)
 	}
 }
 
+void UUTLocalPlayer::SkullPickedUp()
+{
+	if (CurrentProfileSettings)
+	{
+		CurrentProfileSettings->SkullCount++;
+		if (CurrentProfileSettings->SkullCount > 200)
+		{
+			AwardAchievement(AchievementIDs::PumpkinHead2015);
+		}
+	}
+}
+
 void UUTLocalPlayer::ChallengeCompleted(FName ChallengeTag, int32 Stars)
 {
 	if (CurrentProfileSettings && Stars > 0)

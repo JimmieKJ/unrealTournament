@@ -690,6 +690,8 @@ public:
 	// Marks a challenge as completed.
 	void ChallengeCompleted(FName ChallengeTag, int32 Stars);
 
+	void SkullPickedUp();
+
 	void AwardAchievement(FName AchievementName);
 
 

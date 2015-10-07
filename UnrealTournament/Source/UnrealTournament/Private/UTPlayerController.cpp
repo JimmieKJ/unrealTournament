@@ -3380,6 +3380,15 @@ void AUTPlayerController::ResolveKeybind(FString Command, TArray<FString>& Keys,
 
 }
 
+void AUTPlayerController::SkullPickedUp()
+{
+	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
+	if (LP)
+	{
+		LP->SkullPickedUp();
+	}
+}
+
 void AUTPlayerController::DebugTest(FString TestCommand)
 {
 	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);

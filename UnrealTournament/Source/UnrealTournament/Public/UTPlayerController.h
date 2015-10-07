@@ -798,6 +798,9 @@ public:
 
 	virtual void DebugTest(FString TestCommand) override;
 
+	UFUNCTION(BlueprintCallable, Category = PlayerController)
+	virtual void SkullPickedUp();
+
 protected:
 	int32 ParseWeaponBind(FString ActionName);
 	FString FixedupKeyname(FString KeyName);

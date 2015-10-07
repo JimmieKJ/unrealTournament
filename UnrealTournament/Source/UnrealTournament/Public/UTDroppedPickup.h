@@ -77,7 +77,7 @@ public:
 	/** plays effects/audio for the pickup being taken
 	 * NOTE: only called on server, so you need to make sure anything triggered here can replicate to clients
 	 */
-	UFUNCTION(BlueprintNativeEvent, BlueprintAuthorityOnly)
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent, BlueprintAuthorityOnly, Category = Pickup)
 	void PlayTakenEffects(APawn* TakenBy);
 
 	FTimerHandle EnableInstigatorTouchHandle;

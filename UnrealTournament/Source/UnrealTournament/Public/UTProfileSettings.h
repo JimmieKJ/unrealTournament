@@ -27,6 +27,7 @@ namespace AchievementIDs
 	extern const FName ChallengeStars25;
 	extern const FName ChallengeStars35;
 	extern const FName ChallengeStars45;
+	extern const FName PumpkinHead2015;
 };
 
 class UUTLocalPlayer;
@@ -174,6 +175,9 @@ class UNREALTOURNAMENT_API UUTProfileSettings : public UObject
 
 	UPROPERTY()
 	int32 TotalChallengeStars;
+
+	UPROPERTY()
+	int32 SkullCount;
 
 protected:
 
