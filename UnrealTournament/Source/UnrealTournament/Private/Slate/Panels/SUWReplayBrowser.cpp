@@ -3,6 +3,7 @@
 #include "UnrealTournament.h"
 
 #include "SUWReplayBrowser.h"
+#include "../SUWInputBox.h"
 #include "Net/UnrealNetwork.h"
 
 #if !UE_SERVER
@@ -304,6 +305,17 @@ void SUWReplayBrowser::ConstructPanel(FVector2D ViewportSize)
 						.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
 						.OnClicked(this, &SUWReplayBrowser::OnRefreshClick)
 					]
+					+ SHorizontalBox::Slot()
+					.AutoWidth()
+					[
+						SAssignNew(WatchReplayButton, SButton)
+						.ButtonStyle(SUWindowsStyle::Get(), "UWindows.Standard.ServerBrowser.BlankButton")
+						.ContentPadding(FMargin(10.0f, 5.0f, 15.0f, 5.0))
+
+						.Text(NSLOCTEXT("SUWReplayBrowser", "OpenFromPlayerID", "Browse By Player ID"))
+						.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+						.OnClicked(this, &SUWReplayBrowser::OnPlayerIDClick)
+					]
 				]
 			]
 		]
@@ -311,6 +323,31 @@ void SUWReplayBrowser::ConstructPanel(FVector2D ViewportSize)
 
 	ReplayStreamer = FNetworkReplayStreaming::Get().GetFactory().CreateReplayStreamer();
 	WatchReplayButton->SetEnabled(false);
+}
+
+FReply SUWReplayBrowser::OnPlayerIDClick()
+{
+	PlayerOwner->OpenDialog(SNew(SUWInputBox)
+		.OnDialogResult(FDialogResultDelegate::CreateSP(this, &SUWReplayBrowser::PlayerIDResult))
+		.PlayerOwner(PlayerOwner)
+		.DialogTitle(NSLOCTEXT("SUWReplayBrowser", "PlayerIDTitle", "Browse By Player ID"))
+		.MessageText(NSLOCTEXT("SUWReplayBrowser", "PlayerIDText", "Enter the Player ID:"))
+		);
+
+	return FReply::Handled();
+}
+
+void SUWReplayBrowser::PlayerIDResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID)
+{
+	if (ButtonID != UTDIALOG_BUTTON_CANCEL)
+	{
+		TSharedPtr<SUWInputBox> Box = StaticCastSharedPtr<SUWInputBox>(Widget);
+		if (Box.IsValid())
+		{
+			FString InputText = Box->GetInputText();
+			BuildReplayList(InputText);
+		}
+	}
 }
 
 void SUWReplayBrowser::OnShowPanel(TSharedPtr<SUWindowsDesktop> inParentWindow)
