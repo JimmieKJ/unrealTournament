@@ -1788,7 +1788,7 @@ FText SUWMatchSummary::GetSwitcherText() const
 
 FSlateColor SUWMatchSummary::GetSwitcherColor() const
 {
-	if (HasCamFlag(CF_Team) && GameState.IsValid() && GameState->Teams.IsValidIndex(ViewedTeamNum))
+	if (HasCamFlag(CF_Team) && GameState.IsValid() && GameState->Teams.IsValidIndex(ViewedTeamNum) && GameState->Teams[ViewedTeamNum] != nullptr)
 	{
 		return FMath::LerpStable(GameState->Teams[ViewedTeamNum]->TeamColor, FLinearColor::White, 0.3f);
 	}
