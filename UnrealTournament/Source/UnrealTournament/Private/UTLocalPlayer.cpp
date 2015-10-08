@@ -1301,6 +1301,7 @@ void UUTLocalPlayer::SaveProfileSettings()
 			TSharedPtr<FUniqueNetId> UserID = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());
 			if (OnlineUserCloudInterface.IsValid() && UserID.IsValid())
 			{
+				LastProfileCloudWriteTime = FApp::GetCurrentTime();
 				OnlineUserCloudInterface->WriteUserFile(*UserID, GetProfileFilename(), FileContents);
 			}
 		}
@@ -1312,15 +1313,15 @@ void UUTLocalPlayer::OnWriteUserFileComplete(bool bWasSuccessful, const FUniqueN
 	// Make sure this was our filename
 	if (FileName == GetProfileFilename())
 	{
-		LastProfileCloudWriteTime = FApp::GetCurrentTime();
-
 		if (bWasSuccessful)
 		{
+			LastProfileCloudWriteTime = FApp::GetCurrentTime();
 			FText Saved = NSLOCTEXT("MCP", "ProfileSaved", "Profile Saved");
 			ShowToast(Saved);
 		}
 		else
 		{
+			LastProfileCloudWriteTime = GetClass()->GetDefaultObject<UUTLocalPlayer>()->LastProfileCloudWriteTime;
 	#if !UE_SERVER
 			// Should give a warning here if it fails.
 			ShowMessage(NSLOCTEXT("MCPMessages", "ProfileSaveErrorTitle", "An error has occured"), NSLOCTEXT("MCPMessages", "ProfileSaveErrorText", "UT could not save your profile with the MCP.  Your settings may be lost."), UTDIALOG_BUTTON_OK, NULL);
