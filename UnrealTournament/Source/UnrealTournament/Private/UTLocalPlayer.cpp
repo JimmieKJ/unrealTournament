@@ -152,6 +152,7 @@ bool UUTLocalPlayer::Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar)
 		return true;
 	}
 #else
+#if !UE_SERVER
 	if (FParse::Command(&Cmd, TEXT("YOUTUBEAUTH")))
 	{
 		FString RequestURL;
@@ -159,6 +160,7 @@ bool UUTLocalPlayer::Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar)
 		TestYoutubeConsentForUpload(RequestURL);
 		return true;
 	}
+#endif
 #endif
 	return Super::Exec(InWorld, Cmd, Ar);
 }
