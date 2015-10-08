@@ -629,7 +629,7 @@ bool AUTPlayerState::ServerReceiveEyewearVariant_Validate(int32 NewVariant)
 
 void AUTPlayerState::ServerReceiveHatClass_Implementation(const FString& NewHatClass)
 {
-	if (GetNetMode() != NM_Standalone || HatClass == NULL || !GetWorld()->GetGameState()->HasMatchStarted())
+	if (GetWorld()->IsPlayInEditor() || GetNetMode() != NM_Standalone || HatClass == NULL || !GetWorld()->GetGameState()->HasMatchStarted())
 	{
 		HatClass = LoadClass<AUTHat>(NULL, *NewHatClass, NULL, LOAD_NoWarn, NULL);
 
@@ -640,11 +640,7 @@ void AUTPlayerState::ServerReceiveHatClass_Implementation(const FString& NewHatC
 			return;
 		}
 
-		if (HatClass != nullptr && !HatClass->IsChildOf(AUTHatLeader::StaticClass()))
-		{
-			OnRepHat();
-		}
-		else
+		if (!GetWorld()->IsPlayInEditor() && HatClass->IsChildOf(AUTHatLeader::StaticClass()))
 		{
 			HatClass = nullptr;
 		}
@@ -652,6 +648,8 @@ void AUTPlayerState::ServerReceiveHatClass_Implementation(const FString& NewHatC
 		if (HatClass != nullptr)
 		{
 			ValidateEntitlements();
+
+			OnRepHat();
 		}
 	}
 }
