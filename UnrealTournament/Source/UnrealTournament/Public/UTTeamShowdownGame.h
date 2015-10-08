@@ -25,4 +25,5 @@ public:
 	virtual void ScoreKill_Implementation(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType) override;
 	virtual void ScoreExpiredRoundTime() override;
 	virtual bool CheckRelevance_Implementation(AActor* Other) override;
+	virtual void DiscardInventory(APawn* Other, AController* Killer) override;
 };

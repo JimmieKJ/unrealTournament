@@ -7,6 +7,7 @@
 #include "UTShowdownGameState.h"
 #include "UTShowdownSquadAI.h"
 #include "UTPickupAmmo.h"
+#include "UTDroppedPickup.h"
 
 AUTTeamShowdownGame::AUTTeamShowdownGame(const FObjectInitializer& OI)
 	: Super(OI)
@@ -49,8 +50,49 @@ bool AUTTeamShowdownGame::CheckRelevance_Implementation(AActor* Other)
 		{
 			AmmoPickup->Ammo.Amount *= 2;
 		}
+		else
+		{
+			// make dropped weapons last for the whole round
+			AUTDroppedPickup* Drop = Cast<AUTDroppedPickup>(Other);
+			if (Drop != NULL && Drop->GetInventoryType() != NULL && Drop->GetInventoryType()->IsChildOf(AUTWeapon::StaticClass()))
+			{
+				Drop->SetLifeSpan(0.0f);
+			}
+		}
 	}
 	return Super::CheckRelevance_Implementation(Other);
+}
+
+void AUTTeamShowdownGame::DiscardInventory(APawn* Other, AController* Killer)
+{
+	AUTCharacter* UTC = Cast<AUTCharacter>(Other);
+	if (UTC != NULL)
+	{
+		// discard all weapons instead of just the one
+		FRotationMatrix RotMat(Other->GetActorRotation());
+		FVector ThrowDirs[] = { RotMat.GetUnitAxis(EAxis::Y), -RotMat.GetUnitAxis(EAxis::Y), -RotMat.GetUnitAxis(EAxis::X) };
+
+		int32 i = 0;
+		for (TInventoryIterator<AUTWeapon> It(UTC); It; ++It)
+		{
+			if (*It != UTC->GetWeapon())
+			{
+				FVector FinalDir;
+				if (i < ARRAY_COUNT(ThrowDirs))
+				{
+					FinalDir = ThrowDirs[i];
+				}
+				else
+				{
+					FinalDir = FMath::VRand();
+					FinalDir.Z = 0.0f;
+					FinalDir.Normalize();
+				}
+				It->DropFrom(UTC->GetActorLocation(), FinalDir * 1000.0f + FVector(0.0f, 0.0f, 250.0f));
+			}
+		}
+	}
+	Super::DiscardInventory(Other, Killer);
 }
 
 void AUTTeamShowdownGame::ScoreKill_Implementation(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType)
