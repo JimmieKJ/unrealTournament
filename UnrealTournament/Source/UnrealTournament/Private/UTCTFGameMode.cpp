@@ -60,7 +60,7 @@ void AUTCTFGameMode::InitGame(const FString& MapName, const FString& Options, FS
 	Super::InitGame(MapName, Options, ErrorMessage);
 	if (bOfflineChallenge)
 	{
-		TimeLimit = 900;
+		TimeLimit = 600;
 	}
 
 	// HalftimeDuration is in seconds and used in seconds,

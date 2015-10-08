@@ -303,7 +303,7 @@ void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FStr
 				BotFillCount = ChallengeManager->GetNumPlayers(this);
 				bOfflineChallenge = ChallengeManager->IsValidChallenge(this, MapName);
 				bForceRespawn = true;
-				TimeLimit = 600; 
+				TimeLimit = 480; 
 				GoalScore = 0;
 			}
 		}
