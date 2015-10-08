@@ -1193,7 +1193,6 @@ void UUTCharacterMovement::StopActiveMovement()
 	Super::StopActiveMovement();
 
 	//Make sure the sync time is reset for next move
-	UE_LOG(UT, Warning, TEXT("STOPACTIVEMOVEMENT"));
 	TotalTimeStampError = 0.f;
 	bClearingSpeedHack = false;
 }
