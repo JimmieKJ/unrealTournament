@@ -195,6 +195,14 @@ public:
 	virtual void HandleGameNetControlMessage(class UNetConnection* Connection, uint8 MessageByte, const FString& MessageStr)
 	{}
 
+	/** return true to delay an otherwise ready-to-join PendingNetGame performing LoadMap() and finishing up
+	 * useful to wait for content downloads, etc
+	 */
+	virtual bool DelayPendingNetGameTravel()
+	{
+		return false;
+	}
+
 private:
 	FTimerManager* TimerManager;
 };
