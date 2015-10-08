@@ -707,16 +707,23 @@ public:
 	virtual void CullMapVotes();
 	virtual void TallyMapVotes();
 
-	//Speed hack detection
-	UPROPERTY(Config)
+	/** Maximum time client can be ahead, without resetting. */
+	UPROPERTY(GlobalConfig)
 	float MaxTimeMargin;
-	UPROPERTY(Config)
+
+	/** Maximum time client can be behind. */
+	UPROPERTY(GlobalConfig)
 	float MinTimeMargin;
-	UPROPERTY(Config)
+
+	/** Accepted drift in clocks. */
+	UPROPERTY(GlobalConfig)
 	float TimeMarginSlack;
-	UPROPERTY(Config)
+
+	/** Whether speedhack detection is enabled. */
+	UPROPERTY(GlobalConfig)
 	bool bSpeedHackDetection;
 
+	virtual void NotifySpeedHack(ACharacter* Character);
 
 	/** Overriden so we dont go into MatchState::LeavingMap state, which happens regardless if the travel fails
 	* On failed map changes, the game will be stuck in a LeavingMap state

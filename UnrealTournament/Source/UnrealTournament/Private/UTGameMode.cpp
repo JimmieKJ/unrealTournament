@@ -112,9 +112,9 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	LastGlobalTauntTime = -1000.f;
 
 	bSpeedHackDetection = false;
-	MaxTimeMargin = 2.0f;
-	MinTimeMargin = -2.0f;
-	TimeMarginSlack = 0.001f;
+	MaxTimeMargin = 0.25f;
+	MinTimeMargin = -0.25f;
+	TimeMarginSlack = 0.1f;
 
 	bCasterControl = false;
 	bPlayPlayerIntro = true;
@@ -144,6 +144,15 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 
 	bDisableMapVote = false;
 
+}
+
+void AUTGameMode::NotifySpeedHack(ACharacter* Character)
+{
+	AUTPlayerController* PC = Character ? Cast < AUTPlayerController>(Character->GetController()) : NULL;
+	if (PC)
+	{
+		PC->ClientReceiveLocalizedMessage(GameMessageClass, 15);
+	}
 }
 
 void AUTGameMode::BeginPlayMutatorHack(FFrame& Stack, RESULT_DECL)

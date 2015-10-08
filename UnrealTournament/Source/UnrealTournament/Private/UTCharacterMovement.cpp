@@ -136,7 +136,8 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 	bLargeCorrection = false;
 	LargeCorrectionThreshold = 15.f;
 
-	ServerSyncTime = -1.0f;
+	TotalTimeStampError = -0.15f;  // allow one initial slow frame
+	bClearingSpeedHack = false;
 }
 
 // @todo UE4 - handle lift moving up and down through encroachment

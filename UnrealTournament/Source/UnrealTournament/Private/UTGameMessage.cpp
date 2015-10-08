@@ -24,6 +24,7 @@ UUTGameMessage::UUTGameMessage(const class FObjectInitializer& ObjectInitializer
 	GameChanger = NSLOCTEXT("UTGameMessage", "GameChanger", "Game Changer!");
 	KickVote = NSLOCTEXT("UTGameMessage", "KickVote", "{Player1Name} voted to kick {Player2Name}");
 	NotEnoughMoney = NSLOCTEXT("UTGameMessage", "NotEnoughMoney", "{Player1Name}, you lack the funds to buy it.");
+	PotentialSpeedHack = NSLOCTEXT("UTGameMessage", "Speedhack", "Possible speedhack detected.");
 
 	bIsStatusAnnouncement = true;
 }
@@ -99,6 +100,8 @@ FText UUTGameMessage::GetText(int32 Switch = 0, bool bTargetsPlayerState1 = fals
 			return GetDefault<UUTGameMessage>(GetClass())->KickVote;
 		case 14:
 			return GetDefault<UUTGameMessage>(GetClass())->NotEnoughMoney;
+		case 15:
+			return GetDefault<UUTGameMessage>(GetClass())->PotentialSpeedHack;
 		default:
 			return FText::GetEmpty();
 	}
