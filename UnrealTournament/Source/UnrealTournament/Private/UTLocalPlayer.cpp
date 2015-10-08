@@ -1541,7 +1541,6 @@ int32 UUTLocalPlayer::GetBaseELORank()
 
 void UUTLocalPlayer::GetBadgeFromELO(int32 EloRating, int32& BadgeLevel, int32& SubLevel)
 {
-	// Bronze levels up to 1750, start at 400, go up every 140
 	if (EloRating  < 1660)
 	{
 		BadgeLevel = 0;
@@ -1564,7 +1563,7 @@ bool UUTLocalPlayer::IsConsideredABeginnner()
 {
 	float BaseELO = GetBaseELORank();
 
-	return (BaseELO < 1400) && (DuelMatchesPlayed + TDMMatchesPlayed + FFAMatchesPlayed + CTFMatchesPlayed) < 20;
+	return (BaseELO < 1660) && (DuelMatchesPlayed + TDMMatchesPlayed + FFAMatchesPlayed + CTFMatchesPlayed) < 50;
 }
 
 
