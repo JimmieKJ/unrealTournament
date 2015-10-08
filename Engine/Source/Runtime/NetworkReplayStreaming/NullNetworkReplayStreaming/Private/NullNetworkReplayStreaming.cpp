@@ -557,7 +557,7 @@ void FNullNetworkReplayStreamer::GotoTimeInMS(const uint32 TimeInMS, const FOnCh
 
 IMPLEMENT_MODULE( FNullNetworkReplayStreamingFactory, NullNetworkReplayStreaming )
 
-TSharedPtr< INetworkReplayStreamer > FNullNetworkReplayStreamingFactory::CreateReplayStreamer() 
+TSharedPtr< INetworkReplayStreamer > FNullNetworkReplayStreamingFactory::CreateReplayStreamer(const FURL& URL) 
 {
 	return TSharedPtr< INetworkReplayStreamer >( new FNullNetworkReplayStreamer );
 }

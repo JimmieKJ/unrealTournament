@@ -69,7 +69,7 @@ bool UDemoNetDriver::InitBase( bool bInitAsClient, FNetworkNotify* InNotify, con
 
 		ResetDemoState();
 
-		ReplayStreamer = FNetworkReplayStreaming::Get().GetFactory().CreateReplayStreamer();
+		ReplayStreamer = FNetworkReplayStreaming::Get().GetFactory().CreateReplayStreamer(URL);
 
 		return true;
 	}
@@ -101,7 +101,8 @@ enum ENetworkVersionHistory
 	HISTORY_INITIAL				= 1,
 	HISTORY_SAVE_ABS_TIME_MS	= 2,			// We now save the abs demo time in ms for each frame (solves accumulation errors)
 	HISTORY_INCREASE_BUFFER		= 3,			// Increased buffer size of packets, which invalidates old replays
-	HISTORY_SAVE_ENGINE_VERSION	= 4				// Now saving engine net version + InternalProtocolVersion
+	HISTORY_SAVE_ENGINE_VERSION	= 4,			// Now saving engine net version + InternalProtocolVersion
+	HISTORY_ADD_GAME_SPECIFIC_DATA = 5,			// add field for game specific data that subclasses can process
 };
 
 static const uint32 NETWORK_DEMO_MAGIC				= 0x2CF5A13D;
@@ -117,6 +118,7 @@ struct FNetworkDemoHeader
 	uint32	InternalProtocolVersion;	// Version of the engine internal network format
 	uint32	EngineNetVersion;			// Version of engine networking format
 	FString LevelName;					// Name of level loaded for demo
+	TArray<FString> GameSpecificData; // area for subclasses to write stuff
 	
 	FNetworkDemoHeader() : 
 		Magic( NETWORK_DEMO_MAGIC ), 
@@ -159,6 +161,8 @@ struct FNetworkDemoHeader
 
 		Ar << Header.EngineNetVersion;
 		Ar << Header.LevelName;
+
+		Ar << Header.GameSpecificData;
 
 		return Ar;
 	}
@@ -280,6 +284,13 @@ bool UDemoNetDriver::InitConnectInternal( FString& Error )
 		Error = FString( TEXT( "Demo file is corrupt" ) );
 		UE_LOG( LogDemo, Error, TEXT( "UDemoNetDriver::InitConnect: %s" ), *Error );
 		GameInstance->HandleDemoPlaybackFailure( EDemoPlayFailure::Corrupt, Error );
+		return false;
+	}
+
+	if (!ProcessGameSpecificDemoHeader(DemoHeader.GameSpecificData, Error))
+	{
+		UE_LOG(LogDemo, Error, TEXT("UDemoNetDriver::InitConnect: (Game Specific) %s"), *Error);
+		GameInstance->HandleDemoPlaybackFailure(EDemoPlayFailure::Generic, Error);
 		return false;
 	}
 
@@ -459,6 +470,8 @@ bool UDemoNetDriver::InitListen( FNetworkNotify* InNotify, FURL& ListenURL, bool
 	FNetworkDemoHeader DemoHeader;
 
 	DemoHeader.LevelName = World->GetCurrentLevel()->GetOutermost()->GetName();
+
+	WriteGameSpecificDemoHeader(DemoHeader.GameSpecificData);
 
 	// Write the header
 	(*FileAr) << DemoHeader;

@@ -226,7 +226,7 @@ class HTTPNETWORKREPLAYSTREAMING_API FHttpNetworkReplayStreamingFactory : public
 {
 public:
 	/** INetworkReplayStreamingFactory */
-	virtual TSharedPtr< INetworkReplayStreamer > CreateReplayStreamer() override;
+	virtual TSharedPtr< INetworkReplayStreamer > CreateReplayStreamer(const struct FURL& URL) override;
 
 	/** FTickableGameObject */
 	virtual void Tick( float DeltaTime ) override;
