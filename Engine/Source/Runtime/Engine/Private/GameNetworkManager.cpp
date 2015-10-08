@@ -18,7 +18,7 @@ AGameNetworkManager::AGameNetworkManager(const FObjectInitializer& ObjectInitial
 	MAXPOSITIONERRORSQUARED = 3.0;
 	MAXNEARZEROVELOCITYSQUARED = 9.0f;
 	CLIENTADJUSTUPDATECOST = 180.0f;
-	MAXCLIENTUPDATEINTERVAL = 0.25f;
+	MAXCLIENTUPDATEINTERVAL = 0.15f;
 	ClientAuthorativePosition = false;
 	bUseDistanceBasedRelevancy = true;
 }
@@ -80,7 +80,7 @@ void AGameNetworkManager::UpdateNetSpeeds(bool bIsLanMatch)
 	LastNetSpeedUpdateTime = GetWorld()->TimeSeconds;
 
 	int32 NewNetSpeed = CalculatedNetSpeed();
-	UE_LOG(LogNet, Log, TEXT("New Dynamic NetSpeed %i vs old %i"), NewNetSpeed, AdjustedNetSpeed);
+	UE_LOG(LogNet, Warning, TEXT("New Dynamic NetSpeed %i vs old %i"), NewNetSpeed, AdjustedNetSpeed);
 
 	if ( AdjustedNetSpeed != NewNetSpeed )
 	{
