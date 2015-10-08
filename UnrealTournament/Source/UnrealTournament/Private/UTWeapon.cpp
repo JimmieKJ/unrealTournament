@@ -766,6 +766,12 @@ void AUTWeapon::PlayFiringEffects()
 			UUTGameplayStatics::UTPlaySound(GetWorld(), FireSound[EffectFiringMode], UTOwner, SRT_AllButOwner);
 		}
 
+		// reload sound on local shooter
+		if ((GetNetMode() != NM_DedicatedServer) && UTOwner && UTOwner->GetLocalViewer() && ReloadSound.IsValidIndex(EffectFiringMode) && ReloadSound[EffectFiringMode] != NULL)
+		{
+			UUTGameplayStatics::UTPlaySound(GetWorld(), ReloadSound[EffectFiringMode], UTOwner, SRT_None);
+		}
+
 		if (ShouldPlay1PVisuals() && GetWeaponHand() != HAND_Hidden)
 		{
 			UTOwner->TargetEyeOffset.X = FiringViewKickback;

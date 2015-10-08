@@ -179,6 +179,11 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	/** Sound to play each time we fire */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
 	TArray<USoundBase*> FireSound;
+
+	/** Sound to play on shooter when weapon is fired.  This sound starts at the same time as the FireSound. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
+		TArray<USoundBase*> ReloadSound;
+
 	/** looping (ambient) sound to set on owner while firing */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
 	TArray<USoundBase*> FireLoopingSound;
