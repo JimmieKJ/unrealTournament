@@ -1,6 +1,13 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 
 #include "UTReplayStreamer.h"
+#include "Runtime/NetworkReplayStreaming/NullNetworkReplayStreaming/Public/NullNetworkReplayStreaming.h"
+#include "EngineDefines.h"
+#include "EngineSettings.h"
+#include "EngineStats.h"
+#include "EngineLogs.h"
+#include "EngineGlobals.h"
+#include "Engine/EngineBaseTypes.h"
 
 DEFINE_LOG_CATEGORY_STATIC( LogUTReplay, Log, All );
 
@@ -70,11 +77,18 @@ void FUTReplayStreamer::ProcessRequestInternal( TSharedPtr< class IHttpRequest >
 
 IMPLEMENT_MODULE( FUTReplayStreamingFactory, UTReplayStreamer )
 
-TSharedPtr< INetworkReplayStreamer > FUTReplayStreamingFactory::CreateReplayStreamer()
+TSharedPtr< INetworkReplayStreamer > FUTReplayStreamingFactory::CreateReplayStreamer(const FURL& URL)
 {
-	TSharedPtr< FHttpNetworkReplayStreamer > Streamer( new FUTReplayStreamer );
-
-	HttpStreamers.Add( Streamer );
-
-	return Streamer;
+	if (URL.HasOption(TEXT("Remote")))
+	{
+		// use FUTReplayStreamer for remote streams
+		TSharedPtr< FHttpNetworkReplayStreamer > Streamer(new FUTReplayStreamer);
+		HttpStreamers.Add(Streamer);
+		return Streamer;
+	}
+	else
+	{
+		// use FNullStreamer for local streams
+		return TSharedPtr<INetworkReplayStreamer>(new FNullNetworkReplayStreamer);
+	}
 }

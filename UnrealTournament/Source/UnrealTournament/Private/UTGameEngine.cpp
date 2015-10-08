@@ -275,16 +275,6 @@ bool UUTGameEngine::Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Out)
 
 }
 
-void UUTGameEngine::TickWorldTravel(FWorldContext& WorldContext, float DeltaSeconds)
-{
-	// halt network travel while waiting for redirects
-	UUTGameInstance* GI = Cast<UUTGameInstance>(WorldContext.OwningGameInstance);
-	if (GI == NULL || WorldContext.PendingNetGame == NULL || !GI->IsAutoDownloadingContent())
-	{
-		Super::TickWorldTravel(WorldContext, DeltaSeconds);
-	}
-}
-
 void UUTGameEngine::Tick(float DeltaSeconds, bool bIdleMode)
 {
 	// HACK: make sure our default URL options are in all travel URLs since FURL code to do this was removed

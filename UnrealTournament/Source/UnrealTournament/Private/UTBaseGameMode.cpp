@@ -195,18 +195,28 @@ bool AUTBaseGameMode::FindRedirect(const FString& PackageName, FPackageRedirectR
 	return false;
 }
 
-void AUTBaseGameMode::GameWelcomePlayer(UNetConnection* Connection, FString& RedirectURL)
+void AUTBaseGameMode::GatherRequiredRedirects(TArray<FPackageRedirectReference>& Redirects)
 {
-	FPackageRedirectReference Redirect;
-	uint8 MessageType = UNMT_Redirect;
 	// map pak
+	FPackageRedirectReference Redirect;
 	if (FindRedirect(GetModPakFilenameFromPkg(GetOutermost()->GetName()), Redirect))
 	{
-		FString RedirectPath = Redirect.ToString();
-		FNetControlMessage<NMT_GameSpecific>::Send(Connection, MessageType, RedirectPath);
+		Redirects.Add(Redirect);
 	}
 	// game class pak
 	if (FindRedirect(GetModPakFilenameFromPkg(GetClass()->GetOutermost()->GetName()), Redirect))
+	{
+		Redirects.Add(Redirect);
+	}
+}
+
+void AUTBaseGameMode::GameWelcomePlayer(UNetConnection* Connection, FString& RedirectURL)
+{
+	TArray<FPackageRedirectReference> AllRedirects;
+	GatherRequiredRedirects(AllRedirects);
+
+	uint8 MessageType = UNMT_Redirect;
+	for (const FPackageRedirectReference& Redirect : AllRedirects)
 	{
 		FString RedirectPath = Redirect.ToString();
 		FNetControlMessage<NMT_GameSpecific>::Send(Connection, MessageType, RedirectPath);

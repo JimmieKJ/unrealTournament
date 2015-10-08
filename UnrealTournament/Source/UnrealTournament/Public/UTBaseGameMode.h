@@ -144,6 +144,7 @@ public:
 	UPROPERTY(Config)
 	TArray<FPackageRedirectReference> RedirectReferences;
 
+	virtual void GatherRequiredRedirects(TArray<FPackageRedirectReference>& Redirects);
 	virtual bool FindRedirect(const FString& PackageName, FPackageRedirectReference& Redirect);
 	virtual void GameWelcomePlayer(UNetConnection* Connection, FString& RedirectURL) override;
 private:

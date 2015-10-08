@@ -734,7 +734,7 @@ public:
 	virtual void AddInactivePlayer(APlayerState* PlayerState, APlayerController* PC) override;
 	virtual bool FindInactivePlayer(APlayerController* PC) override;
 
-	virtual void GameWelcomePlayer(UNetConnection* Connection, FString& RedirectURL) override;
+	virtual void GatherRequiredRedirects(TArray<FPackageRedirectReference>& Redirects) override;
 
 private:
 	// note: one based

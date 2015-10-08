@@ -321,7 +321,9 @@ void SUWReplayBrowser::ConstructPanel(FVector2D ViewportSize)
 		]
 	];
 
-	ReplayStreamer = FNetworkReplayStreaming::Get().GetFactory().CreateReplayStreamer();
+	FURL URL(TEXT("entry"));
+	URL.AddOption(TEXT("Remote"));
+	ReplayStreamer = FNetworkReplayStreaming::Get().GetFactory().CreateReplayStreamer(URL);
 	WatchReplayButton->SetEnabled(false);
 }
 

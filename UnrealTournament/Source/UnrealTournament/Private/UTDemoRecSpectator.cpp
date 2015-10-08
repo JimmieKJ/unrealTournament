@@ -121,9 +121,7 @@ bool AUTDemoRecSpectator::CallRemoteFunction(UFunction* Function, void* Paramete
 	UNetDriver* NetDriver = GetWorld()->DemoNetDriver;
 	if (NetDriver != NULL && NetDriver->ServerConnection == NULL)
 	{
-		// HACK: due to engine issues it's not really a UUTDemoNetDriver and this is an evil hack to access the protected InternalProcessRemoteFunction()
-		//NetDriver->ProcessRemoteFunction(this, Function, Parameters, OutParms, Stack, NULL);
-		((UUTDemoNetDriver*)NetDriver)->HackProcessRemoteFunction(this, Function, Parameters, OutParms, Stack, NULL);
+		NetDriver->ProcessRemoteFunction(this, Function, Parameters, OutParms, Stack, NULL);
 		return true;
 	}
 	else

@@ -481,7 +481,7 @@ struct FPackageRedirectReference
 	}
 
 	// Converts the redirect to a download URL
-	FString ToString()
+	FString ToString() const
 	{
 		return PackageURLProtocol + TEXT("://") + PackageURL + TEXT(" ");
 	}

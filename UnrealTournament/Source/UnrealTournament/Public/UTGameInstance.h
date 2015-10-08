@@ -17,9 +17,32 @@ class UNREALTOURNAMENT_API UUTGameInstance : public UGameInstance
 
 	virtual void StartGameInstance() override;
 
+	virtual void StartRecordingReplay(const FString& Name, const FString& FriendlyName) override;
+	virtual void PlayReplay(const FString& Name) override;
+
 	virtual void HandleGameNetControlMessage(class UNetConnection* Connection, uint8 MessageByte, const FString& MessageStr) override;
 
 	bool IsAutoDownloadingContent();
+
+	virtual bool DelayPendingNetGameTravel() override
+	{
+		return IsAutoDownloadingContent();
+	}
+
+	virtual void StartRedirectDownload(const FString& URL);
+
+	inline void SetLastTriedDemo(const FString& NewName)
+	{
+		if (NewName != LastTriedDemo)
+		{
+			LastTriedDemo = NewName;
+			bRetriedDemoAfterRedirects = false;
+		}
+	}
+	inline FString GetLastTriedDemo() const
+	{
+		return LastTriedDemo;
+	}
 
 protected:
 	virtual void DeferredStartGameInstance();
@@ -31,5 +54,10 @@ protected:
 	virtual void RedirectResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
 
 	TArray<TWeakPtr<class SUWRedirectDialog>> ActiveRedirectDialogs;
+
+	// in order to handle demo redirects, we have to cancel the demo, download, then retry
+	// this tracks the demo we need to retry
+	FString LastTriedDemo;
+	bool bRetriedDemoAfterRedirects;
 };
 
