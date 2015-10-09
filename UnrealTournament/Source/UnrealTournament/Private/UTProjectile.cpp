@@ -654,7 +654,7 @@ void AUTProjectile::OnStop(const FHitResult& Hit)
 
 void AUTProjectile::OnBounce(const struct FHitResult& ImpactResult, const FVector& ImpactVelocity)
 {
-	if (Cast<AUTProjectile>(ImpactResult.Actor.Get()) == NULL || InteractsWithProj(Cast<AUTProjectile>(ImpactResult.Actor.Get())))
+	if ((MyFakeProjectile == NULL) && (Cast<AUTProjectile>(ImpactResult.Actor.Get()) == NULL || InteractsWithProj(Cast<AUTProjectile>(ImpactResult.Actor.Get()))))
 	{
 		// Spawn bounce effect
 		if (GetNetMode() != NM_DedicatedServer)
