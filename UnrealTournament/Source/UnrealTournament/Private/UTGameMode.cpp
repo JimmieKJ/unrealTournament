@@ -691,11 +691,12 @@ AUTBot* AUTGameMode::AddBot(uint8 TeamNum)
 			}
 */		}
 		UUTBotCharacter* SelectedCharacter = NULL;
+		int32 TotalStars = 0;
 		if (bOfflineChallenge)
 		{
 			APlayerController* LocalPC = GEngine->GetFirstLocalPlayerController(GetWorld());
 			UUTLocalPlayer* LP = LocalPC ? Cast<UUTLocalPlayer>(LocalPC->Player) : NULL;
-			int32 TotalStars = LP ? LP->GetTotalChallengeStars() : 0;
+			TotalStars = LP ? LP->GetTotalChallengeStars() : 0;
 			SelectedCharacter = UUTChallengeManager::StaticClass()->GetDefaultObject<UUTChallengeManager>()->ChooseBotCharacter(this, TeamNum, TotalStars);
 		}
 		if (SelectedCharacter == NULL)
@@ -707,6 +708,11 @@ AUTBot* AUTGameMode::AddBot(uint8 TeamNum)
 		{
 			NewBot->InitializeCharacter(SelectedCharacter);
 			SetUniqueBotName(NewBot, SelectedCharacter);
+			if (bOfflineChallenge && (TeamNum != 1) && (TotalStars < 6) && (ChallengeDifficulty == 0))
+			{
+				// make easy bots extra easy till earn 5 stars
+				NewBot->InitializeSkill(0.1f * int32(10.f * (0.2f + 0.125f * TotalStars) * SelectedCharacter->Skill));
+			}
 		}
 		else
 		{
