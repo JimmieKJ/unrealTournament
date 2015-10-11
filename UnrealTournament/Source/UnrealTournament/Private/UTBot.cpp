@@ -1475,11 +1475,13 @@ void AUTBot::UpdateControlRotation(float DeltaTime, bool bUpdatePawn)
 				}
 				if (!bGotPredictedPosition)
 				{
-					if (CanAttack(Enemy, GetEnemyLocation(Enemy, true), false, !bPickNewFireMode, &NextFireMode, &FocalPoint))
+					// important to match the behavior above of only using own info when !bLeadTarget to avoid mismatches that cause temporary perfect aim when receiving enemy info from team
+					const FVector TargetLoc = bLeadTarget ? GetEnemyLocation(Enemy, true) : GetEnemyInfo(Enemy, false)->LastSeenLoc;
+					if (CanAttack(Enemy, TargetLoc, false, !bPickNewFireMode, &NextFireMode, &FocalPoint))
 					{
 						bLastCanAttackSuccess = true;
 						bPickNewFireMode = false;
-						ApplyWeaponAimAdjust(GetEnemyLocation(Enemy, true), FocalPoint);
+						ApplyWeaponAimAdjust(TargetLoc, FocalPoint);
 					}
 					else
 					{

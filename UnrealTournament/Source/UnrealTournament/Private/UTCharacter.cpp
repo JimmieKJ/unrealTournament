@@ -236,6 +236,15 @@ void AUTCharacter::BeginPlay()
 	{
 		UE_LOG(UT, Warning, TEXT("%s: CameraComponent shouldn't have X/Y translation!"), *GetName());
 	}
+	// adjust MaxSavedPositionAge for bot tracking purposes
+	for (FConstControllerIterator It = GetWorld()->GetControllerIterator(); It; ++It)
+	{
+		AUTBot* B = Cast<AUTBot>(It->Get());
+		if (B != NULL)
+		{
+			MaxSavedPositionAge = FMath::Max<float>(MaxSavedPositionAge, B->TrackingReactionTime);
+		}
+	}
 	Super::BeginPlay();
 }
 
