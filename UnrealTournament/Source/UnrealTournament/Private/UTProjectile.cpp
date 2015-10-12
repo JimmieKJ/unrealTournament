@@ -654,6 +654,11 @@ void AUTProjectile::OnStop(const FHitResult& Hit)
 
 void AUTProjectile::OnBounce(const struct FHitResult& ImpactResult, const FVector& ImpactVelocity)
 {
+	if (ImpactResult.Actor.IsValid() && ImpactResult.Actor->bCanBeDamaged)
+	{
+		ProcessHit(ImpactResult.Actor.Get(), ImpactResult.Component.Get(), ImpactResult.ImpactPoint, ImpactResult.ImpactNormal);
+		return;
+	}
 	if ((MyFakeProjectile == NULL) && (Cast<AUTProjectile>(ImpactResult.Actor.Get()) == NULL || InteractsWithProj(Cast<AUTProjectile>(ImpactResult.Actor.Get()))))
 	{
 		// Spawn bounce effect

@@ -48,7 +48,7 @@ void AUTProj_StingerShard::ProcessHit_Implementation(AActor* OtherActor, UPrimit
 	{
 		return;
 	}
-	else if (HitPawn != NULL || Cast<AUTProjectile>(OtherActor) != NULL)
+	else if (HitPawn != NULL || Cast<AUTProjectile>(OtherActor) != NULL || (OtherActor && OtherActor->bCanBeDamaged))
 	{
 		if (HitPawn != NULL)
 		{

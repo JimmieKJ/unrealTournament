@@ -894,7 +894,7 @@ void AUTProj_BioShot::ProcessHit_Implementation(AActor* OtherActor, UPrimitiveCo
 			MergeWithGlob(OtherBio);
 		}
 	}
-	else if (Cast<APawn>(OtherActor) != NULL || Cast<AUTProjectile>(OtherActor) != NULL)
+	else if (Cast<APawn>(OtherActor) != NULL || Cast<AUTProjectile>(OtherActor) != NULL || (OtherActor && OtherActor->bCanBeDamaged))
 	{
 		AUTCharacter* TargetCharacter = Cast<AUTCharacter>(OtherActor);
 		if (TargetCharacter && ((TargetCharacter != Instigator) || bCanHitInstigator))
