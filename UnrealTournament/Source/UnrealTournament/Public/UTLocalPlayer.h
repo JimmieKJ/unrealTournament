@@ -78,8 +78,8 @@ public:
 	FUTFriend()
 	{}
 
-	FUTFriend(FString inUserId, FString inDisplayName)
-		: UserId(inUserId), DisplayName(inDisplayName)
+	FUTFriend(FString inUserId, FString inDisplayName, bool inActualFriend)
+		: UserId(inUserId), DisplayName(inDisplayName), bActualFriend(inActualFriend)
 	{}
 
 
@@ -88,6 +88,9 @@ public:
 
 	UPROPERTY()
 	FString DisplayName;
+
+	UPROPERTY()
+	bool bActualFriend;
 };
 
 UCLASS(config=Engine)
