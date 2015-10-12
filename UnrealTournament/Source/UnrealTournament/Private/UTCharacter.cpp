@@ -1516,42 +1516,17 @@ void AUTCharacter::PlayDying()
 	{
 		GetMesh()->SetMorphTarget(FName(TEXT("HatHair")), 0.0f);
 	}
+
 	if (Hat && Hat->GetAttachParentActor())
 	{
-		Hat->DetachRootComponentFromParent(true);
-
 		Hat->OnWearerDeath(LastTakeHitInfo.DamageType);
-
-		if (Hat->bDontDropOnDeath)
-		{
-			Hat->Destroy();
-		}
-		else
-		{
-			Hat->SetLifeSpan(7.0f);
-		}
 	}
-
 	if (LeaderHat && LeaderHat->GetAttachParentActor())
 	{
-		LeaderHat->DetachRootComponentFromParent(true);
-
 		LeaderHat->OnWearerDeath(LastTakeHitInfo.DamageType);
-
-		if (LeaderHat->bDontDropOnDeath)
-		{
-			LeaderHat->Destroy();
-		}
-		else
-		{
-			LeaderHat->SetLifeSpan(7.0f);
-		}
 	}
-
 	if (Eyewear && Eyewear->GetAttachParentActor())
 	{
-		Eyewear->DetachRootComponentFromParent(true);
-
 		Eyewear->OnWearerDeath(LastTakeHitInfo.DamageType);
 	}
 
@@ -1585,6 +1560,39 @@ void AUTCharacter::PlayDying()
 	{
 		GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 		SetLifeSpan(0.25f);
+	}
+
+	if (Hat && Hat->GetAttachParentActor())
+	{
+		Hat->DetachRootComponentFromParent(true);
+
+		if (Hat->bDontDropOnDeath)
+		{
+			Hat->Destroy();
+		}
+		else
+		{
+			Hat->SetLifeSpan(7.0f);
+		}
+	}
+
+	if (LeaderHat && LeaderHat->GetAttachParentActor())
+	{
+		LeaderHat->DetachRootComponentFromParent(true);
+
+		if (LeaderHat->bDontDropOnDeath)
+		{
+			LeaderHat->Destroy();
+		}
+		else
+		{
+			LeaderHat->SetLifeSpan(7.0f);
+		}
+	}
+
+	if (Eyewear && Eyewear->GetAttachParentActor())
+	{
+		Eyewear->DetachRootComponentFromParent(true);
 	}
 }
 
@@ -1650,6 +1658,22 @@ void AUTCharacter::SpawnGib(const FGibSlotInfo& GibInfo, TSubclassOf<UUTDamageTy
 {
 	if (GibInfo.GibType != NULL && bAllowGibs)
 	{
+		TSubclassOf<AUTGib> GibClass = GibInfo.GibType;
+		
+		TSubclassOf<AUTGib> HatGibClass = nullptr;
+		if (LeaderHat)
+		{
+			HatGibClass = LeaderHat->OverrideGib(GibInfo.BoneName);
+		}
+		else if (Hat)
+		{
+			HatGibClass = Hat->OverrideGib(GibInfo.BoneName);
+		}
+		if (HatGibClass)
+		{
+			GibClass = HatGibClass;
+		}
+
 		FTransform SpawnPos = GetMesh()->GetSocketTransform(GibInfo.BoneName);
 		if (SpawnPos.GetScale3D().Size() <= 0.0f)
 		{
@@ -1660,7 +1684,7 @@ void AUTCharacter::SpawnGib(const FGibSlotInfo& GibInfo, TSubclassOf<UUTDamageTy
 		Params.bNoCollisionFail = true;
 		Params.Instigator = this;
 		Params.Owner = this;
-		AUTGib* Gib = GetWorld()->SpawnActor<AUTGib>(GibInfo.GibType, SpawnPos.GetLocation(), SpawnPos.Rotator(), Params);
+		AUTGib* Gib = GetWorld()->SpawnActor<AUTGib>(GibClass, SpawnPos.GetLocation(), SpawnPos.Rotator(), Params);
 		if (Gib != NULL)
 		{
 			Gib->BloodDecals = BloodDecals;

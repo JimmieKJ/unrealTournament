@@ -75,6 +75,9 @@ class UNREALTOURNAMENT_API AUTCosmetic : public AActor
 	UFUNCTION(BlueprintCallable, Category="Cosmetic")
 	virtual void SetBodiesToSimulatePhysics();
 
+	UFUNCTION(BlueprintNativeEvent)
+	TSubclassOf<AUTGib> OverrideGib(FName BoneName);
+
 	virtual void PreInitializeComponents() override;
 	virtual void PostInitializeComponents() override;
 };

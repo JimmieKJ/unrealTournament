@@ -127,3 +127,8 @@ void AUTCosmetic::OnVariantSelected_Implementation(int32 Variant)
 		}
 	}
 }
+
+TSubclassOf<AUTGib> AUTCosmetic::OverrideGib_Implementation(FName BoneName)
+{
+	return nullptr;
+}
