@@ -550,7 +550,7 @@ FVector AUTCharacter::GetHeadLocation(float PredictionTime)
 	return Result + GetRewindLocation(PredictionTime) - GetActorLocation();
 }
 
-bool AUTCharacter::IsHeadShot(FVector HitLocation, FVector ShotDirection, float WeaponHeadScaling, bool bConsumeArmor, AUTCharacter* ShotInstigator, float PredictionTime)
+bool AUTCharacter::IsHeadShot(FVector HitLocation, FVector ShotDirection, float WeaponHeadScaling, AUTCharacter* ShotInstigator, float PredictionTime)
 {
 	if (UTCharacterMovement && UTCharacterMovement->bIsFloorSliding)
 	{
@@ -580,35 +580,38 @@ bool AUTCharacter::IsHeadShot(FVector HitLocation, FVector ShotDirection, float 
 			DrawDebugSphere(GetWorld(), HeadLocation, HeadRadius * HeadScale * WeaponHeadScaling, 10, FColor::Red, true);
 		}
 	}
+	return bHeadShot;
+}
 
-	if (bHeadShot)
+bool AUTCharacter::BlockedHeadShot(FVector HitLocation, FVector ShotDirection, float WeaponHeadScaling, bool bConsumeArmor, AUTCharacter* ShotInstigator)
+{
+	// check for inventory items that prevent headshots
+	for (TInventoryIterator<> It(this); It; ++It)
 	{
-		// check for inventory items that prevent headshots
-		for (TInventoryIterator<> It(this); It; ++It)
+		if (It->bCallDamageEvents && It->PreventHeadShot(HitLocation, ShotDirection, WeaponHeadScaling, bConsumeArmor))
 		{
-			if (It->bCallDamageEvents && It->PreventHeadShot(HitLocation, ShotDirection, WeaponHeadScaling, bConsumeArmor))
+			HeadArmorFlashCount++;
+			LastHeadArmorFlashTime = GetWorld()->GetTimeSeconds();
+			if (GetNetMode() == NM_Standalone)
 			{
-				HeadArmorFlashCount++;
-				LastHeadArmorFlashTime = GetWorld()->GetTimeSeconds();
-				if (GetNetMode() == NM_Standalone)
-				{
-					OnRepHeadArmorFlashCount();
-				}
-				if (ShotInstigator)
-				{
-					ShotInstigator->HeadShotBlocked();
-				}
-
-				// @TODO FIXMESTEVE - hack - need more elegant way of keeping headshots w/ udamage
-				if (!ShotInstigator || (ShotInstigator->DamageScaling < 2.f))
-				{
-					bHeadShot = false;
-				}
-				break;
+				OnRepHeadArmorFlashCount();
 			}
+			if (ShotInstigator)
+			{
+				ShotInstigator->HeadShotBlocked();
+			}
+
+			// @TODO FIXMESTEVE - hack - need more elegant way of keeping headshots w/ udamage
+			if (!ShotInstigator || (ShotInstigator->DamageScaling < 2.f))
+			{
+				return true;
+			}
+
+			break;
 		}
 	}
-	return bHeadShot;
+
+	return false;
 }
 
 void AUTCharacter::OnRepHeadArmorFlashCount()

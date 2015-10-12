@@ -806,12 +806,16 @@ public:
 
 	/** returns location of head (origin of headshot zone); will force a skeleton update if mesh hasn't been rendered (or dedicated server) so the provided position is accurate */
 	virtual FVector GetHeadLocation(float PredictionTime=0.f);
-	/** checks for a head shot - called by weapons with head shot bonuses
-	* returns true if it's a head shot, false if a miss or if some armor effect prevents head shots
+
+	/** checks for a head shot - called by weapons with head shot bonuses. */
+	UFUNCTION(BlueprintCallable, Category = Pawn)
+	virtual bool IsHeadShot(FVector HitLocation, FVector ShotDirection, float WeaponHeadScaling, AUTCharacter* ShotInstigator, float PredictionTime = 0.f);
+
+	/** Returns true if if some armor effect prevents head shots.
 	* if bConsumeArmor is true, the first item that prevents an otherwise valid head shot will be consumed
 	*/
 	UFUNCTION(BlueprintCallable, Category = Pawn)
-	virtual bool IsHeadShot(FVector HitLocation, FVector ShotDirection, float WeaponHeadScaling, bool bConsumeArmor, AUTCharacter* ShotInstigator, float PredictionTime = 0.f);
+		virtual bool BlockedHeadShot(FVector HitLocation, FVector ShotDirection, float WeaponHeadScaling, bool bConsumeArmor, AUTCharacter* ShotInstigator);
 
 	/** Called when a headshot by this character is blocked. */
 	virtual void HeadShotBlocked();

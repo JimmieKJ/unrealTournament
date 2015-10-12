@@ -37,9 +37,12 @@ class UNREALTOURNAMENT_API AUTProj_Sniper : public AUTProjectile
 			TSubclassOf<UDamageType> SavedDamageType = MyDamageType;
 
 			AUTCharacter* UTC = Cast<AUTCharacter>(OtherActor);
-			if (UTC != NULL && UTC->IsHeadShot(HitLocation, GetVelocity().GetSafeNormal(), HeadScaling, true, Cast<AUTCharacter>(Instigator)))
+			if (UTC != NULL && UTC->IsHeadShot(HitLocation, GetVelocity().GetSafeNormal(), HeadScaling, Cast<AUTCharacter>(Instigator)))
 			{
-				DamageParams.BaseDamage *= HeadshotDamageMult;
+				if (!UTC->BlockedHeadShot(HitLocation, GetVelocity().GetSafeNormal(), HeadScaling, true, Cast<AUTCharacter>(Instigator)))
+				{
+					DamageParams.BaseDamage *= HeadshotDamageMult;
+				}
 				MyDamageType = (HeadshotDamageType != NULL) ? HeadshotDamageType : MyDamageType;
 			}
 			
