@@ -1963,9 +1963,9 @@ void AUTPlayerController::ServerSelectSpawnPoint_Implementation(APlayerStart* De
 {
 	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 	AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
-	if (GS != NULL && PS != NULL)
+	if (GS != NULL && PS != NULL && GS->IsAllowedSpawnPoint(PS, DesiredStart))
 	{
-		PS->RespawnChoiceA = GS->IsAllowedSpawnPoint(PS, DesiredStart) ? DesiredStart : NULL;
+		PS->RespawnChoiceA = DesiredStart;
 		PS->ForceNetUpdate();
 	}
 }
