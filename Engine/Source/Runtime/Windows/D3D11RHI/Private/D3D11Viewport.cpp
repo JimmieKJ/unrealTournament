@@ -194,9 +194,11 @@ void FD3D11Viewport::Resize(uint32 InSizeX,uint32 InSizeY,bool bInIsFullscreen)
 	{
 		check(BackBuffer->GetRefCount() == 1);
 
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 		checkComRefCount(BackBuffer->GetResource(),1);
 		checkComRefCount(BackBuffer->GetRenderTargetView(0, -1),1);
 		checkComRefCount(BackBuffer->GetShaderResourceView(),1);
+#endif
 	}
 	BackBuffer.SafeRelease();
 
