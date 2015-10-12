@@ -268,4 +268,7 @@ protected:
 	virtual void TossObject(AUTCharacter* ObjectHolder);
 
 	virtual bool TeleportTo(const FVector& DestLocation, const FRotator& DestRotation, bool bIsATest = false, bool bNoCheck = false) override;
+
+	/** used to prevent overlaps from triggering from within the drop code where it could cause inconvenient side effects */
+	bool bIsDropping;
 };
