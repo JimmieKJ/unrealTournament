@@ -1656,7 +1656,7 @@ void AUTGameMode::SendEndOfGameStats(FName Reason)
 			if (PS != NULL)
 			{
 				PS->SetStatsValue(NAME_MatchesPlayed, 1);
-				PS->SetStatsValue(NAME_TimePlayed, UTGameState->ElapsedTime);
+				PS->SetStatsValue(NAME_TimePlayed, PS->ElapsedTime);
 				PS->AddMatchToStats(GetWorld()->GetMapName(), GetClass()->GetPathName(), nullptr, &GetWorld()->GameState->PlayerArray, &InactivePlayerArray);
 				PS->WriteStatsToCloud();
 			}
@@ -1673,7 +1673,7 @@ void AUTGameMode::SendEndOfGameStats(FName Reason)
 				}
 
 				PS->SetStatsValue(NAME_MatchesPlayed, 1);
-				PS->SetStatsValue(NAME_TimePlayed, UTGameState->ElapsedTime);
+				PS->SetStatsValue(NAME_TimePlayed, PS->ElapsedTime);
 
 				PS->AddMatchToStats(GetWorld()->GetMapName(), GetClass()->GetPathName(), nullptr, &GetWorld()->GameState->PlayerArray, &InactivePlayerArray);
 				if (PS != nullptr)

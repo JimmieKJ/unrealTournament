@@ -668,7 +668,7 @@ void AUTTeamGameMode::SendEndOfGameStats(FName Reason)
 			if (PS != NULL)
 			{
 				PS->SetStatsValue(NAME_MatchesPlayed, 1);
-				PS->SetStatsValue(NAME_TimePlayed, UTGameState->ElapsedTime);
+				PS->SetStatsValue(NAME_TimePlayed, PS->ElapsedTime);
 
 				if (UTGameState->WinningTeam == PS->Team)
 				{
@@ -696,7 +696,7 @@ void AUTTeamGameMode::SendEndOfGameStats(FName Reason)
 				}
 
 				PS->SetStatsValue(NAME_MatchesPlayed, 1);
-				PS->SetStatsValue(NAME_TimePlayed, UTGameState->ElapsedTime);
+				PS->SetStatsValue(NAME_TimePlayed, PS->ElapsedTime);
 
 				if (UTGameState->WinningTeam == PS->Team)
 				{

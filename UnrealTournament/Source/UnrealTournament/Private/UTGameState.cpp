@@ -376,6 +376,18 @@ void AUTGameState::DefaultTimer()
 		// no elapsed time - it was incremented in super
 		ElapsedTime--;
 	}
+	else if (IsMatchInProgress())
+	{
+		for (int32 i = 0; i < PlayerArray.Num(); i++)
+		{
+			AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerArray[i]);
+			if (PS)
+			{
+				PS->ElapsedTime++;
+			}
+		}
+	}
+
 	if (GetWorld()->GetNetMode() == NM_Client)
 	{
 		if (RemainingMinute > 0)

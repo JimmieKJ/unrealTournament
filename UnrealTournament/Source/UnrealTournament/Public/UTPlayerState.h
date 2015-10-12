@@ -263,6 +263,8 @@ public:
 	UPROPERTY(replicated)
 		TSubclassOf<class AUTWeapon> FavoriteWeapon;
 
+	UPROPERTY()
+	int32 ElapsedTime;
 
 protected:
 	/** XP player had before current match, read from backend (-1 until successful read) */
