@@ -163,7 +163,7 @@ void UUTGameUserSettings::SetAAMode(int32 NewAAMode)
 
 int32 UUTGameUserSettings::ConvertAAScalabilityQualityToAAMode(int32 AAScalabilityQuality)
 {
-	const int32 AAScalabilityQualityToModeLookup[] = { 0, 2, 3, 4 };
+	const int32 AAScalabilityQualityToModeLookup[] = { 0, 2, 2, 2 };
 	int32 AAQuality = FMath::Clamp(AAScalabilityQuality, 0, 3);
 
 	return AAScalabilityQualityToModeLookup[AAQuality];
