@@ -11,6 +11,15 @@ UUTPlayerInput::UUTPlayerInput()
 	AccelerationMax = 1;
 }
 
+
+void UUTPlayerInput::PostInitProperties()
+{
+#if (UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	DebugExecBindings.Empty();
+#endif
+	Super::PostInitProperties();
+}
+
 bool UUTPlayerInput::ExecuteCustomBind(FKey Key, EInputEvent EventType)
 {
 	AUTPlayerController* PC = Cast<AUTPlayerController>(GetOuterAPlayerController());
