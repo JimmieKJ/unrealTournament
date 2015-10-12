@@ -112,7 +112,7 @@ void AUTWeaponAttachment::UpdateOverlays()
 {
 	if (WeaponType != NULL)
 	{
-		WeaponType.GetDefaultObject()->UpdateOverlaysShared(this, UTOwner, Mesh, OverlayMesh);
+		WeaponType.GetDefaultObject()->UpdateOverlaysShared(this, UTOwner, Mesh, OverlayEffectParams, OverlayMesh);
 	}
 }
 

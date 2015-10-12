@@ -395,10 +395,10 @@ void AUTWeap_Enforcer::GotoEquippingState(float OverflowTime)
 
 void AUTWeap_Enforcer::UpdateOverlays()
 {
-	UpdateOverlaysShared(this, GetUTOwner(), Mesh, OverlayMesh);
+	UpdateOverlaysShared(this, GetUTOwner(), Mesh, OverlayEffectParams, OverlayMesh);
 	if (bBecomeDual)
 	{
-		UpdateOverlaysShared(this, GetUTOwner(), LeftMesh, LeftOverlayMesh);
+		UpdateOverlaysShared(this, GetUTOwner(), LeftMesh, OverlayEffectParams, LeftOverlayMesh);
 	}
 }
 

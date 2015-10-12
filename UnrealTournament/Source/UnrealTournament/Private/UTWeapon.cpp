@@ -1850,7 +1850,7 @@ TArray<UMeshComponent*> AUTWeapon::Get1PMeshes_Implementation() const
 	return Result;
 }
 
-void AUTWeapon::UpdateOverlaysShared(AActor* WeaponActor, AUTCharacter* InOwner, USkeletalMeshComponent* InMesh, USkeletalMeshComponent*& InOverlayMesh) const
+void AUTWeapon::UpdateOverlaysShared(AActor* WeaponActor, AUTCharacter* InOwner, USkeletalMeshComponent* InMesh, const TArray<FParticleSysParam>& InOverlayEffectParams, USkeletalMeshComponent*& InOverlayMesh) const
 {
 	AUTGameState* GS = WeaponActor ? WeaponActor->GetWorld()->GetGameState<AUTGameState>() : NULL;
 	if (GS != NULL && InOwner != NULL && InMesh != NULL)
@@ -1897,6 +1897,7 @@ void AUTWeapon::UpdateOverlaysShared(AActor* WeaponActor, AUTCharacter* InOwner,
 				}
 				PSC->AttachTo(InOverlayMesh, TopOverlay.ParticleAttachPoint);
 				PSC->SetTemplate(TopOverlay.Particles);
+				PSC->InstanceParameters = InOverlayEffectParams;
 			}
 			else
 			{
@@ -1946,7 +1947,7 @@ void AUTWeapon::UpdateOverlaysShared(AActor* WeaponActor, AUTCharacter* InOwner,
 }
 void AUTWeapon::UpdateOverlays()
 {
-	UpdateOverlaysShared(this, GetUTOwner(), Mesh, OverlayMesh);
+	UpdateOverlaysShared(this, GetUTOwner(), Mesh, OverlayEffectParams, OverlayMesh);
 }
 
 void AUTWeapon::SetSkin(UMaterialInterface* NewSkin)
