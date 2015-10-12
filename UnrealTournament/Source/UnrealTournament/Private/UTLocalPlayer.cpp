@@ -745,7 +745,10 @@ void UUTLocalPlayer::OnLoginComplete(int32 LocalUserNum, bool bWasSuccessful, co
 				if (UserId.IsValid())
 				{
 					UTPC->ServerReceiveStatsID(UserId->ToString());
-					UTPC->PlayerState->SetUniqueId(UserId);
+					if (UTPC->PlayerState)
+					{
+						UTPC->PlayerState->SetUniqueId(UserId); 
+					}
 				}
 			}
 		}
