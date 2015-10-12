@@ -239,7 +239,7 @@ void AUTWeap_ImpactHammer::Tick(float DeltaTime)
 			if (UTOwner != NULL) // above auto-fire might have killed Owner
 			{
 				AUTBot* B = Cast<AUTBot>(UTOwner->Controller);
-				if (B != NULL && !B->IsCharging() && (B->GetEnemy() == NULL || UTOwner->GetPendingWeapon() != NULL))
+				if (B != NULL && !B->IsCharging() && (B->GetEnemy() == NULL || UTOwner->GetPendingWeapon() != NULL) && Cast<UUTReachSpec_HighJump>(B->GetCurrentPath().Spec.Get()) == NULL)
 				{
 					UTOwner->StopFiring();
 				}
@@ -354,7 +354,7 @@ bool AUTWeap_ImpactHammer::DoAssistedJump()
 	else
 	{
 		// look at ground
-		FVector LookPoint = UTOwner->GetActorLocation() + (B->GetMovePoint() - UTOwner->GetActorLocation()).GetSafeNormal2D() - FVector(0.0f, 0.0f, 1000.0f);
+		FVector LookPoint = UTOwner->GetActorLocation() + (B->GetMovePoint() - UTOwner->GetActorLocation()).GetSafeNormal2D() * 10.0f - FVector(0.0f, 0.0f, 500.0f);
 		if (B->NeedToTurn(LookPoint))
 		{
 			B->SetFocalPoint(LookPoint, SCRIPTEDMOVE_FOCUS_PRIORITY);
@@ -408,6 +408,7 @@ bool AUTWeap_ImpactHammer::DoAssistedJump()
 					UTOwner->UTCharacterMovement->Velocity = (B->GetMovePoint() - UTOwner->GetActorLocation()).GetSafeNormal2D() * UTOwner->UTCharacterMovement->GetMaxSpeed();
 				}
 				UTOwner->StopFire(0);
+				B->SetFocalPoint(B->GetMovePoint(), SCRIPTEDMOVE_FOCUS_PRIORITY);
 				return true;
 			}
 			else

@@ -17,6 +17,7 @@
 #include "UTBotCharacter.h"
 #include "UTDefensePoint.h"
 #include "UTAIAction_Camp.h"
+#include "UTLift.h"
 
 void FBotEnemyInfo::Update(EAIEnemyUpdateType UpdateType, const FVector& ViewerLoc)
 {
@@ -1606,7 +1607,8 @@ void AUTBot::ApplyCrouch()
 
 void AUTBot::NotifyMoveBlocked(const FHitResult& Impact)
 {
-	if ((CurrentAction == NULL || !CurrentAction->NotifyMoveBlocked(Impact)) && GetCharacter() != NULL)
+	// ignore impacts involving lift we are standing on - lift will tell us if we need to move to allow it to complete its path
+	if ((Cast<AUTLift>(Impact.Actor.Get()) == NULL || APawn::GetMovementBaseActor(GetPawn()) != Impact.Actor) && (CurrentAction == NULL || !CurrentAction->NotifyMoveBlocked(Impact)) && GetCharacter() != NULL)
 	{
 		if (GetCharacter()->GetCharacterMovement()->MovementMode == MOVE_Walking)
 		{
@@ -1749,13 +1751,7 @@ void AUTBot::NotifyMoveBlocked(const FHitResult& Impact)
 			FVector WallNormal2D = Impact.Normal.GetSafeNormal2D();
 			if (GetCurrentPath().ReachFlags & R_JUMP)
 			{
-				float GravityZ = GetCharacter()->GetCharacterMovement()->GetGravityZ();
-				if (GravityZ == 0.0f)
-				{
-					GravityZ = 1.0f;
-				}
-				const float TimeToApex = GetCharacter()->GetCharacterMovement()->Velocity.Z / GravityZ;
-				if (GetMovePoint().Z > GetPawn()->GetActorLocation().Z + GetCharacter()->GetCharacterMovement()->Velocity.Z * TimeToApex + (0.5f * GravityZ * FMath::Square<float>(TimeToApex)) && (WallNormal2D | (GetPawn()->GetActorLocation() - GetMovePoint()).GetSafeNormal2D()) > 0.5f)
+				if (GetMovePoint().Z > GetPawn()->GetActorLocation().Z && GetCharacter()->GetCharacterMovement()->Velocity.Z < 0.0f && (WallNormal2D | (GetPawn()->GetActorLocation() - GetMovePoint()).GetSafeNormal2D()) > 0.5f)
 				{
 					// missed jump, hit ledge we were expecting to get over
 					FHitResult GroundHit;
