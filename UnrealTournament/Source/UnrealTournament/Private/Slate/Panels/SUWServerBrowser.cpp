@@ -1575,7 +1575,7 @@ FReply SUWServerBrowser::OnJoinClick(bool bSpectate)
 
 void SUWServerBrowser::RestrictedWarning()
 {
-	PlayerOwner->MessageBox(NSLOCTEXT("SUWServerBrowser","RestrictedServerTitle","Unable to join server"), NSLOCTEXT("SUWServerBrowser","RestrictedServerMsg","Sorry, but you can not join the hub or server you have selected.  Please choose another one."));
+	PlayerOwner->MessageBox(NSLOCTEXT("SUWServerBrowser","RestrictedServerTitle","Unable to join server"), NSLOCTEXT("SUWServerBrowser","RestrictedServerMsg","Sorry, but your skill level is too high to join the hub or server you have selected.  Please choose another one."));
 }
 
 void SUWServerBrowser::ConnectTo(FServerData ServerData,bool bSpectate)
