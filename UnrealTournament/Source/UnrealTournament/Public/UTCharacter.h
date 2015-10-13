@@ -868,6 +868,9 @@ public:
 	UPROPERTY(BlueprintReadWrite, Category = Effects)
 	float LastDeathDecalTime;
 
+	UPROPERTY(BlueprintReadWrite, Category = Efftects)
+	float RagdollCollisionBleedThreshold;
+
 	/** plays clientside hit effects using the data previously stored in LastTakeHitInfo */
 	UFUNCTION(BlueprintNativeEvent, BlueprintCosmetic)
 	void PlayTakeHitEffects();

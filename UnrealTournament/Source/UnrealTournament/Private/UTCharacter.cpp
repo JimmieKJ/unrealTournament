@@ -124,6 +124,7 @@ AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 	bCanPickupItems = true;
 	RagdollGravityScale = 1.0f;
 	bAllowGibs = true;
+	RagdollCollisionBleedThreshold = 2000.0f;
 
 	MinPainSoundInterval = 0.35f;
 	LastPainSoundTime = -100.0f;
@@ -3246,11 +3247,16 @@ void AUTCharacter::OnRagdollCollision(AActor* OtherActor, UPrimitiveComponent* O
 {
 	if (IsDead())
 	{
-		// maybe spawn blood as the ragdoll smacks into things
-		if (OtherComp != NULL && OtherActor != this && GetWorld()->TimeSeconds - LastDeathDecalTime > 0.25f && GetWorld()->TimeSeconds - GetLastRenderTime() < 1.0f)
+		if (NormalImpulse.SizeSquared() > RagdollCollisionBleedThreshold * RagdollCollisionBleedThreshold)
 		{
-			SpawnBloodDecal(GetActorLocation(), -Hit.Normal);
-			LastDeathDecalTime = GetWorld()->TimeSeconds;
+			//UE_LOG(LogUTCharacter, Log, TEXT("RagdollCollision %f %f %f"), NormalImpulse.X, NormalImpulse.Y, NormalImpulse.Z);
+
+			// maybe spawn blood as the ragdoll smacks into things
+			if (OtherComp != NULL && OtherActor != this && GetWorld()->TimeSeconds - LastDeathDecalTime > 0.25f && GetWorld()->TimeSeconds - GetLastRenderTime() < 1.0f)
+			{
+				SpawnBloodDecal(GetActorLocation(), -Hit.Normal);
+				LastDeathDecalTime = GetWorld()->TimeSeconds;
+			}
 		}
 	}
 	// cause falling damage on Z axis collisions
