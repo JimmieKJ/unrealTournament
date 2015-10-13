@@ -8,6 +8,8 @@
 #include "UTShowdownSquadAI.h"
 #include "UTPickupAmmo.h"
 #include "UTDroppedPickup.h"
+#include "UTGameEngine.h"
+#include "UTChallengeManager.h"
 
 AUTTeamShowdownGame::AUTTeamShowdownGame(const FObjectInitializer& OI)
 	: Super(OI)
@@ -24,7 +26,15 @@ void AUTTeamShowdownGame::InitGame(const FString& MapName, const FString& Option
 	Super::InitGame(MapName, Options, ErrorMessage);
 
 	// skip Duel overrides we don't want
-	if (HasOption(Options, TEXT("Bots")))
+	if (bOfflineChallenge)
+	{
+		TWeakObjectPtr<UUTChallengeManager> ChallengeManager = Cast<UUTGameEngine>(GEngine)->GetChallengeManager();
+		if (ChallengeManager.IsValid())
+		{
+			BotFillCount = ChallengeManager->GetNumPlayers(this);
+		}
+	}
+	else if (HasOption(Options, TEXT("Bots")))
 	{
 		BotFillCount = GetIntOption(Options, TEXT("Bots"), SavedBotFillCount) + 1;
 	}

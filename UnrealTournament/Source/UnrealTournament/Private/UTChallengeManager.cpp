@@ -247,7 +247,7 @@ UUTBotCharacter* UUTChallengeManager::ChooseBotCharacter(AUTGameMode* CurrentGam
 	}
 	else
 	{
-		UE_LOG(UT, Warning, TEXT("Challenge %s is Invalid"), *CurrentGame->ChallengeTag.ToString());
+		UE_LOG(UT, Warning, TEXT("%s Challenge %s is Invalid"), *GetName(), *CurrentGame->ChallengeTag.ToString());
 	}
 	return NULL;
 }
