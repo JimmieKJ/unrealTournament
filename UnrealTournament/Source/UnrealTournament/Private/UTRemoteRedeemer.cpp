@@ -253,7 +253,7 @@ void AUTRemoteRedeemer::Detonate()
 					DefaultRedeemer->DetonateDamageType, IgnoreActors, this, DamageInstigator, nullptr, nullptr, 0.f);
 				if ((Role == ROLE_Authority) && (HitsStatsName != NAME_None))
 				{
-					AUTPlayerState* PS = GetController() ? Cast<AUTPlayerState>(GetController()->PlayerState) : NULL;
+					AUTPlayerState* PS = DamageInstigator ? Cast<AUTPlayerState>(DamageInstigator->PlayerState) : NULL;
 					if (PS)
 					{
 						PS->ModifyStatsValue(HitsStatsName, StatsHitCredit / DetonateDamageParams.BaseDamage);
@@ -408,7 +408,7 @@ void AUTRemoteRedeemer::ExplodeStage(float RangeMultiplier)
 				DefaultRedeemer->MyDamageType, IgnoreActors, this, DamageInstigator, nullptr, nullptr, CollisionFreeRadius);
 			if ((Role == ROLE_Authority) && (HitsStatsName != NAME_None))
 			{
-				AUTPlayerState* PS = GetController() ? Cast<AUTPlayerState>(GetController()->PlayerState) : NULL;
+				AUTPlayerState* PS = DamageInstigator ? Cast<AUTPlayerState>(DamageInstigator->PlayerState) : NULL;
 				if (PS)
 				{
 					PS->ModifyStatsValue(HitsStatsName, StatsHitCredit / AdjustedDamageParams.BaseDamage);
