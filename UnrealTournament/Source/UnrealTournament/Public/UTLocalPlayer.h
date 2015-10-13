@@ -423,6 +423,7 @@ public:
 	inline virtual int32 GetRankCTF() { return CTF_ELO; }
 
 	// Returns what badge should represent player's skill level.
+	UFUNCTION(BlueprintCallable, Category = Badge)
 	static void GetBadgeFromELO(int32 EloRating, int32& BadgeLevel, int32& SubLevel);
 
 	// Connect to a server via the session id.  Returns TRUE if the join continued, or FALSE if it failed to start
