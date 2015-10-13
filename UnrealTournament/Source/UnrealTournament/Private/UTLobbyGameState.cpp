@@ -7,6 +7,7 @@
 #include "UTLobbyGameMode.h"
 #include "Net/UnrealNetwork.h"
 #include "UTEpicDefaultRulesets.h"
+#include "UTServerBeaconLobbyClient.h"
 #include "UTMutator.h"
 
 AUTLobbyGameState::AUTLobbyGameState(const class FObjectInitializer& ObjectInitializer)
@@ -279,26 +280,29 @@ void AUTLobbyGameState::HostMatch(AUTLobbyMatchInfo* MatchInfo, AUTLobbyPlayerSt
 
 void AUTLobbyGameState::JoinMatch(AUTLobbyMatchInfo* MatchInfo, AUTLobbyPlayerState* NewPlayer, bool bAsSpectator)
 {
-	if (MatchInfo->bDedicatedMatch)
+	if (!NewPlayer->bIsRconAdmin)
 	{
-		MatchInfo->AddPlayer(NewPlayer);
-		NewPlayer->ClientConnectToInstance(MatchInfo->GameInstanceGUID, bAsSpectator);
-		return;	
-	}
-	if (MatchInfo->IsBanned(NewPlayer->UniqueId))
-	{
-		NewPlayer->ClientMatchError(NSLOCTEXT("LobbyMessage","Banned","You do not have permission to enter this match."));
-		return;
-	}
-
-	if (MatchInfo->IsPrivateMatch())
-	{
-		// Look to see if this player has the key to the match
-	
-		if (MatchInfo->AllowedPlayerList.Find(NewPlayer->UniqueId.ToString()) == INDEX_NONE)
+		if (MatchInfo->bDedicatedMatch)
 		{
-			NewPlayer->ClientMatchError(NSLOCTEXT("LobbyMessage","Private","Sorry, but the match you are trying to join is private."));
+			MatchInfo->AddPlayer(NewPlayer);
+			NewPlayer->ClientConnectToInstance(MatchInfo->GameInstanceGUID, bAsSpectator);
+			return;	
+		}
+		if (MatchInfo->IsBanned(NewPlayer->UniqueId))
+		{
+			NewPlayer->ClientMatchError(NSLOCTEXT("LobbyMessage","Banned","You do not have permission to enter this match."));
 			return;
+		}
+
+		if (MatchInfo->IsPrivateMatch())
+		{
+			// Look to see if this player has the key to the match
+	
+			if (MatchInfo->AllowedPlayerList.Find(NewPlayer->UniqueId.ToString()) == INDEX_NONE)
+			{
+				NewPlayer->ClientMatchError(NSLOCTEXT("LobbyMessage","Private","Sorry, but the match you are trying to join is private."));
+				return;
+			}
 		}
 	}
 
@@ -351,12 +355,34 @@ void AUTLobbyGameState::RemoveFromAMatch(AUTLobbyPlayerState* PlayerOwner)
 
 void AUTLobbyGameState::RemoveMatch(AUTLobbyMatchInfo* MatchToRemove)
 {
+	// Look to see if anyone else is in the match...
+
 	// Kill any game instances.
 	TerminateGameInstance(MatchToRemove);
 
 	// Match is dead....
 	AvailableMatches.Remove(MatchToRemove);
 }
+
+void AUTLobbyGameState::AdminKillMatch(AUTLobbyMatchInfo* MatchToRemove)
+{
+	if (MatchToRemove->IsInProgress() && MatchToRemove->InstanceBeacon)
+	{
+		MatchToRemove->InstanceBeacon->Instance_ForceShutdown();
+	}
+	else
+	{
+		if (MatchToRemove->Players.Num() >0)
+		{
+			RemoveFromAMatch(MatchToRemove->Players[0].Get()); // Kill the host which will kill the match
+		}
+		else
+		{
+			RemoveMatch(MatchToRemove);
+		}
+	}
+}
+
 
 void AUTLobbyGameState::SortPRIArray()
 {
@@ -523,7 +549,7 @@ void AUTLobbyGameState::TerminateGameInstance(AUTLobbyMatchInfo* MatchOwner, boo
 }
 
 
-void AUTLobbyGameState::GameInstance_Ready(uint32 InGameInstanceID, FGuid GameInstanceGUID, const FString& MapName)
+void AUTLobbyGameState::GameInstance_Ready(uint32 InGameInstanceID, FGuid GameInstanceGUID, const FString& MapName, AUTServerBeaconLobbyClient* InstanceBeacon)
 {
 	for (int32 i=0; i < GameInstances.Num(); i++)
 	{
@@ -531,6 +557,8 @@ void AUTLobbyGameState::GameInstance_Ready(uint32 InGameInstanceID, FGuid GameIn
 		{
 			GameInstances[i].MatchInfo->GameInstanceReady(GameInstanceGUID);
 			GameInstances[i].MatchInfo->InitialMap = MapName;
+			GameInstances[i].MatchInfo->InstanceBeacon = InstanceBeacon;
+
 			break;
 		}
 	}
@@ -1099,4 +1127,66 @@ void AUTLobbyGameState::RequestInstanceJoin(AUTServerBeaconClient* Beacon, const
 		// Let the user know the match no longer exists....
 		Beacon->ClientRequestInstanceResult(EInstanceJoinResult::MatchNoLongerExists, TEXT(""));
 	}
+}
+
+void AUTLobbyGameState::FillOutRconPlayerList(TArray<FRconPlayerData>& PlayerList)
+{
+	Super::FillOutRconPlayerList(PlayerList);
+
+	for (int32 MatchIndex = 0; MatchIndex < AvailableMatches.Num(); MatchIndex++)
+	{
+		AUTLobbyMatchInfo* Match = AvailableMatches[MatchIndex];
+		if (Match)
+		{
+			for (int32 i = 0 ; i < Match->PlayersInMatchInstance.Num(); i++)
+			{
+				FString PlayerID = Match->PlayersInMatchInstance[i].PlayerID.ToString();
+				bool bFound = false;
+				for (int32 j = 0; j < PlayerList.Num(); j++)
+				{
+					if (PlayerList[j].PlayerID == PlayerID)
+					{
+						PlayerList[j].bPendingDelete = false;
+						bFound = true;
+						break;
+					}
+				}
+
+				if (!bFound)
+				{
+					int32 Rank = Match->PlayersInMatchInstance[i].PlayerRank;
+					FString PlayerIP = TEXT("N/A")
+					;
+					PlayerList.Add( FRconPlayerData(Match->PlayersInMatchInstance[i].PlayerName, PlayerID, PlayerIP, Rank, Match->GameInstanceGUID) );
+				}
+
+			}
+		}
+	}
+}
+
+bool AUTLobbyGameState::SendSayToInstance(const FString& User, const FString& FinalMessage)
+{
+	bool bSent = false;
+
+	// Try and this user.	
+
+	for (int32 MatchIndex = 0; MatchIndex < AvailableMatches.Num(); MatchIndex++)
+	{
+		AUTLobbyMatchInfo* Match = AvailableMatches[MatchIndex];
+		if (Match && Match->InstanceBeacon)
+		{
+			for (int32 i = 0 ; i < Match->PlayersInMatchInstance.Num(); i++)
+			{
+				if (Match->PlayersInMatchInstance[i].PlayerName.Equals(User, ESearchCase::IgnoreCase) ||
+					Match->PlayersInMatchInstance[i].PlayerID.ToString().Equals(User, ESearchCase::IgnoreCase))
+				{
+					bSent = true;
+					Match->InstanceBeacon->Instance_ReceiveUserMessage(Match->PlayersInMatchInstance[i].PlayerID.ToString(), FinalMessage);
+				}
+			}
+		}
+	}
+
+	return bSent;
 }

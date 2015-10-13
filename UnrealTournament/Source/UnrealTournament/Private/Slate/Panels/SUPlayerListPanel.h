@@ -113,6 +113,11 @@ public:
 
 	FSlateColor GetNameColor() const
 	{
+		if (PlayerState.IsValid() && PlayerState->bIsRconAdmin)
+		{
+			return FSlateColor(FLinearColor::Yellow);
+		}
+
 		if (bIsInMatch && !bIsSpectator)
 		{
 			if (TeamNum == 0) return FSlateColor(FLinearColor(1.0f, 0.05f, 0.0f, 1.0f));
@@ -124,6 +129,11 @@ public:
 
 	FText GetLobbyStatusText()
 	{
+		if (PlayerState.IsValid() && PlayerState->bIsRconAdmin)
+		{
+			return NSLOCTEXT("Generic","Admin","ADMIN");
+		}
+
 		if (bIsInMatch && PlayerState.IsValid())
 		{
 			if (bIsHost) 

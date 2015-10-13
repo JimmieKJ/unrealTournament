@@ -157,4 +157,10 @@ public:
 	virtual void BuildWeaponInfo(AUTPlayerState* PlayerState, TSharedPtr<class SUTTabWidget> TabWidget, TArray<TSharedPtr<struct TAttributeStat> >& StatList){};
 	virtual void BuildMovementInfo(AUTPlayerState* PlayerState, TSharedPtr<class SUTTabWidget> TabWidget, TArray<TSharedPtr<struct TAttributeStat> >& StatList){};
 
+	virtual void SendRconMessage(const FString& DestinationId, const FString &Message);
+
+	// Kicks a player
+	virtual void RconKick(const FString& NameOrUIDStr, bool bBan, const FString& Reason);
+	virtual void RconAuth(AUTBasePlayerController* Admin, const FString& Password);
+	virtual void RconNormal(AUTBasePlayerController* Admin);
 };

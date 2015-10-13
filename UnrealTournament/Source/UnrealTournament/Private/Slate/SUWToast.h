@@ -27,6 +27,9 @@ class UNREALTOURNAMENT_API SUWToast : public SCompoundWidget
 	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime );
 
 private:
+
+	virtual TSharedRef<SWidget> BuildToast(const FArguments& InArgs);
+
 	TWeakObjectPtr<class UUTLocalPlayer> PlayerOwner;
 	TSharedPtr<class SWidget> GameViewportWidget;
 	float Lifetime;

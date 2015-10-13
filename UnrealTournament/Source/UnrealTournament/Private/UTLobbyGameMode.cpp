@@ -409,3 +409,63 @@ void AUTLobbyGameMode::DefaultTimer()
 	}
 }
 
+void AUTLobbyGameMode::SendRconMessage(const FString& DestinationId, const FString &Message)
+{	
+	Super::SendRconMessage(DestinationId, Message);
+	if (UTLobbyGameState)
+	{
+		for (int32 i=0; i < UTLobbyGameState->AvailableMatches.Num(); i++)
+		{
+			if (UTLobbyGameState->AvailableMatches[i]->InstanceBeacon)
+			{
+				UTLobbyGameState->AvailableMatches[i]->InstanceBeacon->Instance_ReceieveRconMessage(DestinationId, Message);
+			}
+		}
+	}
+}
+
+void AUTLobbyGameMode::RconKick(const FString& NameOrUIDStr, bool bBan, const FString& Reason)
+{
+	if (UTLobbyGameState)
+	{
+		for (int32 i=0; i < UTLobbyGameState->AvailableMatches.Num(); i++)
+		{
+			if (UTLobbyGameState->AvailableMatches[i]->InstanceBeacon)
+			{
+				UTLobbyGameState->AvailableMatches[i]->InstanceBeacon->Instance_Kick(NameOrUIDStr);
+			}
+		}
+	}
+}
+
+void AUTLobbyGameMode::RconAuth(AUTBasePlayerController* Admin, const FString& Password)
+{
+	Super::RconAuth(Admin, Password);
+	if (Admin && Admin->UTPlayerState && Admin->UTPlayerState->bIsRconAdmin)
+	{
+		for (int32 i=0; i < UTLobbyGameState->AvailableMatches.Num(); i++)
+		{
+			if (UTLobbyGameState->AvailableMatches[i]->InstanceBeacon)
+			{
+				UTLobbyGameState->AvailableMatches[i]->InstanceBeacon->Instance_AuthorizeAdmin(Admin->UTPlayerState->UniqueId.ToString(), true);
+			}
+		}
+	}
+
+}
+
+void AUTLobbyGameMode::RconNormal(AUTBasePlayerController* Admin)
+{
+	Super::RconNormal(Admin);
+
+	if (Admin && Admin->UTPlayerState && !Admin->UTPlayerState->bIsRconAdmin)
+	{
+		for (int32 i=0; i < UTLobbyGameState->AvailableMatches.Num(); i++)
+		{
+			if (UTLobbyGameState->AvailableMatches[i]->InstanceBeacon)
+			{
+				UTLobbyGameState->AvailableMatches[i]->InstanceBeacon->Instance_AuthorizeAdmin(Admin->UTPlayerState->UniqueId.ToString(),false);
+			}
+		}
+	}
+}

@@ -13,6 +13,7 @@
 #include "UTLobbyPC.h"
 #include "UTLobbyPlayerState.h"
 #include "SUPlayerListPanel.h"
+#include "Engine/Console.h"
 
 #if !UE_SERVER
 
@@ -317,6 +318,20 @@ void SUTextChatPanel::ChatTextChanged(const FText& NewText)
 	{
 		ChatEditBox->SetText(FText::FromString(NewText.ToString().Left(128)));
 	}
+
+	if (NewText.ToString() == TEXT("`"))
+	{
+		ChatEditBox->SetText(FText::GetEmpty());
+		if (PlayerOwner.IsValid())
+		{
+			if (PlayerOwner.IsValid() && PlayerOwner->ViewportClient->ViewportConsole)
+			{
+				PlayerOwner->ViewportClient->ViewportConsole->FakeGotoState(FName(TEXT("Open")));
+			}
+		}
+	
+	}
+
 }
 
 void SUTextChatPanel::ChatTextCommited(const FText& NewText, ETextCommit::Type CommitType)
@@ -423,6 +438,11 @@ void SUTextChatPanel::RouteBufferedChat()
 		}
 	}
 
+}
+
+void SUTextChatPanel::SetChatText(const FString& NewText)
+{
+	if (ChatEditBox.IsValid()) ChatEditBox->SetText(FText::FromString(NewText));
 }
 
 #endif

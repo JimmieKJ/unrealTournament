@@ -106,6 +106,7 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	DOREPLIFETIME(AUTPlayerState, AvailableCurrency);
 	DOREPLIFETIME(AUTPlayerState, StatsID);
 	DOREPLIFETIME(AUTPlayerState, FavoriteWeapon);
+	DOREPLIFETIME(AUTPlayerState, bIsRconAdmin);
 
 	DOREPLIFETIME_CONDITION(AUTPlayerState, RespawnChoiceA, COND_None); // also used when replicating spawn choice to other players
 	DOREPLIFETIME_CONDITION(AUTPlayerState, RespawnChoiceB, COND_OwnerOnly);
@@ -2466,5 +2467,14 @@ void AUTPlayerState::PlayTauntByClass(TSubclassOf<AUTTaunt> TauntToPlay)
 			FirstPlayer->OnTauntPlayed(this, TauntToPlay, EmoteSpeed);
 		}
 #endif
+	}
+}
+
+void AUTPlayerState::ClientReceiveRconMessage_Implementation(const FString& Message)
+{	
+	AUTBasePlayerController* PC = Cast<AUTBasePlayerController>(GetOwner());
+	if (PC)
+	{
+		PC->ShowAdminMessage(Message);
 	}
 }

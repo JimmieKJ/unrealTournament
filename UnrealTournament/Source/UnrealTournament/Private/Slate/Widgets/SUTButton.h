@@ -120,6 +120,8 @@ class UNREALTOURNAMENT_API SUTButton : public SButton
 	virtual void UnPressed();
 	virtual void BePressed();
 
+	int32 WidgetTag;
+
 protected:
 
 	FSlateColor NormalTextColor;
@@ -135,8 +137,6 @@ protected:
 
 	FUTMouseOver OnMouseOver;
 
-	int32 WidgetTag;
-
 	virtual FReply Pressed(int32 MouseButtonIndex);
 	virtual FReply Released(int32 MouseButtonIndex, bool bIsUnderCusor);
 
@@ -144,6 +144,7 @@ protected:
 	virtual void Release() { };
 
 	FSlateColor GetLabelColor() const;
+
 
 };
 

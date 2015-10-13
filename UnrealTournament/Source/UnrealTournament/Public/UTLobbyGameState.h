@@ -93,6 +93,8 @@ class UNREALTOURNAMENT_API AUTLobbyGameState : public AUTGameState
 	 **/
 	virtual void RemoveMatch(AUTLobbyMatchInfo* MatchToRemove);
 
+	virtual void AdminKillMatch(AUTLobbyMatchInfo* MatchToRemove);
+
 	virtual void SortPRIArray();
 
 	/**
@@ -119,7 +121,7 @@ class UNREALTOURNAMENT_API AUTLobbyGameState : public AUTGameState
 	/**
 	 *	Called when a Game Instance is up and ready for players to join.
 	 **/
-	void GameInstance_Ready(uint32 GameInstanceID, FGuid GameInstanceGUID, const FString& MapName);
+	void GameInstance_Ready(uint32 GameInstanceID, FGuid GameInstanceGUID, const FString& MapName, AUTServerBeaconLobbyClient* InstanceBeacon);
 
 	/**
 	 *	Called when an instance needs to update it's match information
@@ -223,6 +225,7 @@ public:
 
 protected:
 	virtual bool AddDedicatedInstance(FGuid InstanceGUID, const FString& AccessKey, const FString& ServerName, const FString& ServerGameMode, const FString& ServerDescription, int32 MaxPlayers, bool bTeamGame);
+	void FillOutRconPlayerList(TArray<FRconPlayerData>& PlayerList);
 public:
 	virtual void HandleQuickplayRequest(AUTServerBeaconClient* Beacon, const FString& MatchType, int32 ELORank);
 
@@ -241,6 +244,8 @@ public:
 	// Holds the # of game instances currently running
 	UPROPERTY(Replicated)
 	int32 NumGameInstances;
+
+	bool SendSayToInstance(const FString& User, const FString& FinalMessage);
 
 };
 

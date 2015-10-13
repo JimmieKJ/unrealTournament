@@ -10,6 +10,7 @@
 #include "UTServerBeaconClient.h"
 #include "UTLobbyMatchInfo.generated.h"
 
+
 DECLARE_DELEGATE(FOnMatchInfoUpdated);
 DECLARE_DELEGATE(FOnRulesetUpdated);
 
@@ -62,6 +63,8 @@ struct FPlayerListInfo
 	}
 
 };
+
+class AUTServerBeaconLobbyClient;
 
 UCLASS(notplaceable)
 class UNREALTOURNAMENT_API AUTLobbyMatchInfo : public AInfo
@@ -138,7 +141,9 @@ public:
 	// Holds a list of Unique IDs of players who are currently in the match.  When a player returns to lobby if their ID is in this list, they will be re-added to the match.
 	UPROPERTY(Replicated)
 	TArray<FPlayerListInfo> PlayersInMatchInstance;
-	
+
+	~AUTLobbyMatchInfo();
+
 	// Cache some data
 	virtual void PreInitializeComponents() override;
 
@@ -388,6 +393,12 @@ public:
 
 	// When was this server launched.
 	float InstanceLaunchTime;
+
+	FString GetOwnerName();
+
+	// A reference to the beacon client for communication to this instance..
+	UPROPERTY()
+	AUTServerBeaconLobbyClient* InstanceBeacon;
 
 };
 

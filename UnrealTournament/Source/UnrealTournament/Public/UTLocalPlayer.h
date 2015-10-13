@@ -20,12 +20,14 @@ class SUTQuickMatch;
 class SUWLoginDialog;
 class SUWRedirectDialog;
 class SUWMapVoteDialog;
+class SUTAdminDialog;
 class SUTReplayWindow;
 class FFriendsAndChatMessage;
 class AUTPlayerState;
 class SUWMatchSummary;
 class SUTJoinInstance;
 class FServerData;
+class AUTRconAdminInfo;
 
 DECLARE_MULTICAST_DELEGATE_ThreeParams(FPlayerOnlineStatusChanged, class UUTLocalPlayer*, ELoginStatus::Type, const FUniqueNetId&);
 
@@ -114,6 +116,7 @@ public:
 	virtual void HideMenu();
 	virtual void OpenTutorialMenu();
 	virtual void ShowToast(FText ToastText);	// NOTE: Need to add a type/etc so that they can be skinned better.
+	virtual void ShowAdminMessage(FString Message);
 
 	virtual void MessageBox(FText MessageTitle, FText MessageText);
 
@@ -182,6 +185,8 @@ protected:
 	void OnSwitchUserResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
 	TSharedPtr<class SUTQuickMatch> QuickMatchDialog;
 	TSharedPtr<class SUWLoginDialog> LoginDialog;
+
+	TSharedPtr<class SUTAdminDialog> AdminDialog;
 
 #endif
 
@@ -720,10 +725,15 @@ public:
 	UPROPERTY(config)
 	int32 ChallengeRevisionNumber;
 
+	void ShowAdminDialog(AUTRconAdminInfo* AdminInfo);
+	void AdminDialogClosed();
+
 #if !UE_SERVER
+
 	virtual int32 NumDialogsOpened()
 	{
 		return OpenDialogs.Num();
 	}
 #endif
+
 };

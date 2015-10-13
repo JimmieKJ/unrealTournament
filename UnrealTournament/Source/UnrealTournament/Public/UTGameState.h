@@ -469,6 +469,8 @@ public:
 	/** Current index to use as basis for next selection in Taunt list. */
 	UPROPERTY()
 		int32 TauntSelectionIndex;
+
+	virtual void FillOutRconPlayerList(TArray<FRconPlayerData>& PlayerList);
 };
 
 

@@ -1566,3 +1566,44 @@ float AUTGameState::MatchHighlightScore(AUTPlayerState* PS)
 	}
 	return BestHighlightScore;
 }
+
+void AUTGameState::FillOutRconPlayerList(TArray<FRconPlayerData>& PlayerList)
+{
+	for (int32 i = 0; i < PlayerList.Num(); i++)
+	{
+		PlayerList[i].bPendingDelete = true;
+	}
+
+	for (int32 i = 0; i < PlayerArray.Num(); i++)
+	{
+		if (PlayerArray[i] && !PlayerArray[i]->bPendingKillPending)
+		{
+			APlayerController* PlayerController = Cast<APlayerController>( PlayerArray[i]->GetOwner() );
+			if (PlayerController)
+			{
+				FString PlayerID = PlayerArray[i]->UniqueId.ToString();
+
+				bool bFound = false;
+				for (int32 j = 0; j < PlayerList.Num(); j++)
+				{
+					if (PlayerList[j].PlayerID == PlayerID)
+					{
+						PlayerList[j].bPendingDelete = false;
+						bFound = true;
+						break;
+					}
+				}
+
+				if (!bFound)
+				{
+					AUTPlayerState* UTPlayerState = Cast<AUTPlayerState>(PlayerArray[i]);
+					int32 Rank = UTPlayerState ? UTPlayerState->AverageRank : 0;
+					FString PlayerIP = PlayerController->GetPlayerNetworkAddress();
+					FRconPlayerData PlayerInfo(PlayerArray[i]->PlayerName, PlayerID, PlayerIP, Rank);
+					PlayerList.Add( PlayerInfo );
+				}
+			}
+		}
+	}
+}
+

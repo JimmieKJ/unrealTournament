@@ -876,6 +876,9 @@ namespace EPlayerListContentCommand
 	const FName Ban = FName(TEXT("Ban"));
 	const FName Invite = FName(TEXT("Invite"));
 	const FName UnInvite = FName(TEXT("Uninvite"));
+	const FName ServerKick = FName(TEXT("ServerKick"));
+	const FName ServerBan = FName(TEXT("ServerBan"));
+	const FName SendMessage = FName(TEXT("SendMessage"));
 }
 
 UENUM()
@@ -1114,4 +1117,67 @@ struct FBloodDecalInfo
 	FBloodDecalInfo()
 		: Material(NULL), BaseScale(32.0f, 32.0f), ScaleMultRange(0.8f, 1.2f)
 	{}
+};
+
+USTRUCT()
+struct FRconPlayerData
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY()
+	FString PlayerName;
+
+	UPROPERTY()
+	FString PlayerID;
+
+	UPROPERTY()
+	FString PlayerIP;
+
+	UPROPERTY()
+	int32 AverageRank;
+
+	UPROPERTY()
+	bool bInInstance;
+
+	UPROPERTY()
+	FString InstanceGuid;
+
+	bool bPendingDelete;
+
+	FRconPlayerData()
+		: PlayerName(TEXT(""))
+		, PlayerID(TEXT(""))
+		, PlayerIP(TEXT(""))
+		, AverageRank(0)
+		, bInInstance(false)
+	{
+		bPendingDelete = false;
+	}
+
+	FRconPlayerData(FString inPlayerName, FString inPlayerID, FString inPlayerIP, int32 inRank)
+		: PlayerName(inPlayerName)
+		, PlayerID(inPlayerID)
+		, PlayerIP(inPlayerIP)
+		, AverageRank(inRank)
+		, bInInstance(false)
+	{
+		bPendingDelete = false;
+	}
+
+	FRconPlayerData(FString inPlayerName, FString inPlayerID, FString inPlayerIP, int32 inRank, FString inInstanceGuid)
+		: PlayerName(inPlayerName)
+		, PlayerID(inPlayerID)
+		, PlayerIP(inPlayerIP)
+		, AverageRank(inRank)
+		, InstanceGuid(inInstanceGuid)
+	{
+		bInInstance = InstanceGuid != TEXT("");
+		bPendingDelete = false;
+	}
+
+	static TSharedRef<FRconPlayerData> Make(const FRconPlayerData& Original)
+	{
+		return MakeShareable( new FRconPlayerData(Original.PlayerName, Original.PlayerID, Original.PlayerIP, Original.AverageRank, Original.InstanceGuid));
+	}
+
 };

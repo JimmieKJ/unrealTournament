@@ -204,5 +204,48 @@ void AUTLobbyPC::Say(FString Message)
 	}
 
 	Super::Say(Message);
+}
+
+bool AUTLobbyPC::ServerRconKillMatch_Validate(AUTLobbyMatchInfo* MatchToKill) { return true; }
+void AUTLobbyPC::ServerRconKillMatch_Implementation(AUTLobbyMatchInfo* MatchToKill)
+{
+	if (UTPlayerState == nullptr || !UTPlayerState->bIsRconAdmin)
+	{
+		ClientSay(UTPlayerState, TEXT("Rcon not authenticated"), ChatDestinations::System);
+		return;
+	}
+	
+	AUTLobbyGameState* LobbyGameState = GetWorld()->GetGameState<AUTLobbyGameState>();
+	if (LobbyGameState)
+	{
+		LobbyGameState->AdminKillMatch(MatchToKill);
+	}
+
+}
+
+void AUTLobbyPC::ServerSay_Implementation(const FString& Message, bool bTeamMessage)
+{
+	if (Message.Left(1) == TEXT("@"))
+	{
+		// Remove the @
+		FString TrimmedMessage = Message.Right(Message.Len()-1);
+
+		// Talking to someone directly.
+	
+		int32 Pos = -1;
+		if (TrimmedMessage.FindChar(TEXT(' '), Pos) && Pos > 0)
+		{
+			FString User = TrimmedMessage.Left(Pos);
+			FString FinalMessage = FString::Printf(TEXT("[%s] %s"), *PlayerState->PlayerName, *TrimmedMessage.Right(Message.Len() - Pos - 1));
+			
+			AUTLobbyGameState* LobbyGameState = GetWorld()->GetGameState<AUTLobbyGameState>();
+			if (LobbyGameState && LobbyGameState->SendSayToInstance(User, FinalMessage))
+			{
+				return;
+			}
+		}
+	}
+
+	Super::ServerSay_Implementation(Message, bTeamMessage);
 
 }

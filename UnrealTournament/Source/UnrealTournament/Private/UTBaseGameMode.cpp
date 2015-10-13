@@ -296,11 +296,85 @@ FString AUTBaseGameMode::GetCloudID() const
 
 #if !UE_SERVER
 /**
-	*	Returns the Menu to popup when the user requests a menu
-	**/
+ *	Returns the Menu to popup when the user requests a menu
+ **/
 TSharedRef<SUWindowsDesktop> AUTBaseGameMode::GetGameMenu(UUTLocalPlayer* PlayerOwner) const
 {
 	return SNew(SUTInGameMenu).PlayerOwner(PlayerOwner);
 }
 #endif
 
+void AUTBaseGameMode::SendRconMessage(const FString& DestinationId, const FString &Message)
+{	
+	AUTGameState* UTGameState = Cast<AUTGameState>(GameState);
+	if (UTGameState)
+	{
+		for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
+		{
+			if (DestinationId == TEXT("") || UTGameState->PlayerArray[i]->UniqueId.ToString() == DestinationId)
+			{
+				AUTPlayerState* UTPlayerState = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
+				if (UTPlayerState)
+				{
+					UTPlayerState->ClientReceiveRconMessage(Message);
+				}
+			}
+		}
+	}
+}
+
+void AUTBaseGameMode::RconKick(const FString& NameOrUIDStr, bool bBan, const FString& Reason)
+{
+	AGameState* GS = GetWorld()->GetGameState<AGameState>();
+	AGameSession* GSession = GameSession;
+	if (GS && GSession)
+	{
+		for (int32 i=0; i < GS->PlayerArray.Num(); i++)
+		{
+			if ( (GS->PlayerArray[i]->PlayerName.ToLower() == NameOrUIDStr.ToLower()) ||
+				 (GS->PlayerArray[i]->UniqueId.ToString() == NameOrUIDStr))
+			{
+				APlayerController* PC = Cast<APlayerController>(GS->PlayerArray[i]->GetOwner());
+				if (PC)
+				{
+					if (bBan)
+					{
+						GSession->BanPlayer(PC,FText::FromString(Reason));
+					}
+					else
+					{
+						GSession->KickPlayer(PC, FText::FromString(Reason));
+					}
+				}
+			}
+		}
+	}
+}
+
+void AUTBaseGameMode::RconAuth(AUTBasePlayerController* Admin, const FString& Password)
+{
+	if (Admin)
+	{
+		if (Admin->UTPlayerState && !Admin->UTPlayerState->bIsRconAdmin && !GetDefault<UUTGameEngine>()->RconPassword.IsEmpty())
+		{
+			if (GetDefault<UUTGameEngine>()->RconPassword.Equals(Password, ESearchCase::CaseSensitive))
+			{
+				Admin->ClientSay(Admin->UTPlayerState, TEXT("Rcon authenticated!"), ChatDestinations::System);
+				Admin->UTPlayerState->bIsRconAdmin = true;
+				return;
+			}
+		}
+
+		Admin->ClientSay(Admin->UTPlayerState, TEXT("Rcon password incorrect or unset"), ChatDestinations::System);
+	}
+
+}
+
+void AUTBaseGameMode::RconNormal(AUTBasePlayerController* Admin)
+{
+	if (Admin && Admin->UTPlayerState->bIsRconAdmin)
+	{
+		Admin->ClientSay(Admin->UTPlayerState, TEXT("Rcon status removed!"), ChatDestinations::System);
+		Admin->UTPlayerState->bIsRconAdmin = false;
+	}
+}

@@ -53,9 +53,14 @@ public:
 
 	virtual void Say(FString Message);
 
+	UFUNCTION(server, reliable, withvalidation)
+	virtual void ServerRconKillMatch(AUTLobbyMatchInfo* MatchToKill);
+
 protected:
 	// Will be true when the initial player replication is completed.  At that point it's safe to bring up the menu
 	bool bInitialReplicationCompleted;
+
+	virtual void ServerSay_Implementation(const FString& Message, bool bTeamMessage);
 
 };
 

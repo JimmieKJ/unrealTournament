@@ -84,6 +84,21 @@ class UNREALTOURNAMENT_API AUTServerBeaconLobbyClient : public AOnlineBeaconClie
 	UFUNCTION(client, reliable)
 	virtual void Instance_ReceiveHubID(FGuid HubGuid);
 
+	UFUNCTION(client, reliable)
+	virtual void Instance_ReceieveRconMessage(const FString& TargetUniqueId, const FString& AdminMessage);
+
+	UFUNCTION(client, reliable)
+	virtual void Instance_ReceiveUserMessage(const FString& TargetUniqueId, const FString& Message);
+
+	UFUNCTION(client, reliable)
+	virtual void Instance_ForceShutdown();
+
+	UFUNCTION(client, reliable)
+	virtual void Instance_Kick(const FString& TargetUniqueId);
+
+	UFUNCTION(client, reliable)
+	virtual void Instance_AuthorizeAdmin(const FString& AdminId, bool bIsAdmin);
+
 protected:
 
 	// Will be set to true when the game instance is empty and has asked the lobby to kill it

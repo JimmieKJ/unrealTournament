@@ -63,6 +63,7 @@ struct FEmoteRepInfo
 };
 
 class AUTReplicatedMapInfo;
+class AUTRconAdminInfo;
 
 UCLASS()
 class UNREALTOURNAMENT_API AUTPlayerState : public APlayerState, public IUTTeamInterface
@@ -230,7 +231,7 @@ public:
 	UPROPERTY(BlueprintReadOnly, replicated, Category = PlayerState)
 	AUTPlayerState* LastKillerPlayerState;
 
-	UPROPERTY(BlueprintReadOnly, Category = PlayerState)
+	UPROPERTY(BlueprintReadOnly, Category = PlayerState, replicated)
 	bool bIsRconAdmin;
 
 	UPROPERTY(BlueprintReadOnly, replicated, Category = PlayerState)
@@ -708,6 +709,10 @@ public:
 	/** Transient, used to sort players */
 	UPROPERTY()
 		float MatchHighlightScore;
+
+	UFUNCTION(Client, Reliable)
+	virtual void ClientReceiveRconMessage(const FString& Message);
+
 };
 
 

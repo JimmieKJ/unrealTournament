@@ -21,55 +21,60 @@ void SUWToast::Construct(const FArguments& InArgs)
 		.VAlign(VAlign_Fill)
 		.HAlign(HAlign_Fill)
 		[
-			SNew(SVerticalBox)
+			BuildToast(InArgs)
+		];
+}
 
-			//Top Empty Section
-			+ SVerticalBox::Slot()						
-			.Padding(0.0f, 5.0f, 0.0f, 5.0f)
-			.VAlign(VAlign_Fill)
-			.HAlign(HAlign_Fill)
+TSharedRef<SWidget> SUWToast::BuildToast(const FArguments& InArgs)
+{
+	return SNew(SVerticalBox)
+	
+	//Top Empty Section
+	+ SVerticalBox::Slot()						
+	.Padding(0.0f, 5.0f, 0.0f, 5.0f)
+	.VAlign(VAlign_Fill)
+	.HAlign(HAlign_Fill)
 
-			// The content section
-			+ SVerticalBox::Slot()													
-			.Padding(0.0f,0.05, 0.05, 15.0f)
-			.AutoHeight()
-			.HAlign(HAlign_Fill)
+	// The content section
+	+ SVerticalBox::Slot()													
+	.Padding(0.0f,0.05, 0.05, 15.0f)
+	.AutoHeight()
+	.HAlign(HAlign_Fill)
+	[
+		SNew(SHorizontalBox)
+		+SHorizontalBox::Slot()
+		.HAlign(HAlign_Center)
+		[
+			SNew(SBox)
+			.HeightOverride(130)
 			[
-				SNew(SHorizontalBox)
-				+SHorizontalBox::Slot()
-				.HAlign(HAlign_Center)
+				SNew(SOverlay)
+				+SOverlay::Slot()
 				[
-					SNew(SBox)
-					.HeightOverride(130)
+					SNew( SImage )		
+					.Image(SUWindowsStyle::Get().GetBrush("UT.Toast.Background"))
+				]
+				+SOverlay::Slot()
+				[
+					SNew(SVerticalBox)
+					+SVerticalBox::Slot()
+					.Padding(16.0f, 16.0f, 16.0f, 16.0f)
+					.VAlign(VAlign_Center)
+					.HAlign(HAlign_Center)
 					[
-						SNew(SOverlay)
-						+SOverlay::Slot()
+						SNew(SHorizontalBox)
+						+SHorizontalBox::Slot()
+						.AutoWidth()
 						[
-							SNew( SImage )		
-							.Image(SUWindowsStyle::Get().GetBrush("UT.Toast.Background"))
-						]
-						+SOverlay::Slot()
-						[
-							SNew(SVerticalBox)
-							+SVerticalBox::Slot()
-							.Padding(16.0f, 16.0f, 16.0f, 16.0f)
-							.VAlign(VAlign_Center)
-							.HAlign(HAlign_Center)
-							[
-								SNew(SHorizontalBox)
-								+SHorizontalBox::Slot()
-								.AutoWidth()
-								[
-									SNew(STextBlock)
-									.Text(InArgs._ToastText)
-									.TextStyle(SUWindowsStyle::Get(), "UT.Toast.TextStyle")
-								]
-							]
+							SNew(STextBlock)
+							.Text(InArgs._ToastText)
+							.TextStyle(SUWindowsStyle::Get(), "UT.Toast.TextStyle")
 						]
 					]
 				]
 			]
-		];
+		]
+	];
 
 }
 
@@ -78,7 +83,7 @@ void SUWToast::Tick( const FGeometry& AllottedGeometry, const double InCurrentTi
 	// Track the change
 	Lifetime -= InDeltaTime;
 
-	float FadeTime = InitialLifetime * 0.2;
+	float FadeTime = 0.5; // InitialLifetime * 0.2;
 	float Alpha = 1.0f;
 	// Check to see if we should be fading
 

@@ -234,10 +234,13 @@ void SUPlayerListPanel::GetMenuContent(FString SearchTag, TArray<FMenuOptionData
 
 	MenuOptions.Empty();
 
-	if (!TrackedPlayers[Idx]->bInInstance)
+	// Showing a player card requires a valid player state which players in an instance might not have.
+	if (!TrackedPlayers[Idx]->bIsInMatch)
 	{
 		MenuOptions.Add(FMenuOptionData(NSLOCTEXT("PlayerListSubMenu","ShowPlayerCard","Player Card"), EPlayerListContentCommand::PlayerCard));
 	}
+
+	AUTPlayerState* OwnerPlayerState = Cast<AUTPlayerState>(PlayerOwner->PlayerController->PlayerState);
 
 	bool bIsHost = false;
 	bool bTeamGame = false;
@@ -287,6 +290,21 @@ void SUPlayerListPanel::GetMenuContent(FString SearchTag, TArray<FMenuOptionData
 		
 		}
 	}
+
+	if (OwnerPlayerState && OwnerPlayerState->bIsRconAdmin)
+	{
+		MenuOptions.Add(FMenuOptionData());
+		MenuOptions.Add(FMenuOptionData(NSLOCTEXT("PlayerListSubMenu","ServerKick","Admin Kick"), EPlayerListContentCommand::ServerKick));
+		MenuOptions.Add(FMenuOptionData(NSLOCTEXT("PlayerListSubMenu","ServerBan","Admin Ban"), EPlayerListContentCommand::ServerBan));
+	}
+
+	if (Cast<AUTLobbyPlayerState>(PlayerOwner->PlayerController->PlayerState) != NULL && TrackedPlayers[Idx]->bInInstance)
+	{
+		MenuOptions.Add(FMenuOptionData());
+		MenuOptions.Add(FMenuOptionData(NSLOCTEXT("PlayerListSubMenu","Message","Send Message"), EPlayerListContentCommand::SendMessage));
+	}
+
+
 }
 
 int32 SUPlayerListPanel::IsTracked(const FUniqueNetIdRepl& PlayerID)
@@ -667,6 +685,21 @@ void SUPlayerListPanel::OnSubMenuSelect(FName Tag, TSharedPtr<FTrackedPlayer> In
 				LobbyPlayerState->CurrentMatch->ServerInvitePlayer(TargetPlayerState, false);
 			}
 		
+		}
+		else if ((Tag == EPlayerListContentCommand::ServerKick || Tag == EPlayerListContentCommand::ServerBan) && TargetPlayerState != NULL)
+		{
+			AUTBasePlayerController* PC = Cast<AUTBasePlayerController>(PlayerOwner->PlayerController);
+			if (PC)
+			{
+				PC->RconKick(TargetPlayerState->UniqueId.ToString(), Tag == EPlayerListContentCommand::ServerBan);
+			}
+		}
+		else if ((Tag == EPlayerListContentCommand::SendMessage))
+		{
+			if (ConnectedChatPanel.IsValid())
+			{
+				ConnectedChatPanel->SetChatText(FString::Printf(TEXT("@%s "), *InItem->PlayerName));
+			}
 		}
 	}
 }

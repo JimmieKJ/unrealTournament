@@ -20,6 +20,7 @@
 #include "Slate/SUTStyle.h"
 #include "Slate/SUWDialog.h"
 #include "Slate/SUWToast.h"
+#include "Slate/SUTAdminMessage.h"
 #include "Slate/SUWInputBox.h"
 #include "Slate/SUWLoginDialog.h"
 #include "Slate/SUWPlayerSettingsDialog.h"
@@ -35,6 +36,7 @@
 #include "Slate/SUWMapVoteDialog.h"
 #include "Slate/SUTReplayWindow.h"
 #include "Slate/SUTReplayMenu.h"
+#include "Slate/SUTAdminDialog.h"
 #include "UTAnalytics.h"
 #include "FriendsAndChat.h"
 #include "Runtime/Analytics/Analytics/Public/Analytics.h"
@@ -1023,6 +1025,32 @@ void UUTLocalPlayer::RemoveChatArchiveChangedDelegate(FDelegateHandle DelegateHa
 	ChatArchiveChanged.Remove(DelegateHandle);
 }
 
+
+void UUTLocalPlayer::ShowAdminMessage(FString Message)
+{
+#if !UE_SERVER
+
+	// Build the Toast to Show...
+
+	TSharedPtr<SUTAdminMessage> Msg;
+	SAssignNew(Msg, SUTAdminMessage)
+		.PlayerOwner(this)
+		.Lifetime(10)
+		.ToastText(FText::FromString(Message));
+
+	if (Msg.IsValid())
+	{
+		ToastList.Add(Msg);
+
+		// Auto show if it's the first toast..
+		if (ToastList.Num() == 1)
+		{
+			AddToastToViewport(ToastList[0]);
+		}
+	}
+#endif
+
+}
 
 void UUTLocalPlayer::ShowToast(FText ToastText)
 {
@@ -3183,6 +3211,7 @@ void UUTLocalPlayer::CloseAllUI(bool bExceptDialogs)
 	YoutubeDialog.Reset();
 	YoutubeConsentDialog.Reset();
 
+	AdminDialogClosed();
 	CloseMapVote();
 	CloseMatchSummary();
 #endif
@@ -3489,3 +3518,38 @@ void UUTLocalPlayer::OnReadTitleFileComplete(bool bWasSuccessful, const FString&
 		}
 	}
 }
+
+
+void UUTLocalPlayer::ShowAdminDialog(AUTRconAdminInfo* AdminInfo)
+{
+#if !UE_SERVER
+
+	if (ViewportClient->ViewportConsole)
+	{
+		ViewportClient->ViewportConsole->FakeGotoState(NAME_None);
+	}
+	
+	if (!AdminDialog.IsValid())
+	{
+		SAssignNew(AdminDialog,SUTAdminDialog)
+			.PlayerOwner(this)
+			.AdminInfo(AdminInfo);
+
+		if ( AdminDialog.IsValid() ) 
+		{
+			OpenDialog(AdminDialog.ToSharedRef(),200);
+		}
+	}
+#endif
+}
+
+void UUTLocalPlayer::AdminDialogClosed()
+{
+#if !UE_SERVER
+	if (AdminDialog.IsValid())
+	{
+		AdminDialog.Reset();
+	}
+#endif
+}
+

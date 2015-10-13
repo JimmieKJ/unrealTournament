@@ -180,6 +180,8 @@ public:
 
 	void RouteBufferedChat();
 
+	virtual void SetChatText(const FString& NewText);
+
 protected:
 	// The Player Owner that owns this panel
 	TWeakObjectPtr<UUTLocalPlayer> PlayerOwner;

@@ -94,7 +94,7 @@ void AUTServerBeaconLobbyClient::Lobby_NotifyInstanceIsReady_Implementation(uint
 	AUTLobbyGameState* LobbyGameState = GetWorld()->GetGameState<AUTLobbyGameState>();
 	if (LobbyGameState)
 	{
-		LobbyGameState->GameInstance_Ready(InstanceID, InstanceGUID, MapName);
+		LobbyGameState->GameInstance_Ready(InstanceID, InstanceGUID, MapName, this);
 		Instance_ReceiveHubID(LobbyGameState->HubGuid);
 	}
 
@@ -263,5 +263,60 @@ void AUTServerBeaconLobbyClient::Instance_ReceiveHubID_Implementation(FGuid HubG
 	if (UTGameState)
 	{
 		UTGameState->HubGuid = HubGuid;
+	}
+}
+
+void AUTServerBeaconLobbyClient::Instance_ReceieveRconMessage_Implementation(const FString& TargetUniqueId, const FString& AdminMessage)
+{
+	AUTBaseGameMode* GameMode = GetWorld()->GetAuthGameMode<AUTBaseGameMode>();
+	if (GameMode)
+	{
+		GameMode->SendRconMessage(TargetUniqueId, AdminMessage);
+	}
+}
+void AUTServerBeaconLobbyClient::Instance_ReceiveUserMessage_Implementation(const FString& TargetUniqueId, const FString& Message)
+{
+	for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
+	{
+		AUTBasePlayerController* UTPC = Cast<AUTBasePlayerController>(*Iterator);
+		if (UTPC != nullptr)
+		{
+			if (UTPC->PlayerState && UTPC->PlayerState->UniqueId.ToString() == TargetUniqueId)
+			{
+				UTPC->ClientSay(NULL, Message, ChatDestinations::Lobby);
+			}
+		}
+	}
+}
+
+void AUTServerBeaconLobbyClient::Instance_ForceShutdown_Implementation()
+{
+	AUTGameMode* GameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
+	if (GameMode)
+	{
+		GameMode->SendEveryoneBackToLobby();
+		Empty();
+	}
+}
+
+void AUTServerBeaconLobbyClient::Instance_Kick_Implementation(const FString& TargetUniqueId)
+{
+	AUTGameMode* GameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
+	if (GameMode)
+	{
+		GameMode->RconKick(TargetUniqueId, false, TEXT(""));
+	}
+}
+
+void AUTServerBeaconLobbyClient::Instance_AuthorizeAdmin_Implementation(const FString& AdminId, bool bIsAdmin)
+{
+	AUTGameMode* GameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
+	if (GameMode)
+	{
+		AUTGameSession* Session = Cast<AUTGameSession>(GameMode->GameSession);
+		if (Session)
+		{
+			Session->AcknowledgeAdmin(AdminId, bIsAdmin);
+		}
 	}
 }

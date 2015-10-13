@@ -18,6 +18,8 @@ namespace EInputMode
 	};
 }
 
+class AUTRconAdminInfo;
+
 UCLASS()
 class UNREALTOURNAMENT_API AUTBasePlayerController : public APlayerController , public IUTTeamInterface
 {
@@ -154,6 +156,12 @@ public:
 	virtual void ServerRconAuth(const FString& Password);
 
 	UFUNCTION(Exec)
+	virtual void RconNormal();
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	virtual void ServerRconNormal();
+
+	UFUNCTION(Exec)
 	virtual void RconExec(FString Command);
 
 	UFUNCTION(Server, Reliable, WithValidation)
@@ -164,6 +172,12 @@ public:
 
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerRconKick(const FString& NameOrUIDStr, bool bBan, const FString& Reason);
+
+	UFUNCTION(Exec)
+	virtual void RconMessage(const FString& DestinationId, const FString &Message);
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	virtual void ServerRconMessage(const FString& DestinationId, const FString &Message);
 
 	// Let the game's player controller know there was a network failure message.
 	virtual void HandleNetworkFailureMessage(enum ENetworkFailure::Type FailureType, const FString& ErrorString);
@@ -193,5 +207,6 @@ public:
 	TEnumAsByte<EInputMode::Type> InputMode;
 #endif
 
-
+	virtual void ShowAdminDialog(AUTRconAdminInfo* AdminInfo);
+	virtual void ShowAdminMessage(const FString& Message);
 };

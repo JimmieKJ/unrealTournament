@@ -9,7 +9,17 @@
 #include "UTLevelSummary.h"
 #include "UTReplicatedMapInfo.h"
 #include "UTReplicatedGameRuleset.h"
+#include "UTServerBeaconLobbyClient.h"
 
+AUTLobbyMatchInfo::~AUTLobbyMatchInfo()
+{
+	// Kill any assoicated instance beacon
+	if (InstanceBeacon)
+	{
+		InstanceBeacon->Destroy();
+		InstanceBeacon = NULL;
+	}
+}
 
 AUTLobbyMatchInfo::AUTLobbyMatchInfo(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer
@@ -1202,3 +1212,12 @@ void AUTLobbyMatchInfo::ServerInvitePlayer_Implementation(AUTLobbyPlayerState* W
 		}
 	}
 }
+
+FString AUTLobbyMatchInfo::GetOwnerName()
+{
+	TWeakObjectPtr<AUTPlayerState> PS = GetOwnerPlayerState();
+	return PS.IsValid() ? PS->PlayerName : TEXT("N/A");
+}
+
+
+

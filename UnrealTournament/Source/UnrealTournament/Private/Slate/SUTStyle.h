@@ -21,11 +21,13 @@ private:
 	static TSharedPtr<class FSlateStyleSet> UWindowsStyleInstance;
 
 	static void SetFonts(TSharedRef<FSlateStyleSet> StyleRef);
+	static void SetIcons(TSharedRef<FSlateStyleSet> StyleRef);
 	static void SetCommonStyle(TSharedRef<FSlateStyleSet> StyleRef);
 	static void SetAvatars(TSharedRef<FSlateStyleSet> StyleRef);
 	static void SetRankBadges(TSharedRef<FSlateStyleSet> StyleRef);
 	static void SetChallengeBadges(TSharedRef<FSlateStyleSet> StyleRef);
 	static void SetContextMenus(TSharedRef<FSlateStyleSet> StyleRef);
+	static void SetServerBrowser(TSharedRef<FSlateStyleSet> StyleRef);
 
 	static FSlateSound ButtonPressSound;
 	static FSlateSound ButtonHoverSound;

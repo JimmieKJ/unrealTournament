@@ -3392,7 +3392,10 @@ void AUTPlayerController::SkullPickedUp()
 void AUTPlayerController::DebugTest(FString TestCommand)
 {
 	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
-	if (LP) LP->ChallengeCompleted(NAME_ChallengeDMFFATwo,2);
+	if (LP) 
+	{
+		LP->ShowAdminMessage(TEXT("This is a test of the admin message.  It's only a test.  Please be kind and rewind you stinky mo-fo and remember, no matter where you go there you are"));
+	}
 }
 
 void AUTPlayerController::ClientRequireContentItemListComplete_Implementation()

@@ -168,7 +168,7 @@ TSharedRef<ITableRow> SUMatchPanel::OnGenerateWidgetForMatchList( TSharedPtr<FTr
 	int32 Index = TrackedMatches.Find(InItem) + 1;
 
 	return SNew(STableRow<TSharedPtr<FSimpleListData>>, OwnerTable)
-		.Style(SUTStyle::Get(),"UT.MatchList.Row")
+		.Style(SUTStyle::Get(),"UT.List.Row")
 		.Padding(FMargin(1.0,1.0,1.0,1.0))
 		[
 			SNew(SVerticalBox)

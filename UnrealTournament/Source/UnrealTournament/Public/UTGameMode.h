@@ -625,9 +625,6 @@ public:
 	UPROPERTY(Config)
 	FString ForcedInstanceGameOptions;
 
-	UPROPERTY(Config)
-	bool bLobbyAllowJoinInProgress;
-
 	bool bDedicatedInstance;
 
 protected:
@@ -657,12 +654,13 @@ protected:
 	// Gets the updated score information
 	virtual void UpdateLobbyScore(FMatchUpdate& MatchUpdate);
 
-	virtual void SendEveryoneBackToLobby();
 	
 	// When players leave/join or during the end of game state
 	virtual void UpdatePlayersPresence();
 
 public:
+	virtual void SendEveryoneBackToLobby();
+
 #if !UE_SERVER
 	void BuildPaneHelper(TSharedPtr<SHorizontalBox>& HBox, TSharedPtr<SVerticalBox>& LeftPane, TSharedPtr<SVerticalBox>& RightPane);
 	void NewPlayerInfoLine(TSharedPtr<SVerticalBox> VBox, FText DisplayName, TSharedPtr<TAttributeStat> Stat, TArray<TSharedPtr<struct TAttributeStat> >& StatList);
