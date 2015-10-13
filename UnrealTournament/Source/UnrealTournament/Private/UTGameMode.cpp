@@ -692,12 +692,13 @@ AUTBot* AUTGameMode::AddBot(uint8 TeamNum)
 */		}
 		UUTBotCharacter* SelectedCharacter = NULL;
 		int32 TotalStars = 0;
-		if (bOfflineChallenge)
+		TWeakObjectPtr<UUTChallengeManager> ChallengeManager = Cast<UUTGameEngine>(GEngine)->GetChallengeManager();
+		if (bOfflineChallenge && ChallengeManager.IsValid())
 		{
 			APlayerController* LocalPC = GEngine->GetFirstLocalPlayerController(GetWorld());
 			UUTLocalPlayer* LP = LocalPC ? Cast<UUTLocalPlayer>(LocalPC->Player) : NULL;
 			TotalStars = LP ? LP->GetTotalChallengeStars() : 0;
-			SelectedCharacter = UUTChallengeManager::StaticClass()->GetDefaultObject<UUTChallengeManager>()->ChooseBotCharacter(this, TeamNum, TotalStars);
+			SelectedCharacter = ChallengeManager->ChooseBotCharacter(this, TeamNum, TotalStars);
 		}
 		if (SelectedCharacter == NULL)
 		{
