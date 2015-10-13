@@ -318,8 +318,8 @@ protected:
 
 	FReply ChangeTab(int32 WidgetTag);
 
-	void AddPlayerPanel(TSharedPtr<SWidgetSwitcher> Switcher, TSharedPtr<SHorizontalBox> ButtonBox);
-	void AddMatchPanel(TSharedPtr<SWidgetSwitcher> Switcher, TSharedPtr<SHorizontalBox> ButtonBox);
+	void AddPlayerPanel(TSharedPtr<SHorizontalBox> ButtonBox);
+	void AddMatchPanel(TSharedPtr<SHorizontalBox> ButtonBox);
 
 	TSharedRef<ITableRow> OnGenerateWidgetForPlayerList( TSharedPtr<FRconPlayerData> InItem, const TSharedRef<STableViewBase>& OwnerTable );
 	TSharedRef<ITableRow> OnGenerateWidgetForMatchList( TSharedPtr<FRconMatchData> InItem, const TSharedRef<STableViewBase>& OwnerTable );

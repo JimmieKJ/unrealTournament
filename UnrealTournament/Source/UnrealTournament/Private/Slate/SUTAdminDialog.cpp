@@ -73,15 +73,17 @@ void SUTAdminDialog::Construct(const FArguments& InArgs)
 		];
 	}
 
-	AddPlayerPanel(Switcher, ButtonBox);
-	if ( GetPlayerOwner()->GetWorld()->GetGameState<AUTLobbyGameState>() != NULL)
+	if (Switcher.IsValid())
 	{
-		AddMatchPanel(Switcher, ButtonBox);
+		AddPlayerPanel(ButtonBox);
+		if ( GetPlayerOwner()->GetWorld()->GetGameState<AUTLobbyGameState>() != NULL)
+		{
+			AddMatchPanel(ButtonBox);
+		}
 	}
-
 }
 
-void SUTAdminDialog::AddPlayerPanel(TSharedPtr<SWidgetSwitcher> Switcher, TSharedPtr<SHorizontalBox> ButtonBox)
+void SUTAdminDialog::AddPlayerPanel(TSharedPtr<SHorizontalBox> ButtonBox)
 {
 	TSharedPtr<SUTButton> TabButton;
 
@@ -258,7 +260,7 @@ void SUTAdminDialog::AddPlayerPanel(TSharedPtr<SWidgetSwitcher> Switcher, TShare
 	];
 }
 
-void SUTAdminDialog::AddMatchPanel(TSharedPtr<SWidgetSwitcher> Switcher, TSharedPtr<SHorizontalBox> ButtonBox)
+void SUTAdminDialog::AddMatchPanel(TSharedPtr<SHorizontalBox> ButtonBox)
 {
 	TSharedPtr<SUTButton> TabButton;
 
