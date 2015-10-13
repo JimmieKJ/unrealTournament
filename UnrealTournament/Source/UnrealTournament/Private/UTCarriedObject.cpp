@@ -477,6 +477,7 @@ void AUTCarriedObject::SendHome()
 
 void AUTCarriedObject::MoveToHome()
 {
+	DetachRootComponentFromParent(true);
 	AssistTracking.Empty();
 	HolderRescuers.Empty();
 	if (HomeBase != NULL)
@@ -585,6 +586,15 @@ void AUTCarriedObject::OnRep_ReplicatedMovement()
 	if (AttachmentReplication.AttachParent == NULL)
 	{
 		Super::OnRep_ReplicatedMovement();
+		if ((ObjectState == CarriedObjectState::Home) && (HomeBase != NULL))
+		{
+			const FVector BaseLocation = HomeBase->GetActorLocation() + HomeBase->GetActorRotation().RotateVector(HomeBaseOffset) + FVector(0.f, 0.f, Collision->GetScaledCapsuleHalfHeight());
+			MovementComponent->Velocity = FVector(0.0f, 0.0f, 0.0f);
+			if ((BaseLocation - GetActorLocation()).SizeSquared() > 1.f)
+			{
+				SetActorLocationAndRotation(BaseLocation, HomeBase->GetActorRotation());
+			}
+		}
 	}
 }
 void AUTCarriedObject::GatherCurrentMovement()

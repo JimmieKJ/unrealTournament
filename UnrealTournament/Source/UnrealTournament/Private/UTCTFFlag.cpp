@@ -128,6 +128,10 @@ void AUTCTFFlag::OnObjectStateChanged()
 		else
 		{
 			GetWorldTimerManager().ClearTimer(SendHomeWithNotifyHandle);
+			if ((ObjectState == CarriedObjectState::Home) && (AttachmentReplication.AttachParent == NULL))
+			{
+				MoveToHome();
+			}
 		}
 	}
 	if (GetMesh())
