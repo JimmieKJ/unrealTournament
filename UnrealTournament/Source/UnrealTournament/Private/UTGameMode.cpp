@@ -1719,6 +1719,14 @@ void AUTGameMode::AwardXP()
 				{
 					UTPS->ApplyBotXPPenalty(GameDifficulty);
 				}
+				if (bOfflineChallenge && (XPMultiplier > 0.f))
+				{
+					UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(PC->Player);
+					if (LP)
+					{
+						UTPS->GiveXP(FNewChallengeXP(LP->EarnedStars));
+					}
+				}
 				if (bXPCheatEnabled)
 				{
 					UTPS->GiveXP(FNewKillAwardXP(250000));

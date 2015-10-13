@@ -441,7 +441,6 @@ void AUTBasePlayerController::ClientSetPresence_Implementation(const FString& Ne
 	}
 }
 
-
 void AUTBasePlayerController::ClientGenericInitialization_Implementation()
 {
 	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
@@ -465,7 +464,6 @@ void AUTBasePlayerController::ServerReceiveRank_Implementation(int32 NewAverageR
 		PS->TotalChallengeStars = TotalStars;
 	}
 }
-
 
 void AUTBasePlayerController::ClientRequireContentItem_Implementation(const FString& PakFile, const FString& MD5)
 {

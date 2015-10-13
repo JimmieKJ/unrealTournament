@@ -67,6 +67,7 @@ UUTLocalPlayer::UUTLocalPlayer(const class FObjectInitializer& ObjectInitializer
 	QuickMatchLimitTime = -60.0;
 	RosterUpgradeText = FText::GetEmpty();
 	CurrentSessionTrustLevel = 2;
+	EarnedStars = 0;
 }
 
 UUTLocalPlayer::~UUTLocalPlayer()
@@ -3336,7 +3337,7 @@ void UUTLocalPlayer::ChallengeCompleted(FName ChallengeTag, int32 Stars)
 	if (CurrentProfileSettings && Stars > 0)
 	{
 		bool bFound = false;
-		int32 EarnedStars = 0;
+		EarnedStars = 0;
 		for (int32 i = 0 ; i < CurrentProfileSettings->ChallengeResults.Num(); i++)
 		{
 			if (CurrentProfileSettings->ChallengeResults[i].Tag == ChallengeTag)
@@ -3395,7 +3396,7 @@ void UUTLocalPlayer::ChallengeCompleted(FName ChallengeTag, int32 Stars)
 						}
 
 						bool bEarnedRosterUpgrade = (TotalStars / 5 != (TotalStars - EarnedStars) / 5) && UUTChallengeManager::StaticClass()->GetDefaultObject<UUTChallengeManager>()->PlayerTeamRoster.Roster.IsValidIndex(4 + (TotalStars - Stars) / 5);
-						FText ChallengeToast = FText::Format(NSLOCTEXT("Challenge", "GainedStars", "Challenge Completed!  You earned {0} stars."), FText::AsNumber(Stars));
+						FText ChallengeToast = FText::Format(NSLOCTEXT("Challenge", "GainedStars", "Challenge Completed!  You earned {0} stars and {1} Bonus XP."), FText::AsNumber(Stars), FText::AsNumber(EarnedStars * ChallengeManager->XPBonus));
 						ShowToast(ChallengeToast);
 						if (bEarnedRosterUpgrade)
 						{

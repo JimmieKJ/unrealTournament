@@ -111,6 +111,10 @@ class UNREALTOURNAMENT_API UUTChallengeManager : public UObject
 	UPROPERTY()
 	TMap<FName, FUTChallengeInfo> Challenges;
 
+	/** XP bonus per star earned on a challenge. */
+	UPROPERTY()
+		float XPBonus;
+
 	// Holds a list of possible reward tags in sorted order.  In this case however, higher in this list means display first in 
 	// the menu.  This is because we want the original challenge to be at the bottom of the list and since they lack RewardTags they
 	// will get the value of -1.

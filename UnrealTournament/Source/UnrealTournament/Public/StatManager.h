@@ -70,11 +70,14 @@ struct FXPBreakdown
 	/** XP given for defensive objective accomplishments (flag carrier kill, return) */
 	UPROPERTY()
 	int32 DefenseXP;
+	/** XP given for earnings stars on challenges */
+	UPROPERTY()
+		int32 ChallengeXP;
 
 	/** returns sum of all XP awards */
 	inline int32 Total() const
 	{
-		return ScoreXP + KillAwardXP + OffenseXP + DefenseXP;
+		return ScoreXP + KillAwardXP + OffenseXP + DefenseXP + ChallengeXP;
 	}
 
 	void operator+= (const FXPBreakdown& B)
@@ -83,6 +86,7 @@ struct FXPBreakdown
 		KillAwardXP += B.KillAwardXP;
 		OffenseXP += B.OffenseXP;
 		DefenseXP += B.DefenseXP;
+		ChallengeXP += B.ChallengeXP;
 	}
 	FXPBreakdown operator+ (const FXPBreakdown& B) const
 	{
@@ -97,6 +101,7 @@ struct FXPBreakdown
 		KillAwardXP *= B;
 		OffenseXP *= B;
 		DefenseXP *= B;
+		// never scale ChallengeXP
 	}
 	template<typename NumberType>
 	FXPBreakdown operator* (const NumberType B) const
@@ -112,6 +117,7 @@ struct FXPBreakdown
 		KillAwardXP /= B;
 		OffenseXP /= B;
 		DefenseXP /= B;
+		// never scale ChallengeXP
 	}
 	template<typename NumberType>
 	FXPBreakdown operator/ (const NumberType B) const
@@ -153,6 +159,14 @@ struct FNewDefenseXP : public FXPBreakdown
 	: FXPBreakdown(EForceInit::ForceInitToZero)
 	{
 		DefenseXP = Value;
+	}
+};
+struct FNewChallengeXP : public FXPBreakdown
+{
+	FNewChallengeXP(int32 Value)
+	: FXPBreakdown(EForceInit::ForceInitToZero)
+	{
+		ChallengeXP = Value;
 	}
 };
 

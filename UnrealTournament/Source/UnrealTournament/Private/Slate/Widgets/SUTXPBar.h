@@ -47,6 +47,7 @@ protected:
 	FText GetBreakdownText_KillAwardXP() const;
 	FText GetBreakdownText_OffenseXP() const;
 	FText GetBreakdownText_DefenseXP() const;
+	FText GetBreakdownText_ChallengeXP() const;
 	FText GetGainedXPText() const;
 	FText GetCurrentXPText() const;
 	FText GetRemainingXPText() const;

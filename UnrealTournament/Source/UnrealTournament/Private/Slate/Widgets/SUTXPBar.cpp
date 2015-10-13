@@ -137,6 +137,12 @@ TSharedRef<SWidget> SUTXPBar::BuildBreakdownList()
 		.AutoWidth()
 		[
 			BuildBreakdownWidget(TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateSP(this, &SUTXPBar::GetBreakdownText_DefenseXP)), XPColor)
+		]
+		+SHorizontalBox::Slot()
+		.Padding(TAttribute<FMargin>::Create(TAttribute<FMargin>::FGetter::CreateSP(this, &SUTXPBar::GetBreakdownMargin)))
+		.AutoWidth()
+		[
+			BuildBreakdownWidget(TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateSP(this, &SUTXPBar::GetBreakdownText_ChallengeXP)), XPColor)
 		];
 }
 
@@ -199,6 +205,16 @@ FText SUTXPBar::GetBreakdownText_DefenseXP() const
 	if (XPBreakdown.DefenseXP > 0)
 	{
 		return FText::Format(NSLOCTEXT("SUTXPBar", "DefenseXP", " +{0} Defense XP "), FText::AsNumber(XPBreakdown.DefenseXP));
+	}
+	return FText::GetEmpty();
+}
+
+FText SUTXPBar::GetBreakdownText_ChallengeXP() const
+{
+	FXPBreakdown XPBreakdown = GetXPBreakdown();
+	if (XPBreakdown.ChallengeXP > 0)
+	{
+		return FText::Format(NSLOCTEXT("SUTXPBar", "ChallengeXP", " +{0} Challenge XP "), FText::AsNumber(XPBreakdown.ChallengeXP));
 	}
 	return FText::GetEmpty();
 }

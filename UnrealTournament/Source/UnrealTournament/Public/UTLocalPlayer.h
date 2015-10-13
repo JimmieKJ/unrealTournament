@@ -678,6 +678,10 @@ public:
 	UPROPERTY()
 		FText RosterUpgradeText;
 
+	/** Set at end of match if earned new stars. */
+	UPROPERTY()
+		int32 EarnedStars;
+
 	// Returns the Total # of stars collected by this player.
 	int32 GetTotalChallengeStars();
 
