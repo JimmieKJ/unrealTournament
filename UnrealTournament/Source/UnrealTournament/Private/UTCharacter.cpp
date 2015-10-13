@@ -1386,6 +1386,7 @@ void AUTCharacter::StartRagdoll()
 
 	GetCharacterMovement()->StopActiveMovement();
 	GetCharacterMovement()->Velocity = FVector::ZeroVector;
+	bApplyWallSlide = false;
 
 	// set up the custom physics override, if necessary
 	SetRagdollGravityScale(RagdollGravityScale);
