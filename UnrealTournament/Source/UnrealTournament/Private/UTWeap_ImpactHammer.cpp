@@ -164,6 +164,9 @@ void AUTWeap_ImpactHammer::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 						JumpDir = FVector(0.f, 0.f, 1.f);
 					}
 
+					// Moving the hit location to player location seems to fix blood decal collision checks
+					Hit.Location = UTOwner->GetActorLocation();
+
 					UTOwner->UTCharacterMovement->ApplyImpactVelocity(JumpDir, bIsFullImpactImpulse);
 					UUTGameplayStatics::UTPlaySound(GetWorld(), ImpactJumpSound, UTOwner, SRT_AllButOwner);
 					UTOwner->TakeDamage(FinalDamage, FUTPointDamageEvent(FinalDamage, Hit, FireDir, InstantHitInfo[CurrentFireMode].DamageType, FVector(0.f)), UTOwner->Controller, this);
