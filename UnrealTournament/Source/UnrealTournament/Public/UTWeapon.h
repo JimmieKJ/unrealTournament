@@ -208,6 +208,10 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	UPROPERTY(EditAnywhere, Category = "Weapon")
 	TArray<UParticleSystem*> FireEffect;
 
+	/** Max Distance to stretch weapon tracer. */
+	UPROPERTY(EditAnywhere, Category = "Weapon")
+		float MaxTracerDist;
+
 	/** Fire Effect happens once every FireEffectInterval shots */
 	UPROPERTY(EditAnywhere, Category = "Weapon")
 	int32 FireEffectInterval;
