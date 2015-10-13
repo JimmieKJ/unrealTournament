@@ -1244,6 +1244,10 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 		if (bWasSuccessful)
 		{
 			UpdateBaseELOFromCloudData();
+
+			// Set the ranks/etc so the player card is right.
+			AUTBasePlayerController* UTBasePlayer = Cast<AUTBasePlayerController>(PlayerController);
+			if (UTBasePlayer) UTBasePlayer->ServerReceiveRank(GetBaseELORank(), GetRankDuel(), GetRankCTF(), GetRankTDM(), GetRankDM(), GetTotalChallengeStars());
 		}
 	}
 }
@@ -1472,6 +1476,16 @@ int32 UUTLocalPlayer::GetBaseELORank()
 	int32 BestRating = 0;
 	int32 MatchCount = DuelMatchesPlayed + TDMMatchesPlayed + FFAMatchesPlayed + CTFMatchesPlayed;
 	const int32 MatchThreshold = 40;
+
+	// Avoid integer overflow and initial state divide by 0
+	if (MatchCount <= 0)
+	{
+		MatchCount = 1;
+		MatchCount = FMath::Max(MatchCount, DuelMatchesPlayed);
+		MatchCount = FMath::Max(MatchCount, TDMMatchesPlayed);
+		MatchCount = FMath::Max(MatchCount, FFAMatchesPlayed);
+		MatchCount = FMath::Max(MatchCount, CTFMatchesPlayed);
+	}
 
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	int32 ForcedELORank;
