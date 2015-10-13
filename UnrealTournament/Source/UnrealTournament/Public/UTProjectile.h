@@ -200,6 +200,10 @@ class UNREALTOURNAMENT_API AUTProjectile : public AActor, public IUTResetInterfa
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Projectile)
 	bool bMoveFakeToReplicatedPos;
 
+	/** If true, explode instead of bouncing off damageable geometry. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Projectile)
+		bool bDamageOnBounce;
+
 	/** Real projectile for which this projectile is providing visuals */
 	UPROPERTY()
 	AUTProjectile* MasterProjectile;

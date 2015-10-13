@@ -22,6 +22,7 @@ AUTProj_TransDisk::AUTProj_TransDisk(const class FObjectInitializer& ObjectIniti
 	DisruptDestroyTime = 11.f;
 	RemainingHealth = 35;
 	bCanShieldBounce = true;
+	bDamageOnBounce = false;
 	if (CollisionComp != NULL)
 	{
 		CollisionComp->bTraceComplexOnMove = false;

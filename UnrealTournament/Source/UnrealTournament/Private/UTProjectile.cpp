@@ -59,6 +59,7 @@ AUTProjectile::AUTProjectile(const class FObjectInitializer& ObjectInitializer)
 	DamageParams.DamageFalloff = 1.0;
 	Momentum = 50000.0f;
 	InstigatorVelocityPct = 0.f;
+	bDamageOnBounce = true;
 
 	SetReplicates(true);
 	bNetTemporary = false;
@@ -654,7 +655,7 @@ void AUTProjectile::OnStop(const FHitResult& Hit)
 
 void AUTProjectile::OnBounce(const struct FHitResult& ImpactResult, const FVector& ImpactVelocity)
 {
-	if (ImpactResult.Actor.IsValid() && ImpactResult.Actor->bCanBeDamaged)
+	if (bDamageOnBounce && ImpactResult.Actor.IsValid() && ImpactResult.Actor->bCanBeDamaged)
 	{
 		ProcessHit(ImpactResult.Actor.Get(), ImpactResult.Component.Get(), ImpactResult.ImpactPoint, ImpactResult.ImpactNormal);
 		return;
