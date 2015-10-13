@@ -3369,8 +3369,8 @@ void UUTLocalPlayer::ChallengeCompleted(FName ChallengeTag, int32 Stars)
 				if (Challenge)
 				{
 					int32 TotalStars = GetRewardStars(Challenge->RewardTag);
-
-					// ============= Put Actually rewards here.
+					FText ChallengeToast = FText::Format(NSLOCTEXT("Challenge", "GainedStars", "Challenge Completed!  You earned {0} stars."), FText::AsNumber(Stars));
+					ShowToast(ChallengeToast);
 
 					if (Challenge->RewardTag == NAME_REWARD_GoldStars)
 					{
@@ -3396,14 +3396,27 @@ void UUTLocalPlayer::ChallengeCompleted(FName ChallengeTag, int32 Stars)
 						}
 
 						bool bEarnedRosterUpgrade = (TotalStars / 5 != (TotalStars - EarnedStars) / 5) && UUTChallengeManager::StaticClass()->GetDefaultObject<UUTChallengeManager>()->PlayerTeamRoster.Roster.IsValidIndex(4 + (TotalStars - Stars) / 5);
-						FText ChallengeToast = FText::Format(NSLOCTEXT("Challenge", "GainedStars", "Challenge Completed!  You earned {0} stars and {1} Bonus XP."), FText::AsNumber(Stars), FText::AsNumber(EarnedStars * ChallengeManager->XPBonus));
-						ShowToast(ChallengeToast);
 						if (bEarnedRosterUpgrade)
 						{
 							FText OldTeammate = FText::FromName(UUTChallengeManager::StaticClass()->GetDefaultObject<UUTChallengeManager>()->PlayerTeamRoster.Roster[(TotalStars - Stars) / 5]);
 							FText NewTeammate = FText::FromName(UUTChallengeManager::StaticClass()->GetDefaultObject<UUTChallengeManager>()->PlayerTeamRoster.Roster[4 + (TotalStars - Stars) / 5]);
 							RosterUpgradeText = FText::Format(NSLOCTEXT("Challenge", "RosterUpgrade", "Roster Upgrade!  {0} replaces {1}."), OldTeammate, NewTeammate);
 							ShowToast(RosterUpgradeText);
+						}
+					}
+					else if (Challenge->RewardTag == NAME_REWARD_HalloweenStars)
+					{
+						if (TotalStars >= 5)
+						{
+							AwardAchievement(AchievementIDs::ChallengePumpkins5);
+						}
+						if (TotalStars >= 10)
+						{
+							AwardAchievement(AchievementIDs::ChallengePumpkins10);
+						}
+						if (TotalStars >= 15)
+						{
+							AwardAchievement(AchievementIDs::ChallengePumpkins15);
 						}
 					}
 				}

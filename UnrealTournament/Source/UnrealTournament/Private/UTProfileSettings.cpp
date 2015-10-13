@@ -11,6 +11,9 @@ const FName AchievementIDs::ChallengeStars25(TEXT("ChallengeStars25"));
 const FName AchievementIDs::ChallengeStars35(TEXT("ChallengeStars35"));
 const FName AchievementIDs::ChallengeStars45(TEXT("ChallengeStars45"));
 const FName AchievementIDs::PumpkinHead2015(TEXT("PumpkinHead2015"));
+const FName AchievementIDs::ChallengePumpkins5(TEXT("ChallengePumpkins5"));
+const FName AchievementIDs::ChallengePumpkins10(TEXT("ChallengePumpkins10"));
+const FName AchievementIDs::ChallengePumpkins15(TEXT("ChallengePumpkins15"));
 
 UUTProfileSettings::UUTProfileSettings(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
