@@ -1724,9 +1724,10 @@ void AUTGameMode::AwardXP()
 				if (bOfflineChallenge && (XPMultiplier > 0.f))
 				{
 					UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(PC->Player);
-					if (LP)
+					TWeakObjectPtr<UUTChallengeManager> ChallengeManager = Cast<UUTGameEngine>(GEngine)->GetChallengeManager();
+					if (LP && ChallengeManager.IsValid())
 					{
-						UTPS->GiveXP(FNewChallengeXP(LP->EarnedStars));
+						UTPS->GiveXP(FNewChallengeXP(ChallengeManager->XPBonus * LP->EarnedStars/XPMultiplier));
 					}
 				}
 				if (bXPCheatEnabled)
