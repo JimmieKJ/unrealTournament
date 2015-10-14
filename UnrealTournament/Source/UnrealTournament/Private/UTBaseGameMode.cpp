@@ -218,8 +218,8 @@ void AUTBaseGameMode::GameWelcomePlayer(UNetConnection* Connection, FString& Red
 	uint8 MessageType = UNMT_Redirect;
 	for (const FPackageRedirectReference& Redirect : AllRedirects)
 	{
-		FString RedirectPath = Redirect.ToString();
-		FNetControlMessage<NMT_GameSpecific>::Send(Connection, MessageType, RedirectPath);
+		FString RedirectInfo = FString::Printf(TEXT("%s\n%s\n%s"), *Redirect.PackageName, *Redirect.ToString(), *Redirect.PackageChecksum);
+		FNetControlMessage<NMT_GameSpecific>::Send(Connection, MessageType, RedirectInfo);
 	}
 
 	UUTGameEngine* UTEngine = Cast<UUTGameEngine>(GEngine);

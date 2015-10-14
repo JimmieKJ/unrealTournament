@@ -35,20 +35,7 @@ bool UUTDemoNetDriver::ProcessGameSpecificDemoHeader(const TArray<FString>& Game
 			if (Pieces.Num() == 3)
 			{
 				// 0: pak name, 1: URL, 2: checksum
-				bool bNeedsDownload = true;
-				if (Engine != NULL)
-				{
-					FString* Checksum = Engine->MountedDownloadedContentChecksums.Find(Pieces[0]);
-					if (Checksum != NULL && *Checksum == Pieces[2])
-					{
-						bNeedsDownload = false;
-					}
-				}
-				if (bNeedsDownload)
-				{
-					GI->StartRedirectDownload(Pieces[1]);
-					bDownloading = true;
-				}
+				bDownloading = GI->StartRedirectDownload(Pieces[0], Pieces[1], Pieces[2]) || bDownloading;
 			}
 		}
 		if (bDownloading)

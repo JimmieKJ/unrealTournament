@@ -5,6 +5,7 @@
 #include "UnrealNetwork.h"
 #include "Slate/SUWRedirectDialog.h"
 #include "UTDemoNetDriver.h"
+#include "UTGameEngine.h"
 
 UUTGameInstance::UUTGameInstance(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -87,21 +88,35 @@ bool UUTGameInstance::IsAutoDownloadingContent()
 #endif
 }
 
-void UUTGameInstance::StartRedirectDownload(const FString& URL)
+bool UUTGameInstance::StartRedirectDownload(const FString& PakName, const FString& URL, const FString& Checksum)
 {
 #if !UE_SERVER
-	UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(GetFirstGamePlayer());
-	if (LocalPlayer != NULL)
+	UUTGameEngine* Engine = Cast<UUTGameEngine>(GEngine);
+	if (Engine != NULL && !Engine->HasContentWithChecksum(PakName, Checksum))
 	{
-		TSharedRef<SUWRedirectDialog> Dialog = SNew(SUWRedirectDialog)
-			.OnDialogResult(FDialogResultDelegate::CreateUObject(this, &UUTGameInstance::RedirectResult))
-			.DialogTitle(NSLOCTEXT("UTGameViewportClient", "Redirect", "Download"))
-			.RedirectToURL(URL)
-			.PlayerOwner(LocalPlayer);
-		ActiveRedirectDialogs.Add(Dialog);
-		LocalPlayer->OpenDialog(Dialog);
+		UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(GetFirstGamePlayer());
+		if (LocalPlayer != NULL)
+		{
+			TSharedRef<SUWRedirectDialog> Dialog = SNew(SUWRedirectDialog)
+				.OnDialogResult(FDialogResultDelegate::CreateUObject(this, &UUTGameInstance::RedirectResult))
+				.DialogTitle(NSLOCTEXT("UTGameViewportClient", "Redirect", "Download"))
+				.RedirectToURL(URL)
+				.PlayerOwner(LocalPlayer);
+			ActiveRedirectDialogs.Add(Dialog);
+			LocalPlayer->OpenDialog(Dialog);
+
+			return true;
+		}
+		else
+		{
+			return false;
+		}
 	}
+	else
 #endif
+	{
+		return false;
+	}
 }
 
 void UUTGameInstance::HandleGameNetControlMessage(class UNetConnection* Connection, uint8 MessageByte, const FString& MessageStr)
@@ -110,7 +125,13 @@ void UUTGameInstance::HandleGameNetControlMessage(class UNetConnection* Connecti
 	{
 		case UNMT_Redirect:
 		{
-			StartRedirectDownload(MessageStr);
+			TArray<FString> Pieces;
+			MessageStr.ParseIntoArray(Pieces, TEXT("\n"), false);
+			if (Pieces.Num() == 3)
+			{
+				// 0: pak name, 1: URL, 2: checksum
+				StartRedirectDownload(Pieces[0], Pieces[1], Pieces[2]);
+			}
 			break;
 		}
 		default:

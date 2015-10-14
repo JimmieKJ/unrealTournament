@@ -104,6 +104,21 @@ public:
 	virtual void IndexExpansionContent();
 	virtual void AddAssetRegistry(const FString& PakFilename);
 
+	// return whether the given pak with the given checksum is among the downloaded content list
+	// can pass in empty string for checksum to match by filename only
+	bool HasContentWithChecksum(const FString& PakBaseFilename, const FString& Checksum) const
+	{
+		for (int32 i = 0; i < 2; i++)
+		{
+			const FString* FoundChecksum = ((i == 0) ? DownloadedContentChecksums : MountedDownloadedContentChecksums).Find(PakBaseFilename);
+			if (FoundChecksum != NULL && (Checksum.IsEmpty() || *FoundChecksum == Checksum))
+			{
+				return true;
+			}
+		}
+		return false;
+	}
+
 	virtual EBrowseReturnVal::Type Browse(FWorldContext& WorldContext, FURL URL, FString& Error) override;
 
 	FString MD5Sum(const TArray<uint8>& Data);

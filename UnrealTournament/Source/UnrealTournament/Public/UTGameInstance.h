@@ -29,7 +29,9 @@ class UNREALTOURNAMENT_API UUTGameInstance : public UGameInstance
 		return IsAutoDownloadingContent();
 	}
 
-	virtual void StartRedirectDownload(const FString& URL);
+	/** starts download for pak file from redirect if needed
+	 * @return whether download was required */
+	virtual bool StartRedirectDownload(const FString& PakName, const FString& URL, const FString& Checksum);
 
 	inline void SetLastTriedDemo(const FString& NewName)
 	{
