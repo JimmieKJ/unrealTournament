@@ -27,6 +27,8 @@ SUTChallengePanel::~SUTChallengePanel()
 }
 void SUTChallengePanel::ConstructPanel(FVector2D ViewportSize)
 {
+	LevelShot = nullptr;
+
 	SelectedChallenge = NAME_None;
 	ChallengeManager = Cast<UUTGameEngine>(GEngine)->GetChallengeManager();
 
