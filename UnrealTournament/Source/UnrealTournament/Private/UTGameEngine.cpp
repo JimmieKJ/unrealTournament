@@ -634,6 +634,7 @@ void UUTGameEngine::IndexExpansionContent()
 				{
 					FString MD5 = MD5Sum(Data);
 					DownloadedContentChecksums.Add(PakFilename, MD5);
+					MountedDownloadedContentChecksums.Add(PakFilename, MD5);
 				}
 
 				AddAssetRegistry(PakFilename);
