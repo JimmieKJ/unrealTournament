@@ -1353,10 +1353,10 @@ FReply SUWMatchSummary::OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& 
 		}
 
 		//Pass the key event to PlayerInput 
-		if (UTInput->InputKey(InKeyEvent.GetKey(), EInputEvent::IE_Pressed, 1.0f, false))
+		/*if (UTInput->InputKey(InKeyEvent.GetKey(), EInputEvent::IE_Pressed, 1.0f, false))
 		{
 			return FReply::Handled();
-		}
+		}*/
 	}
 
 	return FReply::Unhandled();
@@ -1374,15 +1374,31 @@ FReply SUWMatchSummary::OnKeyUp(const FGeometry& MyGeometry, const FKeyEvent& In
 		}
 	}
 
-	//Pass the key event to PlayerInput 
 	UUTPlayerInput* UTInput = Cast<UUTPlayerInput>(GetPlayerOwner()->PlayerController->PlayerInput);
+	AUTPlayerController* UTPC = Cast<AUTPlayerController>(GetPlayerOwner()->PlayerController);
+
+	if (UTInput != nullptr && UTPC != nullptr)
+	{
+		auto MenuKeys = UTInput->GetKeysForAction("ShowMenu");
+		for (auto& MenuKey : MenuKeys)
+		{
+			if (InKeyEvent.GetKey().GetFName() == MenuKey.Key)
+			{
+				UTPC->execShowMenu();
+				return FReply::Handled();
+			}
+		}
+	}
+
+	//Pass the key event to PlayerInput 
+	/*UUTPlayerInput* UTInput = Cast<UUTPlayerInput>(GetPlayerOwner()->PlayerController->PlayerInput);
 	if (UTInput != nullptr)
 	{
 		if (UTInput->InputKey(InKeyEvent.GetKey(), EInputEvent::IE_Released, 1.0f, false))
 		{
 			return FReply::Handled();
 		}
-	}
+	}*/
 
 	return FReply::Unhandled();
 }
