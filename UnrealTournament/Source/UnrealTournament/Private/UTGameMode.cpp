@@ -686,20 +686,25 @@ AUTBot* AUTGameMode::AddBot(uint8 TeamNum)
 				return A.Skill < B.Skill;
 			});
 
-/*			for (int32 i = 0; i < EligibleBots.Num(); i++)
-			{
-				UE_LOG(UT, Warning, TEXT("%s Skill %f character %s"), *EligibleBots[i]->GetFName().ToString(), EligibleBots[i]->Skill, *EligibleBots[i]->Character.ToString());
-			}
-*/		}
+			/*			for (int32 i = 0; i < EligibleBots.Num(); i++)
+						{
+						UE_LOG(UT, Warning, TEXT("%s Skill %f character %s"), *EligibleBots[i]->GetFName().ToString(), EligibleBots[i]->Skill, *EligibleBots[i]->Character.ToString());
+						}
+						*/
+		}
 		UUTBotCharacter* SelectedCharacter = NULL;
 		int32 TotalStars = 0;
-		TWeakObjectPtr<UUTChallengeManager> ChallengeManager = Cast<UUTGameEngine>(GEngine)->GetChallengeManager();
-		if (bOfflineChallenge && ChallengeManager.IsValid())
+
+		if (Cast<UUTGameEngine>(GEngine))
 		{
-			APlayerController* LocalPC = GEngine->GetFirstLocalPlayerController(GetWorld());
-			UUTLocalPlayer* LP = LocalPC ? Cast<UUTLocalPlayer>(LocalPC->Player) : NULL;
-			TotalStars = LP ? LP->GetTotalChallengeStars() : 0;
-			SelectedCharacter = ChallengeManager->ChooseBotCharacter(this, TeamNum, TotalStars);
+			TWeakObjectPtr<UUTChallengeManager> ChallengeManager = Cast<UUTGameEngine>(GEngine)->GetChallengeManager();
+			if (bOfflineChallenge && ChallengeManager.IsValid())
+			{
+				APlayerController* LocalPC = GEngine->GetFirstLocalPlayerController(GetWorld());
+				UUTLocalPlayer* LP = LocalPC ? Cast<UUTLocalPlayer>(LocalPC->Player) : NULL;
+				TotalStars = LP ? LP->GetTotalChallengeStars() : 0;
+				SelectedCharacter = ChallengeManager->ChooseBotCharacter(this, TeamNum, TotalStars);
+			}
 		}
 		if (SelectedCharacter == NULL)
 		{
