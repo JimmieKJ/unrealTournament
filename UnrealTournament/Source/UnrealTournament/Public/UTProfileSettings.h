@@ -31,6 +31,7 @@ namespace AchievementIDs
 	extern const FName ChallengePumpkins5;
 	extern const FName ChallengePumpkins10;
 	extern const FName ChallengePumpkins15;
+	extern const FName FacePumpkins;
 };
 
 class UUTLocalPlayer;

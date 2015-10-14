@@ -14,6 +14,7 @@ const FName AchievementIDs::PumpkinHead2015(TEXT("PumpkinHead2015"));
 const FName AchievementIDs::ChallengePumpkins5(TEXT("ChallengePumpkins5"));
 const FName AchievementIDs::ChallengePumpkins10(TEXT("ChallengePumpkins10"));
 const FName AchievementIDs::ChallengePumpkins15(TEXT("ChallengePumpkins15"));
+const FName AchievementIDs::FacePumpkins(TEXT("FacePumpkins"));
 
 UUTProfileSettings::UUTProfileSettings(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -447,4 +448,16 @@ void UUTProfileSettings::SetBestTime(FName TimingName, float InBestTime)
 {
 	BestTimes.Add(TimingName, InBestTime);
 	bNeedProfileWriteOnLevelChange = true;
+
+	// hacky halloween reward implementation
+	if (TimingName == AchievementIDs::FacePumpkins && InBestTime >= 6666.0f)
+	{
+		for (TObjectIterator<UUTLocalPlayer> It; It; ++It)
+		{
+			if (It->GetProfileSettings() == this)
+			{
+				It->AwardAchievement(AchievementIDs::FacePumpkins);
+			}
+		}
+	}
 }
