@@ -419,22 +419,22 @@ void AUTShowdownGame::HandleMatchIntermission()
 		}
 	}
 	// sort players by score (highest first)
-	UnsortedPicks.Sort([=](const AUTPlayerState& A, const AUTPlayerState& B){ return A.Score < B.Score; });
+	UnsortedPicks.Sort([&](const AUTPlayerState& A, const AUTPlayerState& B){ return A.Score > B.Score; });
 	// sort team pick order by: winner of previous round last, others sorted by lowest score to highest score
 	TArray<AUTTeamInfo*> SortedTeams = Teams;
 	SortedTeams.Sort([&](const AUTTeamInfo& A, const AUTTeamInfo& B)
 	{
 		if (&A == LastRoundWinner)
 		{
-			return true;
+			return false;
 		}
 		else if (&B == LastRoundWinner)
 		{
-			return false;
+			return true;
 		}
 		else
 		{
-			return A.Score > B.Score;
+			return A.Score < B.Score;
 		}
 	});
 
