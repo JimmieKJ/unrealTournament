@@ -178,9 +178,9 @@ public:
 
 			NewRuleset->Title = TEXT("Team Showdown");
 			NewRuleset->Tooltip = TEXT("Red versus blue team showdown.");
-			NewRuleset->Description = TEXT("Red versus blue team showdown.\n\n<UT.Hub.RulesText_Small>TimeLimit : 2 minute rounds</>\n<UT.Hub.RulesText_Small>Mercy Rule : On</>\n<UT.Hub.RulesText_Small>Maximum players: 10</>");
+			NewRuleset->Description = TEXT("Red versus blue team showdown.\n\n<UT.Hub.RulesText_Small>TimeLimit : 2 minute rounds</>\n<UT.Hub.RulesText_Small>Scoring : Best of 9 rounds</>\n<UT.Hub.RulesText_Small>Maximum players: 8</>");
 			NewRuleset->MinPlayersToStart = 4;
-			NewRuleset->MaxPlayers = 10;
+			NewRuleset->MaxPlayers = 8;
 			NewRuleset->DisplayTexture = TEXT("Texture2D'/Game/RestrictedAssets/UI/GameModeBadges/GB_TDM.GB_TDM'");
 			NewRuleset->GameMode = TEXT("/Script/UnrealTournament.UTTeamShowdownGame");
 			NewRuleset->GameOptions = FString(TEXT("?TimeLimit=2?GoalScore=5")) + GetDefault<UUTEpicDefaultRulesets>()->MutatorAddon;
