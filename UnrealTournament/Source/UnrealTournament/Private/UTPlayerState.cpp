@@ -1798,7 +1798,7 @@ TSharedRef<SWidget> AUTPlayerState::BuildRankInfo()
 				.Image(SUTStyle::Get().GetBrush("UT.Divider"))
 			]
 		];
-
+		
 		int32 Level = GetLevelForXP(PrevXP);
 		int32 LevelXPStart = GetXPForLevel(Level - 1);
 		int32 LevelXPEnd = GetXPForLevel(Level);
@@ -1941,6 +1941,46 @@ TSharedRef<SWidget> AUTPlayerState::BuildRankInfo()
 			]
 
 		];
+
+		AUTPlayerController* PC = Cast<AUTPlayerController>(GetOwner());
+		if (PC)
+		{
+			UUTLocalPlayer* LP = PC->GetUTLocalPlayer();
+			if (LP && LP->GetProfileSettings() && LP->GetProfileSettings()->SkullCount > 0)
+			{				
+				VBox->AddSlot()
+				.Padding(10.0f, 10.0f, 10.0f, 5.0f)
+				.AutoHeight()
+				[
+					SNew(SHorizontalBox)
+					+ SHorizontalBox::Slot()
+					.HAlign(HAlign_Left)
+					.VAlign(VAlign_Center)
+					.AutoWidth()
+					[
+						SNew(SBox)
+						.WidthOverride(300)
+						[
+							SNew(STextBlock)
+							.Text(NSLOCTEXT("AUTPlayerState", "SkullsCount", "Skulls Collected: "))
+							.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
+							.ColorAndOpacity(FLinearColor::Gray)
+						]
+					]
+					
+					+ SHorizontalBox::Slot()
+					.HAlign(HAlign_Left)
+					.VAlign(VAlign_Center)
+					.AutoWidth()
+					[
+						SNew(STextBlock)
+						.Text(FText::AsNumber(LP->GetProfileSettings()->SkullCount))
+						.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
+						.ColorAndOpacity(FLinearColor::Gray)
+					]
+				];
+			}
+		}
 	}
 	return VBox;
 }
