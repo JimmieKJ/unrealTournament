@@ -969,6 +969,19 @@ void AUTCTFGameMode::SetRemainingTime(int32 RemainingSeconds)
 	}
 }
 
+void AUTCTFGameMode::GetGood()
+{
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	if (GetNetMode() == NM_Standalone)
+	{
+		Super::GetGood();
+		HalftimeDuration = 5;
+		Teams[0]->Score = 1;
+		Teams[1]->Score = 9;
+	}
+#endif
+}
+
 
 #if !UE_SERVER
 void AUTCTFGameMode::BuildScoreInfo(AUTPlayerState* PlayerState, TSharedPtr<class SUTTabWidget> TabWidget, TArray<TSharedPtr<TAttributeStat> >& StatList)

@@ -3973,7 +3973,6 @@ void AUTGameMode::CullMapVotes()
 
 void AUTGameMode::TallyMapVotes()
 {
-
 	for( FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator )
 	{
 		AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
@@ -4111,4 +4110,24 @@ void AUTGameMode::GatherRequiredRedirects(TArray<FPackageRedirectReference>& Red
 			Redirects.Add(Redirect);
 		}
 	}
+}
+
+void AUTGameMode::GetGood()
+{
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	if (GetNetMode() == NM_Standalone)
+	{
+		UTGameState->RemainingTime = 1;
+		TimeLimit = 2;
+
+		for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
+		{
+			AUTPlayerState *PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
+			if (PS)
+			{
+				PS->Score = Cast<APlayerController>(PS->GetOwner()) ? 100 : 1;
+			}
+		}
+	}
+#endif
 }

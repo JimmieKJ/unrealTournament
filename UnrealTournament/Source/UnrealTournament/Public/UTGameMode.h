@@ -752,5 +752,7 @@ public:
 
 	FString GetGameRulesDescription();
 
+	UFUNCTION(exec)
+		virtual void GetGood();
 };
 

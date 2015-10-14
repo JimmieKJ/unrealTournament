@@ -81,6 +81,9 @@ class UNREALTOURNAMENT_API AUTCTFGameMode : public AUTTeamGameMode
 	void AddCaptureEventToReplay(AUTPlayerState* Holder, AUTTeamInfo* Team);
 	void AddReturnEventToReplay(AUTPlayerState* Returner, AUTTeamInfo* Team);
 	void AddDeniedEventToReplay(APlayerState* KillerPlayerState, AUTPlayerState* Holder, AUTTeamInfo* Team);
+
+	virtual void GetGood() override;
+
 protected:
 
 	virtual void HandleMatchHasStarted();

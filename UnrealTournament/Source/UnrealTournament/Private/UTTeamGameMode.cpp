@@ -772,3 +772,16 @@ void AUTTeamGameMode::UpdateLobbyScore(FMatchUpdate& MatchUpdate)
 		MatchUpdate.TeamScores.Add(UTGameState->Teams[i]->Score);
 	}
 }
+
+
+void AUTTeamGameMode::GetGood()
+{
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	if (GetNetMode() == NM_Standalone)
+	{
+		Super::GetGood();
+		Teams[0]->Score = 1;
+		Teams[1]->Score = 99;
+	}
+#endif
+}
