@@ -1519,14 +1519,15 @@ void AUTCharacter::PlayDying()
 		GetMesh()->SetMorphTarget(FName(TEXT("HatHair")), 0.0f);
 	}
 
-	if (Hat && Hat->GetAttachParentActor())
-	{
-		Hat->OnWearerDeath(LastTakeHitInfo.DamageType);
-	}
 	if (LeaderHat && LeaderHat->GetAttachParentActor())
 	{
 		LeaderHat->OnWearerDeath(LastTakeHitInfo.DamageType);
 	}
+	else if (Hat && Hat->GetAttachParentActor())
+	{
+		Hat->OnWearerDeath(LastTakeHitInfo.DamageType);
+	}
+
 	if (Eyewear && Eyewear->GetAttachParentActor())
 	{
 		Eyewear->OnWearerDeath(LastTakeHitInfo.DamageType);
@@ -4669,15 +4670,14 @@ void AUTCharacter::SetEyewearClass(TSubclassOf<AUTEyewear> EyewearClass)
 void AUTCharacter::SetHatVariant(int32 NewHatVariant)
 {
 	HatVariant = NewHatVariant;
-
-	if (Hat != nullptr)
-	{
-		Hat->OnVariantSelected(HatVariant);
-	}
-
+	
 	if (LeaderHat != nullptr)
 	{
 		LeaderHat->OnVariantSelected(HatVariant);
+	}
+	else if (Hat != nullptr)
+	{
+		Hat->OnVariantSelected(HatVariant);
 	}
 }
 
@@ -4708,7 +4708,11 @@ bool AUTCharacter::IsWearingAnyCosmetic()
 
 void AUTCharacter::OnRepCosmeticFlashCount()
 {
-	if (Hat)
+	if (LeaderHat)
+	{
+		LeaderHat->OnFlashCountIncremented();
+	}
+	else if (Hat)
 	{
 		Hat->OnFlashCountIncremented();
 	}
@@ -4716,7 +4720,11 @@ void AUTCharacter::OnRepCosmeticFlashCount()
 
 void AUTCharacter::OnRepCosmeticSpreeCount()
 {
-	if (Hat)
+	if (LeaderHat)
+	{
+		LeaderHat->OnSpreeLevelChanged(CosmeticSpreeCount);
+	}
+	else if (Hat)
 	{
 		Hat->OnSpreeLevelChanged(CosmeticSpreeCount);
 	}
