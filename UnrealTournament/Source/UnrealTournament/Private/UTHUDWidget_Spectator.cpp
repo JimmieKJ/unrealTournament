@@ -57,7 +57,7 @@ void UUTHUDWidget_Spectator::DrawSimpleMessage(FText SimpleMessage, float DeltaT
 	DrawTexture(TextureAtlas, MessageOffset, YOffset, BackgroundWidth, Scaling * 108.0f, 4, 2, 124, 128, 1.0);
 	if (bViewingMessage)
 	{
-		DrawText(FText::FromString("Now Viewing"), TextPosition, YOffset + 14.f, UTHUDOwner->SmallFont, Scaling, 1.f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
+		DrawText(FText::FromString("Now Viewing"), TextPosition, YOffset + 14.f, UTHUDOwner->SmallFont, Scaling, 1.f, GetMessageColor(), ETextHorzPos::Left, ETextVertPos::Center);
 	}
 	else
 	{
@@ -69,7 +69,7 @@ void UUTHUDWidget_Spectator::DrawSimpleMessage(FText SimpleMessage, float DeltaT
 		// Draw the Spacer Bar
 		DrawTexture(TextureAtlas, 341, 54, 4, 99, 488, 13, 4, 99, 1.0f, FLinearColor::White, FVector2D(0.0, 0.5));
 	}
-	DrawText(SimpleMessage, TextPosition, YOffset + 50.f, UTHUDOwner->LargeFont, Scaling, 1.f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
+	DrawText(SimpleMessage, TextPosition, YOffset + 50.f, UTHUDOwner->LargeFont, Scaling, 1.f, GetMessageColor(), ETextHorzPos::Left, ETextVertPos::Center);
 }
 
 void UUTHUDWidget_Spectator::Draw_Implementation(float DeltaTime)

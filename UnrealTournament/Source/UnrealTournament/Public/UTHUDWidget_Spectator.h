@@ -21,6 +21,10 @@ public:
 
 	virtual FText GetSpectatorMessageText(bool &bShortMessage);
 
+	virtual FLinearColor GetMessageColor() const
+	{
+		return FLinearColor::White;
+	}
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spectator")
 	UTexture2D* TextureAtlas;

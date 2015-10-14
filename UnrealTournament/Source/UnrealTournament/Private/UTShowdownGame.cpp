@@ -393,6 +393,7 @@ void AUTShowdownGame::HandleMatchIntermission()
 	}
 
 	// give players spawn point selection
+	TArray<AUTPlayerState*> UnsortedPicks;
 	for (FConstControllerIterator It = GetWorld()->GetControllerIterator(); It; ++It)
 	{
 		AController* C = It->Get();
@@ -413,18 +414,53 @@ void AUTShowdownGame::HandleMatchIntermission()
 			{
 				PS->RespawnChoiceA = NULL;
 				PS->RespawnChoiceB = NULL;
-				RemainingPicks.Add(PS);
+				UnsortedPicks.Add(PS);
 			}
 		}
 	}
-	if (LastRoundWinner != NULL)
+	// sort players by score (highest first)
+	UnsortedPicks.Sort([=](const AUTPlayerState& A, const AUTPlayerState& B){ return A.Score < B.Score; });
+	// sort team pick order by: winner of previous round last, others sorted by lowest score to highest score
+	TArray<AUTTeamInfo*> SortedTeams = Teams;
+	SortedTeams.Sort([&](const AUTTeamInfo& A, const AUTTeamInfo& B)
 	{
-		RemainingPicks.Sort([=](const AUTPlayerState& A, const AUTPlayerState& B){ return A.Team != LastRoundWinner || B.Team == LastRoundWinner; });
-	}
-	else
+		if (&A == LastRoundWinner)
+		{
+			return true;
+		}
+		else if (&B == LastRoundWinner)
+		{
+			return false;
+		}
+		else
+		{
+			return A.Score > B.Score;
+		}
+	});
+
+	while (UnsortedPicks.Num() > 0)
 	{
-		// if last round didn't have a winner, pick based on current score
-		RemainingPicks.Sort([=](const AUTPlayerState& A, const AUTPlayerState& B){ return A.Team->Score > B.Team->Score; });
+		bool bFoundAny = false;
+		for (int32 i = 0; i < SortedTeams.Num(); i++)
+		{
+			for (AUTPlayerState* Pick : UnsortedPicks)
+			{
+				if (Pick->Team == SortedTeams[i])
+				{
+					RemainingPicks.Add(Pick);
+					UnsortedPicks.Remove(Pick);
+					bFoundAny = true;
+					break;
+				}
+			}
+		}
+		if (!bFoundAny)
+		{
+			// sanity check so we don't infinitely recurse
+			UE_LOG(UT, Warning, TEXT("Showdown spawn selection sorting error with %s on team %s"), *UnsortedPicks[0]->PlayerName, *UnsortedPicks[0]->Team->TeamName.ToString());
+			RemainingPicks.Add(UnsortedPicks[0]);
+			UnsortedPicks.RemoveAt(0);
+		}
 	}
 }
 

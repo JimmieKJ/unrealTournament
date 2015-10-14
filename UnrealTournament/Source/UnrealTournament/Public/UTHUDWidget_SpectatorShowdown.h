@@ -23,6 +23,19 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	FText RoundBeginsText;
 
+	virtual FLinearColor GetMessageColor() const override
+	{
+		AUTShowdownGameState* GS = Cast<AUTShowdownGameState>(UTGameState);
+		if (GS != NULL && GS->GetMatchState() == MatchState::MatchIntermission && GS->SpawnSelector != NULL && GS->SpawnSelector->Team != NULL && (UTPlayerOwner == NULL || GS->SpawnSelector != UTPlayerOwner->PlayerState))
+		{
+			return GS->SpawnSelector->Team->TeamColor;
+		}
+		else
+		{
+			return FLinearColor::White;
+		}
+	}
+
 	virtual FText GetSpectatorMessageText(bool &bShortMessage) override
 	{
 		AUTShowdownGameState* GS = Cast<AUTShowdownGameState>(UTGameState);
