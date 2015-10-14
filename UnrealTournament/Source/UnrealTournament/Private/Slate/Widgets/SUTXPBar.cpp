@@ -214,7 +214,7 @@ FText SUTXPBar::GetBreakdownText_ChallengeXP() const
 	FXPBreakdown XPBreakdown = GetXPBreakdown();
 	if (XPBreakdown.ChallengeXP > 0)
 	{
-		return FText::Format(NSLOCTEXT("SUTXPBar", "ChallengeXP", " +{0} Challenge XP "), FText::AsNumber(XPBreakdown.ChallengeXP));
+		return FText::Format(NSLOCTEXT("SUTXPBar", "ChallengeXP", " +{0} Challenge Star Bonus XP "), FText::AsNumber(XPBreakdown.ChallengeXP));
 	}
 	return FText::GetEmpty();
 }

@@ -55,7 +55,7 @@ struct FXPBreakdown
 
 	FXPBreakdown() = default;
 	FXPBreakdown(EForceInit)
-	: ScoreXP(0), KillAwardXP(0), OffenseXP(0), DefenseXP(0)
+		: ScoreXP(0), KillAwardXP(0), OffenseXP(0), DefenseXP(0), ChallengeXP(0)
 	{}
 
 	/** XP given for match score */
@@ -101,7 +101,7 @@ struct FXPBreakdown
 		KillAwardXP *= B;
 		OffenseXP *= B;
 		DefenseXP *= B;
-		// never scale ChallengeXP
+		ChallengeXP *= B;
 	}
 	template<typename NumberType>
 	FXPBreakdown operator* (const NumberType B) const
@@ -117,7 +117,7 @@ struct FXPBreakdown
 		KillAwardXP /= B;
 		OffenseXP /= B;
 		DefenseXP /= B;
-		// never scale ChallengeXP
+		ChallengeXP /= B;
 	}
 	template<typename NumberType>
 	FXPBreakdown operator/ (const NumberType B) const
