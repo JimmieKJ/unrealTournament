@@ -358,6 +358,15 @@ void AUTHUD::NotifyMatchStateChange()
 	{
 		if (GS->GetMatchState() == MatchState::WaitingPostMatch)
 		{
+			if (GS->GameModeClass != nullptr)
+			{
+				AUTGameMode* UTGameMode = GS->GameModeClass->GetDefaultObject<AUTGameMode>();
+				if (UTGameMode != nullptr && !UTGameMode->bShowMatchSummary)
+				{
+					return;
+				}
+			}
+
 			AUTGameMode* DefaultGame = Cast<AUTGameMode>(GS->GetDefaultGameMode());
 			float MatchSummaryDelay = DefaultGame ? DefaultGame->EndScoreboardDelay + DefaultGame->MainScoreboardDisplayTime + DefaultGame->ScoringPlaysDisplayTime : 10.f;
 			GetWorldTimerManager().SetTimer(MatchSummaryHandle, this, &AUTHUD::OpenMatchSummary, MatchSummaryDelay, false);

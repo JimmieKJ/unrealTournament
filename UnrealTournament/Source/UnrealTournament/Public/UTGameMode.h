@@ -235,6 +235,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Game")
 	bool bPlayPlayerIntro;
 
+	/** If true, the intro cinematic will play just before the countdown to begin */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Game")
+	bool bShowMatchSummary;
+
 	/** Offline challenge mode. */
 	UPROPERTY(BlueprintReadOnly, Category = "Game")
 	bool bOfflineChallenge;

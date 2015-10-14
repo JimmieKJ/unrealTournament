@@ -118,6 +118,7 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 
 	bCasterControl = false;
 	bPlayPlayerIntro = true;
+	bShowMatchSummary = true;
 	bOfflineChallenge = false;
 
 	// note: one based
