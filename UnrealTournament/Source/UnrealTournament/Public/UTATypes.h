@@ -826,6 +826,7 @@ namespace EEpicDefaultRuleTags
 	const FString TDM = TEXT("TDM");
 	const FString DUEL = TEXT("DUEL");
 	const FString SHOWDOWN = TEXT("SHOWDOWN");
+	const FString TEAMSHOWDOWN = TEXT("TEAMSHOWDOWN");
 	const FString CTF = TEXT("CTF");
 	const FString BIGCTF = TEXT("BIGCTF");
 	const FString iDM = TEXT("iDM");

@@ -47,6 +47,7 @@ public:
 		Rules.Add(EEpicDefaultRuleTags::TDM);
 		Rules.Add(EEpicDefaultRuleTags::DUEL);
 		Rules.Add(EEpicDefaultRuleTags::SHOWDOWN);
+		Rules.Add(EEpicDefaultRuleTags::TEAMSHOWDOWN);
 		Rules.Add(EEpicDefaultRuleTags::CTF);
 		Rules.Add(EEpicDefaultRuleTags::BIGCTF);
 		Rules.Add(EEpicDefaultRuleTags::iDM);
@@ -144,6 +145,42 @@ public:
 			NewRuleset->bTeamGame = true;
 
 			NewRuleset->MaxMapsInList=16;
+
+			NewRuleset->EpicMaps = "/Game/RestrictedAssets/Maps/DM-Outpost23";
+			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/DM-Spacer";
+			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/DM-Vortex";
+			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/DM-Cannon";
+			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/DM-Chill";
+			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/DM-SidCastle";
+			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/DM-Deadfall";
+			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/DM-Temple";
+			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/DM-Focus";
+			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/DM-Overlord";
+			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/DM-NickTest1";
+			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/DM-Solo";
+			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/DM-Decktest";
+			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/DM-Tuba";
+			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/DM-ASDF";
+			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/EpicInternal/Lea/DM-Lea";
+			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/DM-RGB";
+			NewRuleset->DefaultMap = "/Game/RestrictedAssets/Maps/DM-Outpost23";
+		}
+		else if (NewRuleset->UniqueTag.Equals(EEpicDefaultRuleTags::TEAMSHOWDOWN, ESearchCase::IgnoreCase))
+		{
+			NewRuleset->Categories.Empty();
+			NewRuleset->Categories.Add(TEXT("TeamPlay"));
+
+			NewRuleset->Title = TEXT("Team Showdown");
+			NewRuleset->Tooltip = TEXT("Red versus blue team showdown.");
+			NewRuleset->Description = TEXT("Red versus blue team showdown.\n\n<UT.Hub.RulesText_Small>TimeLimit : 2 minute rounds</>\n<UT.Hub.RulesText_Small>Mercy Rule : On</>\n<UT.Hub.RulesText_Small>Maximum players: 10</>");
+			NewRuleset->MinPlayersToStart = 4;
+			NewRuleset->MaxPlayers = 10;
+			NewRuleset->DisplayTexture = TEXT("Texture2D'/Game/RestrictedAssets/UI/GameModeBadges/GB_TDM.GB_TDM'");
+			NewRuleset->GameMode = TEXT("/Script/UnrealTournament.UTTeamShowdownGame");
+			NewRuleset->GameOptions = TEXT("?TimeLimit=2?GoalScore=5");
+			NewRuleset->bTeamGame = true;
+
+			NewRuleset->MaxMapsInList = 16;
 
 			NewRuleset->EpicMaps = "/Game/RestrictedAssets/Maps/DM-Outpost23";
 			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/DM-Spacer";
