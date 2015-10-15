@@ -28,6 +28,7 @@ class SUWMatchSummary;
 class SUTJoinInstance;
 class FServerData;
 class AUTRconAdminInfo;
+class SUTDownloadAllDialog;
 
 DECLARE_MULTICAST_DELEGATE_ThreeParams(FPlayerOnlineStatusChanged, class UUTLocalPlayer*, ELoginStatus::Type, const FUniqueNetId&);
 
@@ -512,8 +513,16 @@ protected:
 
 #endif
 
+public:
 	// Holds the current status of any ongoing downloads.
 	FText DownloadStatusText;
+	FString Download_CurrentFile;
+	int32 Download_NumBytes;
+	int32 Download_NumFilesLeft;
+	float Download_Percentage;
+
+
+
 
 	virtual void ConnectingDialogCancel(TSharedPtr<SCompoundWidget> Dialog, uint16 ButtonID);
 public:
@@ -736,5 +745,15 @@ public:
 		return OpenDialogs.Num();
 	}
 #endif
+
+public:
+	void DownloadAll();
+	void CloseDownloadAll();
+
+protected:
+#if !UE_SERVER
+	TSharedPtr<SUTDownloadAllDialog> DownloadAllDialog;
+#endif
+
 
 };

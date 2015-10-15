@@ -247,6 +247,9 @@ public:
 
 	bool SendSayToInstance(const FString& User, const FString& FinalMessage);
 
+	UPROPERTY(replicated)
+	bool bCustomContentAvailable;
+
 };
 
 

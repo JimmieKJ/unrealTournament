@@ -110,6 +110,28 @@ void SUMatchPanel::Construct(const FArguments& InArgs)
 							.VAlign(VAlign_Center)
 							.AutoHeight()
 							[
+								SAssignNew(DownloadContentButton, SUTButton)
+								.ButtonStyle(SUTStyle::Get(),"UT.SimpleButton")
+								.OnClicked(this, &SUMatchPanel::DownloadAllButtonClicked)
+								.ContentPadding(FMargin(32.0,5.0,32.0,5.0))
+								[
+									SNew(STextBlock)
+									.Text(NSLOCTEXT("SUMatchPanel","DownloadContent","Download All Content"))
+									.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small")
+								]
+							]
+						]
+						+SHorizontalBox::Slot()
+						.AutoWidth()
+						.Padding(10.0,5.0,21.0,5.0)
+
+						.HAlign(HAlign_Right)
+						[
+							SNew(SVerticalBox)
+							+SVerticalBox::Slot()
+							.VAlign(VAlign_Center)
+							.AutoHeight()
+							[
 								SNew(SButton)
 								.ButtonStyle(SUTStyle::Get(),"UT.SimpleButton")
 								.OnClicked(this, &SUMatchPanel::StartNewMatch)
@@ -125,6 +147,9 @@ void SUMatchPanel::Construct(const FArguments& InArgs)
 				]
 			]
 		];
+
+		AUTLobbyGameState* GameState = PlayerOwner->GetWorld()->GetGameState<AUTLobbyGameState>();
+		DownloadContentButton->SetVisibility(GameState && GameState->bCustomContentAvailable ? EVisibility::Visible : EVisibility::Hidden);
 	}
 
 	VertBox->AddSlot()
@@ -161,6 +186,9 @@ void SUMatchPanel::Construct(const FArguments& InArgs)
 			]
 		]
 	];
+
+
+
 }
 
 TSharedRef<ITableRow> SUMatchPanel::OnGenerateWidgetForMatchList( TSharedPtr<FTrackedMatch> InItem, const TSharedRef<STableViewBase>& OwnerTable )
@@ -1079,6 +1107,12 @@ void SUMatchPanel::SetServerData(TSharedPtr<FServerData> inServerData)
 		}
 	}
 	MatchList->RequestListRefresh();
+}
+
+FReply SUMatchPanel::DownloadAllButtonClicked()
+{
+	PlayerOwner->DownloadAll();
+	return FReply::Handled();
 }
 
 

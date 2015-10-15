@@ -37,6 +37,7 @@
 #include "Slate/SUTReplayWindow.h"
 #include "Slate/SUTReplayMenu.h"
 #include "Slate/SUTAdminDialog.h"
+#include "Slate/SUTDownloadAllDialog.h"
 #include "UTAnalytics.h"
 #include "FriendsAndChat.h"
 #include "Runtime/Analytics/Analytics/Public/Analytics.h"
@@ -51,6 +52,7 @@
 #include "Slate/SUWYoutubeConsent.h"
 #include "Slate/SUWMatchSummary.h"
 #include "UTLobbyGameState.h"
+#include "UTLobbyPC.h"
 #include "StatNames.h"
 #include "UTChallengeManager.h"
 #include "UTCharacterContent.h"
@@ -65,7 +67,11 @@ UUTLocalPlayer::UUTLocalPlayer(const class FObjectInitializer& ObjectInitializer
 	bShowSocialNotification = false;
 	ServerPingBlockSize = 30;
 	bSuppressToastsInGame = false;
+
 	DownloadStatusText = FText::GetEmpty();
+	Download_CurrentFile = TEXT("");
+	Download_Percentage = 0.0;
+
 	QuickMatchLimitTime = -60.0;
 	RosterUpgradeText = FText::GetEmpty();
 	CurrentSessionTrustLevel = 2;
@@ -2473,7 +2479,13 @@ void UUTLocalPlayer::RequestFriendship(TSharedPtr<FUniqueNetId> FriendID)
 
 void UUTLocalPlayer::UpdateRedirect(const FString& FileURL, int32 NumBytes, float Progress, int32 NumFilesLeft)
 {
-	DownloadStatusText = FText::Format(NSLOCTEXT("UTLocalPlayer","DownloadStatusFormat","Downloading {0} Files: {1} ({2} / {3}) ...."), FText::AsNumber(NumFilesLeft), FText::FromString(FileURL), FText::AsNumber(NumBytes), FText::AsPercent(Progress));
+	FString FName = FPaths::GetBaseFilename(FileURL);
+	DownloadStatusText = FText::Format(NSLOCTEXT("UTLocalPlayer","DownloadStatusFormat","Downloading {0} Files: {1} ({2} / {3}) ...."), FText::AsNumber(NumFilesLeft), FText::FromString(FName), FText::AsNumber(NumBytes), FText::AsPercent(Progress));
+	Download_NumBytes = NumBytes;
+	Download_CurrentFile = FName;
+	Download_Percentage = Progress;
+	Download_NumFilesLeft = NumFilesLeft;
+
 	UE_LOG(UT,Verbose,TEXT("Redirect: %s %i [%f%%]"), *FileURL, NumBytes, Progress);
 }
 
@@ -3182,7 +3194,7 @@ void UUTLocalPlayer::CloseAllUI(bool bExceptDialogs)
 			// restore dialogs to the viewport
 			for (TSharedPtr<SUWDialog> Dialog : OpenDialogs)
 			{
-				if ( Dialog.IsValid() && (!MapVoteMenu.IsValid() || Dialog.Get() != MapVoteMenu.Get()) )
+				if ( Dialog.IsValid() && (!MapVoteMenu.IsValid() || Dialog.Get() != MapVoteMenu.Get()) && (!DownloadAllDialog.IsValid() || Dialog.Get() != DownloadAllDialog.Get()) )
 				{
 					GEngine->GameViewport->AddViewportWidgetContent(Dialog.ToSharedRef(), 255);
 				}
@@ -3210,6 +3222,7 @@ void UUTLocalPlayer::CloseAllUI(bool bExceptDialogs)
 	ReplayWindow.Reset();
 	YoutubeDialog.Reset();
 	YoutubeConsentDialog.Reset();
+	DownloadAllDialog.Reset();
 
 	AdminDialogClosed();
 	CloseMapVote();
@@ -3553,3 +3566,33 @@ void UUTLocalPlayer::AdminDialogClosed()
 #endif
 }
 
+void UUTLocalPlayer::DownloadAll()
+{
+#if !UE_SERVER
+	AUTLobbyPC* PC = Cast<AUTLobbyPC>(PlayerController);
+	if (PC)
+	{
+		if (!DownloadAllDialog.IsValid())
+		{
+			SAssignNew(DownloadAllDialog, SUTDownloadAllDialog)			
+				.PlayerOwner(this);
+
+			if (DownloadAllDialog.IsValid())
+			{
+				OpenDialog(DownloadAllDialog.ToSharedRef(),210);
+			}
+		}
+		PC->GetAllRedirects(DownloadAllDialog);
+	}
+#endif
+}
+// I need to revist closing dialogs and make it require less code.
+void UUTLocalPlayer::CloseDownloadAll()
+{
+#if !UE_SERVER
+	if (DownloadAllDialog.IsValid())
+	{
+		DownloadAllDialog.Reset();
+	}
+#endif
+}

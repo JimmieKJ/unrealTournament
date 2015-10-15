@@ -238,6 +238,7 @@ TSharedRef<class SWidget> SUWDialog::BuildButtonBar(uint16 ButtonMask)
 		if (ButtonMask & UTDIALOG_BUTTON_EXIT)		BuildButton(ButtonBar, NSLOCTEXT("SUWDialog","ExitButton","EXIT"),				UTDIALOG_BUTTON_EXIT,ButtonCount);
 		if (ButtonMask & UTDIALOG_BUTTON_QUIT)		BuildButton(ButtonBar, NSLOCTEXT("SUWDialog","QuitButton","QUIT"),				UTDIALOG_BUTTON_QUIT,ButtonCount);
 		if (ButtonMask & UTDIALOG_BUTTON_VIEW)		BuildButton(ButtonBar, NSLOCTEXT("SUWDialog","ViewButton","VIEW"),				UTDIALOG_BUTTON_VIEW,ButtonCount);
+		if (ButtonMask & UTDIALOG_BUTTON_CLOSE)		BuildButton(ButtonBar, NSLOCTEXT("SUWDialog","CloseButton","CLOSE"),			UTDIALOG_BUTTON_CLOSE,ButtonCount);
 	}
 
 	return ButtonBar.ToSharedRef();

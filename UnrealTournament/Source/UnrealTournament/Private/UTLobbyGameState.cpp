@@ -29,14 +29,20 @@ void AUTLobbyGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > &
 	DOREPLIFETIME(AUTLobbyGameState, AvailabelGameRulesetCount);
 	DOREPLIFETIME(AUTLobbyGameState, AllMapsOnServer);
 	DOREPLIFETIME(AUTLobbyGameState, NumGameInstances);
+	DOREPLIFETIME(AUTLobbyGameState, bCustomContentAvailable);
 }
 
 void AUTLobbyGameState::PostInitializeComponents()
 {
 	Super::PostInitializeComponents();
+	
+	AUTLobbyGameMode* LobbyGameMode = GetWorld()->GetAuthGameMode<AUTLobbyGameMode>();
 
 	if (Role == ROLE_Authority)
 	{
+
+		bCustomContentAvailable = LobbyGameMode ? LobbyGameMode->RedirectReferences.Num() > 0 : 0;
+
 		FTimerHandle TempHandle;
 		GetWorldTimerManager().SetTimer(TempHandle, this, &AUTLobbyGameState::CheckInstanceHealth, 60.0f, true);	
 

@@ -56,11 +56,38 @@ public:
 	UFUNCTION(server, reliable, withvalidation)
 	virtual void ServerRconKillMatch(AUTLobbyMatchInfo* MatchToKill);
 
+
+#if !UE_SERVER
+	virtual void GetAllRedirects(TSharedPtr<SUTDownloadAllDialog> inDownloadDialog);
+#endif
+
+	UFUNCTION(server, reliable, withvalidation)
+	virtual void ServerSendRedirectCount();
+	
+	UFUNCTION(server, reliable, withvalidation)
+	virtual void ServerSendAllRedirects();
+
+	UFUNCTION(client, reliable)
+	virtual void ClientReceiveRedirectCount(int32 NewCount);
+
+	UFUNCTION(client, reliable)
+	virtual void ClientReceiveRedirect(const FPackageRedirectReference& Redirect);
+
 protected:
 	// Will be true when the initial player replication is completed.  At that point it's safe to bring up the menu
 	bool bInitialReplicationCompleted;
 
 	virtual void ServerSay_Implementation(const FString& Message, bool bTeamMessage);
+
+	void DownloadAllContent();
+
+	int32 RedirectCount;
+	TArray<FPackageRedirectReference> AllRedirects;
+
+#if !UE_SERVER
+	TSharedPtr<SUTDownloadAllDialog> DownloadDialog;
+#endif
+
 
 };
 

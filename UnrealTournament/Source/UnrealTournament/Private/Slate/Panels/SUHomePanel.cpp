@@ -250,7 +250,7 @@ TSharedRef<SWidget> SUHomePanel::BuildHomePanel()
 								+SVerticalBox::Slot()
 								.AutoHeight()
 								[
-									SNew(SBox).WidthOverride(200).HeightOverride(100)
+									SNew(SBox).WidthOverride(100).HeightOverride(100)
 									[
 										SNew(SImage)
 										.Image(SUTStyle::Get().GetBrush("UT.HomePanel.TutorialLogo"))

@@ -15,10 +15,12 @@
 #include "Online.h"
 #include "UTOnlineGameSearchBase.h"
 #include "OnlineSubsystemTypes.h"
+#include "Slate/SUTDownloadAllDialog.h"
 
 AUTLobbyPC::AUTLobbyPC(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+	RedirectCount = -1;
 }
 
 /* Cache a copy of the PlayerState cast'd to AUTPlayerState for easy reference.  Do it both here and when the replicated copy of APlayerState arrives in OnRep_PlayerState */
@@ -249,3 +251,86 @@ void AUTLobbyPC::ServerSay_Implementation(const FString& Message, bool bTeamMess
 	Super::ServerSay_Implementation(Message, bTeamMessage);
 
 }
+
+
+#if !UE_SERVER
+void AUTLobbyPC::GetAllRedirects(TSharedPtr<SUTDownloadAllDialog> inDownloadDialog)
+{
+	DownloadDialog = inDownloadDialog;
+	if (RedirectCount > -1)
+	{
+		DownloadAllContent();
+	}
+	else
+	{
+		ServerSendRedirectCount();
+	}
+
+}
+#endif
+
+void AUTLobbyPC::DownloadAllContent()
+{
+	if (RedirectCount > 0 && AllRedirects.Num() == RedirectCount)
+	{
+		UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(Player);
+		if (LocalPlayer)
+		{
+			LocalPlayer->AccquireContent(AllRedirects);
+			DownloadDialog->Start();
+			DownloadDialog.Reset();
+		}
+	}
+	else
+	{
+		DownloadDialog->Done();
+		DownloadDialog.Reset();
+	}
+
+
+}
+
+bool AUTLobbyPC::ServerSendRedirectCount_Validate() { return true; }
+void AUTLobbyPC::ServerSendRedirectCount_Implementation()
+{
+	AUTLobbyGameMode* GameMode = GetWorld()->GetAuthGameMode<AUTLobbyGameMode>();
+	ClientReceiveRedirectCount(GameMode ? GameMode->RedirectReferences.Num() : 0);
+}
+bool AUTLobbyPC::ServerSendAllRedirects_Validate() { return true; }
+void AUTLobbyPC::ServerSendAllRedirects_Implementation()
+{
+	AUTLobbyGameMode* GameMode = GetWorld()->GetAuthGameMode<AUTLobbyGameMode>();
+	if (GameMode)
+	{
+		for (int32 i=0; i < GameMode->RedirectReferences.Num();i++)
+		{
+			ClientReceiveRedirect(GameMode->RedirectReferences[i]);
+		}
+	}
+
+}
+
+void AUTLobbyPC::ClientReceiveRedirectCount_Implementation(int32 NewCount)
+{
+	if (NewCount != RedirectCount)
+	{
+		if (NewCount > 0)
+		{
+			ServerSendAllRedirects();	
+		}
+
+		RedirectCount = NewCount;
+	}
+}
+void AUTLobbyPC::ClientReceiveRedirect_Implementation(const FPackageRedirectReference& Redirect)
+{
+	AllRedirects.Add(FPackageRedirectReference(Redirect));
+
+	if (AllRedirects.Num() == RedirectCount)
+	{
+		DownloadAllContent();
+	}
+
+
+}
+

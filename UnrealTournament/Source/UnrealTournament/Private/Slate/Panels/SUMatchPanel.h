@@ -257,8 +257,11 @@ protected:
 	FReply JoinMatchButtonClicked(TSharedPtr<FTrackedMatch> InItem);
 	FReply SpectateMatchButtonClicked(TSharedPtr<FTrackedMatch> InItem);
 
-	FMatchPanelJoinMatchDelegate OnJoinMatchDelegate;
+	FReply DownloadAllButtonClicked();
 
+	FMatchPanelJoinMatchDelegate OnJoinMatchDelegate;
+	
+	TSharedPtr<SUTButton> DownloadContentButton;
 };
 
 #endif
