@@ -3613,3 +3613,15 @@ void UUTLocalPlayer::CloseDownloadAll()
 	}
 #endif
 }
+
+#if !UE_SERVER
+
+int32 UUTLocalPlayer::NumDialogsOpened()
+{
+	int32 Num = OpenDialogs.Num();
+	if (LoginDialog.IsValid()) Num++;
+	return Num;
+}
+#endif
+
+

@@ -740,10 +740,7 @@ public:
 
 #if !UE_SERVER
 
-	virtual int32 NumDialogsOpened()
-	{
-		return OpenDialogs.Num();
-	}
+	virtual int32 NumDialogsOpened();
 #endif
 
 public:
