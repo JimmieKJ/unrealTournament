@@ -88,6 +88,7 @@ void ABrush::CopyPosRotScaleFrom( ABrush* Other )
 
 	SetActorLocation(Other->GetActorLocation(), false);
 	SetActorRotation(Other->GetActorRotation());
+	SetActorScale3D(Other->GetActorScale3D());
 	if( GetRootComponent() != NULL )
 	{
 		SetPrePivot( Other->GetPrePivot() );
@@ -107,6 +108,7 @@ void ABrush::InitPosRotScale()
 
 	SetActorLocation(FVector::ZeroVector, false);
 	SetActorRotation(FRotator::ZeroRotator);
+	SetActorScale3D(FVector(1.0f));
 	SetPrePivot( FVector::ZeroVector );
 }
 
