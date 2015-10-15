@@ -1665,7 +1665,10 @@ NavNodeRef AUTRecastNavMesh::UTFindNearestPoly(const FVector& Loc, const FVector
 			}
 			else
 			{
-				for (TMultiMap<TWeakObjectPtr<APhysicsVolume>, UUTPathNode*>::TConstKeyIterator It(VolumeToNode, Volume); It; ++It)
+				// this local with explicit conversion to TWeakObjectPtr works around a compiler bug that was generating bad code in Test configuration for the implicit conversion in the loops below
+				TWeakObjectPtr<APhysicsVolume> VolumeWeak(Volume);
+
+				for (TMultiMap<TWeakObjectPtr<APhysicsVolume>, UUTPathNode*>::TConstKeyIterator It(VolumeToNode, VolumeWeak); It; ++It)
 				{
 					for (NavNodeRef TestPoly : Extent2DPolys)
 					{
@@ -1684,7 +1687,7 @@ NavNodeRef AUTRecastNavMesh::UTFindNearestPoly(const FVector& Loc, const FVector
 				if (Result == INVALID_NAVNODEREF)
 				{
 					// fallback, pick closest poly in same volume, period
-					for (TMultiMap<TWeakObjectPtr<APhysicsVolume>, UUTPathNode*>::TConstKeyIterator It(VolumeToNode, Volume); It; ++It)
+					for (TMultiMap<TWeakObjectPtr<APhysicsVolume>, UUTPathNode*>::TConstKeyIterator It(VolumeToNode, VolumeWeak); It; ++It)
 					{
 						for (NavNodeRef TestPoly : It.Value()->Polys)
 						{
