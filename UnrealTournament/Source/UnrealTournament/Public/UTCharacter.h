@@ -1137,37 +1137,10 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
 	USoundBase* WaterFootstepSound;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
-	USoundBase* LandingSound;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
-	USoundBase* JumpSound;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
-	USoundBase* DodgeSound;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
-	USoundBase* PainSound;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
-	USoundBase* FloorSlideSound;
+	
 
 	//================================
 	// Swimming
-
-	/** Played for character pushing off underwater. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
-	USoundBase* SwimPushSound;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
-	USoundBase* WaterEntrySound;
-
-	/** Played for character entering water fast. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
-		USoundBase* FastWaterEntrySound;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
-	USoundBase* WaterExitSound;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
-	USoundBase* DrowningSound;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
-	USoundBase* GaspSound;
 
 	/** Minimum time between playing water entry/exit sounds */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = UnderWater)
@@ -1221,10 +1194,6 @@ public:
 	/** Ambient sound played while wall sliding */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
 		USoundBase* WallSlideAmbientSound;
-
-	/** Ambient sound played while sprinting */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
-	USoundBase* SprintAmbientSound;
 
 	/** Running speed to engage sprint sound */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)

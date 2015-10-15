@@ -96,6 +96,35 @@ public:
 	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly)
 	TSubclassOf<class AUTImpactEffect> GibExplosionEffect;
 
+	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category = Sounds)
+	USoundBase* LandingSound;
+	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category = Sounds)
+	USoundBase* JumpSound;
+	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category = Sounds)
+	USoundBase* DodgeSound;
+	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category = Sounds)
+	USoundBase* PainSound;
+	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category = Sounds)
+	USoundBase* FloorSlideSound;
+	/** Ambient sound played while sprinting */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
+	USoundBase* SprintAmbientSound;
+
+	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category = Sounds)
+	USoundBase* DrowningSound;
+	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category = Sounds)
+	USoundBase* GaspSound;
+	/** Played for character pushing off underwater. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
+	USoundBase* SwimPushSound;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
+	USoundBase* WaterEntrySound;
+	/** Played for character entering water fast. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
+	USoundBase* FastWaterEntrySound;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
+	USoundBase* WaterExitSound;
+
 protected:
 	UPROPERTY(BlueprintReadOnly, VisibleDefaultsOnly)
 	USkeletalMeshComponent* Mesh;

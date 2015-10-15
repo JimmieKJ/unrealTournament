@@ -1199,7 +1199,7 @@ void AUTCharacter::NotifyTakeHit(AController* InstigatedBy, int32 Damage, FVecto
 			}
 			else if ((UTDamageTypeCDO == NULL) || UTDamageTypeCDO->bCausesBlood)
 			{
-				UUTGameplayStatics::UTPlaySound(GetWorld(), PainSound, this, SRT_All, false, FVector::ZeroVector, InstigatedByPC, NULL, false);
+				UUTGameplayStatics::UTPlaySound(GetWorld(), CharacterData.GetDefaultObject()->PainSound, this, SRT_All, false, FVector::ZeroVector, InstigatedByPC, NULL, false);
 			}
 			LastPainSoundTime = GetWorld()->TimeSeconds;
 		}
@@ -1748,7 +1748,7 @@ void AUTCharacter::ServerFeignDeath_Implementation()
 					{
 						FHitResult FakeHit(this, NULL, GetActorLocation(), GetActorRotation().Vector());
 						FUTPointDamageEvent FakeDamageEvent(0, FakeHit, FVector(0, 0, 0), UUTDmgType_FeignFail::StaticClass());
-						UUTGameplayStatics::UTPlaySound(GetWorld(), PainSound, this, SRT_All, false, FVector::ZeroVector, Cast<AUTPlayerController>(Controller), NULL, false);
+						UUTGameplayStatics::UTPlaySound(GetWorld(), CharacterData.GetDefaultObject()->PainSound, this, SRT_All, false, FVector::ZeroVector, Cast<AUTPlayerController>(Controller), NULL, false);
 						Died(NULL, FakeDamageEvent);
 					}
 					else
@@ -3012,7 +3012,7 @@ void AUTCharacter::PlayJump_Implementation(const FVector& JumpLocation, const FV
 {
 	DesiredJumpBob = WeaponJumpBob;
 	TargetEyeOffset.Z = EyeOffsetJumpBob;
-	UUTGameplayStatics::UTPlaySound(GetWorld(), JumpSound, this, SRT_IfSourceNotReplicated, false, JumpLocation);
+	UUTGameplayStatics::UTPlaySound(GetWorld(), CharacterData.GetDefaultObject()->JumpSound, this, SRT_IfSourceNotReplicated, false, JumpLocation);
 }
 
 void AUTCharacter::Falling()
@@ -3047,17 +3047,17 @@ void AUTCharacter::OnDodge_Implementation(const FVector& DodgeLocation, const FV
 	}
 	if (GetCharacterMovement() && GetCharacterMovement()->IsSwimming())
 	{
-		UUTGameplayStatics::UTPlaySound(GetWorld(), SwimPushSound, this, SRT_IfSourceNotReplicated, false, DodgeLocation);
+		UUTGameplayStatics::UTPlaySound(GetWorld(), CharacterData.GetDefaultObject()->SwimPushSound, this, SRT_IfSourceNotReplicated, false, DodgeLocation);
 	}
 	else
 	{
-		UUTGameplayStatics::UTPlaySound(GetWorld(), DodgeSound, this, SRT_IfSourceNotReplicated, false, DodgeLocation);
+		UUTGameplayStatics::UTPlaySound(GetWorld(), CharacterData.GetDefaultObject()->DodgeSound, this, SRT_IfSourceNotReplicated, false, DodgeLocation);
 	}
 }
 
 void AUTCharacter::OnSlide_Implementation(const FVector & SlideLocation, const FVector &SlideDir)
 {
-	UUTGameplayStatics::UTPlaySound(GetWorld(), FloorSlideSound, this, SRT_IfSourceNotReplicated, false, SlideLocation);
+	UUTGameplayStatics::UTPlaySound(GetWorld(), CharacterData.GetDefaultObject()->FloorSlideSound, this, SRT_IfSourceNotReplicated, false, SlideLocation);
 
 	FRotator TurnRot(0.f, GetActorRotation().Yaw, 0.f);
 	FRotationMatrix TurnRotMatrix = FRotationMatrix(TurnRot);
@@ -3122,20 +3122,20 @@ void AUTCharacter::Landed(const FHitResult& Hit)
 
 		if (UTCharacterMovement && UTCharacterMovement->bIsFloorSliding)
 		{
-			UUTGameplayStatics::UTPlaySound(GetWorld(), FloorSlideSound, this, SRT_None);
+			UUTGameplayStatics::UTPlaySound(GetWorld(), CharacterData.GetDefaultObject()->FloorSlideSound, this, SRT_None);
 			if (FeetAreInWater())
 			{
-				PlayWaterSound(WaterEntrySound);
+				PlayWaterSound(CharacterData.GetDefaultObject()->WaterEntrySound);
 			}
 		}
 		else if (FeetAreInWater())
 		{
-			PlayWaterSound(WaterEntrySound);
+			PlayWaterSound(CharacterData.GetDefaultObject()->WaterEntrySound);
 			PlayWaterEntryEffect(GetActorLocation() - FVector(0.f, 0.f, GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight()), GetActorLocation());
 		}
 		else
 		{
-			UUTGameplayStatics::UTPlaySound(GetWorld(), LandingSound, this, SRT_None);
+			UUTGameplayStatics::UTPlaySound(GetWorld(), CharacterData.GetDefaultObject()->LandingSound, this, SRT_None);
 			if ((LandEffect != NULL) && (FMath::Abs(GetCharacterMovement()->Velocity.Z) > LandEffectSpeed))
 			{
 				UParticleSystemComponent* LandedPSC = UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), LandEffect, GetActorLocation() - FVector(0.f,0.f, GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight()), Hit.Normal.Rotation(), true);
@@ -3154,12 +3154,12 @@ void AUTCharacter::Landed(const FHitResult& Hit)
 
 void AUTCharacter::EnteredWater(AUTWaterVolume* WaterVolume)
 {
-	PlayWaterSound(WaterVolume->EntrySound ? WaterVolume->EntrySound : WaterEntrySound);
+	PlayWaterSound(WaterVolume->EntrySound ? WaterVolume->EntrySound : CharacterData.GetDefaultObject()->WaterEntrySound);
 	if (UTCharacterMovement)
 	{
 		if ((FMath::Abs(UTCharacterMovement->Velocity.Z) > UTCharacterMovement->MaxWaterSpeed) && IsLocallyControlled() && Cast<APlayerController>(GetController()))
 		{
-			UUTGameplayStatics::UTPlaySound(GetWorld(), FastWaterEntrySound, this, SRT_None);
+			UUTGameplayStatics::UTPlaySound(GetWorld(), CharacterData.GetDefaultObject()->FastWaterEntrySound, this, SRT_None);
 		}
 		UTCharacterMovement->Velocity.Z *= WaterVolume->PawnEntryVelZScaling;
 		UTCharacterMovement->BrakingDecelerationSwimming = WaterVolume->BrakingDecelerationSwimming;
@@ -3841,17 +3841,17 @@ void AUTCharacter::Tick(float DeltaTime)
 			{
 				float NewLocalAmbientVolume = FMath::Min(1.f, (GetCharacterMovement()->Velocity.Size2D() - SprintAmbientStartSpeed) / (UTCharacterMovement->SprintSpeed - SprintAmbientStartSpeed));
 				LocalAmbientVolume = LocalAmbientVolume*(1.f - DeltaTime) + NewLocalAmbientVolume*DeltaTime;
-				SetLocalAmbientSound(SprintAmbientSound, LocalAmbientVolume, false);
+				SetLocalAmbientSound(CharacterData.GetDefaultObject()->SprintAmbientSound, LocalAmbientVolume, false);
 			}
-			else if ((LocalAmbientSound == SprintAmbientSound) && (LocalAmbientVolume > 0.05f))
+			else if ((LocalAmbientSound == CharacterData.GetDefaultObject()->SprintAmbientSound) && (LocalAmbientVolume > 0.05f))
 			{
 				LocalAmbientVolume = LocalAmbientVolume*(1.f - DeltaTime);
-				SetLocalAmbientSound(SprintAmbientSound, LocalAmbientVolume, false);
+				SetLocalAmbientSound(CharacterData.GetDefaultObject()->SprintAmbientSound, LocalAmbientVolume, false);
 			}
 			else
 			{
 				SetLocalAmbientSound(WallSlideAmbientSound, 0.f, true);
-				SetLocalAmbientSound(SprintAmbientSound, 0.f, true);
+				SetLocalAmbientSound(CharacterData.GetDefaultObject()->SprintAmbientSound, 0.f, true);
 			}
 		}
 	}
@@ -3907,7 +3907,7 @@ void AUTCharacter::Tick(float DeltaTime)
 			{
 				if (bHeadWasUnderwater && (GetWorld()->GetTimeSeconds() - LastBreathTime > MaxUnderWaterTime - 5.f))
 				{
-					UUTGameplayStatics::UTPlaySound(GetWorld(), GaspSound, this, SRT_None);
+					UUTGameplayStatics::UTPlaySound(GetWorld(), CharacterData.GetDefaultObject()->GaspSound, this, SRT_None);
 				}
 				LastBreathTime = GetWorld()->GetTimeSeconds();
 			}
@@ -3994,7 +3994,7 @@ void AUTCharacter::TakeDrowningDamage()
 {
 	FUTPointDamageEvent DamageEvent(DrowningDamagePerSecond, FHitResult(this, GetCapsuleComponent(), GetActorLocation(), FVector(0.0f, 0.0f, 1.0f)), FVector(0.0f, 0.0f, -1.0f), UUTDmgType_Drown::StaticClass());
 	TakeDamage(DrowningDamagePerSecond, DamageEvent, Controller, this);
-	UUTGameplayStatics::UTPlaySound(GetWorld(), DrowningSound, this, SRT_None);
+	UUTGameplayStatics::UTPlaySound(GetWorld(), CharacterData.GetDefaultObject()->DrowningSound, this, SRT_None);
 }
 
 uint8 AUTCharacter::GetTeamNum() const
@@ -4238,7 +4238,7 @@ void AUTCharacter::PlayerSuicide()
 	{
 		FHitResult FakeHit(this, NULL, GetActorLocation(), GetActorRotation().Vector());
 		FUTPointDamageEvent FakeDamageEvent(0, FakeHit, FVector(0, 0, 0), UUTDmgType_Suicide::StaticClass());
-		UUTGameplayStatics::UTPlaySound(GetWorld(), PainSound, this, SRT_All, false, FVector::ZeroVector, Cast<AUTPlayerController>(Controller), NULL, false);
+		UUTGameplayStatics::UTPlaySound(GetWorld(), CharacterData.GetDefaultObject()->PainSound, this, SRT_All, false, FVector::ZeroVector, Cast<AUTPlayerController>(Controller), NULL, false);
 		Died(NULL, FakeDamageEvent);
 	}
 }
@@ -4378,7 +4378,7 @@ void AUTCharacter::FellOutOfWorld(const UDamageType& DmgType)
 	{
 		FHitResult FakeHit(this, NULL, GetActorLocation(), GetActorRotation().Vector());
 		FUTPointDamageEvent FakeDamageEvent(0, FakeHit, FVector(0, 0, 0), DmgType.GetClass());
-		UUTGameplayStatics::UTPlaySound(GetWorld(), PainSound, this, SRT_All, false, FVector::ZeroVector, Cast<AUTPlayerController>(Controller), NULL, false);
+		UUTGameplayStatics::UTPlaySound(GetWorld(), CharacterData.GetDefaultObject()->PainSound, this, SRT_All, false, FVector::ZeroVector, Cast<AUTPlayerController>(Controller), NULL, false);
 		Died(NULL, FakeDamageEvent);
 	}
 }

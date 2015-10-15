@@ -729,7 +729,7 @@ void UUTCharacterMovement::PerformWaterJump()
 		AUTCharacter* UTCharacterOwner = Cast<AUTCharacter>(CharacterOwner);
 		if (UTCharacterOwner)
 		{
-			UUTGameplayStatics::UTPlaySound(GetWorld(), UTCharacterOwner->SwimPushSound, UTCharacterOwner, SRT_AllButOwner);
+			UUTGameplayStatics::UTPlaySound(GetWorld(), UTCharacterOwner->CharacterData.GetDefaultObject()->SwimPushSound, UTCharacterOwner, SRT_AllButOwner);
 		}
 	}
 	LastWallDodgeNormal = Result.ImpactNormal;
