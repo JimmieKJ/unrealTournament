@@ -41,7 +41,7 @@ void AUTGameSession::ValidatePlayer(const FString& Address, const TSharedPtr<cla
 		NetDriver = GetWorld()->GetNetDriver();
 	}
 
-	if ( AllowedAdmins.Find(UniqueId->ToString()) == INDEX_NONE && bNoJoinInProgress && UTGameMode->HasMatchStarted() )
+	if ( (UniqueId.IsValid() && AllowedAdmins.Find(UniqueId->ToString()) == INDEX_NONE) && bNoJoinInProgress && UTGameMode->HasMatchStarted() )
 	{
 		ErrorMessage = TEXT("CANTJOININPROGRESS");
 		return;
