@@ -3367,7 +3367,7 @@ void UUTLocalPlayer::SkullPickedUp()
 	if (CurrentProfileSettings)
 	{
 		CurrentProfileSettings->SkullCount++;
-		if (CurrentProfileSettings->SkullCount > 200)
+		if (CurrentProfileSettings->SkullCount > 423)
 		{
 			AwardAchievement(AchievementIDs::PumpkinHead2015);
 		}
