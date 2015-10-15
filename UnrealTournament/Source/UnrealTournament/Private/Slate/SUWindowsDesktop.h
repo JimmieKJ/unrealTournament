@@ -33,6 +33,9 @@ public:
 	virtual void ActivatePanel(TSharedPtr<class SUWPanel> PanelToActivate);
 	virtual void DeactivatePanel(TSharedPtr<class SUWPanel> PanelToDeactivate);
 
+	virtual void ShowHomePanel();
+
+
 protected:
 	TWeakObjectPtr<class UUTLocalPlayer> PlayerOwner;
 

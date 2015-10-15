@@ -764,7 +764,7 @@ void SUTMenuBase::OpenDelayedMenu()
 	}
 }
 
-FReply SUTMenuBase::OnShowHomePanel()
+void SUTMenuBase::ShowHomePanel()
 {
 	if (HomePanel.IsValid())
 	{
@@ -774,7 +774,12 @@ FReply SUTMenuBase::OnShowHomePanel()
 	{
 		DeactivatePanel(ActivePanel);
 	}
+}
 
+
+FReply SUTMenuBase::OnShowHomePanel()
+{
+	ShowHomePanel();
 	return FReply::Handled();
 }
 

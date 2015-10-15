@@ -173,4 +173,10 @@ void SUWindowsDesktop::DeactivatePanel(TSharedPtr<class SUWPanel> PanelToDeactiv
 	}
 
 }
+
+void SUWindowsDesktop::ShowHomePanel()
+{
+}
+
+
 #endif

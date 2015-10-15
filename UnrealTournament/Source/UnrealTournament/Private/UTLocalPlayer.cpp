@@ -913,6 +913,15 @@ void UUTLocalPlayer::OnLogoutComplete(int32 LocalUserNum, bool bWasSuccessful)
 
 	GetWorld()->GetTimerManager().ClearTimer(ProfileWriteTimerHandle);
 
+	if (ServerBrowserWidget.IsValid())
+	{
+		if (DesktopSlateWidget.IsValid())
+		{
+			DesktopSlateWidget->ShowHomePanel();
+			ServerBrowserWidget.Reset();
+		}
+	}
+
 	// If we have pending login creds then try to log right back in.
 	if (bPendingLoginCreds)
 	{
@@ -3367,9 +3376,17 @@ void UUTLocalPlayer::SkullPickedUp()
 	if (CurrentProfileSettings)
 	{
 		CurrentProfileSettings->SkullCount++;
-		if (CurrentProfileSettings->SkullCount > 423)
+		if (CurrentProfileSettings->SkullCount > 200)
 		{
-			AwardAchievement(AchievementIDs::PumpkinHead2015);
+			AwardAchievement(AchievementIDs::PumpkinHead2015Level1);
+		}
+		if (CurrentProfileSettings->SkullCount > 1000)
+		{
+			AwardAchievement(AchievementIDs::PumpkinHead2015Level2);
+		}
+		if (CurrentProfileSettings->SkullCount > 5000)
+		{
+			AwardAchievement(AchievementIDs::PumpkinHead2015Level3);
 		}
 	}
 }
@@ -3596,3 +3613,15 @@ void UUTLocalPlayer::CloseDownloadAll()
 	}
 #endif
 }
+
+#if !UE_SERVER
+
+int32 UUTLocalPlayer::NumDialogsOpened()
+{
+	int32 Num = OpenDialogs.Num();
+	if (LoginDialog.IsValid()) Num++;
+	return Num;
+}
+#endif
+
+

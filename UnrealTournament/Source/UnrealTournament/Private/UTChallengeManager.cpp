@@ -305,7 +305,7 @@ void UUTChallengeManager::UpdateChallengeFromMCP(const FMCPPulledData& MCPData)
 		{
 			Challenges.Add(MCPData.Challenges[i].ChallengeName, MCPData.Challenges[i].Challenge );
 		}
-
+		RevisionNumber = MCPData.ChallengeRevisionNumber;
 		RewardTags.Empty();
 		RewardTags = MCPData.RewardTags;
 	}

@@ -64,7 +64,7 @@ bool AUTTeamShowdownGame::CheckRelevance_Implementation(AActor* Other)
 		{
 			// make dropped weapons last for the whole round
 			AUTDroppedPickup* Drop = Cast<AUTDroppedPickup>(Other);
-			if (Drop != NULL && Drop->GetInventoryType() != NULL && Drop->GetInventoryType()->IsChildOf(AUTWeapon::StaticClass()))
+			if (Drop != NULL)
 			{
 				Drop->SetLifeSpan(0.0f);
 			}
@@ -99,6 +99,7 @@ void AUTTeamShowdownGame::DiscardInventory(APawn* Other, AController* Killer)
 					FinalDir.Normalize();
 				}
 				It->DropFrom(UTC->GetActorLocation(), FinalDir * 1000.0f + FVector(0.0f, 0.0f, 250.0f));
+				i++;
 			}
 		}
 	}
