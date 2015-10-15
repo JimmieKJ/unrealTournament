@@ -1048,18 +1048,7 @@ AUTCharacter* SUWMatchSummary::RecreatePlayerPreview(AUTPlayerState* NewPS, FVec
 		PlayerPreviewMesh->PlayerState = NewPS; //PS needed for team colors
 		PlayerPreviewMesh->Health = 100; //Set to 100 so the TacCom Overlay doesn't show damage
 		PlayerPreviewMesh->DeactivateSpawnProtection();
-
-		if (NewPS->IsFemale())
-		{
-			PlayerPreviewAnimBlueprint = LoadObject<UClass>(nullptr, TEXT("/Game/RestrictedAssets/UI/ABP_Female_PlayerPreview.ABP_Female_PlayerPreview_C"));
-		}
-		else
-		{
-			PlayerPreviewAnimBlueprint = LoadObject<UClass>(nullptr, TEXT("/Game/RestrictedAssets/UI/ABP_PlayerPreview.ABP_PlayerPreview_C"));
-		}
-
-		PlayerPreviewMesh->GetMesh()->SetAnimInstanceClass(PlayerPreviewAnimBlueprint);
-
+		
 		PlayerPreviewMesh->ApplyCharacterData(NewPS->GetSelectedCharacter());
 		PlayerPreviewMesh->NotifyTeamChanged();
 
@@ -1096,6 +1085,48 @@ AUTCharacter* SUWMatchSummary::RecreatePlayerPreview(AUTPlayerState* NewPS, FVec
 			PreviewWeapon->AttachToOwner();
 			PreviewWeapons.Add(PreviewWeapon);
 		}
+
+		if (NewPS->IsFemale())
+		{
+			if (WeaponIndex % 6 == 0 || WeaponIndex % 6 == 3 || WeaponIndex % 6 == 5)
+			{
+				PlayerPreviewAnim = LoadObject<UAnimationAsset>(NULL, TEXT("/Game/RestrictedAssets/Animations/Universal/Misc_Poses/MatchPoseFemale_ShockRifle.MatchPoseFemale_ShockRifle"));
+			}
+			else if (WeaponIndex % 6 == 1)
+			{
+				PlayerPreviewAnim = LoadObject<UAnimationAsset>(NULL, TEXT("/Game/RestrictedAssets/Animations/Universal/Misc_Poses/MatchPoseFemale_Sniper.MatchPoseFemale_Sniper"));
+			}
+			else if (WeaponIndex % 6 == 2)
+			{
+				PlayerPreviewAnim = LoadObject<UAnimationAsset>(NULL, TEXT("/Game/RestrictedAssets/Animations/Universal/Misc_Poses/MatchPoseFemale_Flak_B.MatchPoseFemale_Flak_B"));
+			}
+			else if (WeaponIndex % 6 == 4)
+			{
+				PlayerPreviewAnim = LoadObject<UAnimationAsset>(NULL, TEXT("/Game/RestrictedAssets/Animations/Universal/Misc_Poses/MatchPoseFemale_Flak.MatchPoseFemale_Flak"));
+			}
+		}
+		else
+		{
+			if (WeaponIndex % 6 == 0 || WeaponIndex % 6 == 3 || WeaponIndex % 6 == 5)
+			{
+				PlayerPreviewAnim = LoadObject<UAnimationAsset>(NULL, TEXT("/Game/RestrictedAssets/Animations/Universal/Misc_Poses/MatchPose_ShockRifle.MatchPose_ShockRifle"));
+			}
+			else if (WeaponIndex % 6 == 1)
+			{
+				PlayerPreviewAnim = LoadObject<UAnimationAsset>(NULL, TEXT("/Game/RestrictedAssets/Animations/Universal/Misc_Poses/MatchPose_Sniper.MatchPose_Sniper"));
+			}
+			else if (WeaponIndex % 6 == 2)
+			{
+				PlayerPreviewAnim = LoadObject<UAnimationAsset>(NULL, TEXT("/Game/RestrictedAssets/Animations/Universal/Misc_Poses/MatchPose_Flak_B.MatchPose_Flak_B"));
+			}
+			else if (WeaponIndex % 6 == 4)
+			{
+				PlayerPreviewAnim = LoadObject<UAnimationAsset>(NULL, TEXT("/Game/RestrictedAssets/Animations/Universal/Misc_Poses/MatchPose_Flak.MatchPose_Flak"));
+			}
+		}
+
+		PlayerPreviewMesh->GetMesh()->PlayAnimation(PlayerPreviewAnim, true);
+		PlayerPreviewMesh->GetMesh()->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones;
 
 		PlayerPreviewMeshs.Add(PlayerPreviewMesh);
 		return PlayerPreviewMesh;

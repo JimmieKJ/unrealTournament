@@ -125,7 +125,7 @@ protected:
 	/** view state for player preview (needed for LastRenderTime to work) */
 	FSceneViewStateReference ViewState;
 
-	UClass* PlayerPreviewAnimBlueprint;
+	UAnimationAsset* PlayerPreviewAnim;
 
 	/** render target for player mesh and cosmetic items */
 	class UUTCanvasRenderTarget2D* PlayerPreviewTexture;
