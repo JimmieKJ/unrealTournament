@@ -142,8 +142,8 @@ protected:
 	float ZoomOffset;
 
 	AActor* PreviewEnvironment;
-	UAnimationAsset* PoseAnimation;
-	UAnimationAsset* FemalePoseAnimation;
+	UClass* PlayerPreviewAnimBlueprint;
+	UClass* PlayerPreviewAnimFemaleBlueprint;
 
 	int32 OldSSRQuality;
 

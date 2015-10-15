@@ -904,6 +904,7 @@ void SUWPlayerSettingsDialog::AddReferencedObjects(FReferenceCollector& Collecto
 {
 	Collector.AddReferencedObject(PlayerPreviewTexture);
 	Collector.AddReferencedObject(PlayerPreviewMID);
+	Collector.AddReferencedObject(PlayerPreviewAnimBlueprint);
 	Collector.AddReferencedObject(PlayerPreviewWorld);
 }
 
@@ -1294,14 +1295,16 @@ void SUWPlayerSettingsDialog::RecreatePlayerPreview()
 			{
 				PlayerPreviewAnimBlueprint = LoadObject<UClass>(nullptr, TEXT("/Game/RestrictedAssets/UI/ABP_PlayerPreview.ABP_PlayerPreview_C"));
 			}
-
-			PlayerPreviewMesh->GetMesh()->SetAnimInstanceClass(PlayerPreviewAnimBlueprint);
 		}
 	}
 
 	if (!bFoundCharacterClass)
 	{
 		PlayerPreviewAnimBlueprint = LoadObject<UClass>(nullptr, TEXT("/Game/RestrictedAssets/UI/ABP_PlayerPreview.ABP_PlayerPreview_C"));
+	}
+
+	if (PlayerPreviewAnimBlueprint)
+	{
 		PlayerPreviewMesh->GetMesh()->SetAnimInstanceClass(PlayerPreviewAnimBlueprint);
 	}
 
