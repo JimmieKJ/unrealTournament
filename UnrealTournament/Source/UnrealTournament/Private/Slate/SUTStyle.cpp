@@ -419,13 +419,29 @@ void SUTStyle::SetRankBadges(TSharedRef<FSlateStyleSet> StyleRef)
 void SUTStyle::SetChallengeBadges(TSharedRef<FSlateStyleSet> StyleRef)
 {
 	FSlateStyleSet& Style = StyleRef.Get();
-	Style.Set("UT.ChallengeBadges.DM", new IMAGE_BRUSH( "UTStyle/ChallengeBadges/DeathmatchChallenge", FVector2D(880.0f, 256.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
-	Style.Set("UT.ChallengeBadges.CTF", new IMAGE_BRUSH( "UTStyle/ChallengeBadges/CaptureTheFlagChallenge", FVector2D(880.0f, 256.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
-	Style.Set("UT.ChallengeBadges.CTF_Face", new IMAGE_BRUSH("UTStyle/ChallengeBadges/CaptureTheFlagChallenge_FacingWorlds", FVector2D(880.0f, 256.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
-	Style.Set("UT.ChallengeBadges.CTF_Pistola", new IMAGE_BRUSH("UTStyle/ChallengeBadges/CaptureTheFlagChallenge_Pistola", FVector2D(880.0f, 256.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
-	Style.Set("UT.ChallengeBadges.CTF_Titan", new IMAGE_BRUSH("UTStyle/ChallengeBadges/CaptureTheFlagChallenge_TitanPass", FVector2D(880.0f, 256.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
-	Style.Set("UT.ChallengeBadges.DM_Lea", new IMAGE_BRUSH("UTStyle/ChallengeBadges/DeathmatchChallenge_Lea", FVector2D(880.0f, 256.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
-	Style.Set("UT.ChallengeBadges.DM_OP23", new IMAGE_BRUSH("UTStyle/ChallengeBadges/DeathmatchChallenge_OP23", FVector2D(880.0f, 256.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+	Style.Set("UT.ChallengeBadges.DM", new IMAGE_BRUSH( "UTStyle/ChallengeBadges/DeathmatchChallenge", FVector2D(880.0f, 96.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
+	Style.Set("UT.ChallengeBadges.CTF", new IMAGE_BRUSH( "UTStyle/ChallengeBadges/CaptureTheFlagChallenge", FVector2D(880.0f, 96.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
+	Style.Set("UT.ChallengeBadges.CTF_Face", new IMAGE_BRUSH("UTStyle/ChallengeBadges/CaptureTheFlagChallenge_FacingWorlds", FVector2D(880.0f, 96.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+	Style.Set("UT.ChallengeBadges.CTF_Pistola", new IMAGE_BRUSH("UTStyle/ChallengeBadges/CaptureTheFlagChallenge_Pistola", FVector2D(880.0f, 96.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+	Style.Set("UT.ChallengeBadges.CTF_Titan", new IMAGE_BRUSH("UTStyle/ChallengeBadges/CaptureTheFlagChallenge_TitanPass", FVector2D(880.0f, 96.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+	Style.Set("UT.ChallengeBadges.DM_Lea", new IMAGE_BRUSH("UTStyle/ChallengeBadges/DeathmatchChallenge_Lea", FVector2D(880.0f, 96.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+	Style.Set("UT.ChallengeBadges.DM_OP23", new IMAGE_BRUSH("UTStyle/ChallengeBadges/DeathmatchChallenge_OP23", FVector2D(880.0f, 96.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+
+	Style.Set("UT.ChallengeBadges.GenericA", new IMAGE_BRUSH("UTStyle/ChallengeBadges/GenericChallengeA", FVector2D(880.0f, 96.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+	Style.Set("UT.ChallengeBadges.GenericB", new IMAGE_BRUSH("UTStyle/ChallengeBadges/GenericChallengeB", FVector2D(880.0f, 96.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+	Style.Set("UT.ChallengeBadges.GenericC", new IMAGE_BRUSH("UTStyle/ChallengeBadges/GenericChallengeC", FVector2D(880.0f, 96.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+	Style.Set("UT.ChallengeBadges.GenericD", new IMAGE_BRUSH("UTStyle/ChallengeBadges/GenericChallengeD", FVector2D(880.0f, 96.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+	Style.Set("UT.ChallengeBadges.GenericE", new IMAGE_BRUSH("UTStyle/ChallengeBadges/GenericChallengeE", FVector2D(880.0f, 96.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+	Style.Set("UT.ChallengeBadges.GenericF", new IMAGE_BRUSH("UTStyle/ChallengeBadges/GenericChallengeF", FVector2D(880.0f, 96.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+	Style.Set("UT.ChallengeBadges.GenericG", new IMAGE_BRUSH("UTStyle/ChallengeBadges/GenericChallengeG", FVector2D(880.0f, 96.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+	Style.Set("UT.ChallengeBadges.GenericH", new IMAGE_BRUSH("UTStyle/ChallengeBadges/GenericChallengeH", FVector2D(880.0f, 96.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+
+	Style.Set("UT.ChallengeBadges.SpookyA", new IMAGE_BRUSH("UTStyle/ChallengeBadges/HalloweenA", FVector2D(880.0f, 96.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+	Style.Set("UT.ChallengeBadges.SpookyB", new IMAGE_BRUSH("UTStyle/ChallengeBadges/HalloweenB", FVector2D(880.0f, 96.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+	Style.Set("UT.ChallengeBadges.SpookyC", new IMAGE_BRUSH("UTStyle/ChallengeBadges/HalloweenC", FVector2D(880.0f, 96.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+	Style.Set("UT.ChallengeBadges.SpookyD", new IMAGE_BRUSH("UTStyle/ChallengeBadges/HalloweenD", FVector2D(880.0f, 96.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+	Style.Set("UT.ChallengeBadges.SpookyE", new IMAGE_BRUSH("UTStyle/ChallengeBadges/HalloweenE", FVector2D(880.0f, 96.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+	Style.Set("UT.ChallengeBadges.SpookyF", new IMAGE_BRUSH("UTStyle/ChallengeBadges/HalloweenF", FVector2D(880.0f, 96.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
 }
 
 void SUTStyle::SetContextMenus(TSharedRef<FSlateStyleSet> StyleRef)
