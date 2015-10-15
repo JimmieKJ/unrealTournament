@@ -591,6 +591,7 @@ void AUTLobbyGameState::GameInstance_PlayerUpdate(uint32 InGameInstanceID, FUniq
 		{
 			// Look through the players in the match
 			AUTLobbyMatchInfo* Match = GameInstances[i].MatchInfo;
+			AUTLobbyGameMode* LobbyGameMode = GetWorld()->GetAuthGameMode<AUTLobbyGameMode>();
 			if (Match)
 			{
 				for (int32 j=0; j < Match->PlayersInMatchInstance.Num(); j++)
@@ -601,6 +602,13 @@ void AUTLobbyGameState::GameInstance_PlayerUpdate(uint32 InGameInstanceID, FUniq
 						{
 							Match->PlayersInMatchInstance.RemoveAt(j,1);
 							Match->UpdateRank();
+
+							// Update the Game state.
+							if (LobbyGameMode)
+							{
+								AUTGameSession* UTGameSession = Cast<AUTGameSession>(LobbyGameMode->GameSession);
+								if (UTGameSession) UTGameSession->UpdateGameState();
+							}
 							return;
 						}
 						else
@@ -617,10 +625,19 @@ void AUTLobbyGameState::GameInstance_PlayerUpdate(uint32 InGameInstanceID, FUniq
 						break;
 					}
 				}
-
+	
 				// A player not in the instance table.. add them
 				Match->PlayersInMatchInstance.Add(FPlayerListInfo(PlayerID, PlayerName, PlayerScore, bSpectator, TeamNum, PlayerRank, Avatar));
 				Match->UpdateRank();
+
+				// Update the Game state.
+				if (LobbyGameMode)
+				{
+					AUTGameSession* UTGameSession = Cast<AUTGameSession>(LobbyGameMode->GameSession);
+					if (UTGameSession) UTGameSession->UpdateGameState();
+				}
+
+
 			}
 		}
 	}

@@ -535,6 +535,16 @@ void AUTLobbyMatchInfo::RemoveFromMatchInstance(AUTLobbyPlayerState* PlayerState
 		if (PlayersInMatchInstance[i].PlayerID == PlayerState->UniqueId)
 		{
 			PlayersInMatchInstance.RemoveAt(i);
+
+			AUTLobbyGameMode* LobbyGameMode = GetWorld()->GetAuthGameMode<AUTLobbyGameMode>();
+			// Update the Game state.
+			if (LobbyGameMode)
+			{
+				AUTGameSession* UTGameSession = Cast<AUTGameSession>(LobbyGameMode->GameSession);
+				if (UTGameSession) UTGameSession->UpdateGameState();
+			}
+
+
 			break;
 		}
 	}
