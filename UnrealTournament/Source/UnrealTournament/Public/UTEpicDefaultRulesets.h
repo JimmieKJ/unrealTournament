@@ -276,6 +276,7 @@ public:
 			NewRuleset->EpicMaps = "/Game/RestrictedAssets/Maps/CTF-TitanPass";
 			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/CTF-Face";
 			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/EpicInternal/Pistola/CTF-Pistola";
+			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/EpicInternal/Stu/CTF-Face_Halloween";
 			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/CTF-Blank";
 			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/CTF-BigRock";
 			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/CTF-Dam";
@@ -287,7 +288,7 @@ public:
 			NewRuleset->DefaultMap = "/Game/RestrictedAssets/Maps/CTF-TitanPass";
 			NewRuleset->QuickPlayMaps.Add(TEXT("/Game/RestrictedAssets/Maps/CTF-TitanPass"));
 			NewRuleset->QuickPlayMaps.Add(TEXT("/Game/RestrictedAssets/Maps/CTF-Face"));
-			NewRuleset->QuickPlayMaps.Add(TEXT("/Game/EpicInternal/Pistola/CTF-Pistola"));
+			NewRuleset->QuickPlayMaps.Add(TEXT("/Game/EpicInternal/Stu/CTF-Face_Halloween"));
 		}
 		else if (NewRuleset->UniqueTag.Equals(EEpicDefaultRuleTags::BIGCTF, ESearchCase::IgnoreCase))
 		{
@@ -307,8 +308,9 @@ public:
 			NewRuleset->MaxMapsInList=16;
 
 			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/CTF-Face";
-			NewRuleset->EpicMaps = "/Game/RestrictedAssets/Maps/WIP/CTF-BigRock";
-			NewRuleset->EpicMaps = NewRuleset->EpicMaps +	",/Game/RestrictedAssets/Maps/WIP/CTF-Dam";
+			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/CTF-BigRock";
+			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/EpicInternal/Stu/CTF-Face_Halloween";
+			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/CTF-Dam";
 			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/CTF-Volcano";
 			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/CTF-Lance";
 			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/CTF-CrashSite";
@@ -404,6 +406,7 @@ public:
 			NewRuleset->EpicMaps = "/Game/RestrictedAssets/Maps/CTF-TitanPass";
 			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/CTF-Face";
 			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/EpicInternal/Pistola/CTF-Pistola";
+			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/EpicInternal/Stu/CTF-Face_Halloween";
 			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/CTF-Blank";
 			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/CTF-BigRock";
 			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/CTF-Dam";
@@ -434,6 +437,7 @@ public:
 			NewRuleset->EpicMaps = "/Game/RestrictedAssets/Maps/CTF-TitanPass";
 			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/CTF-Face";
 			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/EpicInternal/Pistola/CTF-Pistola";
+			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/EpicInternal/Stu/CTF-Face_Halloween";
 			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/CTF-Blank";
 			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/CTF-BigRock";
 			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/CTF-Dam";
