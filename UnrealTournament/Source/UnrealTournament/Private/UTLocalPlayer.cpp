@@ -913,6 +913,15 @@ void UUTLocalPlayer::OnLogoutComplete(int32 LocalUserNum, bool bWasSuccessful)
 
 	GetWorld()->GetTimerManager().ClearTimer(ProfileWriteTimerHandle);
 
+	if (ServerBrowserWidget.IsValid())
+	{
+		if (DesktopSlateWidget.IsValid())
+		{
+			DesktopSlateWidget->ShowHomePanel();
+			ServerBrowserWidget.Reset();
+		}
+	}
+
 	// If we have pending login creds then try to log right back in.
 	if (bPendingLoginCreds)
 	{

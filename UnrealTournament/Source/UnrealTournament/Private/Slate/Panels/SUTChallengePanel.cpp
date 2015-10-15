@@ -883,6 +883,7 @@ void SUTChallengePanel::Tick( const FGeometry& AllottedGeometry, const double In
 	// If the challenge revision has changed, rebuild the list.
 	if (ChallengeManager.IsValid() && ChallengeManager->RevisionNumber != LastChallengeRevisionNumber)
 	{
+		LastChallengeRevisionNumber = ChallengeManager->RevisionNumber;
 		GenerateChallengeList();
 	}
 }

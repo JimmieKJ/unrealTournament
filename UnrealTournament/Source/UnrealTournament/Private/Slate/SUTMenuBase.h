@@ -25,6 +25,8 @@ public:
 
 	virtual FReply OnShowServerBrowserPanel();
 
+	virtual void ShowHomePanel();
+
 protected:
 	TSharedPtr<class SHorizontalBox> LeftMenuBar;
 	TSharedPtr<class SHorizontalBox> RightMenuBar;
