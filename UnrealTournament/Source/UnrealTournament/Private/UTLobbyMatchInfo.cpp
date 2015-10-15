@@ -802,6 +802,17 @@ void AUTLobbyMatchInfo::ServerCreateCustomRule_Implementation(const FString& Gam
 					Sanitized.ParseIntoArray(Split, TEXT("="),true);
 					if (Split.Num() == 2)
 					{
+
+						// Verify the settings on time limit
+						if (Split[0].Equals(TEXT("timelimit"),ESearchCase::IgnoreCase))
+						{
+							int32 TimeLimitValue = FCString::Atoi(*Split[1]);												
+							if (TimeLimitValue <= 0 || TimeLimitValue >=60)
+							{
+								Sanitized = TEXT("TimeLimit=60");
+							}
+						}
+
 						// TODO: this doesn't handle mutators, etc
 						//TSharedPtr<TAttributePropertyBase> Prop = CustomGameModeDefaultObject->FindGameURLOption(AllowedProps, Split[0]);
 						//if (Prop.IsValid())
