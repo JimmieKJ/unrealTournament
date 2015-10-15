@@ -16,6 +16,7 @@ const uint16 UTDIALOG_BUTTON_VIEW = 0x0100;
 const uint16 UTDIALOG_BUTTON_YESCLEAR = 0x0200;
 const uint16 UTDIALOG_BUTTON_PLAY = 0x0400;
 const uint16 UTDIALOG_BUTTON_LAN = 0x0800;
+const uint16 UTDIALOG_BUTTON_CLOSE = 0x1000;
 
 UENUM()
 namespace EGameStage
@@ -481,7 +482,7 @@ struct FPackageRedirectReference
 	}
 
 	// Converts the redirect to a download URL
-	FString ToString()
+	FString ToString() const
 	{
 		return PackageURLProtocol + TEXT("://") + PackageURL + TEXT(" ");
 	}
@@ -687,6 +688,37 @@ struct FMatchPlayerListCompare
 
 
 USTRUCT()
+struct FMatchUpdate
+{
+	GENERATED_USTRUCT_BODY()
+
+	// The current game time of this last update
+	UPROPERTY()
+	float GameTime;
+
+	// # of players in this match
+	UPROPERTY()
+	int32 NumPlayers;
+
+	// # of spectators in this match
+	UPROPERTY()
+	int32 NumSpectators;
+
+	// Team Scores.. non-team games will be 0 entries
+	UPROPERTY()
+	TArray<int32> TeamScores;
+
+	FMatchUpdate()
+	{
+		GameTime = 0.0f;
+		NumPlayers = 0;
+		NumSpectators = 0;
+		TeamScores.Empty();
+	}
+
+};
+
+USTRUCT()
 struct FServerInstanceData 
 {
 	GENERATED_USTRUCT_BODY()
@@ -728,6 +760,9 @@ struct FServerInstanceData
 
 	UPROPERTY()
 	FString Score;
+
+	UPROPERTY()
+	FMatchUpdate MatchUpdate;
 
 	UPROPERTY(NotReplicated)
 	TArray<FMatchPlayerListStruct> Players;
@@ -792,6 +827,7 @@ namespace EEpicDefaultRuleTags
 	const FString TDM = TEXT("TDM");
 	const FString DUEL = TEXT("DUEL");
 	const FString SHOWDOWN = TEXT("SHOWDOWN");
+	const FString TEAMSHOWDOWN = TEXT("TEAMSHOWDOWN");
 	const FString CTF = TEXT("CTF");
 	const FString BIGCTF = TEXT("BIGCTF");
 	const FString iDM = TEXT("iDM");
@@ -842,6 +878,9 @@ namespace EPlayerListContentCommand
 	const FName Ban = FName(TEXT("Ban"));
 	const FName Invite = FName(TEXT("Invite"));
 	const FName UnInvite = FName(TEXT("Uninvite"));
+	const FName ServerKick = FName(TEXT("ServerKick"));
+	const FName ServerBan = FName(TEXT("ServerBan"));
+	const FName SendMessage = FName(TEXT("SendMessage"));
 }
 
 UENUM()
@@ -918,6 +957,35 @@ struct FTeamRoster
 	}
 };
 
+USTRUCT()
+struct FUTRewardInfo
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY()
+	FLinearColor StarColor;
+
+	UPROPERTY()
+	FName StarEmptyStyleTag;
+
+	UPROPERTY()
+	FName StarCompletedStyleTag;
+
+	FUTRewardInfo()
+		: StarColor(FLinearColor::White)
+		, StarEmptyStyleTag(FName(TEXT("UT.Star.Outline")))
+		, StarCompletedStyleTag(FName(TEXT("UT.Star")))
+	{
+	}
+
+	FUTRewardInfo(FLinearColor inColor, FName inEmptyStyle, FName inCompletedStyle)
+		: StarColor(inColor)
+		, StarEmptyStyleTag(inEmptyStyle)
+		, StarCompletedStyleTag(inCompletedStyle)
+	{
+	}
+
+};
 
 USTRUCT()
 struct FUTChallengeInfo
@@ -931,7 +999,7 @@ struct FUTChallengeInfo
 	FString Map;
 
 	UPROPERTY()
-	FString GameMode;
+	FString GameURL;
 
 	UPROPERTY()
 	FString Description;
@@ -948,30 +1016,34 @@ struct FUTChallengeInfo
 	UPROPERTY()
 	FName SlateUIImageName;
 
+	UPROPERTY()
+	FName RewardTag;
 
 	FUTChallengeInfo()
 		: Title(TEXT(""))
 		, Map(TEXT(""))
-		, GameMode(TEXT(""))
+		, GameURL(TEXT(""))
 		, Description(TEXT(""))
 		, PlayerTeamSize(0)
 		, EnemyTeamSize(0)
 		, EnemyTeamName()
 		, SlateUIImageName(NAME_None)
+		, RewardTag(NAME_None)
 	{
 		EnemyTeamName[0] = NAME_None;
 		EnemyTeamName[1] = NAME_None;
 		EnemyTeamName[2] = NAME_None;
 	}
 
-	FUTChallengeInfo(FString inTitle, FString inMap, FString inGameMode, FString inDescription, int32 inPlayerTeamSize, int32 inEnemyTeamSize, FName EasyEnemyTeam, FName MediumEnemyTeam, FName HardEnemyTeam, FName inSlateUIImageName)
+	FUTChallengeInfo(FString inTitle, FString inMap, FString inGameURL, FString inDescription, int32 inPlayerTeamSize, int32 inEnemyTeamSize, FName EasyEnemyTeam, FName MediumEnemyTeam, FName HardEnemyTeam, FName inSlateUIImageName, FName inRewardTag)
 		: Title(inTitle)
 		, Map(inMap)
-		, GameMode(inGameMode)
+		, GameURL(inGameURL)
 		, Description(inDescription)
 		, PlayerTeamSize(inPlayerTeamSize)
 		, EnemyTeamSize(inEnemyTeamSize)
 		, SlateUIImageName(inSlateUIImageName)
+		, RewardTag(inRewardTag)
 	{
 		EnemyTeamName[0] = EasyEnemyTeam;
 		EnemyTeamName[1] = MediumEnemyTeam;
@@ -979,3 +1051,135 @@ struct FUTChallengeInfo
 	}
 };
 
+USTRUCT()
+struct FStoredUTChallengeInfo
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY()
+	FName ChallengeName;
+
+	UPROPERTY()
+	FUTChallengeInfo Challenge;
+
+	FStoredUTChallengeInfo()
+	{
+		ChallengeName = NAME_None;
+	}
+
+	FStoredUTChallengeInfo(FName inChallengeName, FUTChallengeInfo inChallenge)
+		: ChallengeName(inChallengeName)
+		, Challenge(inChallenge)
+	{
+	}
+
+};
+
+USTRUCT()
+struct FMCPPulledData
+{
+	GENERATED_USTRUCT_BODY()
+
+	bool bValid;
+
+	// Holds the current "version" so to speak.  Just increment it each time we push
+	// a new update.  
+	UPROPERTY()
+	int32 ChallengeRevisionNumber;
+
+	// Holds a list of reward categories
+	UPROPERTY()
+	TArray<FName> RewardTags;
+
+	// Holds a list of challenges 
+	UPROPERTY()
+	TArray<FStoredUTChallengeInfo> Challenges;
+
+	FMCPPulledData()
+	{
+		Challenges.Empty();
+	}
+};
+
+USTRUCT(BlueprintType)
+struct FBloodDecalInfo
+{
+	GENERATED_USTRUCT_BODY()
+
+		/** material to use for the decal */
+		UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = DecalInfo)
+		UMaterialInterface* Material;
+	/** Base scale of decal */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = DecalInfo)
+		FVector2D BaseScale;
+	/** range of random scaling applied (always uniform) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = DecalInfo)
+		FVector2D ScaleMultRange;
+
+	FBloodDecalInfo()
+		: Material(NULL), BaseScale(32.0f, 32.0f), ScaleMultRange(0.8f, 1.2f)
+	{}
+};
+
+USTRUCT()
+struct FRconPlayerData
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY()
+	FString PlayerName;
+
+	UPROPERTY()
+	FString PlayerID;
+
+	UPROPERTY()
+	FString PlayerIP;
+
+	UPROPERTY()
+	int32 AverageRank;
+
+	UPROPERTY()
+	bool bInInstance;
+
+	UPROPERTY()
+	FString InstanceGuid;
+
+	bool bPendingDelete;
+
+	FRconPlayerData()
+		: PlayerName(TEXT(""))
+		, PlayerID(TEXT(""))
+		, PlayerIP(TEXT(""))
+		, AverageRank(0)
+		, bInInstance(false)
+	{
+		bPendingDelete = false;
+	}
+
+	FRconPlayerData(FString inPlayerName, FString inPlayerID, FString inPlayerIP, int32 inRank)
+		: PlayerName(inPlayerName)
+		, PlayerID(inPlayerID)
+		, PlayerIP(inPlayerIP)
+		, AverageRank(inRank)
+		, bInInstance(false)
+	{
+		bPendingDelete = false;
+	}
+
+	FRconPlayerData(FString inPlayerName, FString inPlayerID, FString inPlayerIP, int32 inRank, FString inInstanceGuid)
+		: PlayerName(inPlayerName)
+		, PlayerID(inPlayerID)
+		, PlayerIP(inPlayerIP)
+		, AverageRank(inRank)
+		, InstanceGuid(inInstanceGuid)
+	{
+		bInInstance = InstanceGuid != TEXT("");
+		bPendingDelete = false;
+	}
+
+	static TSharedRef<FRconPlayerData> Make(const FRconPlayerData& Original)
+	{
+		return MakeShareable( new FRconPlayerData(Original.PlayerName, Original.PlayerID, Original.PlayerIP, Original.AverageRank, Original.InstanceGuid));
+	}
+
+};

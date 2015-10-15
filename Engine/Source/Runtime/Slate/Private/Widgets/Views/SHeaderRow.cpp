@@ -530,7 +530,7 @@ void SHeaderRow::RegenerateWidgets()
 			SAssignNew(Splitter, SSplitter)
 			.Style( &Style->ColumnSplitterStyle )
 			.ResizeMode( ESplitterResizeMode::Fill )
-			.PhysicalSplitterHandleSize( 0.0f )
+			.PhysicalSplitterHandleSize( 2.0 )
 			.HitDetectionSplitterHandleSize( SplitterHandleDetectionSize )
 		]
 

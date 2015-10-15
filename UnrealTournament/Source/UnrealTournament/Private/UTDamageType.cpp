@@ -7,10 +7,6 @@
 UUTDamageType::UUTDamageType(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
-	// hack to allow blueprint damagetypes to have an event graph
-	// TODO: disabled at the moment as blueprints have all kinds of issues interacting with functions on default objects due to implicit variable creation
-	//GetClass()->ClassFlags &= ~CLASS_Const;
-
 	SelfMomentumBoost = 1.f;
 	DamageImpulse = 50000.0f;
 	DestructibleImpulse = 50000.0f;
@@ -38,6 +34,7 @@ UUTDamageType::UUTDamageType(const FObjectInitializer& ObjectInitializer)
 	FemaleSuicideMessage = NSLOCTEXT("UTDeathMessages","GenericFemaleSuicideMessage","{Player2Name} killed herself with the {WeaponName}.");
 	SelfVictimMessage = NSLOCTEXT("UTDeathMessages", "SelfVictimMessage", "You killed yourself.");
 	AssociatedWeaponName = NSLOCTEXT("UTDeathMessages","EnvironmentMessage","Environmental");
+	SpecialRewardText = NSLOCTEXT("UTDeathMessages", "GenericSpecialReward", "Special!");
 
 	static ConstructorHelpers::FObjectFinder<UTexture> SkullTex(TEXT("Texture'/Game/RestrictedAssets/UI/HUDAtlas01.HUDAtlas01'"));
 	HUDIcon.Texture = SkullTex.Object;

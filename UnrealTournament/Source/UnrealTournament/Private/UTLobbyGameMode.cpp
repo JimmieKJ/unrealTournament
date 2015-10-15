@@ -292,11 +292,21 @@ void AUTLobbyGameMode::GetInstanceData(TArray<TSharedPtr<FServerInstanceData>>& 
 		{
 			AUTLobbyMatchInfo* MatchInfo = UTLobbyGameState->AvailableMatches[i];
 
-			if (MatchInfo && !MatchInfo->bDedicatedMatch && MatchInfo->ShouldShowInDock())
+			if (MatchInfo && MatchInfo->ShouldShowInDock())
 			{
 				int32 NumPlayers = MatchInfo->NumPlayersInMatch();
+				TSharedPtr<FServerInstanceData> Data;
+				if (MatchInfo->bDedicatedMatch)
+				{
+					FString Map = FString::Printf(TEXT("%s (%s)"), *MatchInfo->InitialMap, *MatchInfo->DedicatedServerGameMode);
+					Data = FServerInstanceData::Make(MatchInfo->UniqueMatchID, MatchInfo->DedicatedServerName, Map, NumPlayers, MatchInfo->DedicatedServerMaxPlayers, 0, MatchInfo->GetMatchFlags(), 1500, false, MatchInfo->bJoinAnytime || !MatchInfo->IsInProgress(), MatchInfo->bSpectatable, MatchInfo->DedicatedServerDescription, TEXT(""));
+				}
+				else
+				{
+					Data = FServerInstanceData::Make(MatchInfo->UniqueMatchID, MatchInfo->CurrentRuleset->Title, (MatchInfo->InitialMapInfo.IsValid() ? MatchInfo->InitialMapInfo->Title : MatchInfo->InitialMap), NumPlayers, MatchInfo->CurrentRuleset->MaxPlayers, 0, MatchInfo->GetMatchFlags(), MatchInfo->AverageRank, MatchInfo->CurrentRuleset->bTeamGame, MatchInfo->bJoinAnytime || !MatchInfo->IsInProgress(), MatchInfo->bSpectatable, MatchInfo->CurrentRuleset->Description, TEXT(""));
+				}
 
-				TSharedPtr<FServerInstanceData> Data = FServerInstanceData::Make(MatchInfo->UniqueMatchID, MatchInfo->CurrentRuleset->Title, (MatchInfo->InitialMapInfo.IsValid() ? MatchInfo->InitialMapInfo->Title : MatchInfo->InitialMap), NumPlayers, MatchInfo->CurrentRuleset->MaxPlayers, 0, MatchInfo->GetMatchFlags(), MatchInfo->AverageRank, MatchInfo->CurrentRuleset->bTeamGame, MatchInfo->bJoinAnytime || !MatchInfo->IsInProgress(), MatchInfo->bSpectatable, MatchInfo->CurrentRuleset->Description, TEXT(""));
+				Data->MatchUpdate = MatchInfo->MatchUpdate;
 				MatchInfo->GetPlayerData(Data->Players);
 				InstanceData.Add(Data);
 			}
@@ -360,7 +370,7 @@ bool AUTLobbyGameMode::IsHandlingReplays()
 
 void AUTLobbyGameMode::DefaultTimer()
 {
-	if (GetWorld()->GetTimeSeconds() > ServerRefreshCheckpoint * 60)
+	if (GetWorld()->GetTimeSeconds() > ServerRefreshCheckpoint * 60 * 60)
 	{
 		if (NumPlayers == 0)
 		{
@@ -385,9 +395,77 @@ void AUTLobbyGameMode::DefaultTimer()
 					FPackageName::SearchForPackageOnDisk(MapName, &MapName); 
 				}
 
+				AUTGameSession* UTGameSession = Cast<AUTGameSession>(GameSession);
+				if (UTGameSession)
+				{
+					// kill the host beacon before we start the travel so hopefully the port will be released before
+					// we are done.
+					UTGameSession->DestroyHostBeacon();
+				}
+
 				GetWorld()->ServerTravel(MapName);
 			}
 		}
 	}
 }
 
+void AUTLobbyGameMode::SendRconMessage(const FString& DestinationId, const FString &Message)
+{	
+	Super::SendRconMessage(DestinationId, Message);
+	if (UTLobbyGameState)
+	{
+		for (int32 i=0; i < UTLobbyGameState->AvailableMatches.Num(); i++)
+		{
+			if (UTLobbyGameState->AvailableMatches[i]->InstanceBeacon)
+			{
+				UTLobbyGameState->AvailableMatches[i]->InstanceBeacon->Instance_ReceieveRconMessage(DestinationId, Message);
+			}
+		}
+	}
+}
+
+void AUTLobbyGameMode::RconKick(const FString& NameOrUIDStr, bool bBan, const FString& Reason)
+{
+	if (UTLobbyGameState)
+	{
+		for (int32 i=0; i < UTLobbyGameState->AvailableMatches.Num(); i++)
+		{
+			if (UTLobbyGameState->AvailableMatches[i]->InstanceBeacon)
+			{
+				UTLobbyGameState->AvailableMatches[i]->InstanceBeacon->Instance_Kick(NameOrUIDStr);
+			}
+		}
+	}
+}
+
+void AUTLobbyGameMode::RconAuth(AUTBasePlayerController* Admin, const FString& Password)
+{
+	Super::RconAuth(Admin, Password);
+	if (Admin && Admin->UTPlayerState && Admin->UTPlayerState->bIsRconAdmin)
+	{
+		for (int32 i=0; i < UTLobbyGameState->AvailableMatches.Num(); i++)
+		{
+			if (UTLobbyGameState->AvailableMatches[i]->InstanceBeacon)
+			{
+				UTLobbyGameState->AvailableMatches[i]->InstanceBeacon->Instance_AuthorizeAdmin(Admin->UTPlayerState->UniqueId.ToString(), true);
+			}
+		}
+	}
+
+}
+
+void AUTLobbyGameMode::RconNormal(AUTBasePlayerController* Admin)
+{
+	Super::RconNormal(Admin);
+
+	if (Admin && Admin->UTPlayerState && !Admin->UTPlayerState->bIsRconAdmin)
+	{
+		for (int32 i=0; i < UTLobbyGameState->AvailableMatches.Num(); i++)
+		{
+			if (UTLobbyGameState->AvailableMatches[i]->InstanceBeacon)
+			{
+				UTLobbyGameState->AvailableMatches[i]->InstanceBeacon->Instance_AuthorizeAdmin(Admin->UTPlayerState->UniqueId.ToString(),false);
+			}
+		}
+	}
+}

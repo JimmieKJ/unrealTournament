@@ -446,6 +446,16 @@ void AUTPlayerController::ClientRestart_Implementation(APawn* NewPawn)
 
 	SetCameraMode("Default");
 
+	//There is an out of order chance during the initial connection that:
+	// The new players character will be spawned and possessed. Replicating the characters PlayerState.
+	// The GameStates spectator class will be replicated. Since (state == NAME_Spectating), BeginSpectatingState() will cause the Character to be unpossessed, setting PlayerState = NULL locally
+	// This function will be called, setting the pawn back to the Character, leaving Characters PlayerState still NULL
+
+	// Probably not the best solution. Make sure the PlayerState is set
+	if (Role < ROLE_Authority && GetPawn() != nullptr && GetPawn()->PlayerState == nullptr)
+	{
+		GetPawn()->PlayerState = PlayerState;
+	}
 }
 
 void AUTPlayerController::PawnPendingDestroy(APawn* InPawn)
@@ -1827,6 +1837,11 @@ AUTCharacter* AUTPlayerController::GetUTCharacter()
 	return UTCharacter;
 }
 
+UUTLocalPlayer* AUTPlayerController::GetUTLocalPlayer()
+{
+	return Cast<UUTLocalPlayer>(Player);
+}
+
 void AUTPlayerController::ServerRestartPlayer_Implementation()
 {
 	if (UTPlayerState != nullptr)
@@ -1953,9 +1968,9 @@ void AUTPlayerController::ServerSelectSpawnPoint_Implementation(APlayerStart* De
 {
 	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 	AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
-	if (GS != NULL && PS != NULL)
+	if (GS != NULL && PS != NULL && GS->IsAllowedSpawnPoint(PS, DesiredStart))
 	{
-		PS->RespawnChoiceA = GS->IsAllowedSpawnPoint(PS, DesiredStart) ? DesiredStart : NULL;
+		PS->RespawnChoiceA = DesiredStart;
 		PS->ForceNetUpdate();
 	}
 }
@@ -2110,7 +2125,8 @@ void AUTPlayerController::ShowEndGameScoreboard()
 void AUTPlayerController::ClientReceiveXP_Implementation(FXPBreakdown GainedXP)
 {
 	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
-	if (LP != NULL && LP->IsOnTrustedServer() && LP->IsLoggedIn())
+	AUTGameMode* Game = GetWorld()->GetAuthGameMode<AUTGameMode>();
+	if (LP != NULL && ((LP->IsOnTrustedServer() && LP->IsLoggedIn()) || (Game && Game->bOfflineChallenge)))
 	{
 		LP->AddOnlineXP(GainedXP.Total());
 		LP->SaveProfileSettings();
@@ -2511,8 +2527,9 @@ void AUTPlayerController::PlayerTick( float DeltaTime )
 		LastPingCalcTime = GetWorld()->GetTimeSeconds();
 		ServerBouncePing(GetWorld()->GetTimeSeconds());
 	}
-
-	if (PlayerState && PlayerState->bOnlySpectator && bAutoCam)
+	APawn* ViewTargetPawn = PlayerCameraManager->GetViewTargetPawn();
+	AUTCharacter* ViewTargetCharacter = Cast<AUTCharacter>(ViewTargetPawn);
+	if (PlayerState && PlayerState->bOnlySpectator && bAutoCam && (!ViewTargetCharacter || !ViewTargetCharacter->IsRecentlyDead()))
 	{
 		// possibly switch cameras
 		ChooseBestCamera();
@@ -2521,9 +2538,9 @@ void AUTPlayerController::PlayerTick( float DeltaTime )
 	// Follow the last spectated player again when they respawn
 	if ((StateName == NAME_Spectating) && LastSpectatedPlayerId >= 0 && IsLocalController() && (!Cast<AUTProjectile>(GetViewTarget()) || GetViewTarget()->IsPendingKillPending()))
 	{
-		APawn* ViewTargetPawn = PlayerCameraManager->GetViewTargetPawn();
-		AUTCharacter* ViewTargetCharacter = Cast<AUTCharacter>(ViewTargetPawn);
-		if (!ViewTargetPawn || (ViewTargetCharacter && ViewTargetCharacter->IsDead()))
+		ViewTargetPawn = PlayerCameraManager->GetViewTargetPawn();
+		ViewTargetCharacter = Cast<AUTCharacter>(ViewTargetPawn);
+		if (!ViewTargetPawn || (ViewTargetCharacter && ViewTargetCharacter->IsDead() && !ViewTargetCharacter->IsRecentlyDead()))
 		{
 			for (FConstPawnIterator Iterator = GetWorld()->GetPawnIterator(); Iterator; ++Iterator)
 			{
@@ -3122,35 +3139,8 @@ void AUTPlayerController::BeginInactiveState()
 	SetPawn(NULL);
 
 	AUTGameState* GameState = GetWorld()->GetGameState<AUTGameState>();
-
 	float const MinRespawnDelay = GameState ? GameState->RespawnWaitTime : 1.0f;
 	GetWorldTimerManager().SetTimer(TimerHandle_UnFreeze, this, &APlayerController::UnFreeze, MinRespawnDelay);
-	GetWorldTimerManager().SetTimer(SpectateKillerHandle, this, &AUTPlayerController::SpectateKiller, KillerSpectateDelay);
-}
-
-void AUTPlayerController::EndInactiveState()
-{
-	Super::EndInactiveState();
-
-	GetWorldTimerManager().ClearTimer(SpectateKillerHandle);
-}
-
-void AUTPlayerController::SpectateKiller()
-{
-	/*
-	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
-	if (GS != nullptr && GS->bViewKillerOnDeath && UTPlayerState->LastKillerPlayerState != nullptr && UTPlayerState->LastKillerPlayerState != UTPlayerState)
-	{
-		for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
-		{
-			AUTCharacter *UTChar = Cast<AUTCharacter>(*It);
-			if (UTChar != nullptr && UTChar->PlayerState == UTPlayerState->LastKillerPlayerState)
-			{
-				ServerViewPlaceholderAtLocation(UTChar->GetActorLocation() + FVector(0, 0, UTChar->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight()));
-			}
-		}
-	}
-	*/
 }
 
 void AUTPlayerController::ServerViewPlaceholderAtLocation_Implementation(FVector Location)
@@ -3395,9 +3385,22 @@ void AUTPlayerController::ResolveKeybind(FString Command, TArray<FString>& Keys,
 
 }
 
+void AUTPlayerController::SkullPickedUp()
+{
+	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
+	if (LP)
+	{
+		LP->SkullPickedUp();
+	}
+}
+
 void AUTPlayerController::DebugTest(FString TestCommand)
 {
-	Cast<UUTLocalPlayer>(Player)->ChallengeCompleted(FName(TEXT("InitialDeathmatchChallenge")),3);
+	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
+	if (LP) 
+	{
+		LP->ShowAdminMessage(TEXT("This is a test of the admin message.  It's only a test.  Please be kind and rewind you stinky mo-fo and remember, no matter where you go there you are"));
+	}
 }
 
 void AUTPlayerController::ClientRequireContentItemListComplete_Implementation()

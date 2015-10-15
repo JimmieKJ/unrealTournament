@@ -179,6 +179,11 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	/** Sound to play each time we fire */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
 	TArray<USoundBase*> FireSound;
+
+	/** Sound to play on shooter when weapon is fired.  This sound starts at the same time as the FireSound. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
+	TArray<USoundBase*> ReloadSound;
+
 	/** looping (ambient) sound to set on owner while firing */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
 	TArray<USoundBase*> FireLoopingSound;
@@ -202,6 +207,10 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	 */
 	UPROPERTY(EditAnywhere, Category = "Weapon")
 	TArray<UParticleSystem*> FireEffect;
+
+	/** Max Distance to stretch weapon tracer. */
+	UPROPERTY(EditAnywhere, Category = "Weapon")
+		float MaxTracerDist;
 
 	/** Fire Effect happens once every FireEffectInterval shots */
 	UPROPERTY(EditAnywhere, Category = "Weapon")
@@ -663,7 +672,8 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	}
 
 	/** Return true if needs HUD ammo display widget drawn. */
-	virtual bool NeedsAmmoDisplay() const;
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, BlueprintCosmetic, Category = HUD)
+	bool NeedsAmmoDisplay() const;
 
 	/** returns crosshair color taking into account user settings, red flash on hit, etc */
 	UFUNCTION(BlueprintCallable, Category = Weapon)
@@ -690,10 +700,16 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	UFUNCTION()
 	void UpdateCrosshairTarget(AUTPlayerState* NewCrosshairTarget, UUTHUDWidget* WeaponHudWidget, float RenderDelta);
 
+	/** default parameters set on overlay particle effect (if any)
+	 * up to the effect to care about them
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Effects)
+	TArray<struct FParticleSysParam> OverlayEffectParams;
+
 	/** helper for shared overlay code between UTWeapon and UTWeaponAttachment
 	 * NOTE: can called on default object!
 	 */
-	virtual void UpdateOverlaysShared(AActor* WeaponActor, AUTCharacter* InOwner, USkeletalMeshComponent* InMesh, USkeletalMeshComponent*& InOverlayMesh) const;
+	virtual void UpdateOverlaysShared(AActor* WeaponActor, AUTCharacter* InOwner, USkeletalMeshComponent* InMesh, const TArray<struct FParticleSysParam>& InOverlayEffectParams, USkeletalMeshComponent*& InOverlayMesh) const;
 	/** read WeaponOverlayFlags from owner and apply the appropriate overlay material (if any) */
 	virtual void UpdateOverlays();
 

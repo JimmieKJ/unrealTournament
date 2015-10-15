@@ -16,14 +16,13 @@
 #include "Slate/SUWPlayerInfoDialog.h"
 #include "StatNames.h"
 #include "Engine/DemoNetDriver.h"
+#include "UTCTFScoreboard.h"
 
 namespace MatchState
 {
 	const FName MatchEnteringHalftime = FName(TEXT("MatchEnteringHalftime"));
 	const FName MatchIsAtHalftime = FName(TEXT("MatchIsAtHalftime"));
 	const FName MatchExitingHalftime = FName(TEXT("MatchExitingHalftime"));
-	const FName MatchEnteringSuddenDeath = FName(TEXT("MatchEnteringSuddenDeath"));
-	const FName MatchIsInSuddenDeath = FName(TEXT("MatchIsInSuddenDeath"));
 }
 
 AUTCTFGameMode::AUTCTFGameMode(const FObjectInitializer& ObjectInitializer)
@@ -35,10 +34,8 @@ AUTCTFGameMode::AUTCTFGameMode(const FObjectInitializer& ObjectInitializer)
 	HUDClass = AUTHUD_CTF::StaticClass();
 	GameStateClass = AUTCTFGameState::StaticClass();
 	bAllowOvertime = true;
-	OvertimeDuration = 5;
 	AdvantageDuration = 5;
 	bUseTeamStarts = true;
-	bSuddenDeath = true;
 	MercyScore = 5;
 	GoalScore = 0;
 	TimeLimit = 14;
@@ -63,17 +60,11 @@ void AUTCTFGameMode::InitGame(const FString& MapName, const FString& Options, FS
 	Super::InitGame(MapName, Options, ErrorMessage);
 	if (bOfflineChallenge)
 	{
-		TimeLimit = 900;
+		TimeLimit = 600;
 	}
-
-	bSuddenDeath = EvalBoolOptions(ParseOption(Options, TEXT("SuddenDeath")), bSuddenDeath);
 
 	// HalftimeDuration is in seconds and used in seconds,
 	HalftimeDuration = FMath::Max(0, GetIntOption(Options, TEXT("HalftimeDuration"), HalftimeDuration));
-
-	// OvertimeDuration is in minutes
-	OvertimeDuration = FMath::Max(1, GetIntOption(Options, TEXT("OvertimeDuration"), OvertimeDuration));
-	OvertimeDuration *= 60;
 
 	// AdvantageDuration is in seconds 
 	AdvantageDuration = FMath::Max(0, GetIntOption(Options, TEXT("AdvantageDuration"), AdvantageDuration));
@@ -612,8 +603,8 @@ void AUTCTFGameMode::DefaultTimer()
 		float OvertimeElapsed = CTFGameState->ElapsedTime - CTFGameState->OvertimeStartTime;
 		if (OvertimeElapsed > TimeLimit)
 		{
-			// once overtime has gone too long, start increasing respawn delay
-			RespawnWaitTime = 10.f * (1.f + (OvertimeElapsed - TimeLimit) / 200.f);
+			// once overtime has gone too long, increase respawn delay
+			RespawnWaitTime = 10.f;
 			CTFGameState->RespawnWaitTime = RespawnWaitTime;
 		}
 	}
@@ -707,7 +698,7 @@ void AUTCTFGameMode::GameObjectiveInitialized(AUTGameObjective* Obj)
 bool AUTCTFGameMode::PlayerCanRestart_Implementation(APlayerController* Player)
 {
 	// Can't restart in overtime
-	if (!CTFGameState->IsMatchInProgress() || CTFGameState->IsMatchAtHalftime() || CTFGameState->IsMatchInSuddenDeath()|| 
+	if (!CTFGameState->IsMatchInProgress() || CTFGameState->IsMatchAtHalftime() || 
 			Player == NULL || Player->IsPendingKillPending())
 	{
 		return false;
@@ -749,11 +740,6 @@ void AUTCTFGameMode::ScoreKill_Implementation(AController* Killer, AController* 
 	FindAndMarkHighScorer();
 }
 
-bool AUTCTFGameMode::IsMatchInSuddenDeath()
-{
-	return CTFGameState->IsMatchInSuddenDeath();
-}
-
 void AUTCTFGameMode::CallMatchStateChangeNotify()
 {
 	Super::CallMatchStateChangeNotify();
@@ -770,31 +756,12 @@ void AUTCTFGameMode::CallMatchStateChangeNotify()
 	{
 		HandleExitingHalftime();
 	}
-	else if (MatchState == MatchState::MatchEnteringSuddenDeath)
-	{
-		HandleEnteringSuddenDeath();
-	}
-	else if (MatchState == MatchState::MatchIsInSuddenDeath)
-	{
-		HandleSuddenDeath();
-	}
 }
 
 void AUTCTFGameMode::HandleEnteringOvertime()
 {
-	CTFGameState->SetTimeLimit(OvertimeDuration);
+	CTFGameState->SetTimeLimit(6000);
 	SetMatchState(MatchState::MatchIsInOvertime);
-	CTFGameState->bPlayingAdvantage = false;
-}
-
-void AUTCTFGameMode::HandleEnteringSuddenDeath()
-{
-	BroadcastLocalized(this, UUTCTFGameMessage::StaticClass(), 12, NULL, NULL, NULL);
-	CTFGameState->bPlayingAdvantage = false;
-}
-
-void AUTCTFGameMode::HandleSuddenDeath()
-{
 	CTFGameState->bPlayingAdvantage = false;
 }
 
@@ -848,7 +815,7 @@ bool AUTCTFGameMode::CheckAdvantage()
 	// If our flag is held, then look to see if our advantage is lost.. has to be held for 5 seconds.
 	if (Flags[CTFGameState->AdvantageTeamIndex]->ObjectState == CarriedObjectState::Held)
 	{
-		//Starting the Advantage so play the "Loosing advantage" announcement
+		//Starting the Advantage so play the "Losing advantage" announcement
 		if (RemainingAdvantageTime == AdvantageDuration)
 		{
 			BroadcastLocalized(this, UUTCTFGameMessage::StaticClass(), 7, NULL, NULL, CTFGameState->Teams[CTFGameState->AdvantageTeamIndex]);
@@ -891,17 +858,6 @@ void AUTCTFGameMode::BuildServerResponseRules(FString& OutRules)
 			OutRules += FString::Printf(TEXT("Halftime\tTrue\t"));
 			OutRules += FString::Printf(TEXT("Halftime Duration\t%i\t"), HalftimeDuration);
 		}
-	}
-
-	OutRules += FString::Printf(TEXT("Allow Overtime\t%s\t"), bAllowOvertime ? TEXT("True") : TEXT("False"));
-	if (bAllowOvertime)
-	{
-		OutRules += FString::Printf(TEXT("Overtime Duration\t%i\t"), OvertimeDuration);;
-	}
-
-	if (bSuddenDeath)
-	{
-		OutRules += FString::Printf(TEXT("Sudden Death\tTrue\t"));
 	}
 
 	AUTMutator* Mut = BaseMutator;
@@ -1011,6 +967,19 @@ void AUTCTFGameMode::SetRemainingTime(int32 RemainingSeconds)
 		TimeLimit = RemainingSeconds;
 		HalftimeDuration = 5;
 	}
+}
+
+void AUTCTFGameMode::GetGood()
+{
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	if (GetNetMode() == NM_Standalone)
+	{
+		Super::GetGood();
+		HalftimeDuration = 5;
+		Teams[0]->Score = 1;
+		Teams[1]->Score = 9;
+	}
+#endif
 }
 
 

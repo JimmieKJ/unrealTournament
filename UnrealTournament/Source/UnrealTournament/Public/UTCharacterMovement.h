@@ -165,6 +165,11 @@ public:
 	/** Push off bottom while swimming. */
 	virtual void PerformWaterJump();
 
+	inline FVector GetPendingImpulse() const
+	{
+		return PendingImpulseToApply;
+	}
+
 protected:
 	virtual void OnMovementModeChanged(EMovementMode PreviousMovementMode, uint8 PreviousCustomMode) override;
 
@@ -209,7 +214,7 @@ public:
 	virtual void ClearPendingImpulse();
 
 	/** true if projectile/hitscan spawned this frame (replicated to synchronize held firing) */
-UPROPERTY()
+	UPROPERTY()
 	bool bShotSpawned;
 
 	//=========================================
@@ -645,8 +650,12 @@ public:
 
 	virtual void ClientAdjustPosition_Implementation(float TimeStamp, FVector NewLocation, FVector NewVelocity, UPrimitiveComponent* NewBase, FName NewBaseBoneName, bool bHasBase, bool bBaseRelativePosition, uint8 ServerMovementMode) override;
 
-	/** The initial time when client/server timestamps are the same. # < 0 will reset next check*/
-	float ServerSyncTime;
+	/** Accumulated timestamp error. */
+	float TotalTimeStampError;
+
+	/** true if currently clearing potential speed hack. */
+	bool bClearingSpeedHack;
+
 	virtual void StopActiveMovement() override;
 };
 

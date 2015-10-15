@@ -8,7 +8,7 @@
 
 #include "UTAIAction.generated.h"
 
-UCLASS(NotPlaceable, Abstract, CustomConstructor, Within = UTBot)
+UCLASS(NotPlaceable, Abstract, DefaultToInstanced, CustomConstructor, Within = UTBot)
 class UNREALTOURNAMENT_API UUTAIAction : public UObject
 {
 	GENERATED_UCLASS_BODY()

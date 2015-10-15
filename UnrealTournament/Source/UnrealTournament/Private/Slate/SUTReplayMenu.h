@@ -12,9 +12,9 @@ class UNREALTOURNAMENT_API SUTReplayMenu : public SUWindowsMainMenu
 	//Remove the play game stuff for now
 	virtual void BuildLeftMenuBar() override;
 
-	virtual FReply OnReturnToMainMenu(TSharedPtr<SComboButton> MenuButton);
-	virtual FReply OnCloseMenu(TSharedPtr<SComboButton> MenuButton);
+	virtual FReply OnReturnToMainMenu();
+	virtual FReply OnCloseMenu();
 
-	virtual void BuildExitMenu(TSharedPtr <SComboButton> ExitButton, TSharedPtr<SVerticalBox> MenuSpace) override;
+	virtual void BuildExitMenu(TSharedPtr <SUTComboButton> ExitButton) override;
 };
 #endif

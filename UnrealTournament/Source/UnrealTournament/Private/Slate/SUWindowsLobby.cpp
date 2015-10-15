@@ -93,19 +93,9 @@ FString SUWindowsLobby::GetMatchCount() const
 }
 
 
-void SUWindowsLobby::BuildExitMenu(TSharedPtr<SComboButton> ExitButton, TSharedPtr<SVerticalBox> MenuSpace)
+void SUWindowsLobby::BuildExitMenu(TSharedPtr<SUTComboButton> ExitButton)
 {
-	MenuSpace->AddSlot()
-	.AutoHeight()
-	[
-		SNew(SButton)
-		.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
-		.ContentPadding(FMargin(10.0f, 5.0f))
-		.Text(NSLOCTEXT("SUTInGameMenu","MenuBar_ReturnToMainMenu","Return to Main Menu"))
-		.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
-		.OnClicked(this, &SUTInGameMenu::OnReturnToMainMenu, ExitButton)
-	];
-
+	ExitButton->AddSubMenuItem(NSLOCTEXT("SUTInGameMenu","MenuBar_ReturnToMainMenu","Return to Main Menu"), FOnClicked::CreateSP(this, &SUTInGameMenu::OnReturnToMainMenu));
 }
 
 TSharedRef<SWidget> SUWindowsLobby::BuildBackground()
@@ -159,117 +149,7 @@ TSharedRef<SWidget> SUWindowsLobby::BuildBackground()
 
 TSharedRef<SWidget> SUWindowsLobby::BuildOptionsSubMenu()
 {
-
-	TSharedPtr<SComboButton> DropDownButton = NULL;
-
-	SNew(SHorizontalBox)
-	+ SHorizontalBox::Slot()
-	.AutoWidth()
-	[
-		SNew(SVerticalBox)
-		+ SVerticalBox::Slot()
-		.AutoHeight()
-		[
-			SNew(SBox)
-			.WidthOverride(48)
-			.HeightOverride(48)
-			[
-				SAssignNew(DropDownButton, SComboButton)
-				.HasDownArrow(false)
-				.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button")
-				.ContentPadding(FMargin(0.0f, 0.0f))
-				.ButtonContent()
-				[
-					SNew(SImage)
-					.Image(SUWindowsStyle::Get().GetBrush("UT.Icon.Settings"))
-				]
-			]
-		]
-	];
-
-	DropDownButton->SetMenuContent
-	(
-		SNew(SBorder)
-		.BorderImage(SUWindowsStyle::Get().GetBrush("UT.ContextMenu.Background"))
-		.Padding(0)
-		[
-			SNew(SVerticalBox)
-			+ SVerticalBox::Slot()
-			.AutoHeight()
-			[
-				SNew(SButton)
-				.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
-				.ContentPadding(FMargin(10.0f, 5.0f))
-				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options_PlayerSettings", "Player Settings"))
-				.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
-				.OnClicked(this, &SUTMenuBase::OpenPlayerSettings, DropDownButton)
-			]
-			+ SVerticalBox::Slot()
-			.AutoHeight()
-			[
-				SNew(SButton)
-				.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
-				.ContentPadding(FMargin(10.0f, 5.0f))
-				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options_SocialSettings", "Social Settings"))
-				.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
-				.OnClicked(this, &SUTMenuBase::OpenSocialSettings, DropDownButton)
-			]
-			+ SVerticalBox::Slot()
-			.AutoHeight()
-			[
-				SNew(SButton)
-				.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
-				.ContentPadding(FMargin(10.0f, 5.0f))
-				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options_WeaponSettings", "Weapon Settings"))
-				.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
-				.OnClicked(this, &SUTMenuBase::OpenWeaponSettings, DropDownButton)
-			]
-			+ SVerticalBox::Slot()
-			.AutoHeight()
-			[
-				SNew(SButton)
-				.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
-				.ContentPadding(FMargin(10.0f, 5.0f))
-				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options_SystemSettings", "System Settings"))
-				.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
-				.OnClicked(this, &SUTMenuBase::OpenSystemSettings, DropDownButton)
-			]
-			+ SVerticalBox::Slot()
-			.AutoHeight()
-			[
-				SNew(SButton)
-				.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
-				.ContentPadding(FMargin(10.0f, 5.0f))
-				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options_ControlSettings", "Control Settings"))
-				.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
-				.OnClicked(this, &SUTMenuBase::OpenControlSettings, DropDownButton)
-			]
-
-			+ SVerticalBox::Slot()
-			.VAlign(VAlign_Center)
-			.HAlign(HAlign_Fill)
-			.Padding(FMargin(0.0f, 2.0f))
-			[
-				SNew(SImage)
-				.Image(SUWindowsStyle::Get().GetBrush("UT.ContextMenu.Spacer"))
-			]
-
-			+ SVerticalBox::Slot()
-			.AutoHeight()
-			[
-				SNew(SButton)
-				.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
-				.ContentPadding(FMargin(10.0f, 5.0f))
-				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options_ClearCloud", "Clear Game Settings"))
-				.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
-				.OnClicked(this, &SUTMenuBase::ClearCloud, DropDownButton)
-			]
-		]
-	);
-
-	MenuButtons.Add(DropDownButton);
-	return DropDownButton.ToSharedRef();
-
+	return SUTMenuBase::BuildOptionsSubMenu();
 }
 
 

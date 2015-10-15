@@ -15,10 +15,12 @@
 #include "Online.h"
 #include "UTOnlineGameSearchBase.h"
 #include "OnlineSubsystemTypes.h"
+#include "Slate/SUTDownloadAllDialog.h"
 
 AUTLobbyPC::AUTLobbyPC(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
+	RedirectCount = -1;
 }
 
 /* Cache a copy of the PlayerState cast'd to AUTPlayerState for easy reference.  Do it both here and when the replicated copy of APlayerState arrives in OnRep_PlayerState */
@@ -204,5 +206,131 @@ void AUTLobbyPC::Say(FString Message)
 	}
 
 	Super::Say(Message);
+}
+
+bool AUTLobbyPC::ServerRconKillMatch_Validate(AUTLobbyMatchInfo* MatchToKill) { return true; }
+void AUTLobbyPC::ServerRconKillMatch_Implementation(AUTLobbyMatchInfo* MatchToKill)
+{
+	if (UTPlayerState == nullptr || !UTPlayerState->bIsRconAdmin)
+	{
+		ClientSay(UTPlayerState, TEXT("Rcon not authenticated"), ChatDestinations::System);
+		return;
+	}
+	
+	AUTLobbyGameState* LobbyGameState = GetWorld()->GetGameState<AUTLobbyGameState>();
+	if (LobbyGameState)
+	{
+		LobbyGameState->AdminKillMatch(MatchToKill);
+	}
 
 }
+
+void AUTLobbyPC::ServerSay_Implementation(const FString& Message, bool bTeamMessage)
+{
+	if (Message.Left(1) == TEXT("@"))
+	{
+		// Remove the @
+		FString TrimmedMessage = Message.Right(Message.Len()-1);
+
+		// Talking to someone directly.
+	
+		int32 Pos = -1;
+		if (TrimmedMessage.FindChar(TEXT(' '), Pos) && Pos > 0)
+		{
+			FString User = TrimmedMessage.Left(Pos);
+			FString FinalMessage = FString::Printf(TEXT("[%s] %s"), *PlayerState->PlayerName, *TrimmedMessage.Right(Message.Len() - Pos - 1));
+			
+			AUTLobbyGameState* LobbyGameState = GetWorld()->GetGameState<AUTLobbyGameState>();
+			if (LobbyGameState && LobbyGameState->SendSayToInstance(User, FinalMessage))
+			{
+				return;
+			}
+		}
+	}
+
+	Super::ServerSay_Implementation(Message, bTeamMessage);
+
+}
+
+
+#if !UE_SERVER
+void AUTLobbyPC::GetAllRedirects(TSharedPtr<SUTDownloadAllDialog> inDownloadDialog)
+{
+	DownloadDialog = inDownloadDialog;
+	if (RedirectCount > -1)
+	{
+		DownloadAllContent();
+	}
+	else
+	{
+		ServerSendRedirectCount();
+	}
+
+}
+#endif
+
+void AUTLobbyPC::DownloadAllContent()
+{
+#if !UE_SERVER
+	if (RedirectCount > 0 && AllRedirects.Num() == RedirectCount)
+	{
+		UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(Player);
+		if (LocalPlayer)
+		{
+			LocalPlayer->AccquireContent(AllRedirects);
+			DownloadDialog->Start();
+			DownloadDialog.Reset();
+		}
+	}
+	else
+	{
+		DownloadDialog->Done();
+		DownloadDialog.Reset();
+	}
+#endif
+}
+
+bool AUTLobbyPC::ServerSendRedirectCount_Validate() { return true; }
+void AUTLobbyPC::ServerSendRedirectCount_Implementation()
+{
+	AUTLobbyGameMode* GameMode = GetWorld()->GetAuthGameMode<AUTLobbyGameMode>();
+	ClientReceiveRedirectCount(GameMode ? GameMode->RedirectReferences.Num() : 0);
+}
+bool AUTLobbyPC::ServerSendAllRedirects_Validate() { return true; }
+void AUTLobbyPC::ServerSendAllRedirects_Implementation()
+{
+	AUTLobbyGameMode* GameMode = GetWorld()->GetAuthGameMode<AUTLobbyGameMode>();
+	if (GameMode)
+	{
+		for (int32 i=0; i < GameMode->RedirectReferences.Num();i++)
+		{
+			ClientReceiveRedirect(GameMode->RedirectReferences[i]);
+		}
+	}
+
+}
+
+void AUTLobbyPC::ClientReceiveRedirectCount_Implementation(int32 NewCount)
+{
+	if (NewCount != RedirectCount)
+	{
+		if (NewCount > 0)
+		{
+			ServerSendAllRedirects();	
+		}
+
+		RedirectCount = NewCount;
+	}
+}
+void AUTLobbyPC::ClientReceiveRedirect_Implementation(const FPackageRedirectReference& Redirect)
+{
+	AllRedirects.Add(FPackageRedirectReference(Redirect));
+
+	if (AllRedirects.Num() == RedirectCount)
+	{
+		DownloadAllContent();
+	}
+
+
+}
+

@@ -48,6 +48,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = PlayerController)
 	virtual AUTCharacter* GetUTCharacter();
 
+	UFUNCTION(BlueprintCallable, Category = PlayerController)
+	virtual UUTLocalPlayer* GetUTLocalPlayer();
+
 	UPROPERTY(ReplicatedUsing = OnRep_HUDClass)
 	TSubclassOf<class AHUD> HUDClass;
 
@@ -81,9 +84,6 @@ public:
 	virtual void ClientSetLocation_Implementation(FVector NewLocation, FRotator NewRotation) override;
 
 	virtual void BeginInactiveState() override;
-	virtual void EndInactiveState() override;
-	virtual void SpectateKiller();
-	FTimerHandle SpectateKillerHandle;
 
 	virtual void CheckAutoWeaponSwitch(class AUTWeapon* TestWeapon);
 
@@ -330,7 +330,7 @@ public:
 	UPROPERTY(EditAnywhere, GlobalConfig, Category = Movement)
 	bool bSingleTapWallDodge;
 
-	/** If true (and bSingleTapWallDodge is true), single tap wall dodge only enabled after intentional jump. */
+	/** If true (and bSingleTapWallDodge is true), one tap wall dodge only enabled after intentional jump. */
 	UPROPERTY(EditAnywhere, GlobalConfig, Category = Movement)
 	bool bSingleTapAfterJump;
 
@@ -800,6 +800,9 @@ public:
 	virtual void ServerReceiveCountryFlag(FName NewCountryFlag);
 
 	virtual void DebugTest(FString TestCommand) override;
+
+	UFUNCTION(BlueprintCallable, Category = PlayerController)
+	virtual void SkullPickedUp();
 
 protected:
 	int32 ParseWeaponBind(FString ActionName);

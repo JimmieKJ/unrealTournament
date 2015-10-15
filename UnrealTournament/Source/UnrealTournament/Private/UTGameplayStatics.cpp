@@ -741,3 +741,26 @@ bool UUTGameplayStatics::LineTraceForObjectsSimple(UObject* WorldContextObject, 
 	HitNormal = Hit.Normal;
 	return bResult;
 }
+
+FString UUTGameplayStatics::GetLevelName(UObject* WorldContextObject, bool bShortName)
+{
+	UWorld* World = GEngine->GetWorldFromContextObject(WorldContextObject, false);
+	if (World == NULL)
+	{
+		return TEXT("None");
+	}
+	else
+	{
+		FString LongName = World->GetOutermost()->GetName();
+		if (bShortName)
+		{
+			FString ShortName;
+			LongName.Split(TEXT("/"), NULL, &ShortName, ESearchCase::IgnoreCase, ESearchDir::FromEnd);
+			return (!ShortName.IsEmpty() ? ShortName : LongName);
+		}
+		else
+		{
+			return LongName;
+		}
+	}
+}

@@ -10,6 +10,11 @@ const FName AchievementIDs::ChallengeStars15(TEXT("ChallengeStars15"));
 const FName AchievementIDs::ChallengeStars25(TEXT("ChallengeStars25"));
 const FName AchievementIDs::ChallengeStars35(TEXT("ChallengeStars35"));
 const FName AchievementIDs::ChallengeStars45(TEXT("ChallengeStars45"));
+const FName AchievementIDs::PumpkinHead2015(TEXT("PumpkinHead2015"));
+const FName AchievementIDs::ChallengePumpkins5(TEXT("ChallengePumpkins5"));
+const FName AchievementIDs::ChallengePumpkins10(TEXT("ChallengePumpkins10"));
+const FName AchievementIDs::ChallengePumpkins15(TEXT("ChallengePumpkins15"));
+const FName AchievementIDs::FacePumpkins(TEXT("FacePumpkins"));
 
 UUTProfileSettings::UUTProfileSettings(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -326,6 +331,7 @@ void UUTProfileSettings::ApplyAllSettings(UUTLocalPlayer* ProfilePlayer)
 
 	ProfilePlayer->SetCharacterPath(CharacterPath);
 	ProfilePlayer->SetHatPath(HatPath);
+	ProfilePlayer->SetLeaderHatPath(LeaderHatPath);
 	ProfilePlayer->SetEyewearPath(EyewearPath);
 	ProfilePlayer->SetTauntPath(TauntPath);
 	ProfilePlayer->SetTaunt2Path(Taunt2Path);
@@ -442,4 +448,16 @@ void UUTProfileSettings::SetBestTime(FName TimingName, float InBestTime)
 {
 	BestTimes.Add(TimingName, InBestTime);
 	bNeedProfileWriteOnLevelChange = true;
+
+	// hacky halloween reward implementation
+	if (TimingName == AchievementIDs::FacePumpkins && InBestTime >= 6666.0f)
+	{
+		for (TObjectIterator<UUTLocalPlayer> It; It; ++It)
+		{
+			if (It->GetProfileSettings() == this)
+			{
+				It->AwardAchievement(AchievementIDs::FacePumpkins);
+			}
+		}
+	}
 }

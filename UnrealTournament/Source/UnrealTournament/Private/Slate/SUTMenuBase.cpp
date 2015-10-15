@@ -6,6 +6,7 @@
 #include "Slate/SlateGameResources.h"
 #include "SUWindowsDesktop.h"
 #include "SUWindowsStyle.h"
+#include "SUTStyle.h"
 #include "SUTMenuBase.h"
 #include "SUTStyle.h"
 #include "SUWDialog.h"
@@ -55,53 +56,33 @@ void SUTMenuBase::CreateDesktop()
 					SNew(SBox)
 					.HeightOverride(64)
 					[
-						SNew(SOverlay)
-						+ SOverlay::Slot()
+						SNew(SBorder)
+						.BorderImage(SUTStyle::Get().GetBrush("UT.HeaderBackground.Dark"))
 						[
-							SNew(SHorizontalBox)
-							+ SHorizontalBox::Slot()
-							.HAlign(HAlign_Fill)
+							SNew(SVerticalBox)
+							+ SVerticalBox::Slot()
+							.AutoHeight()
 							[
-								SNew(SImage)
-								.Image(SUWindowsStyle::Get().GetBrush("UT.TopMenu.TileBar"))
-							]
-						]
-						+ SOverlay::Slot()
-							[
-								SNew(SVerticalBox)
-								+ SVerticalBox::Slot()
-								.AutoHeight()
+								SNew(SBox)
+								.HeightOverride(56)
 								[
-									SNew(SBox)
-									.HeightOverride(56)
+									// Left Menu
+									SNew(SOverlay)
+									+ SOverlay::Slot()
+									.HAlign(HAlign_Left)
+									.VAlign(VAlign_Center)
 									[
-										// Left Menu
-										SNew(SOverlay)
-										+ SOverlay::Slot()
-										.HAlign(HAlign_Left)
+										BuildDefaultLeftMenuBar()
+									]
+									+ SOverlay::Slot()
+										.HAlign(HAlign_Right)
 										.VAlign(VAlign_Center)
 										[
-											BuildDefaultLeftMenuBar()
+											BuildDefaultRightMenuBar()
 										]
-										+ SOverlay::Slot()
-											.HAlign(HAlign_Right)
-											.VAlign(VAlign_Center)
-											[
-												BuildDefaultRightMenuBar()
-											]
-									]
 								]
-								+ SVerticalBox::Slot()
-									.AutoHeight()
-									[
-										SNew(SBox)
-										.HeightOverride(8)
-										[
-											SNew(SCanvas)
-										]
-									]
-
 							]
+						]
 					]
 				]
 
@@ -140,8 +121,8 @@ TSharedRef<SWidget> SUTMenuBase::BuildDefaultLeftMenuBar()
 		.Padding(5.0f,0.0f,0.0f,0.0f)
 		.AutoWidth()
 		[
-			SNew(SButton)
-			.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button")
+			SNew(SUTButton)
+			.ButtonStyle(SUTStyle::Get(), "UT.Button.MenuBar")
 			.OnClicked(this, &SUTMenuBase::OnShowHomePanel)
 			[
 				SNew(SHorizontalBox)
@@ -165,8 +146,8 @@ TSharedRef<SWidget> SUTMenuBase::BuildDefaultLeftMenuBar()
 			.Padding(5.0f, 0.0f, 0.0f, 0.0f)
 			.AutoWidth()
 			[
-				SNew(SButton)
-				.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button")
+				SNew(SUTButton)
+				.ButtonStyle(SUTStyle::Get(), "UT.Button.MenuBar")
 				.OnClicked(this, &SUTMenuBase::OnShowServerBrowserPanel)
 				[
 					SNew(SHorizontalBox)
@@ -237,13 +218,12 @@ TSharedRef<SWidget> SUTMenuBase::BuildDefaultRightMenuBar()
 			BuildAboutSubMenu()
 		];
 
-		TSharedPtr<SComboButton> ExitButton = NULL;
+		TSharedPtr<SUTComboButton> ExitButton = NULL;
 
 		RightMenuBar->AddSlot()
 		.Padding(0.0f,0.0f,5.0f,0.0f)
 		.AutoWidth()
 		[
-
 			SNew(SHorizontalBox)
 			+ SHorizontalBox::Slot()
 			.AutoWidth()
@@ -256,9 +236,9 @@ TSharedRef<SWidget> SUTMenuBase::BuildDefaultRightMenuBar()
 					.WidthOverride(48)
 					.HeightOverride(48)
 					[
-						SAssignNew(ExitButton, SComboButton)
+						SAssignNew(ExitButton, SUTComboButton)
 						.HasDownArrow(false)
-						.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button")
+						.ButtonStyle(SUTStyle::Get(), "UT.Button.MenuBar")
 						.ButtonContent()
 						[
 							SNew(SImage)
@@ -271,53 +251,16 @@ TSharedRef<SWidget> SUTMenuBase::BuildDefaultRightMenuBar()
 
 		if (ExitButton.IsValid())
 		{
-			TSharedPtr<SVerticalBox> MenuSpace;
-			SAssignNew(MenuSpace, SVerticalBox);
-			if (MenuSpace.IsValid())
+			// Allow children to place menu options here....
+			BuildExitMenu(ExitButton);
+
+			if (ExitButton->GetSubMenuItemCount() > 0)
 			{
-				// Allow children to place menu options here....
-				BuildExitMenu(ExitButton, MenuSpace);
-
-				if (MenuSpace->NumSlots() > 0)
-				{
-					MenuSpace->AddSlot()
-					.AutoHeight()
-					[
-						SNew(SBox)
-						.HeightOverride(16)
-						[
-							SNew(SButton)
-							.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button.Empty")
-						]
-					];
-
-					MenuSpace->AddSlot()
-					.VAlign(VAlign_Center)
-					.HAlign(HAlign_Fill)
-					.Padding(FMargin(0.0f, 2.0f))
-					[
-						SNew(SImage)
-						.Image(SUWindowsStyle::Get().GetBrush("UT.ContextMenu.Spacer"))
-					];
-				}
-
-				MenuSpace->AddSlot()
-				.AutoHeight()
-				[
-					SNew(SButton)
-					.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
-					.ContentPadding(FMargin(10.0f, 5.0f))
-					.Text(NSLOCTEXT("SUTMenuBase", "MenuBar_Exit_QuitGame", "Quit the Game"))
-					.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
-					.OnClicked(this, &SUTMenuBase::OnMenuConsoleCommand, FString(TEXT("quit")), ExitButton)
-				];
+				ExitButton->AddSpacer();
 			}
 
-			ExitButton->SetMenuContent( MenuSpace.ToSharedRef());
+			ExitButton->AddSubMenuItem(NSLOCTEXT("SUTMenuBase", "MenuBar_Exit_QuitGame", "Quit the Game"), FOnClicked::CreateSP(this, &SUTMenuBase::OnMenuConsoleCommand, FString(TEXT("quit"))), true);
 		}
-
-
-
 	}
 
 
@@ -339,7 +282,7 @@ EVisibility SUTMenuBase::GetSocialBangVisibility() const
 TSharedRef<SWidget> SUTMenuBase::BuildOptionsSubMenu()
 {
 	
-	TSharedPtr<SComboButton> DropDownButton = NULL;
+	TSharedPtr<SUTComboButton> DropDownButton = NULL;
 	
 	SNew(SHorizontalBox)
 	+SHorizontalBox::Slot()
@@ -353,9 +296,9 @@ TSharedRef<SWidget> SUTMenuBase::BuildOptionsSubMenu()
 			.WidthOverride(48)
 			.HeightOverride(48)
 			[
-				SAssignNew(DropDownButton, SComboButton)
+				SAssignNew(DropDownButton, SUTComboButton)
 				.HasDownArrow(false)
-				.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button")
+				.ButtonStyle(SUTStyle::Get(), "UT.Button.MenuBar")
 				.ContentPadding(FMargin(0.0f, 0.0f))
 				.ButtonContent()
 				[
@@ -366,104 +309,22 @@ TSharedRef<SWidget> SUTMenuBase::BuildOptionsSubMenu()
 		]
 	];
 
-	DropDownButton->SetMenuContent
-	(
-		SNew(SBorder)
-		.BorderImage(SUWindowsStyle::Get().GetBrush("UT.ContextMenu.Background"))
-		.Padding(0)
-		[
-			SNew(SVerticalBox)
-			+ SVerticalBox::Slot()
-			.AutoHeight()
-			[
-				SNew(SButton)
-				.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
-				.ContentPadding(FMargin(10.0f, 5.0f))
-				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options_PlayerSettings", "Player Settings"))
-				.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
-				.OnClicked(this, &SUTMenuBase::OpenPlayerSettings, DropDownButton)
-			]
-			+ SVerticalBox::Slot()
-			.AutoHeight()
-			[
-				SNew(SButton)
-				.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
-				.ContentPadding(FMargin(10.0f, 5.0f))
-				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options_SocialSettings", "Social Settings"))
-				.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
-				.OnClicked(this, &SUTMenuBase::OpenSocialSettings, DropDownButton)
-			]
-			+ SVerticalBox::Slot()
-			.AutoHeight()
-			[
-				SNew(SButton)
-				.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
-				.ContentPadding(FMargin(10.0f, 5.0f))
-				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options_WeaponSettings", "Weapon Settings"))
-				.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
-				.OnClicked(this, &SUTMenuBase::OpenWeaponSettings, DropDownButton)
-			]
-			+ SVerticalBox::Slot()
-			.AutoHeight()
-			[
-				SNew(SButton)
-				.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
-				.ContentPadding(FMargin(10.0f, 5.0f))
-				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options_HUDSettings", "HUD Settings"))
-				.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
-				.OnClicked(this, &SUTMenuBase::OpenHUDSettings, DropDownButton)
-			]
-			+ SVerticalBox::Slot()
-			.AutoHeight()
-			[
-				SNew(SButton)
-				.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
-				.ContentPadding(FMargin(10.0f, 5.0f))
-				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options_SystemSettings", "System Settings"))
-				.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
-				.OnClicked(this, &SUTMenuBase::OpenSystemSettings, DropDownButton)
-			]
-			+ SVerticalBox::Slot()
-			.AutoHeight()
-			[
-				SNew(SButton)
-				.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
-				.ContentPadding(FMargin(10.0f, 5.0f))
-				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options_ControlSettings", "Control Settings"))
-				.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
-				.OnClicked(this, &SUTMenuBase::OpenControlSettings, DropDownButton)
-			]
-	
-			+ SVerticalBox::Slot()
-			.VAlign(VAlign_Center)
-			.HAlign(HAlign_Fill)
-			.Padding(FMargin(0.0f, 2.0f))
-			[
-				SNew(SImage)
-				.Image(SUWindowsStyle::Get().GetBrush("UT.ContextMenu.Spacer"))
-			]
+	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options_PlayerSettings", "Player Settings"), FOnClicked::CreateSP(this, &SUTMenuBase::OpenPlayerSettings));
+	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options_SocialSettings", "Social Settings"), FOnClicked::CreateSP(this, &SUTMenuBase::OpenSocialSettings));
+	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options_WeaponSettings", "Weapon Settings"), FOnClicked::CreateSP(this, &SUTMenuBase::OpenWeaponSettings));
+	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options_HUDSettings", "HUD Settings"), FOnClicked::CreateSP(this, &SUTMenuBase::OpenHUDSettings));
+	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options_SystemSettings", "System Settings"), FOnClicked::CreateSP(this, &SUTMenuBase::OpenSystemSettings));
+	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options_ControlSettings", "Control Settings"), FOnClicked::CreateSP(this, &SUTMenuBase::OpenControlSettings));
+	DropDownButton->AddSpacer();
+	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options_ClearCloud", "Reset Profile"), FOnClicked::CreateSP(this, &SUTMenuBase::ClearCloud), true);
 
-			+ SVerticalBox::Slot()
-			.AutoHeight()
-			[
-				SNew(SButton)
-				.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
-				.ContentPadding(FMargin(10.0f, 5.0f))
-				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Options_ClearCloud", "Clear Game Settings"))
-				.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
-				.OnClicked(this, &SUTMenuBase::ClearCloud, DropDownButton)
-			]
-		]
-	);
-
-	MenuButtons.Add(DropDownButton);
 	return DropDownButton.ToSharedRef();
 
 }
 
 TSharedRef<SWidget> SUTMenuBase::BuildAboutSubMenu()
 {
-	TSharedPtr<SComboButton> DropDownButton = NULL;
+	TSharedPtr<SUTComboButton> DropDownButton = NULL;
 
 	SNew(SHorizontalBox)
 	+ SHorizontalBox::Slot()
@@ -477,9 +338,9 @@ TSharedRef<SWidget> SUTMenuBase::BuildAboutSubMenu()
 			.WidthOverride(48)
 			.HeightOverride(48)
 			[
-				SAssignNew(DropDownButton, SComboButton)
+				SAssignNew(DropDownButton, SUTComboButton)
 				.HasDownArrow(false)
-				.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button")
+				.ButtonStyle(SUTStyle::Get(), "UT.Button.MenuBar")
 				.ButtonContent()
 				[
 					SNew(SImage)
@@ -490,71 +351,15 @@ TSharedRef<SWidget> SUTMenuBase::BuildAboutSubMenu()
 	];
 
 
-	// NOTE: If you inline the setting of the menu content during the construction of the ComboButton
-	// it doesn't assign the sharedptr until after the whole menu is constructed.  So if for example,
-	// like these buttons here you need the value of the sharedptr it won't be available :(
+	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUWindowsDesktop", "MenuBar_About_TPSReport", "Third Party Software"), FOnClicked::CreateSP(this, &SUTMenuBase::OpenTPSReport));
+	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUWindowsDesktop", "MenuBar_About_Credits", "Credits"), FOnClicked::CreateSP(this, &SUTMenuBase::OpenCredits));
+	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUWindowsDesktop", "MenuBar_About_UTSite", "UnrealTournament.com"), FOnClicked::CreateSP(this, &SUTMenuBase::OnMenuHTTPButton, FString(TEXT("http://www.unrealtournament.com/"))));
 
-	DropDownButton->SetMenuContent
-	(
-		SNew(SBorder)
-		.BorderImage(SUWindowsStyle::Get().GetBrush("UT.ContextMenu.Background"))
-		.Padding(0)
-		[
-			SNew(SVerticalBox)
-			+ SVerticalBox::Slot()
-			.AutoHeight()
-			[
-				SNew(SButton)
-				.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
-				.ContentPadding(FMargin(10.0f, 5.0f))
-				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_About_TPSReport", "Third Party Software"))
-				.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
-				.OnClicked(this, &SUTMenuBase::OpenTPSReport, DropDownButton)
-			]
-			+ SVerticalBox::Slot()
-			.AutoHeight()
-			[
-				SNew(SButton)
-				.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
-				.ContentPadding(FMargin(10.0f, 5.0f))
-				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_About_Credits", "Credits"))
-				.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
-				.OnClicked(this, &SUTMenuBase::OpenCredits, DropDownButton)
-			]
-			+ SVerticalBox::Slot()
-			.AutoHeight()
-			[
-				SNew(SButton)
-				.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
-				.ContentPadding(FMargin(10.0f, 5.0f))
-				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_About_UTSite", "UnrealTournament.com"))
-				.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
-				.OnClicked(this, &SUTMenuBase::OnMenuHTTPButton, FString(TEXT("http://www.unrealtournament.com/")),DropDownButton)
-			]
-			+ SVerticalBox::Slot()
-			.AutoHeight()
-			[
-				SNew(SButton)
-				.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
-				.ContentPadding(FMargin(10.0f, 5.0f))
-				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_About_UTForums", "Forums"))
-				.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
-				.OnClicked(this, &SUTMenuBase::OnMenuHTTPButton, FString(TEXT("http://forums.unrealtournament.com/")), DropDownButton)
-			]
+#if UE_BUILD_DEBUG
+	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUWindowsDesktop", "MenuBar_About_WR", "Widget Reflector"), FOnClicked::CreateSP(this, &SUTMenuBase::ShowWidgetReflector));
+#endif
 
-	#if UE_BUILD_DEBUG
-			+ SVerticalBox::Slot()
-			.AutoHeight()
-			[
-				SNew(SButton)
-				.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
-				.ContentPadding(FMargin(10.0f, 5.0f))
-				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_About_WR", "Widget Reflector"))
-				.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
-				.OnClicked(this, &SUTMenuBase::ShowWidgetReflector, DropDownButton)
-			]
-	#endif
-
+/*
 			+ SVerticalBox::Slot()
 			.AutoHeight()
 			[
@@ -564,20 +369,18 @@ TSharedRef<SWidget> SUTMenuBase::BuildAboutSubMenu()
 			]
 		]
 	);
-
-	MenuButtons.Add(DropDownButton);
+*/
+	DropDownButton->RebuildMenuContent();
 	return DropDownButton.ToSharedRef();
 }
 
-void SUTMenuBase::BuildExitMenu(TSharedPtr<SComboButton> ExitButton, TSharedPtr<SVerticalBox> MenuSpace)
+void SUTMenuBase::BuildExitMenu(TSharedPtr<SUTComboButton> ExitButton)
 {
 }
 
 
-FReply SUTMenuBase::OpenPlayerSettings(TSharedPtr<SComboButton> MenuButton)
+FReply SUTMenuBase::OpenPlayerSettings()
 {
-	if (MenuButton.IsValid()) MenuButton->SetIsOpen(false);
-
 	if (TickCountDown <= 0)
 	{
 		PlayerOwner->ShowContentLoadingMessage();
@@ -588,18 +391,15 @@ FReply SUTMenuBase::OpenPlayerSettings(TSharedPtr<SComboButton> MenuButton)
 	return FReply::Handled();
 }
 
-FReply SUTMenuBase::OpenSocialSettings(TSharedPtr<SComboButton> MenuButton)
+FReply SUTMenuBase::OpenSocialSettings()
 {
-	if (MenuButton.IsValid()) MenuButton->SetIsOpen(false);
 	PlayerOwner->OpenDialog(SNew(SUWSocialSettingsDialog).PlayerOwner(PlayerOwner));
 	return FReply::Handled();
 }
 
 
-FReply SUTMenuBase::OpenWeaponSettings(TSharedPtr<SComboButton> MenuButton)
+FReply SUTMenuBase::OpenWeaponSettings()
 {
-	if (MenuButton.IsValid()) MenuButton->SetIsOpen(false);
-
 	if (TickCountDown <= 0)
 	{
 		PlayerOwner->ShowContentLoadingMessage();
@@ -610,16 +410,14 @@ FReply SUTMenuBase::OpenWeaponSettings(TSharedPtr<SComboButton> MenuButton)
 	return FReply::Handled();
 }
 
-FReply SUTMenuBase::OpenSystemSettings(TSharedPtr<SComboButton> MenuButton)
+FReply SUTMenuBase::OpenSystemSettings()
 {
-	if (MenuButton.IsValid()) MenuButton->SetIsOpen(false);
 	PlayerOwner->OpenDialog(SNew(SUWSystemSettingsDialog).PlayerOwner(PlayerOwner).DialogTitle(NSLOCTEXT("SUWindowsDesktop","System","System Settings")));
 	return FReply::Handled();
 }
 
-FReply SUTMenuBase::OpenControlSettings(TSharedPtr<SComboButton> MenuButton)
+FReply SUTMenuBase::OpenControlSettings()
 {
-	if (MenuButton.IsValid()) MenuButton->SetIsOpen(false);
 	PlayerOwner->OpenDialog(SNew(SUWControlSettingsDialog).PlayerOwner(PlayerOwner).DialogTitle(NSLOCTEXT("SUWindowsDesktop","Controls","Control Settings")));
 	return FReply::Handled();
 }
@@ -630,9 +428,8 @@ FReply SUTMenuBase::OpenProfileItems()
 	return FReply::Handled();
 }
 
-FReply SUTMenuBase::ClearCloud(TSharedPtr<SComboButton> MenuButton)
+FReply SUTMenuBase::ClearCloud()
 {
-	if (MenuButton.IsValid()) MenuButton->SetIsOpen(false);
 	if (PlayerOwner->IsLoggedIn())
 	{
 		PlayerOwner->ClearProfileSettings();				
@@ -645,9 +442,8 @@ FReply SUTMenuBase::ClearCloud(TSharedPtr<SComboButton> MenuButton)
 }
 
 
-FReply SUTMenuBase::OpenTPSReport(TSharedPtr<SComboButton> MenuButton)
+FReply SUTMenuBase::OpenTPSReport()
 {
-	if (MenuButton.IsValid()) MenuButton->SetIsOpen(false);
 	PlayerOwner->OpenDialog(
 							SNew(SUWMessageBox)
 							.PlayerOwner(PlayerOwner)
@@ -662,10 +458,8 @@ FReply SUTMenuBase::OpenTPSReport(TSharedPtr<SComboButton> MenuButton)
 	return FReply::Handled();
 }
 
-FReply SUTMenuBase::OpenCredits(TSharedPtr<SComboButton> MenuButton)
+FReply SUTMenuBase::OpenCredits()
 {
-	if (MenuButton.IsValid()) MenuButton->SetIsOpen(false);
-
 	TSharedPtr<class SUWCreditsPanel> CreditsPanel = PlayerOwner->GetCreditsPanel();
 	if (CreditsPanel.IsValid())
 	{
@@ -674,9 +468,8 @@ FReply SUTMenuBase::OpenCredits(TSharedPtr<SComboButton> MenuButton)
 	return FReply::Handled();
 }
 
-FReply SUTMenuBase::OnMenuHTTPButton(FString URL,TSharedPtr<SComboButton> MenuButton)
+FReply SUTMenuBase::OnMenuHTTPButton(FString URL)
 {
-	if (MenuButton.IsValid()) MenuButton->SetIsOpen(false);
 	FString Error;
 	FPlatformProcess::LaunchURL(*URL, NULL, &Error);
 	if (Error.Len() > 0)
@@ -720,28 +513,18 @@ TSharedRef<SWidget> SUTMenuBase::BuildOnlinePresence()
 			+SHorizontalBox::Slot()
 			.AutoWidth()
 			[
-				SNew(SButton)
-				.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button")
+				SNew(SUTButton)
+				.ButtonStyle(SUTStyle::Get(), "UT.Button.MenuBar")
 				.ContentPadding(FMargin(25.0,0.0,25.0,5.0))
+				.Text(FText::FromString(PlayerOwner->GetOnlinePlayerNickname()))
+				.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.SmallTextStyle")
 				.OnClicked(this, &SUTMenuBase::OnOnlineClick)		
-				[
-					SNew(SHorizontalBox)
-					+SHorizontalBox::Slot()
-					.AutoWidth()
-					.Padding(5.0f,0.0f,25.0f,0.0f)
-					.VAlign(VAlign_Center)
-					[
-						SNew(STextBlock)
-						.Text(FText::FromString(PlayerOwner->GetOnlinePlayerNickname()))
-						.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.SmallTextStyle")
-					]
-				]
 			]
 			+SHorizontalBox::Slot()
 			.AutoWidth()
 			[
-				SNew(SButton)
-				.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button")
+				SNew(SUTButton)
+				.ButtonStyle(SUTStyle::Get(), "UT.Button.MenuBar")
 				.OnClicked(this, &SUTMenuBase::OnShowPlayerCard)
 				.ToolTipText(NSLOCTEXT("ToolTips","TPMyPlayerCard","Show this player's player card."))
 				[
@@ -763,8 +546,8 @@ TSharedRef<SWidget> SUTMenuBase::BuildOnlinePresence()
 			+SHorizontalBox::Slot()
 			.AutoWidth()
 			[
-				SNew(SButton)
-				.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button")
+				SNew(SUTButton)
+				.ButtonStyle(SUTStyle::Get(), "UT.Button.MenuBar")
 				.OnClicked(this, &SUTMenuBase::OnShowStatsViewer)
 				.ToolTipText(NSLOCTEXT("ToolTips","TPMyStats","Show stats for this player, friends, and recent opponents."))
 				[
@@ -785,8 +568,8 @@ TSharedRef<SWidget> SUTMenuBase::BuildOnlinePresence()
 			+ SHorizontalBox::Slot()
 			.AutoWidth()
 			[
-				SNew(SButton)
-				.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button")
+				SNew(SUTButton)
+				.ButtonStyle(SUTStyle::Get(), "UT.Button.MenuBar")
 				.OnClicked(this, &SUTMenuBase::OpenProfileItems)
 				.ToolTipText(NSLOCTEXT("ToolTips", "TPMyItems", "Show collectable items you own."))
 				[
@@ -810,8 +593,8 @@ TSharedRef<SWidget> SUTMenuBase::BuildOnlinePresence()
 				SNew(SMenuAnchor)
 				.Method(EPopupMethod::UseCurrentWindow)
 				[
-					SNew(SButton)
-					.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button")
+					SNew(SUTButton)
+					.ButtonStyle(SUTStyle::Get(), "UT.Button.MenuBar")
 					.OnClicked(this, &SUTMenuBase::ToggleFriendsAndChat)
 #if PLATFORM_LINUX
 					.ToolTipText(NSLOCTEXT("ToolTips", "TPFriendsNotSupported", "Friends list not supported yet on this platform."))
@@ -850,8 +633,8 @@ TSharedRef<SWidget> SUTMenuBase::BuildOnlinePresence()
 	}
 	else
 	{
-		return 	SNew(SButton)
-		.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button")
+		return 	SNew(SUTButton)
+		.ButtonStyle(SUTStyle::Get(), "UT.Button.MenuBar")
 		.ContentPadding(FMargin(25.0,0.0,25.0,5.0))
 		.OnClicked(this, &SUTMenuBase::OnOnlineClick)		
 		[
@@ -893,9 +676,8 @@ FReply SUTMenuBase::OnOnlineClick()
 	return FReply::Handled();
 }
 
-FReply SUTMenuBase::OnShowServerBrowser(TSharedPtr<SComboButton> MenuButton)
+FReply SUTMenuBase::OnShowServerBrowser()
 {
-	if (MenuButton.IsValid()) MenuButton->SetIsOpen(false);
 	return OnShowServerBrowserPanel();
 }
 
@@ -996,7 +778,7 @@ FReply SUTMenuBase::OnShowHomePanel()
 	return FReply::Handled();
 }
 
-FReply SUTMenuBase::ShowWidgetReflector(TSharedPtr<SComboButton> MenuButton)
+FReply SUTMenuBase::ShowWidgetReflector()
 {
 	ConsoleCommand(TEXT("WidgetReflector"));
 	return FReply::Handled();
@@ -1020,9 +802,8 @@ FReply SUTMenuBase::OnKeyUp( const FGeometry& MyGeometry, const FKeyEvent& InKey
 	return SUWindowsDesktop::OnKeyUp(MyGeometry, InKeyboardEvent);
 }
 
-FReply SUTMenuBase::OpenHUDSettings(TSharedPtr<SComboButton> MenuButton)
+FReply SUTMenuBase::OpenHUDSettings()
 {
-	if (MenuButton.IsValid()) MenuButton->SetIsOpen(false);
 	PlayerOwner->ShowHUDSettings();
 	return FReply::Handled();
 }

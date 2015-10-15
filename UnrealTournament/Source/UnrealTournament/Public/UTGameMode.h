@@ -87,7 +87,7 @@ public:
 	AUTGameState* UTGameState;		
 
 	/** base difficulty of bots */
-	UPROPERTY(globalconfig)
+	UPROPERTY()
 	float GameDifficulty;		
 
 	/* How long after the end of the match before we display the scoreboard */
@@ -117,16 +117,12 @@ public:
 	uint32 bAllowOvertime:1;
 
 	/**If enabled, the server grants special control for casters*/
-	UPROPERTY(globalconfig)
+	UPROPERTY()
 	uint32 bCasterControl:1;
 
 	/** If TRUE, force dead players to respawn immediately. Can be overridden with ForceRespawn=x on the url */
 	UPROPERTY(Config, EditDefaultsOnly)
 	bool bForceRespawn;
-
-	/** If true, only those who are tied going in to overtime will be allowed to player - Otherwise everyone will be allowed to fight on until there is a winner */
-	UPROPERTY()
-	bool bOnlyTheStrongSurvive;
 
 	UPROPERTY(EditDefaultsOnly)
 	bool bHasRespawnChoices;
@@ -143,7 +139,7 @@ public:
 	int32 GoalScore;    
 
 	/** How long should the match be.  Can be overridden with TIMELIMIT=x on the url */
-	UPROPERTY(config)
+	UPROPERTY(config, BlueprintReadWrite, Category = "Game")
 	int32 TimeLimit;    
 
 	/** multiplier to all XP awarded */
@@ -164,12 +160,6 @@ public:
 
 	UPROPERTY(BlueprintReadWrite, Category = "Game")
 	bool bFirstBloodOccurred;
-
-	/** if set, this setting overrides the number of players that are needed to start a hub instance
-	 * (defaults to UTLobbyGameMode's MinPlayersToStart)
-	 */
-	UPROPERTY(config)
-	int32 HubMinPlayers;
 
 	/** Minimum number of players that must have joined match before it will start. */
 	UPROPERTY()
@@ -226,10 +216,6 @@ public:
 	UPROPERTY(EditDefaultsOnly, Category = Game)
 	TSubclassOf<class UUTLocalMessage> VictoryMessageClass;
 
-	/** Name of the Scoreboard */
-	UPROPERTY(Config)
-	FStringClassReference ScoreboardClassName;
-
 	/** Remove all items from character inventory list, before giving him game mode's default inventory. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Inventory")
 	bool bClearPlayerInventory;
@@ -248,6 +234,10 @@ public:
 	/** If true, the intro cinematic will play just before the countdown to begin */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Game")
 	bool bPlayPlayerIntro;
+
+	/** If true, the intro cinematic will play just before the countdown to begin */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Game")
+	bool bShowMatchSummary;
 
 	/** Offline challenge mode. */
 	UPROPERTY(BlueprintReadOnly, Category = "Game")
@@ -317,9 +307,6 @@ public:
 	UPROPERTY(EditAnywhere, NoClear, BlueprintReadWrite, Category = Classes)
 	TSubclassOf<class AUTBot> BotClass;
 
-	UPROPERTY(Config)
-	TArray<FSelectedBot> SelectedBots;
-
 	/** cached list of UTBotCharacter assets from the asset registry, so we don't need to query the registry every time we add a bot */
 	TArray<FAssetData> BotAssets;
 
@@ -340,6 +327,7 @@ public:
 	/** whether to record a demo (starts when the countdown starts) */
 	UPROPERTY(GlobalConfig)
 	bool bRecordDemo;
+
 	/** filename for demos... should use one of the replacement strings or it'll overwrite every game */
 	UPROPERTY(GlobalConfig)
 	FString DemoFilename;
@@ -459,7 +447,6 @@ public:
 	virtual void DefaultTimer() override;
 	virtual void CheckGameTime();
 	virtual AUTPlayerState* IsThereAWinner(uint32& bTied);
-	virtual bool PlayerCanRestart_Implementation(APlayerController* Player);
 
 	// Allows gametypes to build their rules settings for the mid game menu.
 	virtual FText BuildServerRules(AUTGameState* GameState);
@@ -622,6 +609,8 @@ private:
 	// hacked into ReceiveBeginPlay() so we can do mutator replacement of Actors and such
 	void BeginPlayMutatorHack(FFrame& Stack, RESULT_DECL);
 
+	bool CanAwardXP();
+
 public:
 	/**
 	 *	Tells an associated lobby that this game is ready for joins.
@@ -639,9 +628,6 @@ public:
 	// These options will be forced on the game when played on an instance server using this game mode
 	UPROPERTY(Config)
 	FString ForcedInstanceGameOptions;
-
-	UPROPERTY(Config)
-	bool bLobbyAllowJoinInProgress;
 
 	bool bDedicatedInstance;
 
@@ -664,20 +650,21 @@ protected:
 	uint32 HostLobbyListenPort;
 
 	// Update the Lobby with the current stats of the game
-	virtual void UpdateLobbyMatchStats(FString Update);
+	virtual void UpdateLobbyMatchStats();
 
 	// Updates the lobby with the current player list
 	virtual void UpdateLobbyPlayerList();
 
-	// Updates the badge for the Lobby.  This is called from UpdateLobbyMatchStats() and should be gametype specific
-	virtual void UpdateLobbyBadge(FString BadgeText);
+	// Gets the updated score information
+	virtual void UpdateLobbyScore(FMatchUpdate& MatchUpdate);
 
-	virtual void SendEveryoneBackToLobby();
 	
 	// When players leave/join or during the end of game state
 	virtual void UpdatePlayersPresence();
 
 public:
+	virtual void SendEveryoneBackToLobby();
+
 #if !UE_SERVER
 	void BuildPaneHelper(TSharedPtr<SHorizontalBox>& HBox, TSharedPtr<SVerticalBox>& LeftPane, TSharedPtr<SVerticalBox>& RightPane);
 	void NewPlayerInfoLine(TSharedPtr<SVerticalBox> VBox, FText DisplayName, TSharedPtr<TAttributeStat> Stat, TArray<TSharedPtr<struct TAttributeStat> >& StatList);
@@ -708,7 +695,7 @@ public:
 	virtual void GetGameURLOptions(const TArray<TSharedPtr<TAttributePropertyBase>>& MenuProps, TArray<FString>& OptionsList, int32& DesiredPlayerCount);
 
 	// Called from the Beacon, it makes this server become a dedicated instance
-	virtual void BecomeDedicatedInstance(FGuid HubGuid);
+	virtual void BecomeDedicatedInstance(FGuid HubGuid, int32 InstanceID);
 
 	FString GetMapPrefix()
 	{
@@ -722,16 +709,23 @@ public:
 	virtual void CullMapVotes();
 	virtual void TallyMapVotes();
 
-	//Speed hack detection
-	UPROPERTY(Config)
+	/** Maximum time client can be ahead, without resetting. */
+	UPROPERTY(GlobalConfig)
 	float MaxTimeMargin;
-	UPROPERTY(Config)
+
+	/** Maximum time client can be behind. */
+	UPROPERTY(GlobalConfig)
 	float MinTimeMargin;
-	UPROPERTY(Config)
+
+	/** Accepted drift in clocks. */
+	UPROPERTY(GlobalConfig)
 	float TimeMarginSlack;
-	UPROPERTY(Config)
+
+	/** Whether speedhack detection is enabled. */
+	UPROPERTY(GlobalConfig)
 	bool bSpeedHackDetection;
 
+	virtual void NotifySpeedHack(ACharacter* Character);
 
 	/** Overriden so we dont go into MatchState::LeavingMap state, which happens regardless if the travel fails
 	* On failed map changes, the game will be stuck in a LeavingMap state
@@ -742,7 +736,7 @@ public:
 	virtual void AddInactivePlayer(APlayerState* PlayerState, APlayerController* PC) override;
 	virtual bool FindInactivePlayer(APlayerController* PC) override;
 
-	virtual void GameWelcomePlayer(UNetConnection* Connection, FString& RedirectURL) override;
+	virtual void GatherRequiredRedirects(TArray<FPackageRedirectReference>& Redirects) override;
 
 private:
 	// note: one based
@@ -756,5 +750,9 @@ public:
 	UPROPERTY(Config)
 	bool bDisableMapVote;
 
+	FString GetGameRulesDescription();
+
+	UFUNCTION(exec)
+		virtual void GetGood();
 };
 

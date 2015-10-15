@@ -55,8 +55,13 @@ protected:
 	FSlateBrush* PlayerPreviewBrush;
 	/** Do you want the player model to spin? */
 	bool bSpinPlayer;
-	/** The Zoom offset to apply to the camera. */
-	float ZoomOffset;
+
+	bool bLeaderHatSelectedLast;
+
+	/**Preset cameraloctions when zooming in/out*/
+	TArray<FVector> CameraLocations;
+	int32 CurrentCam;
+	FVector CamLocation;
 
 	/** counter for displaying weapon dialog since we need to display the "Loading Content" message first */
 	int32 WeaponConfigDelayFrames;
@@ -74,6 +79,12 @@ protected:
 	TSharedPtr< SComboBox< TSharedPtr<FString> > > HatComboBox;
 	TSharedPtr<STextBlock> SelectedHat;
 	void OnHatSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
+
+	TArray<TSharedPtr<FString>> LeaderHatList;
+	TArray<FString> LeaderHatPathList;
+	TSharedPtr< SComboBox< TSharedPtr<FString> > > LeaderHatComboBox;
+	TSharedPtr<STextBlock> SelectedLeaderHat;
+	void OnLeaderHatSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
 
 	TSharedPtr< SComboBox< TSharedPtr<FString> > > HatVariantComboBox;
 	TArray<TSharedPtr<FString>> HatVariantList;

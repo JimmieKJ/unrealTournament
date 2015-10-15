@@ -2,6 +2,7 @@
 #pragma once
 
 #include "UTVideoRecordingFeature.h"
+#include "UTChallengeManager.h"
 #include "UTGameEngine.generated.h"
 
 UCLASS()
@@ -97,12 +98,26 @@ public:
 	virtual void PreExit();
 	virtual bool HandleOpenCommand(const TCHAR* Cmd, FOutputDevice& Ar, UWorld *InWorld) override;
 	virtual bool Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Out = *GLog) override;
-	virtual void TickWorldTravel(FWorldContext& WorldContext, float DeltaSeconds) override;
 	virtual void Tick(float DeltaSeconds, bool bIdleMode) override;
 	virtual float GetMaxTickRate(float DeltaTime, bool bAllowFrameRateSmoothing) const override;
 	virtual void UpdateRunningAverageDeltaTime(float DeltaTime, bool bAllowFrameRateSmoothing = true) override;
 	virtual void IndexExpansionContent();
 	virtual void AddAssetRegistry(const FString& PakFilename);
+
+	// return whether the given pak with the given checksum is among the downloaded content list
+	// can pass in empty string for checksum to match by filename only
+	bool HasContentWithChecksum(const FString& PakBaseFilename, const FString& Checksum) const
+	{
+		for (int32 i = 0; i < 2; i++)
+		{
+			const FString* FoundChecksum = ((i == 0) ? DownloadedContentChecksums : MountedDownloadedContentChecksums).Find(PakBaseFilename);
+			if (FoundChecksum != NULL && (Checksum.IsEmpty() || *FoundChecksum == Checksum))
+			{
+				return true;
+			}
+		}
+		return false;
+	}
 
 	virtual EBrowseReturnVal::Type Browse(FWorldContext& WorldContext, FURL URL, FString& Error) override;
 
@@ -183,5 +198,20 @@ public:
 	class UUTFlagInfo* GetFlag(FName FlagName);
 
 	virtual void InitializeObjectReferences() override;
+
+
+protected:
+
+	// Holds the reference to this challenge manager.
+	UUTChallengeManager* ChallengeManager;
+
+public:
+
+	// returns the Challenge manager.
+	TWeakObjectPtr<UUTChallengeManager> GetChallengeManager()
+	{
+		return ChallengeManager;
+	}
+
 };
 

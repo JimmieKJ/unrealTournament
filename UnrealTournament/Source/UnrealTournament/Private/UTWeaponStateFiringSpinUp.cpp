@@ -7,6 +7,7 @@
 UUTWeaponStateFiringSpinUp::UUTWeaponStateFiringSpinUp(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
+	WarmupShotIntervals.Add(0.22f);
 	WarmupShotIntervals.Add(0.2f);
 	WarmupShotIntervals.Add(0.18f);
 	WarmupShotIntervals.Add(0.16f);

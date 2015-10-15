@@ -59,6 +59,8 @@ AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer
 	TotalChallengeStars = 0;
 	EmoteSpeed = 1.0f;
 	BotELOLimit = 1500;
+	bAnnounceWeaponSpree = false;
+	bAnnounceWeaponReward = false;
 }
 
 void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
@@ -93,6 +95,7 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	DOREPLIFETIME(AUTPlayerState, TauntClass);
 	DOREPLIFETIME(AUTPlayerState, Taunt2Class);
 	DOREPLIFETIME(AUTPlayerState, HatClass);
+	DOREPLIFETIME(AUTPlayerState, LeaderHatClass);
 	DOREPLIFETIME(AUTPlayerState, EyewearClass);
 	DOREPLIFETIME(AUTPlayerState, HatVariant);
 	DOREPLIFETIME(AUTPlayerState, EyewearVariant);
@@ -103,6 +106,7 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	DOREPLIFETIME(AUTPlayerState, AvailableCurrency);
 	DOREPLIFETIME(AUTPlayerState, StatsID);
 	DOREPLIFETIME(AUTPlayerState, FavoriteWeapon);
+	DOREPLIFETIME(AUTPlayerState, bIsRconAdmin);
 
 	DOREPLIFETIME_CONDITION(AUTPlayerState, RespawnChoiceA, COND_None); // also used when replicating spawn choice to other players
 	DOREPLIFETIME_CONDITION(AUTPlayerState, RespawnChoiceB, COND_OwnerOnly);
@@ -342,7 +346,7 @@ void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bE
 			MultiKillLevel = 0;
 		}
 
-		bool bAnnounceWeaponSpree = false;
+		bAnnounceWeaponSpree = false;
 		if (UTDamage)
 		{
 			if (!UTDamage.GetDefaultObject()->StatsName.IsEmpty())
@@ -395,7 +399,7 @@ void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bE
 
 				if (GetWorld()->GetAuthGameMode() != NULL)
 				{
-					GetWorld()->GetAuthGameMode()->BroadcastLocalized(GetOwner(), GS->SpreeMessageClass, FMath::Min(Spree / 5, 4), this, VictimPS);
+					GetWorld()->GetAuthGameMode()->BroadcastLocalized(GetOwner(), GS->SpreeMessageClass, FMath::Min(Spree / 5, 5), this, VictimPS);
 				}
 
 				if (UTChar != NULL && UTChar->IsWearingAnyCosmetic())
@@ -626,7 +630,7 @@ bool AUTPlayerState::ServerReceiveEyewearVariant_Validate(int32 NewVariant)
 
 void AUTPlayerState::ServerReceiveHatClass_Implementation(const FString& NewHatClass)
 {
-	if (GetNetMode() != NM_Client || HatClass == NULL || !GetWorld()->GetGameState()->HasMatchStarted())
+	if (GetWorld()->IsPlayInEditor() || GetNetMode() != NM_Standalone || HatClass == NULL || !GetWorld()->GetGameState()->HasMatchStarted())
 	{
 		HatClass = LoadClass<AUTHat>(NULL, *NewHatClass, NULL, LOAD_NoWarn, NULL);
 
@@ -637,11 +641,7 @@ void AUTPlayerState::ServerReceiveHatClass_Implementation(const FString& NewHatC
 			return;
 		}
 
-		if (HatClass != nullptr && !HatClass->IsChildOf(AUTHatLeader::StaticClass()))
-		{
-			OnRepHat();
-		}
-		else
+		if (!GetWorld()->IsPlayInEditor() && HatClass->IsChildOf(AUTHatLeader::StaticClass()))
 		{
 			HatClass = nullptr;
 		}
@@ -649,6 +649,8 @@ void AUTPlayerState::ServerReceiveHatClass_Implementation(const FString& NewHatC
 		if (HatClass != nullptr)
 		{
 			ValidateEntitlements();
+
+			OnRepHat();
 		}
 	}
 }
@@ -658,9 +660,27 @@ bool AUTPlayerState::ServerReceiveHatClass_Validate(const FString& NewHatClass)
 	return true;
 }
 
+void AUTPlayerState::ServerReceiveLeaderHatClass_Implementation(const FString& NewLeaderHatClass)
+{
+	if (GetNetMode() != NM_Standalone || LeaderHatClass == NULL || !GetWorld()->GetGameState()->HasMatchStarted())
+	{
+		LeaderHatClass = LoadClass<AUTHatLeader>(NULL, *NewLeaderHatClass, NULL, LOAD_NoWarn, NULL);
+
+		if (LeaderHatClass != nullptr)
+		{
+			ValidateEntitlements();
+		}
+	}
+}
+
+bool AUTPlayerState::ServerReceiveLeaderHatClass_Validate(const FString& NewHatClass)
+{
+	return true;
+}
+
 void AUTPlayerState::ServerReceiveEyewearClass_Implementation(const FString& NewEyewearClass)
 {
-	if (GetNetMode() != NM_Client || EyewearClass == NULL || !GetWorld()->GetGameState()->HasMatchStarted())
+	if (GetNetMode() != NM_Standalone || EyewearClass == NULL || !GetWorld()->GetGameState()->HasMatchStarted())
 	{
 		EyewearClass = LoadClass<AUTEyewear>(NULL, *NewEyewearClass, NULL, LOAD_NoWarn, NULL);
 		OnRepEyewear();
@@ -907,9 +927,8 @@ bool AUTPlayerState::ServerSetCharacter_Validate(const FString& CharacterPath)
 }
 void AUTPlayerState::ServerSetCharacter_Implementation(const FString& CharacterPath)
 {
-	if (GetNetMode() != NM_Client || SelectedCharacter == NULL || !GetWorld()->GetGameState()->HasMatchStarted())
+	if (GetNetMode() != NM_Standalone || SelectedCharacter == NULL || !GetWorld()->GetGameState()->HasMatchStarted())
 	{
-		// TODO: maybe ignore if already have valid character to avoid trolls?
 		AUTCharacter* MyPawn = GetUTCharacter();
 		// suicide if feign death because the mesh reset causes physics issues
 		if (MyPawn != NULL && MyPawn->IsFeigningDeath())
@@ -1562,6 +1581,10 @@ void AUTPlayerState::ValidateEntitlements()
 				{
 					ServerReceiveHatClass(FString());
 				}
+				if (!HasRightsFor(LeaderHatClass))
+				{
+					ServerReceiveLeaderHatClass(FString());
+				}
 				if (!HasRightsFor(EyewearClass))
 				{
 					ServerReceiveEyewearClass(FString());
@@ -1775,7 +1798,7 @@ TSharedRef<SWidget> AUTPlayerState::BuildRankInfo()
 				.Image(SUTStyle::Get().GetBrush("UT.Divider"))
 			]
 		];
-
+		
 		int32 Level = GetLevelForXP(PrevXP);
 		int32 LevelXPStart = GetXPForLevel(Level - 1);
 		int32 LevelXPEnd = GetXPForLevel(Level);
@@ -1918,6 +1941,46 @@ TSharedRef<SWidget> AUTPlayerState::BuildRankInfo()
 			]
 
 		];
+
+		AUTPlayerController* PC = Cast<AUTPlayerController>(GetOwner());
+		if (PC)
+		{
+			UUTLocalPlayer* LP = PC->GetUTLocalPlayer();
+			if (LP && LP->GetProfileSettings() && LP->GetProfileSettings()->SkullCount > 0)
+			{				
+				VBox->AddSlot()
+				.Padding(10.0f, 10.0f, 10.0f, 5.0f)
+				.AutoHeight()
+				[
+					SNew(SHorizontalBox)
+					+ SHorizontalBox::Slot()
+					.HAlign(HAlign_Left)
+					.VAlign(VAlign_Center)
+					.AutoWidth()
+					[
+						SNew(SBox)
+						.WidthOverride(300)
+						[
+							SNew(STextBlock)
+							.Text(NSLOCTEXT("AUTPlayerState", "SkullsCount", "Skulls Collected: "))
+							.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
+							.ColorAndOpacity(FLinearColor::Gray)
+						]
+					]
+					
+					+ SHorizontalBox::Slot()
+					.HAlign(HAlign_Left)
+					.VAlign(VAlign_Center)
+					.AutoWidth()
+					[
+						SNew(STextBlock)
+						.Text(FText::AsNumber(LP->GetProfileSettings()->SkullCount))
+						.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
+						.ColorAndOpacity(FLinearColor::Gray)
+					]
+				];
+			}
+		}
 	}
 	return VBox;
 }
@@ -2444,5 +2507,14 @@ void AUTPlayerState::PlayTauntByClass(TSubclassOf<AUTTaunt> TauntToPlay)
 			FirstPlayer->OnTauntPlayed(this, TauntToPlay, EmoteSpeed);
 		}
 #endif
+	}
+}
+
+void AUTPlayerState::ClientReceiveRconMessage_Implementation(const FString& Message)
+{	
+	AUTBasePlayerController* PC = Cast<AUTBasePlayerController>(GetOwner());
+	if (PC)
+	{
+		PC->ShowAdminMessage(Message);
 	}
 }

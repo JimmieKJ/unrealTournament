@@ -6,6 +6,17 @@
 
 #include "UTCharacterContent.generated.h"
 
+USTRUCT(BlueprintType)
+struct FGibSlotInfo
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FName BoneName;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	TSubclassOf<AUTGib> GibType;
+};
+
 UCLASS(BlueprintType, Abstract, NotPlaceable)
 class UNREALTOURNAMENT_API AUTCharacterContent : public AActor
 {
@@ -34,13 +45,26 @@ public:
 		Mesh->bReceivesDecals = false;
 
 		DisplayName = NSLOCTEXT("UT", "UntitledCharacter", "Untitled Character");
+
+		static ConstructorHelpers::FObjectFinder<UClass> GibRef[] = { TEXT("/Game/RestrictedAssets/Blueprints/GibHumanHead.GibHumanHead_C"), 
+			TEXT("/Game/RestrictedAssets/Blueprints/GibHumanLegL.GibHumanLegL_C"), TEXT("/Game/RestrictedAssets/Blueprints/GibHumanLegR.GibHumanLegR_C"),
+			TEXT("/Game/RestrictedAssets/Blueprints/GibHumanRibs.GibHumanRibs_C"), TEXT("/Game/RestrictedAssets/Blueprints/GibHumanTorso.GibHumanTorso_C"),
+			TEXT("/Game/RestrictedAssets/Blueprints/GibHumanArmL.GibHumanArmL_C"), TEXT("/Game/RestrictedAssets/Blueprints/GibHumanArmR.GibHumanArmR_C") };
+
+		new(Gibs) FGibSlotInfo{ FName(TEXT("head")), GibRef[0].Object };
+		new(Gibs) FGibSlotInfo{ FName(TEXT("thigh_l")), GibRef[1].Object };
+		new(Gibs) FGibSlotInfo{ FName(TEXT("thigh_r")), GibRef[2].Object };
+		new(Gibs) FGibSlotInfo{ FName(TEXT("Spine_01")), GibRef[3].Object };
+		new(Gibs) FGibSlotInfo{ FName(TEXT("Spine_02")), GibRef[4].Object };
+		new(Gibs) FGibSlotInfo{ FName(TEXT("lowerarm_l")), GibRef[5].Object };
+		new(Gibs) FGibSlotInfo{ FName(TEXT("lowerarm_r")), GibRef[6].Object };
 	}
 
-	UPROPERTY(EditDefaultsOnly, AssetRegistrySearchable)
+	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, AssetRegistrySearchable)
 	FText DisplayName;
 
 	/** character gender */
-	UPROPERTY(EditDefaultsOnly)
+	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly)
 	bool bIsFemale;
 
 	/** if set hide from the menus (i.e. intended for testing or built-in to a specific gametype or mod) */
@@ -56,13 +80,56 @@ public:
 	UPROPERTY(EditDefaultsOnly, AssetRegistrySearchable, Meta = (DisplayName = "Required Offline Achievement"))
 	FName RequiredAchievement;
 	
-	USkeletalMeshComponent* GetMesh() { return Mesh; }
+	inline USkeletalMeshComponent* GetMesh() const
+	{
+		return Mesh;
+	}
+
+	/** mesh to swap in when the character is skeletized */
+	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly)
+	USkeletalMesh* SkeletonMesh;
+
+	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly)
+	TArray<FGibSlotInfo> Gibs;
+
+	/** blood explosion played when gibbing */
+	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly)
+	TSubclassOf<class AUTImpactEffect> GibExplosionEffect;
+
+	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category = Sounds)
+	USoundBase* LandingSound;
+	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category = Sounds)
+	USoundBase* JumpSound;
+	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category = Sounds)
+	USoundBase* DodgeSound;
+	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category = Sounds)
+	USoundBase* PainSound;
+	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category = Sounds)
+	USoundBase* FloorSlideSound;
+	/** Ambient sound played while sprinting */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
+	USoundBase* SprintAmbientSound;
+
+	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category = Sounds)
+	USoundBase* DrowningSound;
+	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly, Category = Sounds)
+	USoundBase* GaspSound;
+	/** Played for character pushing off underwater. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
+	USoundBase* SwimPushSound;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
+	USoundBase* WaterEntrySound;
+	/** Played for character entering water fast. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
+	USoundBase* FastWaterEntrySound;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
+	USoundBase* WaterExitSound;
 
 protected:
-	UPROPERTY(VisibleDefaultsOnly)
+	UPROPERTY(BlueprintReadOnly, VisibleDefaultsOnly)
 	USkeletalMeshComponent* Mesh;
 
 	//FIXME: TEMP FOR GDC: material overrides when playing a team game (NULL for an entry means use default)
-	UPROPERTY(EditDefaultsOnly)
+	UPROPERTY(BlueprintReadOnly, EditDefaultsOnly)
 	TArray<UMaterialInterface*> TeamMaterials;
 };

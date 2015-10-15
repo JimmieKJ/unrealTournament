@@ -51,8 +51,8 @@ void SUWPlayerInfoDialog::Construct(const FArguments& InArgs)
 	bSpinPlayer = true;
 	ZoomOffset = -50;
 
-	PoseAnimation = LoadObject<UAnimationAsset>(NULL, TEXT("/Game/RestrictedAssets/Animations/Universal/Misc_Poses/Pose_E.Pose_E"));
-	FemalePoseAnimation = LoadObject<UAnimationAsset>(NULL, TEXT("/Game/RestrictedAssets/Animations/Universal/Misc_Poses/Pose_E_Female.Pose_E_Female"));
+	PlayerPreviewAnimBlueprint = LoadObject<UClass>(nullptr, TEXT("/Game/RestrictedAssets/UI/ABP_PlayerPreview.ABP_PlayerPreview_C"));
+	PlayerPreviewAnimFemaleBlueprint = LoadObject<UClass>(nullptr, TEXT("/Game/RestrictedAssets/UI/ABP_Female_PlayerPreview.ABP_Female_PlayerPreview_C"));
 
 	// allocate a preview scene for rendering
 	PlayerPreviewWorld = UWorld::CreateWorld(EWorldType::Preview, true);
@@ -183,8 +183,8 @@ void SUWPlayerInfoDialog::AddReferencedObjects(FReferenceCollector& Collector)
 	Collector.AddReferencedObject(PlayerPreviewTexture);
 	Collector.AddReferencedObject(PlayerPreviewMID);
 	Collector.AddReferencedObject(PlayerPreviewWorld);
-	Collector.AddReferencedObject(PoseAnimation);
-	Collector.AddReferencedObject(FemalePoseAnimation);
+	Collector.AddReferencedObject(PlayerPreviewAnimBlueprint);
+	Collector.AddReferencedObject(PlayerPreviewAnimFemaleBlueprint);
 }
 
 FReply SUWPlayerInfoDialog::OnButtonClick(uint16 ButtonID)
@@ -257,7 +257,7 @@ void SUWPlayerInfoDialog::RecreatePlayerPreview()
 		}
 
 		PlayerPreviewMesh = PlayerPreviewWorld->SpawnActor<AUTCharacter>(DefaultPawnClass, FVector(300.0f, 0.f, 4.f), ActorRotation);
-		if (PlayerPreviewMesh)
+		if (PlayerPreviewMesh && PlayerPreviewMesh->GetMesh())
 		{
 			PlayerPreviewMesh->ApplyCharacterData(TargetPlayerState->GetSelectedCharacter());
 			PlayerPreviewMesh->SetHatClass(TargetPlayerState->HatClass);
@@ -265,20 +265,19 @@ void SUWPlayerInfoDialog::RecreatePlayerPreview()
 			PlayerPreviewMesh->SetEyewearClass(TargetPlayerState->EyewearClass);
 			PlayerPreviewMesh->SetEyewearVariant(TargetPlayerState->EyewearVariant);
 
+			PlayerPreviewMesh->GetMesh()->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones;
 			if (TargetPlayerState->IsFemale())
 			{
-				if (FemalePoseAnimation)
+				if (PlayerPreviewAnimFemaleBlueprint)
 				{
-					PlayerPreviewMesh->GetMesh()->PlayAnimation(FemalePoseAnimation, true);
-					PlayerPreviewMesh->GetMesh()->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones;
+					PlayerPreviewMesh->GetMesh()->SetAnimInstanceClass(PlayerPreviewAnimFemaleBlueprint);
 				}
 			}
 			else
 			{
-				if (PoseAnimation)
+				if (PlayerPreviewAnimBlueprint)
 				{
-					PlayerPreviewMesh->GetMesh()->PlayAnimation(PoseAnimation, true);
-					PlayerPreviewMesh->GetMesh()->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones;
+					PlayerPreviewMesh->GetMesh()->SetAnimInstanceClass(PlayerPreviewAnimBlueprint);
 				}
 			}
 

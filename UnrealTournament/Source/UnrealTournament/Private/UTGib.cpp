@@ -6,19 +6,6 @@
 AUTGib::AUTGib(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
-	Mesh = ObjectInitializer.CreateOptionalDefaultSubobject<UStaticMeshComponent>(this, FName(TEXT("Mesh")));
-	if (Mesh != NULL)
-	{
-		Mesh->bReceivesDecals = false;
-		Mesh->SetCollisionProfileName(FName(TEXT("CharacterMesh")));
-		Mesh->SetCollisionObjectType(ECC_PhysicsBody);
-		Mesh->SetCollisionResponseToChannel(ECC_Visibility, ECR_Ignore);
-		Mesh->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
-		Mesh->SetNotifyRigidBodyCollision(true);
-		Mesh->OnComponentHit.AddDynamic(this, &AUTGib::OnPhysicsCollision);
-	}
-	RootComponent = Mesh;
-
 	InvisibleLifeSpan = 7.f;
 	InitialLifeSpan = 10.0f;
 }
@@ -26,14 +13,6 @@ AUTGib::AUTGib(const FObjectInitializer& ObjectInitializer)
 void AUTGib::PreInitializeComponents()
 {
 	LastBloodTime = GetWorld()->TimeSeconds;
-	if (MeshChoices.Num() > 0 && Mesh != NULL)
-	{
-		if (Mesh->StaticMesh != NULL)
-		{
-			MeshChoices.AddUnique(Mesh->StaticMesh);
-		}
-		Mesh->SetStaticMesh(MeshChoices[FMath::RandHelper(MeshChoices.Num())]);
-	}
 	Super::PreInitializeComponents();
 }
 

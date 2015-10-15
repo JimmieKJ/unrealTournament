@@ -134,9 +134,8 @@ void SUWindowsDesktop::ConsoleCommand(FString Command)
 }
 
 
-FReply SUWindowsDesktop::OnMenuConsoleCommand(FString Command, TSharedPtr<SComboButton> MenuButton)
+FReply SUWindowsDesktop::OnMenuConsoleCommand(FString Command)
 {
-	if (MenuButton.IsValid()) MenuButton->SetIsOpen(false);
 	ConsoleCommand(Command);
 	CloseMenus();
 	return FReply::Handled();

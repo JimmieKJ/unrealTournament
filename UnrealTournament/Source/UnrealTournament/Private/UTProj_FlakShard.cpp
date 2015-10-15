@@ -34,7 +34,7 @@ AUTProj_FlakShard::AUTProj_FlakShard(const class FObjectInitializer& ObjectIniti
 	ProjectileMovement->BounceVelocityStopSimulatingThreshold = 0.0f;
 
 	// Damage
-	DamageParams.BaseDamage = 18.0f;
+	DamageParams.BaseDamage = 17.0f;
 	DamageParams.MinimumDamage = 5.0f;
 	Momentum = 20000.f;
 
@@ -121,6 +121,11 @@ void AUTProj_FlakShard::ProcessHit_Implementation(AActor* OtherActor, UPrimitive
 
 void AUTProj_FlakShard::OnBounce(const struct FHitResult& ImpactResult, const FVector& ImpactVelocity)
 {
+	if (ImpactResult.Actor.IsValid() && ImpactResult.Actor->bCanBeDamaged)
+	{
+		ProcessHit(ImpactResult.Actor.Get(), ImpactResult.Component.Get(), ImpactResult.ImpactPoint, ImpactResult.ImpactNormal);
+		return;
+	}
 	RemoveSatelliteShards();
 	if (GetWorld()->GetTimeSeconds() - CreationTime > 2.f * FullGravityDelay)
 	{

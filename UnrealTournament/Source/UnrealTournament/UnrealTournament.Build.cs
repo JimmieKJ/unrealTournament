@@ -29,6 +29,7 @@ public class UnrealTournament : ModuleRules
                                                     "Navmesh", 
                                                     "WebBrowser", 
                                                     "Json", 
+													"JsonUtilities",
                                                     "HTTP", 
                                                     "UMG", 
                                                     "EngineSettings", 

@@ -136,7 +136,8 @@ UUTCharacterMovement::UUTCharacterMovement(const class FObjectInitializer& Objec
 	bLargeCorrection = false;
 	LargeCorrectionThreshold = 15.f;
 
-	ServerSyncTime = -1.0f;
+	TotalTimeStampError = -0.15f;  // allow one initial slow frame
+	bClearingSpeedHack = false;
 }
 
 // @todo UE4 - handle lift moving up and down through encroachment
@@ -192,13 +193,13 @@ void UUTCharacterMovement::UpdateBasedMovement(float DeltaSeconds)
 					}
 					else
 					{
-						// TODO: maybe also delay more if lift is known to have significant travel time remaining?
 						float XYTime = XYSize / MaxWalkSpeed;
 						float ZTime = 0.0f;
 						{
 							float Determinant = FMath::Square(LiftJumpZ) - 2.0 * GetGravityZ() * (PawnLoc.Z - LiftPath->LiftExitLoc.Z);
 							if (Determinant >= 0.0f)
 							{
+								Determinant = FMath::Sqrt(Determinant);
 								float Time1 = (-LiftJumpZ + Determinant) / GetGravityZ();
 								float Time2 = (-LiftJumpZ - Determinant) / GetGravityZ();
 								if (Time1 > 0.0f)
@@ -218,7 +219,53 @@ void UUTCharacterMovement::UpdateBasedMovement(float DeltaSeconds)
 								}
 							}
 						}
-						bShouldJump = (ZTime > XYTime || PawnLoc.Z + LiftJumpZ * XYTime + 0.5f * GetGravityZ() * FMath::Square<float>(XYTime) >= LiftPath->LiftExitLoc.Z);
+						const float JumpEndZ = PawnLoc.Z + LiftJumpZ * XYTime + 0.5f * GetGravityZ() * FMath::Square<float>(XYTime);
+						bShouldJump = (ZTime > XYTime || JumpEndZ >= LiftPath->LiftExitLoc.Z);
+
+						// consider delaying more if lift is known to have significant travel time remaining
+						// no reason to make jump unnecessarily difficult
+						if (bShouldJump && LiftPath->Lift != NULL && ZTime <= XYTime && JumpEndZ < LiftPath->LiftExitLoc.Z + CharacterOwner->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight())
+						{
+							TArray<FVector> Stops = LiftPath->Lift->GetStops();
+							if (Stops.Num() > 1)
+							{
+								float ClosestDist = FLT_MAX;
+								int32 ClosestStop = INDEX_NONE;
+								for (int32 i = 0; i < Stops.Num(); i++)
+								{
+									float Dist = (Stops[i] - LiftPath->LiftExitLoc).Size();
+									if (Dist < ClosestDist)
+									{
+										ClosestStop = i;
+										ClosestDist = Dist;
+									}
+								}
+								if (ClosestStop != INDEX_NONE)
+								{
+									int32 PrevStop;
+									if (ClosestStop == 0)
+									{
+										PrevStop = 1;
+									}
+									else if (ClosestStop == Stops.Num() - 1)
+									{
+										PrevStop = Stops.Num() - 2;
+									}
+									else if (((Stops[ClosestStop - 1] - Stops[ClosestStop]).GetSafeNormal() | LiftPath->Lift->GetVelocity().GetSafeNormal()) < ((Stops[ClosestStop + 1] - Stops[ClosestStop]).GetSafeNormal() | LiftPath->Lift->GetVelocity().GetSafeNormal()))
+									{
+										PrevStop = ClosestStop - 1;
+									}
+									else
+									{
+										PrevStop = ClosestStop + 1;
+									}
+									if ((LiftPath->Lift->GetActorLocation() - Stops[ClosestStop]).Size() > (LiftPath->Lift->GetActorLocation() - Stops[PrevStop]).Size())
+									{
+										bShouldJump = false;
+									}
+								}
+							}
+						}
 					}
 					if (bShouldJump)
 					{
@@ -249,6 +296,11 @@ void UUTCharacterMovement::UpdateBasedMovement(float DeltaSeconds)
 							// result of bug where bot didn't use an entry path to get on the lift due to navmesh structure, see UUTReachSpec_Lift::GetMovePoints()
 							B->SetAdjustLoc(LiftPath->LiftExitLoc);
 							B->MoveTimer = -1.0f;
+						}
+						else
+						{
+							// this makes sure the bot skips any leftover point on the lift center that it doesn't need anymore
+							B->SetMoveTargetDirect(B->GetMoveTarget());
 						}
 					}
 				}
@@ -677,7 +729,7 @@ void UUTCharacterMovement::PerformWaterJump()
 		AUTCharacter* UTCharacterOwner = Cast<AUTCharacter>(CharacterOwner);
 		if (UTCharacterOwner)
 		{
-			UUTGameplayStatics::UTPlaySound(GetWorld(), UTCharacterOwner->SwimPushSound, UTCharacterOwner, SRT_AllButOwner);
+			UUTGameplayStatics::UTPlaySound(GetWorld(), UTCharacterOwner->CharacterData.GetDefaultObject()->SwimPushSound, UTCharacterOwner, SRT_AllButOwner);
 		}
 	}
 	LastWallDodgeNormal = Result.ImpactNormal;
@@ -1410,7 +1462,7 @@ void UUTCharacterMovement::CheckWallSlide(FHitResult const& Impact)
 	if (UTCharOwner)
 	{
 		UTCharOwner->bApplyWallSlide = false;
-		if (bWantsWallSlide && (Velocity.Z < MaxSlideRiseZ) && (Velocity.Z > MaxSlideFallZ) && !Acceleration.IsZero())
+		if (bWantsWallSlide && (Impact.ImpactNormal.Z > -0.1f) && (Velocity.Z < MaxSlideRiseZ) && (Velocity.Z > MaxSlideFallZ) && !Acceleration.IsZero())
 		{
 			FVector VelocityAlongWall = Velocity + FMath::Abs(Velocity | Impact.ImpactNormal) * Impact.ImpactNormal;
 			UTCharOwner->bApplyWallSlide = (VelocityAlongWall.Size2D() >= MinWallSlideSpeed);

@@ -5,6 +5,7 @@
 #include "UTCharacter.h"
 #include "Online.h"
 #include "OnlineSubsystemTypes.h"
+#include "OnlineTitleFileInterface.h"
 #include "UTMenuGameMode.h"
 #include "UTProfileSettings.h"
 #include "UTGameViewportClient.h"
@@ -19,6 +20,7 @@
 #include "Slate/SUTStyle.h"
 #include "Slate/SUWDialog.h"
 #include "Slate/SUWToast.h"
+#include "Slate/SUTAdminMessage.h"
 #include "Slate/SUWInputBox.h"
 #include "Slate/SUWLoginDialog.h"
 #include "Slate/SUWPlayerSettingsDialog.h"
@@ -34,6 +36,8 @@
 #include "Slate/SUWMapVoteDialog.h"
 #include "Slate/SUTReplayWindow.h"
 #include "Slate/SUTReplayMenu.h"
+#include "Slate/SUTAdminDialog.h"
+#include "Slate/SUTDownloadAllDialog.h"
 #include "UTAnalytics.h"
 #include "FriendsAndChat.h"
 #include "Runtime/Analytics/Analytics/Public/Analytics.h"
@@ -48,9 +52,11 @@
 #include "Slate/SUWYoutubeConsent.h"
 #include "Slate/SUWMatchSummary.h"
 #include "UTLobbyGameState.h"
+#include "UTLobbyPC.h"
 #include "StatNames.h"
 #include "UTChallengeManager.h"
 #include "UTCharacterContent.h"
+#include "Runtime/JsonUtilities/public/JsonUtilities.h"
 
 UUTLocalPlayer::UUTLocalPlayer(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -61,10 +67,15 @@ UUTLocalPlayer::UUTLocalPlayer(const class FObjectInitializer& ObjectInitializer
 	bShowSocialNotification = false;
 	ServerPingBlockSize = 30;
 	bSuppressToastsInGame = false;
+
 	DownloadStatusText = FText::GetEmpty();
+	Download_CurrentFile = TEXT("");
+	Download_Percentage = 0.0;
+
 	QuickMatchLimitTime = -60.0;
 	RosterUpgradeText = FText::GetEmpty();
 	CurrentSessionTrustLevel = 2;
+	EarnedStars = 0;
 }
 
 UUTLocalPlayer::~UUTLocalPlayer()
@@ -86,6 +97,7 @@ void UUTLocalPlayer::InitializeOnlineSubsystem()
 		OnlineSessionInterface = OnlineSubsystem->GetSessionInterface();
 		OnlinePresenceInterface = OnlineSubsystem->GetPresenceInterface();
 		OnlineFriendsInterface = OnlineSubsystem->GetFriendsInterface();
+		OnlineTitleFileInterface = OnlineSubsystem->GetTitleFileInterface();
 	}
 
 	if (OnlineIdentityInterface.IsValid())
@@ -107,7 +119,11 @@ void UUTLocalPlayer::InitializeOnlineSubsystem()
 	{
 		OnJoinSessionCompleteDelegate = OnlineSessionInterface->AddOnJoinSessionCompleteDelegate_Handle(FOnJoinSessionCompleteDelegate::CreateUObject(this, &UUTLocalPlayer::OnJoinSessionComplete));
 	}
-	
+
+	if (OnlineTitleFileInterface.IsValid())
+	{
+		OnReadTitleFileCompleteDelegate = OnlineTitleFileInterface->AddOnReadFileCompleteDelegate_Handle(FOnReadFileCompleteDelegate::CreateUObject(this, &UUTLocalPlayer::OnReadTitleFileComplete));
+	}
 }
 
 void UUTLocalPlayer::CleanUpOnlineSubSystyem()
@@ -144,6 +160,16 @@ bool UUTLocalPlayer::Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Ar)
 	{
 		return true;
 	}
+#else
+#if !UE_SERVER
+	if (FParse::Command(&Cmd, TEXT("YOUTUBEAUTH")))
+	{
+		FString RequestURL;
+		FParse::Token(Cmd, RequestURL, 0);
+		TestYoutubeConsentForUpload(RequestURL);
+		return true;
+	}
+#endif
 #endif
 	return Super::Exec(InWorld, Cmd, Ar);
 }
@@ -678,6 +704,10 @@ void UUTLocalPlayer::OnLoginComplete(int32 LocalUserNum, bool bWasSuccessful, co
 
 		PendingLoginUserName = TEXT("");
 
+		// reset cached online items in case this is a different user
+		ProfileItems.Empty();
+		OnlineXP = 0;
+
 		LoadProfileSettings();
 		FText WelcomeToast = FText::Format(NSLOCTEXT("MCP","MCPWelcomeBack","Welcome back {0}"), FText::FromString(*GetOnlinePlayerNickname()));
 		ShowToast(WelcomeToast);
@@ -724,7 +754,10 @@ void UUTLocalPlayer::OnLoginComplete(int32 LocalUserNum, bool bWasSuccessful, co
 				if (UserId.IsValid())
 				{
 					UTPC->ServerReceiveStatsID(UserId->ToString());
-					UTPC->PlayerState->SetUniqueId(UserId);
+					if (UTPC->PlayerState)
+					{
+						UTPC->PlayerState->SetUniqueId(UserId); 
+					}
 				}
 			}
 		}
@@ -783,6 +816,11 @@ void UUTLocalPlayer::OnLoginStatusChanged(int32 LocalUserNum, ELoginStatus::Type
 	// If we have logged out, or started using the local profile, then clear the online profile.
 	if (LoginStatus == ELoginStatus::NotLoggedIn || LoginStatus == ELoginStatus::UsingLocalProfile)
 	{
+		ProfileItems.Empty();
+		OnlineXP = 0;
+		// Clear out the MCP storage
+		MCPPulledData.bValid = false;
+
 		CurrentProfileSettings = NULL;
 		FUTAnalytics::LoginStatusChanged(FString());
 
@@ -802,6 +840,11 @@ void UUTLocalPlayer::OnLoginStatusChanged(int32 LocalUserNum, ELoginStatus::Type
 	}
 	else if (LoginStatus == ELoginStatus::LoggedIn)
 	{
+		if (OnlineTitleFileInterface.IsValid())
+		{
+			OnlineTitleFileInterface->ReadFile(GetMCPStorageFilename());
+		}
+
 		ReadELOFromCloud();
 		UpdatePresence(LastPresenceUpdate, bLastAllowInvites,bLastAllowInvites,bLastAllowInvites,false);
 		ReadCloudFileListing();
@@ -989,6 +1032,32 @@ void UUTLocalPlayer::RemoveChatArchiveChangedDelegate(FDelegateHandle DelegateHa
 }
 
 
+void UUTLocalPlayer::ShowAdminMessage(FString Message)
+{
+#if !UE_SERVER
+
+	// Build the Toast to Show...
+
+	TSharedPtr<SUTAdminMessage> Msg;
+	SAssignNew(Msg, SUTAdminMessage)
+		.PlayerOwner(this)
+		.Lifetime(10)
+		.ToastText(FText::FromString(Message));
+
+	if (Msg.IsValid())
+	{
+		ToastList.Add(Msg);
+
+		// Auto show if it's the first toast..
+		if (ToastList.Num() == 1)
+		{
+			AddToastToViewport(ToastList[0]);
+		}
+	}
+#endif
+
+}
+
 void UUTLocalPlayer::ShowToast(FText ToastText)
 {
 #if !UE_SERVER
@@ -1093,7 +1162,7 @@ void UUTLocalPlayer::ClearProfileSettings()
 #if !UE_SERVER
 	if (IsLoggedIn())
 	{
-		ShowMessage(NSLOCTEXT("UUTLocalPlayer","ClearCloudWarnTitle","!!! WARNING !!!"), NSLOCTEXT("UUTLocalPlayer","ClearCloudWarnMessage","You are about to clear all of your settings in the cloud as well as clear your active game and input ini files locally.  The game will then exit and wait for a restart!\n\nAre you sure you want to do this??"), UTDIALOG_BUTTON_YES + UTDIALOG_BUTTON_NO, FDialogResultDelegate::CreateUObject(this, &UUTLocalPlayer::ClearProfileWarnResults));
+		ShowMessage(NSLOCTEXT("UUTLocalPlayer","ClearCloudWarnTitle","!!! WARNING !!!"), NSLOCTEXT("UUTLocalPlayer","ClearCloudWarnMessage","You are about to clear all of your settings and profile data in the cloud as well as clear your active game and input ini files locally. THIS INCLUDES LOCAL GAME PROGRESS SUCH AS CHALLENGE STARS. The game will then exit and wait for a restart!\n\nAre you sure you want to do this??"), UTDIALOG_BUTTON_YES + UTDIALOG_BUTTON_NO, FDialogResultDelegate::CreateUObject(this, &UUTLocalPlayer::ClearProfileWarnResults));
 	}
 #endif
 }
@@ -1210,6 +1279,10 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 		if (bWasSuccessful)
 		{
 			UpdateBaseELOFromCloudData();
+
+			// Set the ranks/etc so the player card is right.
+			AUTBasePlayerController* UTBasePlayer = Cast<AUTBasePlayerController>(PlayerController);
+			if (UTBasePlayer) UTBasePlayer->ServerReceiveRank(GetBaseELORank(), GetRankDuel(), GetRankCTF(), GetRankTDM(), GetRankDM(), GetTotalChallengeStars());
 		}
 	}
 }
@@ -1270,6 +1343,7 @@ void UUTLocalPlayer::SaveProfileSettings()
 			TSharedPtr<FUniqueNetId> UserID = OnlineIdentityInterface->GetUniquePlayerId(GetControllerId());
 			if (OnlineUserCloudInterface.IsValid() && UserID.IsValid())
 			{
+				LastProfileCloudWriteTime = FApp::GetCurrentTime();
 				OnlineUserCloudInterface->WriteUserFile(*UserID, GetProfileFilename(), FileContents);
 			}
 		}
@@ -1281,15 +1355,15 @@ void UUTLocalPlayer::OnWriteUserFileComplete(bool bWasSuccessful, const FUniqueN
 	// Make sure this was our filename
 	if (FileName == GetProfileFilename())
 	{
-		LastProfileCloudWriteTime = FApp::GetCurrentTime();
-
 		if (bWasSuccessful)
 		{
+			LastProfileCloudWriteTime = FApp::GetCurrentTime();
 			FText Saved = NSLOCTEXT("MCP", "ProfileSaved", "Profile Saved");
 			ShowToast(Saved);
 		}
 		else
 		{
+			LastProfileCloudWriteTime = GetClass()->GetDefaultObject<UUTLocalPlayer>()->LastProfileCloudWriteTime;
 	#if !UE_SERVER
 			// Should give a warning here if it fails.
 			ShowMessage(NSLOCTEXT("MCPMessages", "ProfileSaveErrorTitle", "An error has occured"), NSLOCTEXT("MCPMessages", "ProfileSaveErrorText", "UT could not save your profile with the MCP.  Your settings may be lost."), UTDIALOG_BUTTON_OK, NULL);
@@ -1438,6 +1512,16 @@ int32 UUTLocalPlayer::GetBaseELORank()
 	int32 MatchCount = DuelMatchesPlayed + TDMMatchesPlayed + FFAMatchesPlayed + CTFMatchesPlayed;
 	const int32 MatchThreshold = 40;
 
+	// Avoid integer overflow and initial state divide by 0
+	if (MatchCount <= 0)
+	{
+		MatchCount = 1;
+		MatchCount = FMath::Max(MatchCount, DuelMatchesPlayed);
+		MatchCount = FMath::Max(MatchCount, TDMMatchesPlayed);
+		MatchCount = FMath::Max(MatchCount, FFAMatchesPlayed);
+		MatchCount = FMath::Max(MatchCount, CTFMatchesPlayed);
+	}
+
 #if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
 	int32 ForcedELORank;
 	if (FParse::Value(FCommandLine::Get(), TEXT("ForceELORank="), ForcedELORank))
@@ -1510,7 +1594,6 @@ int32 UUTLocalPlayer::GetBaseELORank()
 
 void UUTLocalPlayer::GetBadgeFromELO(int32 EloRating, int32& BadgeLevel, int32& SubLevel)
 {
-	// Bronze levels up to 1750, start at 400, go up every 140
 	if (EloRating  < 1660)
 	{
 		BadgeLevel = 0;
@@ -1533,7 +1616,7 @@ bool UUTLocalPlayer::IsConsideredABeginnner()
 {
 	float BaseELO = GetBaseELORank();
 
-	return (BaseELO < 1400) && (DuelMatchesPlayed + TDMMatchesPlayed + FFAMatchesPlayed + CTFMatchesPlayed) < 20;
+	return (BaseELO < 1660) && (DuelMatchesPlayed + TDMMatchesPlayed + FFAMatchesPlayed + CTFMatchesPlayed) < 50;
 }
 
 
@@ -1601,6 +1684,28 @@ void UUTLocalPlayer::SetHatPath(const FString& NewHatPath)
 		}
 	}
 }
+
+FString UUTLocalPlayer::GetLeaderHatPath() const
+{
+	return (CurrentProfileSettings != NULL) ? CurrentProfileSettings->LeaderHatPath : GetDefaultURLOption(TEXT("LeaderHat"));
+}
+void UUTLocalPlayer::SetLeaderHatPath(const FString& NewLeaderHatPath)
+{
+	if (CurrentProfileSettings != NULL)
+	{
+		CurrentProfileSettings->LeaderHatPath = NewLeaderHatPath;
+	}
+	SetDefaultURLOption(TEXT("LeaderHat"), NewLeaderHatPath);
+	if (PlayerController != NULL)
+	{
+		AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerController->PlayerState);
+		if (PS != NULL)
+		{
+			PS->ServerReceiveLeaderHatClass(NewLeaderHatPath);
+		}
+	}
+}
+
 FString UUTLocalPlayer::GetEyewearPath() const
 {
 	return (CurrentProfileSettings != NULL) ? CurrentProfileSettings->EyewearPath : GetDefaultURLOption(TEXT("Eyewear"));
@@ -2296,7 +2401,7 @@ void UUTLocalPlayer::ShowPlayerInfo(TWeakObjectPtr<AUTPlayerState> Target)
 	}
 	else
 	{
-		if (DesktopSlateWidget.IsValid() && !IsMenuGame() && Cast<AUTLobbyGameState>(GetWorld()->GameState) == nullptr)
+		if (DesktopSlateWidget.IsValid() && !IsMenuGame() && Cast<AUTLobbyGameState>(GetWorld()->GameState) == nullptr && GetWorld()->GetNetMode() != NM_Standalone)
 		{
 			HideMenu();
 		}
@@ -2313,8 +2418,13 @@ int32 UUTLocalPlayer::GetFriendsList(TArray< FUTFriend >& OutFriendsList)
 	int32 RetVal = IFriendsAndChatModule::Get().GetFriendsAndChatManager()->GetFilteredFriendsList(FriendsList);
 	for (auto Friend : FriendsList)
 	{
-		OutFriendsList.Add(FUTFriend(Friend->GetUniqueID()->ToString(), Friend->GetName()));
+		OutFriendsList.Add(FUTFriend(Friend->GetUniqueID()->ToString(), Friend->GetName(), true));
 	}
+
+	OutFriendsList.Sort([](const FUTFriend& A, const FUTFriend& B) -> bool
+	{
+		return A.DisplayName < B.DisplayName;
+	});
 
 	return RetVal;
 }
@@ -2327,8 +2437,13 @@ int32 UUTLocalPlayer::GetRecentPlayersList(TArray< FUTFriend >& OutRecentPlayers
 	int32 RetVal = IFriendsAndChatModule::Get().GetFriendsAndChatManager()->GetRecentPlayersList(RecentPlayersList);
 	for (auto RecentPlayer : RecentPlayersList)
 	{
-		OutRecentPlayersList.Add(FUTFriend(RecentPlayer->GetUniqueID()->ToString(), RecentPlayer->GetName()));
+		OutRecentPlayersList.Add(FUTFriend(RecentPlayer->GetUniqueID()->ToString(), RecentPlayer->GetName(), false));
 	}
+
+	OutRecentPlayersList.Sort([](const FUTFriend& A, const FUTFriend& B) -> bool
+	{
+		return A.DisplayName < B.DisplayName;
+	});
 
 	return RetVal;
 }
@@ -2364,7 +2479,13 @@ void UUTLocalPlayer::RequestFriendship(TSharedPtr<FUniqueNetId> FriendID)
 
 void UUTLocalPlayer::UpdateRedirect(const FString& FileURL, int32 NumBytes, float Progress, int32 NumFilesLeft)
 {
-	DownloadStatusText = FText::Format(NSLOCTEXT("UTLocalPlayer","DownloadStatusFormat","Downloading {0} Files: {1} ({2} / {3}) ...."), FText::AsNumber(NumFilesLeft), FText::FromString(FileURL), FText::AsNumber(NumBytes), FText::AsPercent(Progress));
+	FString FName = FPaths::GetBaseFilename(FileURL);
+	DownloadStatusText = FText::Format(NSLOCTEXT("UTLocalPlayer","DownloadStatusFormat","Downloading {0} Files: {1} ({2} / {3}) ...."), FText::AsNumber(NumFilesLeft), FText::FromString(FName), FText::AsNumber(NumBytes), FText::AsPercent(Progress));
+	Download_NumBytes = NumBytes;
+	Download_CurrentFile = FName;
+	Download_Percentage = Progress;
+	Download_NumFilesLeft = NumFilesLeft;
+
 	UE_LOG(UT,Verbose,TEXT("Redirect: %s %i [%f%%]"), *FileURL, NumBytes, Progress);
 }
 
@@ -2916,6 +3037,26 @@ void UUTLocalPlayer::YoutubeTokenRefreshComplete(FHttpRequestPtr HttpRequest, FH
 	}
 }
 
+void UUTLocalPlayer::TestYoutubeConsentForUpload(const FString& RequestURL)
+{
+	// Get youtube consent
+	OpenDialog(
+		SAssignNew(YoutubeConsentDialog, SUWYoutubeConsent)
+		.PlayerOwner(this)
+		.DialogSize(FVector2D(0.8f, 0.8f))
+		.DialogPosition(FVector2D(0.5f, 0.5f))
+		.DialogTitle(NSLOCTEXT("UUTLocalPlayer", "YoutubeConsent", "Allow UT to post to YouTube?"))
+		.ButtonMask(UTDIALOG_BUTTON_CANCEL)
+		.RequestURL(RequestURL)
+		.OnDialogResult(FDialogResultDelegate::CreateUObject(this, &UUTLocalPlayer::TestYoutubeConsentResult))
+		);
+}
+
+void UUTLocalPlayer::TestYoutubeConsentResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID)
+{
+	UE_LOG(UT, Log, TEXT("TestYoutubeConsentResult %d"), ButtonID);
+}
+
 void UUTLocalPlayer::GetYoutubeConsentForUpload()
 {
 	// Get youtube consent
@@ -3053,7 +3194,7 @@ void UUTLocalPlayer::CloseAllUI(bool bExceptDialogs)
 			// restore dialogs to the viewport
 			for (TSharedPtr<SUWDialog> Dialog : OpenDialogs)
 			{
-				if ( Dialog.IsValid() && (!MapVoteMenu.IsValid() || Dialog.Get() != MapVoteMenu.Get()) )
+				if ( Dialog.IsValid() && (!MapVoteMenu.IsValid() || Dialog.Get() != MapVoteMenu.Get()) && (!DownloadAllDialog.IsValid() || Dialog.Get() != DownloadAllDialog.Get()) )
 				{
 					GEngine->GameViewport->AddViewportWidgetContent(Dialog.ToSharedRef(), 255);
 				}
@@ -3081,7 +3222,9 @@ void UUTLocalPlayer::CloseAllUI(bool bExceptDialogs)
 	ReplayWindow.Reset();
 	YoutubeDialog.Reset();
 	YoutubeConsentDialog.Reset();
+	DownloadAllDialog.Reset();
 
+	AdminDialogClosed();
 	CloseMapVote();
 	CloseMatchSummary();
 #endif
@@ -3118,7 +3261,16 @@ void UUTLocalPlayer::CloseJoinInstanceDialog()
 
 int32 UUTLocalPlayer::GetTotalChallengeStars()
 {
-	return (CurrentProfileSettings ? CurrentProfileSettings->TotalChallengeStars : 0);
+	int32 TotalStars = 0;
+	if (CurrentProfileSettings)
+	{
+		for (int32 i = 0 ; i < CurrentProfileSettings->ChallengeResults.Num(); i++)
+		{
+			TotalStars += CurrentProfileSettings->ChallengeResults[i].Stars;
+		}
+	}
+
+	return TotalStars;
 }
 
 int32 UUTLocalPlayer::GetChallengeStars(FName ChallengeTag)
@@ -3135,6 +3287,32 @@ int32 UUTLocalPlayer::GetChallengeStars(FName ChallengeTag)
 	}
 
 	return 0;
+}
+
+int32 UUTLocalPlayer::GetRewardStars(FName RewardTag)
+{
+	// Count all of the stars for this reward type.
+
+	int32 TotalStars = 0;
+
+	UUTGameEngine* UTGameEngine = Cast<UUTGameEngine>(GEngine);
+	if (UTGameEngine )
+	{
+		TWeakObjectPtr<UUTChallengeManager> ChallengeManager = UTGameEngine->GetChallengeManager();
+		if (ChallengeManager.IsValid())
+		{
+			for (auto It = ChallengeManager->Challenges.CreateConstIterator(); It; ++It)
+			{
+				const FUTChallengeInfo Challenge = It.Value();
+				if (Challenge.RewardTag == RewardTag)
+				{
+					FName ChallengeTag = It.Key();
+					TotalStars += GetChallengeStars(ChallengeTag);
+				}
+			}
+		}
+	}
+	return TotalStars;
 }
 
 FString UUTLocalPlayer::GetChallengeDate(FName ChallengeTag)
@@ -3184,12 +3362,24 @@ void UUTLocalPlayer::AwardAchievement(FName AchievementName)
 	}
 }
 
+void UUTLocalPlayer::SkullPickedUp()
+{
+	if (CurrentProfileSettings)
+	{
+		CurrentProfileSettings->SkullCount++;
+		if (CurrentProfileSettings->SkullCount > 200)
+		{
+			AwardAchievement(AchievementIDs::PumpkinHead2015);
+		}
+	}
+}
+
 void UUTLocalPlayer::ChallengeCompleted(FName ChallengeTag, int32 Stars)
 {
 	if (CurrentProfileSettings && Stars > 0)
 	{
 		bool bFound = false;
-		int32 EarnedStars = 0;
+		EarnedStars = 0;
 		for (int32 i = 0 ; i < CurrentProfileSettings->ChallengeResults.Num(); i++)
 		{
 			if (CurrentProfileSettings->ChallengeResults[i].Tag == ChallengeTag)
@@ -3209,52 +3399,82 @@ void UUTLocalPlayer::ChallengeCompleted(FName ChallengeTag, int32 Stars)
 			CurrentProfileSettings->ChallengeResults.Add(FUTChallengeResult(ChallengeTag,Stars));
 		}
 
-		int32 TotalStars = 0;
-		for (int32 i = 0 ; i < CurrentProfileSettings->ChallengeResults.Num(); i++)
+		// Look up the Challenge info for this challenge...
+
+		UUTGameEngine* UTGameEngine = Cast<UUTGameEngine>(GEngine);
+		if (UTGameEngine )
 		{
-			TotalStars += CurrentProfileSettings->ChallengeResults[i].Stars;
-		}
-		if (TotalStars >= 5)
-		{
-			AwardAchievement(AchievementIDs::ChallengeStars5);
-		}
-		if (TotalStars >= 15)
-		{
-			AwardAchievement(AchievementIDs::ChallengeStars15);
-		}
-		if (TotalStars >= 25)
-		{
-			AwardAchievement(AchievementIDs::ChallengeStars25);
-		}
-		if (TotalStars >= 35)
-		{
-			AwardAchievement(AchievementIDs::ChallengeStars35);
-		}
-		if (TotalStars >= 45)
-		{
-			AwardAchievement(AchievementIDs::ChallengeStars45);
+			TWeakObjectPtr<UUTChallengeManager> ChallengeManager = UTGameEngine->GetChallengeManager();
+			if (ChallengeManager.IsValid())
+			{
+				const FUTChallengeInfo* Challenge = ChallengeManager->GetChallenge(ChallengeTag);
+				if (Challenge)
+				{
+					int32 TotalStars = GetRewardStars(Challenge->RewardTag);
+					FText ChallengeToast = FText::Format(NSLOCTEXT("Challenge", "GainedStars", "Challenge Completed!  You earned {0} stars."), FText::AsNumber(Stars));
+					ShowToast(ChallengeToast);
+
+					if (Challenge->RewardTag == NAME_REWARD_GoldStars)
+					{
+						if (TotalStars >= 5)
+						{
+							AwardAchievement(AchievementIDs::ChallengeStars5);
+						}
+						if (TotalStars >= 15)
+						{
+							AwardAchievement(AchievementIDs::ChallengeStars15);
+						}
+						if (TotalStars >= 25)
+						{
+							AwardAchievement(AchievementIDs::ChallengeStars25);
+						}
+						if (TotalStars >= 35)
+						{
+							AwardAchievement(AchievementIDs::ChallengeStars35);
+						}
+						if (TotalStars >= 45)
+						{
+							AwardAchievement(AchievementIDs::ChallengeStars45);
+						}
+
+						bool bEarnedRosterUpgrade = (TotalStars / 5 != (TotalStars - EarnedStars) / 5) && UUTChallengeManager::StaticClass()->GetDefaultObject<UUTChallengeManager>()->PlayerTeamRoster.Roster.IsValidIndex(4 + (TotalStars - Stars) / 5);
+						if (bEarnedRosterUpgrade)
+						{
+							FText OldTeammate = FText::FromName(UUTChallengeManager::StaticClass()->GetDefaultObject<UUTChallengeManager>()->PlayerTeamRoster.Roster[(TotalStars - Stars) / 5]);
+							FText NewTeammate = FText::FromName(UUTChallengeManager::StaticClass()->GetDefaultObject<UUTChallengeManager>()->PlayerTeamRoster.Roster[4 + (TotalStars - Stars) / 5]);
+							RosterUpgradeText = FText::Format(NSLOCTEXT("Challenge", "RosterUpgrade", "Roster Upgrade!  {0} replaces {1}."), OldTeammate, NewTeammate);
+							ShowToast(RosterUpgradeText);
+						}
+					}
+					else if (Challenge->RewardTag == NAME_REWARD_HalloweenStars)
+					{
+						if (TotalStars >= 5)
+						{
+							AwardAchievement(AchievementIDs::ChallengePumpkins5);
+						}
+						if (TotalStars >= 10)
+						{
+							AwardAchievement(AchievementIDs::ChallengePumpkins10);
+						}
+						if (TotalStars >= 15)
+						{
+							AwardAchievement(AchievementIDs::ChallengePumpkins15);
+						}
+					}
+				}
+			}
 		}
 
-		CurrentProfileSettings->TotalChallengeStars = TotalStars;
+		int32 AllStars = GetTotalChallengeStars();
+		CurrentProfileSettings->TotalChallengeStars = AllStars;
 		SaveProfileSettings();
-
-		bool bEarnedRosterUpgrade = (TotalStars / 5 != (TotalStars - EarnedStars) / 5) && UUTChallengeManager::StaticClass()->GetDefaultObject<UUTChallengeManager>()->PlayerTeamRoster.Roster.IsValidIndex(4 + (TotalStars - Stars) / 5);
-		FText ChallengeToast = FText::Format(NSLOCTEXT("Challenge", "GainedStars", "Challenge Completed!  You earned {0} stars."), FText::AsNumber(Stars));
-		ShowToast(ChallengeToast);
-		if (bEarnedRosterUpgrade)
-		{
-			FText OldTeammate = FText::FromName(UUTChallengeManager::StaticClass()->GetDefaultObject<UUTChallengeManager>()->PlayerTeamRoster.Roster[(TotalStars - Stars) / 5]);
-			FText NewTeammate = FText::FromName(UUTChallengeManager::StaticClass()->GetDefaultObject<UUTChallengeManager>()->PlayerTeamRoster.Roster[4 + (TotalStars - Stars) / 5]);
-			RosterUpgradeText = FText::Format(NSLOCTEXT("Challenge", "RosterUpgrade", "Roster Upgrade!  {0} replaces {1}."), OldTeammate, NewTeammate);
-			ShowToast(RosterUpgradeText);
-		}
 
 		if (FUTAnalytics::IsAvailable())
 		{
 			TArray<FAnalyticsEventAttribute> ParamArray;
 			ParamArray.Add(FAnalyticsEventAttribute(TEXT("ChallengeTag"), ChallengeTag.ToString()));
 			ParamArray.Add(FAnalyticsEventAttribute(TEXT("Stars"), Stars));
-			ParamArray.Add(FAnalyticsEventAttribute(TEXT("TotalStars"), TotalStars));
+			ParamArray.Add(FAnalyticsEventAttribute(TEXT("TotalStars"), AllStars));
 			FUTAnalytics::GetProvider().RecordEvent(TEXT("ChallengeComplete"), ParamArray);
 		}
 	}
@@ -3278,5 +3498,101 @@ void UUTLocalPlayer::RestartQuickMatch()
 #if !UE_SERVER
 	// Restart the quickmatch attempt.
 	QuickMatchDialog->FindHUBToJoin();
+#endif
+}
+
+void UUTLocalPlayer::OnReadTitleFileComplete(bool bWasSuccessful, const FString& Filename)
+{
+	if (Filename == GetMCPStorageFilename())
+	{
+		FString JsonString = TEXT("");
+		if (bWasSuccessful)
+		{
+			TArray<uint8> FileContents;
+			OnlineTitleFileInterface->GetFileContents(GetMCPStorageFilename(), FileContents);
+			FileContents.Add(0);
+			JsonString = ANSI_TO_TCHAR((char*)FileContents.GetData());
+		}
+
+		if (JsonString != TEXT(""))
+		{
+			FMCPPulledData PulledData;
+			if ( FJsonObjectConverter::JsonObjectStringToUStruct(JsonString, &PulledData, 0,0) )
+			{
+				MCPPulledData = PulledData;
+				MCPPulledData.bValid = true;
+
+				UUTGameEngine* GameEngine = Cast<UUTGameEngine>(GEngine);
+				if ( GameEngine && GameEngine->GetChallengeManager().IsValid() )
+				{
+					GameEngine->GetChallengeManager()->UpdateChallengeFromMCP(MCPPulledData);
+				}
+			}
+		}
+	}
+}
+
+
+void UUTLocalPlayer::ShowAdminDialog(AUTRconAdminInfo* AdminInfo)
+{
+#if !UE_SERVER
+
+	if (ViewportClient->ViewportConsole)
+	{
+		ViewportClient->ViewportConsole->FakeGotoState(NAME_None);
+	}
+	
+	if (!AdminDialog.IsValid())
+	{
+		SAssignNew(AdminDialog,SUTAdminDialog)
+			.PlayerOwner(this)
+			.AdminInfo(AdminInfo);
+
+		if ( AdminDialog.IsValid() ) 
+		{
+			OpenDialog(AdminDialog.ToSharedRef(),200);
+		}
+	}
+#endif
+}
+
+void UUTLocalPlayer::AdminDialogClosed()
+{
+#if !UE_SERVER
+	if (AdminDialog.IsValid())
+	{
+		AdminDialog.Reset();
+	}
+#endif
+}
+
+void UUTLocalPlayer::DownloadAll()
+{
+#if !UE_SERVER
+	AUTLobbyPC* PC = Cast<AUTLobbyPC>(PlayerController);
+	if (PC)
+	{
+		if (!DownloadAllDialog.IsValid())
+		{
+			SAssignNew(DownloadAllDialog, SUTDownloadAllDialog)			
+				.PlayerOwner(this);
+
+			if (DownloadAllDialog.IsValid())
+			{
+				OpenDialog(DownloadAllDialog.ToSharedRef(),210);
+			}
+		}
+		PC->GetAllRedirects(DownloadAllDialog);
+	}
+#endif
+}
+// I need to revist closing dialogs and make it require less code.
+void UUTLocalPlayer::CloseDownloadAll()
+{
+#if !UE_SERVER
+	if (DownloadAllDialog.IsValid())
+	{
+		DownloadAllDialog.Reset();
+	}
 #endif
 }

@@ -31,14 +31,14 @@ AUTShowdownGame::AUTShowdownGame(const FObjectInitializer& OI)
 
 	SuperweaponReplacementPickupClass.AssetLongPathname = TEXT("/Game/RestrictedAssets/Pickups/Powerups/PowerupBase.PowerupBase_C");
 	SuperweaponReplacementItemClass.AssetLongPathname = TEXT("/Game/RestrictedAssets/Pickups/Powerups/BP_Invis.BP_Invis_C");
+
+	bPowerupBreaker = true;
 }
 
 void AUTShowdownGame::InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage)
 {
 	Super::InitGame(MapName, Options, ErrorMessage);
 
-	bLowHealthRegen = EvalBoolOptions(ParseOption(Options, TEXT("LowHealthRegen")), bLowHealthRegen);
-	bAlternateScoring = EvalBoolOptions(ParseOption(Options, TEXT("AlternateScoring")), bAlternateScoring);
 	bXRayBreaker = EvalBoolOptions(ParseOption(Options, TEXT("XRayBreaker")), bXRayBreaker);
 	bPowerupBreaker = EvalBoolOptions(ParseOption(Options, TEXT("PowerupBreaker")), bPowerupBreaker);
 	bBroadcastPlayerHealth = EvalBoolOptions(ParseOption(Options, TEXT("BroadcastPlayerHealth")), bBroadcastPlayerHealth);
@@ -186,7 +186,7 @@ void AUTShowdownGame::ScoreKill_Implementation(AController* Killer, AController*
 			{
 				AUTPlayerState* KillerPS = (Killer != NULL && Killer != Other) ? Cast<AUTPlayerState>(Killer->PlayerState) : NULL;
 				AUTTeamInfo* KillerTeam = (KillerPS != NULL) ? KillerPS->Team : Teams[1 - FMath::Min<int32>(1, OtherPS->Team->TeamIndex)];
-				KillerTeam->Score += bAlternateScoring ? 3 : 1;
+				KillerTeam->Score += 1;
 
 				if (LastRoundWinner == NULL)
 				{
@@ -205,75 +205,69 @@ void AUTShowdownGame::ScoreKill_Implementation(AController* Killer, AController*
 	}
 }
 
+void AUTShowdownGame::ScoreExpiredRoundTime()
+{
+	// end round; player with highest health
+	TArray< AUTPlayerState*, TInlineAllocator<2> > AlivePlayers;
+	AUTPlayerState* RoundWinner = NULL;
+	int32 BestTotalHealth = 0;
+	bool bTied = false;
+	for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
+	{
+		AUTCharacter* UTC = Cast<AUTCharacter>(It->Get());
+		if (UTC != NULL && !UTC->IsDead())
+		{
+			AUTPlayerState* PS = Cast<AUTPlayerState>(UTC->PlayerState);
+			if (PS != NULL)
+			{
+				AlivePlayers.Add(PS);
+				if (UTC->Health > BestTotalHealth)
+				{
+					RoundWinner = PS;
+					BestTotalHealth = UTC->Health;
+				}
+				else if (UTC->Health == BestTotalHealth)
+				{
+					bTied = true;
+				}
+			}
+		}
+	}
+	if (bTied)
+	{
+		// both players score a point
+		for (AUTPlayerState* PS : AlivePlayers)
+		{
+			if (PS != NULL)
+			{
+				PS->Score += 1.0f;
+				if (PS->Team != NULL)
+				{
+					PS->Team->Score += 1.0f;
+				}
+			}
+		}
+		LastRoundWinner = NULL;
+		BroadcastLocalized(NULL, UUTShowdownGameMessage::StaticClass(), 1);
+	}
+	else
+	{
+		RoundWinner->Score += 1.0f;
+		if (RoundWinner->Team != NULL)
+		{
+			RoundWinner->Team->Score += 1.0f;
+		}
+		LastRoundWinner = RoundWinner->Team;
+		BroadcastLocalized(NULL, UUTShowdownGameMessage::StaticClass(), 0, RoundWinner);
+	}
+}
+
 void AUTShowdownGame::CheckGameTime()
 {
 	static FName NAME_StartIntermission(TEXT("StartIntermission"));
 	if (IsMatchInProgress() && !HasMatchEnded() && TimeLimit > 0 && UTGameState->RemainingTime <= 0 && !IsTimerActiveUFunc(this, NAME_StartIntermission))
 	{
-		// end round; player with highest health + armor wins
-		TArray< AUTPlayerState*, TInlineAllocator<2> > AlivePlayers;
-		AUTPlayerState* RoundWinner = NULL;
-		int32 BestTotalHealth = 0;
-		bool bTied = false;
-		for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
-		{
-			AUTCharacter* UTC = Cast<AUTCharacter>(It->Get());
-			if (UTC != NULL && !UTC->IsDead())
-			{
-				AUTPlayerState* PS = Cast<AUTPlayerState>(UTC->PlayerState);
-				if (PS != NULL)
-				{
-					AlivePlayers.Add(PS);
-					if (UTC->Health > BestTotalHealth)
-					{
-						RoundWinner = PS;
-						BestTotalHealth = UTC->Health;
-					}
-					else if (UTC->Health == BestTotalHealth)
-					{
-						bTied = true;
-					}
-				}
-			}
-		}
-		if (bTied)
-		{
-			// both players score a point
-			for (AUTPlayerState* PS : AlivePlayers)
-			{
-				if (PS != NULL)
-				{
-					PS->Score += 1.0f;
-					if (PS->Team != NULL)
-					{
-						PS->Team->Score += 1.0f;
-					}
-				}
-			}
-			LastRoundWinner = NULL;
-			BroadcastLocalized(NULL, UUTShowdownGameMessage::StaticClass(), 1);
-		}
-		else
-		{
-			RoundWinner->Score += bAlternateScoring ? 2.0f : 1.0f;
-			if (RoundWinner->Team != NULL)
-			{
-				RoundWinner->Team->Score += bAlternateScoring ? 2.0f : 1.0f;
-			}
-			if (bAlternateScoring)
-			{
-				// in alternate scoring, loser by timelimit still gets 1
-				for (AUTTeamInfo* Team : Teams)
-				{
-					if (Team != RoundWinner->Team)
-					{
-						Team->Score += 1.0f;
-					}
-				}
-			}
-			LastRoundWinner = RoundWinner->Team;
-			BroadcastLocalized(NULL, UUTShowdownGameMessage::StaticClass(), 0, RoundWinner);
-		}
+		ScoreExpiredRoundTime();
 		SetTimerUFunc(this, NAME_StartIntermission, 2.0f, false);
 	}
 }
@@ -399,6 +393,7 @@ void AUTShowdownGame::HandleMatchIntermission()
 	}
 
 	// give players spawn point selection
+	TArray<AUTPlayerState*> UnsortedPicks;
 	for (FConstControllerIterator It = GetWorld()->GetControllerIterator(); It; ++It)
 	{
 		AController* C = It->Get();
@@ -419,18 +414,53 @@ void AUTShowdownGame::HandleMatchIntermission()
 			{
 				PS->RespawnChoiceA = NULL;
 				PS->RespawnChoiceB = NULL;
-				RemainingPicks.Add(PS);
+				UnsortedPicks.Add(PS);
 			}
 		}
 	}
-	if (LastRoundWinner != NULL)
+	// sort players by score (highest first)
+	UnsortedPicks.Sort([&](const AUTPlayerState& A, const AUTPlayerState& B){ return A.Score > B.Score; });
+	// sort team pick order by: winner of previous round last, others sorted by lowest score to highest score
+	TArray<AUTTeamInfo*> SortedTeams = Teams;
+	SortedTeams.Sort([&](const AUTTeamInfo& A, const AUTTeamInfo& B)
 	{
-		RemainingPicks.Sort([=](const AUTPlayerState& A, const AUTPlayerState& B){ return A.Team != LastRoundWinner || B.Team == LastRoundWinner; });
-	}
-	else
+		if (&A == LastRoundWinner)
+		{
+			return false;
+		}
+		else if (&B == LastRoundWinner)
+		{
+			return true;
+		}
+		else
+		{
+			return A.Score < B.Score;
+		}
+	});
+
+	while (UnsortedPicks.Num() > 0)
 	{
-		// if last round didn't have a winner, pick based on current score
-		RemainingPicks.Sort([=](const AUTPlayerState& A, const AUTPlayerState& B){ return A.Team->Score > B.Team->Score; });
+		bool bFoundAny = false;
+		for (int32 i = 0; i < SortedTeams.Num(); i++)
+		{
+			for (AUTPlayerState* Pick : UnsortedPicks)
+			{
+				if (Pick->Team == SortedTeams[i])
+				{
+					RemainingPicks.Add(Pick);
+					UnsortedPicks.Remove(Pick);
+					bFoundAny = true;
+					break;
+				}
+			}
+		}
+		if (!bFoundAny)
+		{
+			// sanity check so we don't infinitely recurse
+			UE_LOG(UT, Warning, TEXT("Showdown spawn selection sorting error with %s on team %s"), *UnsortedPicks[0]->PlayerName, *UnsortedPicks[0]->Team->TeamName.ToString());
+			RemainingPicks.Add(UnsortedPicks[0]);
+			UnsortedPicks.RemoveAt(0);
+		}
 	}
 }
 
@@ -532,17 +562,6 @@ void AUTShowdownGame::DefaultTimer()
 			GS->OnRep_XRayVision();
 		}
 
-		if (bLowHealthRegen)
-		{
-			for (FConstPawnIterator It = GetWorld()->GetPawnIterator(); It; ++It)
-			{
-				AUTCharacter* UTC = Cast<AUTCharacter>(It->Get());
-				if (UTC != NULL && UTC->Health < 100)
-				{
-					UTC->Health += FMath::Min<int32>(100 - UTC->Health, 3);
-				}
-			}
-		}
 		Super::DefaultTimer();
 	}
 }
@@ -551,8 +570,6 @@ void AUTShowdownGame::CreateGameURLOptions(TArray<TSharedPtr<TAttributePropertyB
 {
 	MenuProps.Add(MakeShareable(new TAttributeProperty<int32>(this, &TimeLimit, TEXT("TimeLimit"))));
 	MenuProps.Add(MakeShareable(new TAttributeProperty<int32>(this, &GoalScore, TEXT("GoalScore"))));
-	MenuProps.Add(MakeShareable(new TAttributePropertyBool(this, &bLowHealthRegen, TEXT("LowHealthRegen"))));
-	MenuProps.Add(MakeShareable(new TAttributePropertyBool(this, &bAlternateScoring, TEXT("AlternateScoring"))));
 	MenuProps.Add(MakeShareable(new TAttributePropertyBool(this, &bPowerupBreaker, TEXT("PowerupBreaker"))));
 	MenuProps.Add(MakeShareable(new TAttributePropertyBool(this, &bBroadcastPlayerHealth, TEXT("BroadcastPlayerHealth"))));
 	MenuProps.Add(MakeShareable(new TAttributePropertyBool(this, &bXRayBreaker, TEXT("XRayBreaker"))));
@@ -565,8 +582,6 @@ void AUTShowdownGame::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpa
 
 	TSharedPtr< TAttributeProperty<int32> > TimeLimitAttr = StaticCastSharedPtr<TAttributeProperty<int32>>(FindGameURLOption(ConfigProps, TEXT("TimeLimit")));
 	TSharedPtr< TAttributeProperty<int32> > GoalScoreAttr = StaticCastSharedPtr<TAttributeProperty<int32>>(FindGameURLOption(ConfigProps, TEXT("GoalScore")));
-	TSharedPtr< TAttributePropertyBool > HealthRegenAttr = StaticCastSharedPtr<TAttributePropertyBool>(FindGameURLOption(ConfigProps, TEXT("LowHealthRegen")));
-	TSharedPtr< TAttributePropertyBool > AlternateScoringAttr = StaticCastSharedPtr<TAttributePropertyBool>(FindGameURLOption(ConfigProps, TEXT("AlternateScoring")));
 	TSharedPtr< TAttributePropertyBool > PowerupBreakerAttr = StaticCastSharedPtr<TAttributePropertyBool>(FindGameURLOption(ConfigProps, TEXT("PowerupBreaker")));
 	TSharedPtr< TAttributePropertyBool > BroadcastHealthAttr = StaticCastSharedPtr<TAttributePropertyBool>(FindGameURLOption(ConfigProps, TEXT("BroadcastPlayerHealth")));
 	TSharedPtr< TAttributePropertyBool > XRayBreakerAttr = StaticCastSharedPtr<TAttributePropertyBool>(FindGameURLOption(ConfigProps, TEXT("XRayBreaker")));
@@ -671,94 +686,6 @@ void AUTShowdownGame::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpa
 		SNew(STextBlock)
 		.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
 		.Text(NSLOCTEXT("UTGameMode", "EXPERIMENTAL", "--- Experimental Options ---"))
-	];
-	MenuSpace->AddSlot()
-	.AutoHeight()
-	.VAlign(VAlign_Top)
-	.Padding(0.0f, 0.0f, 0.0f, 5.0f)
-	[
-		SNew(SHorizontalBox)
-		+ SHorizontalBox::Slot()
-		.AutoWidth()
-		.VAlign(VAlign_Center)
-		[
-			SNew(SBox)
-			.WidthOverride(350)
-			[
-				SNew(STextBlock)
-				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-				.Text(NSLOCTEXT("UTGameMode", "Low Health Regen", "Low Health Regen"))
-			]
-		]
-		+ SHorizontalBox::Slot()
-		.Padding(20.0f, 0.0f, 0.0f, 10.0f)
-		.AutoWidth()
-		[
-			SNew(SBox)
-			.WidthOverride(300)
-			[
-				bCreateReadOnly ?
-				StaticCastSharedRef<SWidget>(
-				SNew(SCheckBox)
-				.IsChecked(HealthRegenAttr.ToSharedRef(), &TAttributePropertyBool::GetAsCheckBox)
-				.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
-				.ForegroundColor(FLinearColor::White)
-				.Type(ESlateCheckBoxType::CheckBox)
-				) :
-				StaticCastSharedRef<SWidget>(
-				SNew(SCheckBox)
-				.IsChecked(HealthRegenAttr.ToSharedRef(), &TAttributePropertyBool::GetAsCheckBox)
-				.OnCheckStateChanged(HealthRegenAttr.ToSharedRef(), &TAttributePropertyBool::SetFromCheckBox)
-				.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
-				.ForegroundColor(FLinearColor::White)
-				.Type(ESlateCheckBoxType::CheckBox)
-				)
-			]
-		]
-	];
-	MenuSpace->AddSlot()
-	.AutoHeight()
-	.VAlign(VAlign_Top)
-	.Padding(0.0f, 0.0f, 0.0f, 5.0f)
-	[
-		SNew(SHorizontalBox)
-		+ SHorizontalBox::Slot()
-		.AutoWidth()
-		.VAlign(VAlign_Center)
-		[
-			SNew(SBox)
-			.WidthOverride(350)
-			[
-				SNew(STextBlock)
-				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-				.Text(NSLOCTEXT("UTGameMode", "AlternateScoring", "Alternate Round Scoring"))
-			]
-		]
-		+ SHorizontalBox::Slot()
-		.Padding(20.0f, 0.0f, 0.0f, 10.0f)
-		.AutoWidth()
-		[
-			SNew(SBox)
-			.WidthOverride(300)
-			[
-				bCreateReadOnly ?
-				StaticCastSharedRef<SWidget>(
-				SNew(SCheckBox)
-				.IsChecked(AlternateScoringAttr.ToSharedRef(), &TAttributePropertyBool::GetAsCheckBox)
-				.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
-				.ForegroundColor(FLinearColor::White)
-				.Type(ESlateCheckBoxType::CheckBox)
-				) :
-				StaticCastSharedRef<SWidget>(
-				SNew(SCheckBox)
-				.IsChecked(AlternateScoringAttr.ToSharedRef(), &TAttributePropertyBool::GetAsCheckBox)
-				.OnCheckStateChanged(AlternateScoringAttr.ToSharedRef(), &TAttributePropertyBool::SetFromCheckBox)
-				.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
-				.ForegroundColor(FLinearColor::White)
-				.Type(ESlateCheckBoxType::CheckBox)
-				)
-			]
-		]
 	];
 	MenuSpace->AddSlot()
 	.AutoHeight()

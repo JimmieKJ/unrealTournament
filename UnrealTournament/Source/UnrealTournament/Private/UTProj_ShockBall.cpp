@@ -151,13 +151,23 @@ void AUTProj_ShockBall::Explode_Implementation(const FVector& HitLocation, const
 		AUTPlayerController* PC = Cast<AUTPlayerController>(InstigatorController);
 		AUTPlayerState* PS = PC ? Cast<AUTPlayerState>(PC->PlayerState) : NULL;
 		int32 ComboKillCount = PS ? PS->GetStatsValue(NAME_ShockComboKills) : 0;
+		bPendingSpecialReward = bComboExplosion && PC && PS && ComboRewardMessageClass && (PC == InstigatorController);
+		float ComboMovementScore = 0.f;
+		if (bPendingSpecialReward)
+		{
+			ComboMovementScore = RateComboMovement(PC);
+			if (ComboMovementScore < 4.f)
+			{
+				bPendingSpecialReward = false;
+			}
+		}
 		Super::Explode_Implementation(HitLocation, HitNormal, HitComp);
 		if (bComboExplosion)
 		{
 			OnComboExplode();
-			if (PC && PS && ComboRewardMessageClass && (PC == InstigatorController))
+			if (bPendingSpecialReward)
 			{
-				RateShockCombo(PC, PS, ComboKillCount);
+				RateShockCombo(PC, PS, ComboKillCount, ComboMovementScore);
 			}
 		}
 
@@ -175,11 +185,9 @@ void AUTProj_ShockBall::Explode_Implementation(const FVector& HitLocation, const
 	}
 }
 
-void AUTProj_ShockBall::RateShockCombo(AUTPlayerController *PC, AUTPlayerState* PS, int32 OldComboKillCount)
+float AUTProj_ShockBall::RateComboMovement(AUTPlayerController *PC)
 {
-	int32 KillCount = (PS->GetStatsValue(NAME_ShockComboKills) - OldComboKillCount);
-	float ComboScore = 4.f * FMath::Min(KillCount, 3);
-
+	float ComboScore = 0.f;
 	AUTCharacter* Shooter = Cast<AUTCharacter>(PC->GetPawn());
 	if (Shooter && Shooter->GetWeapon())
 	{
@@ -191,7 +199,15 @@ void AUTProj_ShockBall::RateShockCombo(AUTPlayerController *PC, AUTPlayerState* 
 		ComboScore += MovementBonus * Shooter->GetVelocity().Size() / 1000.f;
 		// @TODO FIXMESTEVE also score target movement?
 	}
-	if ((ComboScore > 8.f) && (KillCount > 0))
+	return ComboScore;
+}
+
+void AUTProj_ShockBall::RateShockCombo(AUTPlayerController *PC, AUTPlayerState* PS, int32 OldComboKillCount, float ComboScore)
+{
+	int32 KillCount = (PS->GetStatsValue(NAME_ShockComboKills) - OldComboKillCount);
+	ComboScore += 4.f * FMath::Min(KillCount, 3);
+
+	if ((ComboScore >= 8.f) && (KillCount > 0))
 	{
 		PS->ModifyStatsValue(NAME_AmazingCombos, 1);
 		if (ComboScore > 11.f)

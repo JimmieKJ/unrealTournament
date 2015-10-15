@@ -17,7 +17,6 @@ UUTPickupMessage::UUTPickupMessage(const class FObjectInitializer& ObjectInitial
 	MessageArea = FName(TEXT("PickupMessage"));
 	StyleTag = FName(TEXT("Default"));
 
-	bCountInstances = true;
 	bIsUnique = true;
 	//bIsConsoleMessage = false;
 }
@@ -59,5 +58,11 @@ void UUTPickupMessage::ClientReceive(const FClientReceiveData& ClientData) const
 bool UUTPickupMessage::UseLargeFont(int32 MessageIndex) const
 {
 	return false;
+}
+
+
+bool UUTPickupMessage::ShouldCountInstances_Implementation(int32 MessageIndex) const
+{
+	return true;
 }
 

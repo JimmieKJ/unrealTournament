@@ -77,7 +77,6 @@ protected:
 	FReply AddMutator();
 	FReply RemoveMutator();
 	FReply ConfigureMutator();
-	FReply ConfigureBots();
 
 	TSharedPtr<SGridPanel> MutatorGrid;
 

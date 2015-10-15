@@ -104,9 +104,9 @@ protected:
 
 protected:
 	TSharedPtr<STextBlock> DialogTitle;
+	TWeakObjectPtr<class UUTLocalPlayer> PlayerOwner;
 
 private:
-	TWeakObjectPtr<class UUTLocalPlayer> PlayerOwner;
 	TSharedPtr<class SWidget> GameViewportWidget;
 
 	// HACKS needed to keep window focus

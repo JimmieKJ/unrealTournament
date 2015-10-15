@@ -24,7 +24,6 @@ AUTGameState::AUTGameState(const class FObjectInitializer& ObjectInitializer)
 	MultiKillDelay = 3.0f;
 	SpawnProtectionTime = 2.f;
 	bWeaponStay = true;
-	bViewKillerOnDeath = true;
 	bAllowTeamSwitches = true;
 	bCasterControl = false;
 	bForcedBalance = false;
@@ -227,8 +226,6 @@ void AUTGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & OutLif
 	DOREPLIFETIME(AUTGameState, RespawnWaitTime);  
 	DOREPLIFETIME_CONDITION(AUTGameState, ForceRespawnTime, COND_InitialOnly);  
 	DOREPLIFETIME_CONDITION(AUTGameState, bTeamGame, COND_InitialOnly);  
-	DOREPLIFETIME_CONDITION(AUTGameState, bOnlyTheStrongSurvive, COND_InitialOnly);
-	DOREPLIFETIME_CONDITION(AUTGameState, bViewKillerOnDeath, COND_InitialOnly);
 	DOREPLIFETIME(AUTGameState, TeamSwapSidesOffset);
 	DOREPLIFETIME_CONDITION(AUTGameState, bIsInstanceServer, COND_InitialOnly);
 	DOREPLIFETIME(AUTGameState, PlayersNeeded);  
@@ -379,6 +376,18 @@ void AUTGameState::DefaultTimer()
 		// no elapsed time - it was incremented in super
 		ElapsedTime--;
 	}
+	else if (IsMatchInProgress())
+	{
+		for (int32 i = 0; i < PlayerArray.Num(); i++)
+		{
+			AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerArray[i]);
+			if (PS)
+			{
+				PS->ElapsedTime++;
+			}
+		}
+	}
+
 	if (GetWorld()->GetNetMode() == NM_Client)
 	{
 		if (RemainingMinute > 0)
@@ -653,11 +662,6 @@ bool AUTGameState::IsMatchInProgress() const
 bool AUTGameState::IsMatchAtHalftime() const
 {	
 	return false;	
-}
-
-bool AUTGameState::IsMatchInSuddenDeath() const
-{
-	return false;
 }
 
 bool AUTGameState::IsMatchInOvertime() const
@@ -1562,3 +1566,44 @@ float AUTGameState::MatchHighlightScore(AUTPlayerState* PS)
 	}
 	return BestHighlightScore;
 }
+
+void AUTGameState::FillOutRconPlayerList(TArray<FRconPlayerData>& PlayerList)
+{
+	for (int32 i = 0; i < PlayerList.Num(); i++)
+	{
+		PlayerList[i].bPendingDelete = true;
+	}
+
+	for (int32 i = 0; i < PlayerArray.Num(); i++)
+	{
+		if (PlayerArray[i] && !PlayerArray[i]->bPendingKillPending)
+		{
+			APlayerController* PlayerController = Cast<APlayerController>( PlayerArray[i]->GetOwner() );
+			if (PlayerController)
+			{
+				FString PlayerID = PlayerArray[i]->UniqueId.ToString();
+
+				bool bFound = false;
+				for (int32 j = 0; j < PlayerList.Num(); j++)
+				{
+					if (PlayerList[j].PlayerID == PlayerID)
+					{
+						PlayerList[j].bPendingDelete = false;
+						bFound = true;
+						break;
+					}
+				}
+
+				if (!bFound)
+				{
+					AUTPlayerState* UTPlayerState = Cast<AUTPlayerState>(PlayerArray[i]);
+					int32 Rank = UTPlayerState ? UTPlayerState->AverageRank : 0;
+					FString PlayerIP = PlayerController->GetPlayerNetworkAddress();
+					FRconPlayerData PlayerInfo(PlayerArray[i]->PlayerName, PlayerID, PlayerIP, Rank);
+					PlayerList.Add( PlayerInfo );
+				}
+			}
+		}
+	}
+}
+

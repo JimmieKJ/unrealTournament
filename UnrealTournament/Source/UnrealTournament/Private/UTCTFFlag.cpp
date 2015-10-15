@@ -6,6 +6,7 @@
 #include "UTCTFGameState.h"
 #include "UTCTFGameMode.h"
 #include "UTCTFRewardMessage.h"
+#include "UnrealNetwork.h"
 
 AUTCTFFlag::AUTCTFFlag(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -28,6 +29,9 @@ AUTCTFFlag::AUTCTFFlag(const FObjectInitializer& ObjectInitializer)
 	MessageClass = UUTCTFGameMessage::StaticClass();
 	bAlwaysRelevant = true;
 	bTeamPickupSendsHome = true;
+
+	ClothBlendHome = 0.f;
+	ClothBlendHeld = 0.5f;
 }
 
 void AUTCTFFlag::OnConstruction(const FTransform& Transform)
@@ -61,11 +65,33 @@ bool AUTCTFFlag::CanBePickedUpBy(AUTCharacter* Character)
 			if (CarriedFlag->GetTeamNum() != GetTeamNum())
 			{
 				CarriedFlag->Score(FName(TEXT("FlagCapture")), CarriedFlag->HoldingPawn, CarriedFlag->Holder);
+				PlayCaptureEffect();
 				return false;
 			}
 		}
 	}
 	return Super::CanBePickedUpBy(Character);
+}
+
+void AUTCTFFlag::PlayCaptureEffect()
+{
+	if (Role == ROLE_Authority)
+	{
+		CaptureEffectCount++;
+		ForceNetUpdate();
+	}
+	if (GetNetMode() != NM_DedicatedServer)
+	{
+		UParticleSystemComponent* PSC = UGameplayStatics::SpawnEmitterAtLocation(this, CaptureEffect, GetActorLocation() - FVector(0.0f, 0.0f, Collision->GetUnscaledCapsuleHalfHeight()), GetActorRotation());
+		if (PSC != NULL)
+		{
+			AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+			if (GS != NULL && GS->Teams.IsValidIndex(GetTeamNum()) && GS->Teams[GetTeamNum()] != NULL)
+			{
+				PSC->SetColorParameter(FName(TEXT("TeamColor")), GS->Teams[GetTeamNum()]->TeamColor);
+			}
+		}
+	}
 }
 
 void AUTCTFFlag::DetachFrom(USkeletalMeshComponent* AttachToMesh)
@@ -85,7 +111,7 @@ void AUTCTFFlag::AttachTo(USkeletalMeshComponent* AttachToMesh)
 	{
 		GetMesh()->SetAbsolute(false, false, true);
 		GetMesh()->SetWorldScale3D(FVector(FlagHeldScale));
-		GetMesh()->ClothBlendWeight = 0.5f;
+		GetMesh()->ClothBlendWeight = ClothBlendHeld;
 	}
 }
 
@@ -102,11 +128,15 @@ void AUTCTFFlag::OnObjectStateChanged()
 		else
 		{
 			GetWorldTimerManager().ClearTimer(SendHomeWithNotifyHandle);
+			if ((ObjectState == CarriedObjectState::Home) && (AttachmentReplication.AttachParent == NULL))
+			{
+				MoveToHome();
+			}
 		}
 	}
 	if (GetMesh())
 	{
-		GetMesh()->ClothBlendWeight = (ObjectState == CarriedObjectState::Held) ? 0.5f : 0.f;
+		GetMesh()->ClothBlendWeight = (ObjectState == CarriedObjectState::Held) ? ClothBlendHeld : ClothBlendHome;
 	}
 }
 
@@ -121,7 +151,7 @@ void AUTCTFFlag::MoveToHome()
 	Super::MoveToHome();
 	if (GetMesh())
 	{
-		GetMesh()->ClothBlendWeight = 0.f;
+		GetMesh()->ClothBlendWeight = ClothBlendHome;
 	}
 }
 
@@ -179,4 +209,11 @@ void AUTCTFFlag::DelayedDropMessage()
 	{
 		SendGameMessage(3, LastHolder, NULL);
 	}
+}
+
+void AUTCTFFlag::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	DOREPLIFETIME(AUTCTFFlag, CaptureEffectCount);
 }

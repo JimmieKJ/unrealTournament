@@ -55,26 +55,29 @@ struct FXPBreakdown
 
 	FXPBreakdown() = default;
 	FXPBreakdown(EForceInit)
-	: ScoreXP(0), KillAwardXP(0), OffenseXP(0), DefenseXP(0)
+		: ScoreXP(0), KillAwardXP(0), OffenseXP(0), DefenseXP(0), ChallengeXP(0)
 	{}
 
 	/** XP given for match score */
 	UPROPERTY()
-	int32 ScoreXP;
+	float ScoreXP;
 	/** XP given for kill awards (multikill, killing spree, etc) */
 	UPROPERTY()
-	int32 KillAwardXP;
+		float KillAwardXP;
 	/** XP given for offensive objective accomplishments (flag cap, assist) */
 	UPROPERTY()
-	int32 OffenseXP;
+		float OffenseXP;
 	/** XP given for defensive objective accomplishments (flag carrier kill, return) */
 	UPROPERTY()
-	int32 DefenseXP;
+		float DefenseXP;
+	/** XP given for earnings stars on challenges */
+	UPROPERTY()
+		float ChallengeXP;
 
 	/** returns sum of all XP awards */
 	inline int32 Total() const
 	{
-		return ScoreXP + KillAwardXP + OffenseXP + DefenseXP;
+		return ScoreXP + KillAwardXP + OffenseXP + DefenseXP + ChallengeXP;
 	}
 
 	void operator+= (const FXPBreakdown& B)
@@ -83,6 +86,7 @@ struct FXPBreakdown
 		KillAwardXP += B.KillAwardXP;
 		OffenseXP += B.OffenseXP;
 		DefenseXP += B.DefenseXP;
+		ChallengeXP += B.ChallengeXP;
 	}
 	FXPBreakdown operator+ (const FXPBreakdown& B) const
 	{
@@ -97,6 +101,7 @@ struct FXPBreakdown
 		KillAwardXP *= B;
 		OffenseXP *= B;
 		DefenseXP *= B;
+		ChallengeXP *= B;
 	}
 	template<typename NumberType>
 	FXPBreakdown operator* (const NumberType B) const
@@ -112,6 +117,7 @@ struct FXPBreakdown
 		KillAwardXP /= B;
 		OffenseXP /= B;
 		DefenseXP /= B;
+		ChallengeXP /= B;
 	}
 	template<typename NumberType>
 	FXPBreakdown operator/ (const NumberType B) const
@@ -125,7 +131,7 @@ struct FXPBreakdown
 // convenient overrides for XPBreakdown to make it easier to grant specific types
 struct FNewScoreXP : public FXPBreakdown
 {
-	FNewScoreXP(int32 Value)
+	FNewScoreXP(float Value)
 	: FXPBreakdown(EForceInit::ForceInitToZero)
 	{
 		ScoreXP = Value;
@@ -133,7 +139,7 @@ struct FNewScoreXP : public FXPBreakdown
 };
 struct FNewKillAwardXP : public FXPBreakdown
 {
-	FNewKillAwardXP(int32 Value)
+	FNewKillAwardXP(float Value)
 	: FXPBreakdown(EForceInit::ForceInitToZero)
 	{
 		KillAwardXP = Value;
@@ -141,7 +147,7 @@ struct FNewKillAwardXP : public FXPBreakdown
 };
 struct FNewOffenseXP : public FXPBreakdown
 {
-	FNewOffenseXP(int32 Value)
+	FNewOffenseXP(float Value)
 	: FXPBreakdown(EForceInit::ForceInitToZero)
 	{
 		OffenseXP = Value;
@@ -149,10 +155,18 @@ struct FNewOffenseXP : public FXPBreakdown
 };
 struct FNewDefenseXP : public FXPBreakdown
 {
-	FNewDefenseXP(int32 Value)
+	FNewDefenseXP(float Value)
 	: FXPBreakdown(EForceInit::ForceInitToZero)
 	{
 		DefenseXP = Value;
+	}
+};
+struct FNewChallengeXP : public FXPBreakdown
+{
+	FNewChallengeXP(float Value)
+	: FXPBreakdown(EForceInit::ForceInitToZero)
+	{
+		ChallengeXP = Value;
 	}
 };
 

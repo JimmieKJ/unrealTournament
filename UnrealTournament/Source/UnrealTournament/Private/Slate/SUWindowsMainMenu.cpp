@@ -49,9 +49,8 @@ SUWindowsMainMenu::~SUWindowsMainMenu()
 	}
 }
 
-FReply SUWindowsMainMenu::OnFragCenterClick(TSharedPtr<SComboButton> MenuButton)
+FReply SUWindowsMainMenu::OnFragCenterClick()
 {
-	if (MenuButton.IsValid()) MenuButton->SetIsOpen(false);
 	ShowFragCenter();
 	return FReply::Handled();
 }
@@ -136,178 +135,46 @@ void SUWindowsMainMenu::BuildLeftMenuBar()
 
 TSharedRef<SWidget> SUWindowsMainMenu::BuildWatchSubMenu()
 {
-	TSharedPtr<SComboButton> DropDownButton = NULL;
+	TSharedPtr<SUTComboButton> DropDownButton = NULL;
 		SNew(SBox)
 	.HeightOverride(56)
 	[
-		SAssignNew(DropDownButton, SComboButton)
+		SAssignNew(DropDownButton, SUTComboButton)
 		.HasDownArrow(false)
-		.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button")
+		.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_REPLAYS", "WATCH"))
+		.TextStyle(SUTStyle::Get(), "UT.Font.MenuBarText")
 		.ContentPadding(FMargin(35.0,0.0,35.0,0.0))
-		.ButtonContent()
-		[
-			SNew(SHorizontalBox)
-			+ SHorizontalBox::Slot()
-			.VAlign(VAlign_Center)
-			[
-				SNew(STextBlock)
-				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_REPLAYS", "WATCH"))
-				.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.TextStyle")
-			]
-		]
+		.ContentHAlign(HAlign_Left)
 	];
-		
-	DropDownButton->SetMenuContent
-	(
-		SNew(SBorder)
-		.BorderImage(SUWindowsStyle::Get().GetBrush("UT.ContextMenu.Background"))
-		.Padding(FMargin(0.0f,2.0f))
-		[
-			SNew(SVerticalBox)
-			+ SVerticalBox::Slot()
-			.AutoHeight()
-			[
-				SNew(SButton)
-				.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
-				.ContentPadding(FMargin(10.0f, 5.0f))
-				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Watch_FragCenter", "Frag Center"))
-				.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
-				.OnClicked(this, &SUWindowsMainMenu::OnFragCenterClick, DropDownButton)
-			]
-			+ SVerticalBox::Slot()
-			.VAlign(VAlign_Center)
-			.HAlign(HAlign_Fill)
-			.AutoHeight()
-			.Padding(FMargin(0.0f, 0.0f))
-			[
-				SNew(SBox)
-				.HeightOverride(16)
-				[
-					SNew(SImage)
-					.Image(SUWindowsStyle::Get().GetBrush("UT.ContextMenu.Spacer"))
-				]
-			]
-			+ SVerticalBox::Slot()
-			.AutoHeight()
-			[
-				SNew(SButton)
-				.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
-				.ContentPadding(FMargin(10.0f, 5.0f))
-				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Replays_YourReplays", "Your Replays"))
-				.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
-				.OnClicked(this, &SUWindowsMainMenu::OnYourReplaysClick, DropDownButton)
-			]
-			+ SVerticalBox::Slot()
-			.VAlign(VAlign_Center)
-			.HAlign(HAlign_Fill)
-			.AutoHeight()
-			.Padding(FMargin(0.0f, 0.0f))
-			[
-				SNew(SBox)
-				.HeightOverride(16)
-				[
-					SNew(SImage)
-					.Image(SUWindowsStyle::Get().GetBrush("UT.ContextMenu.Spacer"))
-				]
-			]
-			+ SVerticalBox::Slot()
-			.AutoHeight()
-			[
-				SNew(SButton)
-				.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
-				.ContentPadding(FMargin(10.0f, 5.0f))
-				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Replays_RecentReplays", "Recent Replays"))
-				.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
-				.OnClicked(this, &SUWindowsMainMenu::OnRecentReplaysClick, DropDownButton)
-			]
-			+ SVerticalBox::Slot()
-			.VAlign(VAlign_Center)
-			.HAlign(HAlign_Fill)
-			.Padding(FMargin(0.0f, 2.0f))
-			[
-				SNew(SImage)
-				.Image(SUWindowsStyle::Get().GetBrush("UT.ContextMenu.Spacer"))
-			]
-			+ SVerticalBox::Slot()
-			.AutoHeight()
-			[
-				SNew(SButton)
-				.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
-				.ContentPadding(FMargin(10.0f, 5.0f))
-				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Replays_LiveGames", "Live Games"))
-				.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
-				.OnClicked(this, &SUWindowsMainMenu::OnLiveGameReplaysClick, DropDownButton)
-			]
-		]
-	);
 
-	MenuButtons.Add(DropDownButton);
+	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Watch_FragCenter", "Frag Center"), FOnClicked::CreateSP(this, &SUWindowsMainMenu::OnFragCenterClick));
+	DropDownButton->AddSpacer();
+	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Replays_YourReplays", "Your Replays"), FOnClicked::CreateSP(this, &SUWindowsMainMenu::OnYourReplaysClick));
+	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Replays_RecentReplays", "Recent Replays"), FOnClicked::CreateSP(this, &SUWindowsMainMenu::OnRecentReplaysClick));
+	DropDownButton->AddSpacer();
+	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Replays_LiveGames", "Live Games"), FOnClicked::CreateSP(this, &SUWindowsMainMenu::OnLiveGameReplaysClick), true);
+
 	return DropDownButton.ToSharedRef();
 }
 
 TSharedRef<SWidget> SUWindowsMainMenu::BuildTutorialSubMenu()
 {
-
-	TSharedPtr<SComboButton> DropDownButton = NULL;
+	TSharedPtr<SUTComboButton> DropDownButton = NULL;
 	SNew(SBox)
 	.HeightOverride(56)
 	[
-		SAssignNew(DropDownButton, SComboButton)
+		SAssignNew(DropDownButton, SUTComboButton)
 		.HasDownArrow(false)
-		.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button")
+		.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_TUTORIAL", "LEARN"))
+		.TextStyle(SUTStyle::Get(), "UT.Font.MenuBarText")
 		.ContentPadding(FMargin(35.0,0.0,35.0,0.0))
-		.ButtonContent()
-		[
-			SNew(SHorizontalBox)
-			+ SHorizontalBox::Slot()
-			.VAlign(VAlign_Center)
-			[
-				SNew(STextBlock)
-				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_TUTORIAL", "LEARN"))
-				.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.TextStyle")
-			]
-		]
+		.ContentHAlign(HAlign_Left)
 	];
 
-	DropDownButton->SetMenuContent
-	(
-		SNew(SBorder)
-		.BorderImage(SUWindowsStyle::Get().GetBrush("UT.ContextMenu.Background"))
-		.Padding(FMargin(0.0f,2.0f))
-		[
-			SNew(SVerticalBox)
-			+ SVerticalBox::Slot()
-			.AutoHeight()
-			[
-				SNew(SButton)
-				.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
-				.ContentPadding(FMargin(10.0f, 5.0f))
-				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Tutorial_LeanHoToPlay", "Basic Training"))
-				.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
-				.OnClicked(this, &SUWindowsMainMenu::OnBootCampClick, DropDownButton)
-			]
-			+ SVerticalBox::Slot()
-			.VAlign(VAlign_Center)
-			.HAlign(HAlign_Fill)
-			.Padding(FMargin(0.0f, 2.0f))
-			[
-				SNew(SImage)
-				.Image(SUWindowsStyle::Get().GetBrush("UT.ContextMenu.Spacer"))
-			]
-			+ SVerticalBox::Slot()
-			.AutoHeight()
-			[
-				SNew(SButton)
-				.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
-				.ContentPadding(FMargin(10.0f, 5.0f))
-				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Tutorial_Community", "Training Videos"))
-				.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
-				.OnClicked(this, &SUWindowsMainMenu::OnCommunityClick, DropDownButton)
-			]
-		]
-	);
+	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Tutorial_LeanHoToPlay", "Basic Training"), FOnClicked::CreateSP(this, &SUWindowsMainMenu::OnBootCampClick));
+	DropDownButton->AddSpacer();
+	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUWindowsDesktop", "MenuBar_Tutorial_Community", "Training Videos"), FOnClicked::CreateSP(this, &SUWindowsMainMenu::OnCommunityClick), true);
 
-	MenuButtons.Add(DropDownButton);
 	return DropDownButton.ToSharedRef();
 
 }
@@ -315,121 +182,27 @@ TSharedRef<SWidget> SUWindowsMainMenu::BuildTutorialSubMenu()
 
 TSharedRef<SWidget> SUWindowsMainMenu::AddPlayNow()
 {
-	TSharedPtr<SComboButton> DropDownButton = NULL;
+	TSharedPtr<SUTComboButton> DropDownButton = NULL;
 
 	SNew(SBox)
 	.HeightOverride(56)
 	[
-		SAssignNew(DropDownButton, SComboButton)
+		SAssignNew(DropDownButton, SUTComboButton)
 		.HasDownArrow(false)
-		.ButtonStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button")
+		.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_QuickMatch", "PLAY"))
+		.TextStyle(SUTStyle::Get(), "UT.Font.MenuBarText")
 		.ContentPadding(FMargin(35.0,0.0,35.0,0.0))
-		.ButtonContent()
-		[
-			SNew(SHorizontalBox)
-			+ SHorizontalBox::Slot()
-			.VAlign(VAlign_Center)
-			[
-				SNew(STextBlock)
-				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_QuickMatch", "PLAY"))
-				.TextStyle(SUWindowsStyle::Get(), "UT.TopMenu.Button.TextStyle")
-			]
-		]
+		.ContentHAlign(HAlign_Left)
 	];
 
-	DropDownButton->SetMenuContent
-	(
-		SNew( SBorder )
-		.BorderImage( SUWindowsStyle::Get().GetBrush("UT.ContextMenu.Background") )
-		.Padding(0)
-		[
-			SNew(SVerticalBox)
-			+ SVerticalBox::Slot()
-			.Padding(FMargin(0.0f, 0.0f))
-			.AutoHeight()
-			[
-				SNew(SButton)
-				.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
-				.ContentPadding(FMargin(10.0f, 5.0f))
-				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_QuickMatch_PlayDM", "QuickPlay Deathmatch"))
-				.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
-				.OnClicked(this, &SUWindowsMainMenu::OnPlayQuickMatch, DropDownButton, FQuickMatchTypeRulesetTag::DM)
-			]
-			+ SVerticalBox::Slot()
-			.Padding(FMargin(0.0f, 0.0f))
-			.AutoHeight()
-			[
-				SNew(SButton)
-				.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
-				.ContentPadding(FMargin(10.0f, 5.0f))
-				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_QuickMatch_PlayCTF", "QuickPlay Capture the Flag"))
-				.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
-				.OnClicked(this, &SUWindowsMainMenu::OnPlayQuickMatch, DropDownButton, FQuickMatchTypeRulesetTag::CTF)
-			]
-			+ SVerticalBox::Slot()
-			.VAlign(VAlign_Center)
-			.HAlign(HAlign_Fill)
-			.AutoHeight()
-			.Padding(FMargin(0.0f, 0.0f))
-			[
-				SNew(SBox)
-				.HeightOverride(16)
-				[
-					SNew(SImage )
-					.Image( SUWindowsStyle::Get().GetBrush("UT.ContextMenu.Spacer") )
-				]
-			]
-		 
-			+ SVerticalBox::Slot()
-			.Padding(FMargin(0.0f, 0.0f))
-			.AutoHeight()
-			[
-				SNew(SButton)
-				.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
-				.ContentPadding(FMargin(10.0f, 5.0f))
-				.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
-				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_CreateGame", "Create a Game"))
-				.OnClicked(this, &SUWindowsMainMenu::OnShowGamePanel, DropDownButton)
-			]
-			+ SVerticalBox::Slot()
-			.Padding(FMargin(0.0f, 0.0f))
-			.VAlign(VAlign_Center)
-			.HAlign(HAlign_Fill)
-			.AutoHeight()
-			[
-				SNew(SBox)
-				.HeightOverride(16)
-				[
-					SNew(SImage )
-					.Image( SUWindowsStyle::Get().GetBrush("UT.ContextMenu.Spacer") )
-				]
-			]
-			+ SVerticalBox::Slot()
-			.Padding(FMargin(0.0f, 0.0f))
-			.AutoHeight()
-			[
-				SNew(SButton)
-				.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
-				.ContentPadding(FMargin(10.0f, 5.0f))
-				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_QuickMatch_FindGame", "Find a Game..."))
-				.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
-				.OnClicked(this, &SUTMenuBase::OnShowServerBrowser, DropDownButton)
-			]
-			+ SVerticalBox::Slot()
-			.Padding(FMargin(0.0f, 0.0f))
-			.AutoHeight()
-			[
-				SNew(SButton)
-				.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
-				.ContentPadding(FMargin(10.0f, 5.0f))
-				.Text(NSLOCTEXT("SUWindowsDesktop", "MenuBar_QuickMatch_IPConnect", "Connect via IP"))
-				.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
-				.OnClicked(this, &SUWindowsMainMenu::OnConnectIP, DropDownButton)
-			]
-		]
-	);
+	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUWindowsDesktop", "MenuBar_QuickMatch_PlayDM", "QuickPlay Deathmatch"), FOnClicked::CreateSP(this, &SUWindowsMainMenu::OnPlayQuickMatch, FQuickMatchTypeRulesetTag::DM));
+	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUWindowsDesktop", "MenuBar_QuickMatch_PlayCTF", "QuickPlay Capture the Flag"), FOnClicked::CreateSP(this, &SUWindowsMainMenu::OnPlayQuickMatch, FQuickMatchTypeRulesetTag::CTF));
+	DropDownButton->AddSpacer();
+	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUWindowsDesktop", "MenuBar_CreateGame", "Create a Game"), FOnClicked::CreateSP(this, &SUWindowsMainMenu::OnShowGamePanel));
+	DropDownButton->AddSpacer();
+	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUWindowsDesktop", "MenuBar_QuickMatch_FindGame", "Find a Game..."), FOnClicked::CreateSP(this, &SUTMenuBase::OnShowServerBrowserPanel));
+	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUWindowsDesktop", "MenuBar_QuickMatch_IPConnect", "Connect via IP"), FOnClicked::CreateSP(this, &SUWindowsMainMenu::OnConnectIP), true);
 
-	MenuButtons.Add(DropDownButton);
 	return DropDownButton.ToSharedRef();
 }
 
@@ -449,13 +222,8 @@ FReply SUWindowsMainMenu::OnCloseClicked()
 
 
 
-FReply SUWindowsMainMenu::OnShowGamePanel(TSharedPtr<SComboButton> MenuButton)
+FReply SUWindowsMainMenu::OnShowGamePanel()
 {
-	if (MenuButton.IsValid()) 
-	{
-		MenuButton->SetIsOpen(false);
-	}
-	
 	ShowGamePanel();
 	return FReply::Handled();
 }
@@ -599,10 +367,8 @@ void SUWindowsMainMenu::OnGameChangeDialogResult(TSharedPtr<SCompoundWidget> Dia
 	}
 }
 
-FReply SUWindowsMainMenu::OnPlayQuickMatch(TSharedPtr<SComboButton> MenuButton, FString QuickMatchType)
+FReply SUWindowsMainMenu::OnPlayQuickMatch(FString QuickMatchType)
 {
-
-	if (MenuButton.IsValid()) MenuButton->SetIsOpen(false);
 	QuickPlay(QuickMatchType);
 	return FReply::Handled();
 }
@@ -620,13 +386,8 @@ void SUWindowsMainMenu::QuickPlay(const FString& QuickMatchType)
 	PlayerOwner->StartQuickMatch(QuickMatchType);
 }
 
-FReply SUWindowsMainMenu::OnBootCampClick(TSharedPtr<SComboButton> MenuButton)
+FReply SUWindowsMainMenu::OnBootCampClick()
 {
-	if (MenuButton.IsValid())
-	{
-		MenuButton->SetIsOpen(false);
-	}
-
 	OpenTutorialMenu();
 	return FReply::Handled();
 }
@@ -648,10 +409,8 @@ void SUWindowsMainMenu::OpenTutorialMenu()
 }
 
 
-FReply SUWindowsMainMenu::OnYourReplaysClick(TSharedPtr<SComboButton> MenuButton)
+FReply SUWindowsMainMenu::OnYourReplaysClick()
 {
-	if (MenuButton.IsValid()) MenuButton->SetIsOpen(false);
-
 	if (TutorialMenu.IsValid())
 	{
 		TutorialMenu->RemoveFromViewport();
@@ -684,9 +443,8 @@ FReply SUWindowsMainMenu::OnYourReplaysClick(TSharedPtr<SComboButton> MenuButton
 	return FReply::Handled();
 }
 
-FReply SUWindowsMainMenu::OnRecentReplaysClick(TSharedPtr<SComboButton> MenuButton)
+FReply SUWindowsMainMenu::OnRecentReplaysClick()
 {
-	if (MenuButton.IsValid()) MenuButton->SetIsOpen(false);
 	RecentReplays();
 	return FReply::Handled();
 }
@@ -724,9 +482,8 @@ void SUWindowsMainMenu::RecentReplays()
 
 }
 
-FReply SUWindowsMainMenu::OnLiveGameReplaysClick(TSharedPtr<SComboButton> MenuButton)
+FReply SUWindowsMainMenu::OnLiveGameReplaysClick()
 {
-	if (MenuButton.IsValid()) MenuButton->SetIsOpen(false);
 	ShowLiveGameReplays();
 
 	return FReply::Handled();
@@ -767,13 +524,8 @@ void SUWindowsMainMenu::ShowLiveGameReplays()
 	return;
 }
 
-FReply SUWindowsMainMenu::OnCommunityClick(TSharedPtr<SComboButton> MenuButton)
+FReply SUWindowsMainMenu::OnCommunityClick()
 {
-	if (MenuButton.IsValid())
-	{
-		MenuButton->SetIsOpen(false);
-	}
-
 	ShowCommunity();
 	return FReply::Handled();
 }
@@ -803,12 +555,8 @@ void SUWindowsMainMenu::ShowCommunity()
 	}
 }
 
-FReply SUWindowsMainMenu::OnConnectIP(TSharedPtr<SComboButton> MenuButton)
+FReply SUWindowsMainMenu::OnConnectIP()
 {
-	if (MenuButton.IsValid())
-	{
-		MenuButton->SetIsOpen(false);
-	}
 	PlayerOwner->OpenDialog(
 							SNew(SUWInputBox)
 							.DefaultInput(PlayerOwner->LastConnectToIP)
@@ -1079,10 +827,14 @@ void SUWindowsMainMenu::OnOwnerLoginStatusChanged(UUTLocalPlayer* LocalPlayerOwn
 {
 	if (NewStatus == ELoginStatus::LoggedIn)
 	{
-		if (TutorialMenu.IsValid())
+		if (TutorialMenu.IsValid() && TutorialMenu->IsInViewport())
 		{
 			TutorialMenu->RemoveFromViewport();
-			OpenTutorialMenu();
+			
+			PlayerOwner->ShowMessage(
+				NSLOCTEXT("SUWindowsMainMenu", "TutorialErrorTitle", "User Changed"),
+				NSLOCTEXT("SUWindowsMainMenu", "TutorialErrorMessage", "User changed. Returning to the main menu."), UTDIALOG_BUTTON_OK, nullptr
+				);
 		}
 	}
 

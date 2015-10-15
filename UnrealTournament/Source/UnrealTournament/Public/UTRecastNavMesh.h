@@ -374,6 +374,15 @@ class UNREALTOURNAMENT_API AUTRecastNavMesh : public ARecastNavMesh
 	virtual void AddToNavigation(AActor* NewPOI);
 	virtual void RemoveFromNavigation(AActor* OldPOI);
 
+private:
+	// hidden, use UTFindNearestPoly() instead
+	NavNodeRef FindNearestPoly(FVector const& Loc, FVector const& Extent, TSharedPtr<const FNavigationQueryFilter> Filter = NULL, const UObject* Querier = NULL) const
+	{
+		return UTFindNearestPoly(Loc, Extent);
+	}
+public:
+	NavNodeRef UTFindNearestPoly(const FVector& Loc, const FVector& Extent) const;
+
 	/** find pathnode corresponding to target's position on the navmesh (if any) */
 	virtual UUTPathNode* FindNearestNode(const FVector& TestLoc, const FVector& Extent) const;
 
@@ -473,6 +482,8 @@ protected:
 	TArray<UUTReachSpec*> AllReachSpecs;
 	/** transient POI to Node table to optimize AddToNavigation()/RemoveFromNavigation() */
 	TMap<TWeakObjectPtr<AActor>, UUTPathNode*> POIToNode;
+	/** transient PhysicsVolume to Node table, primarily for water volume pathing */
+	TMultiMap<TWeakObjectPtr<APhysicsVolume>, UUTPathNode*> VolumeToNode;
 
 	/** get size of poly edge link clamped to one of the SizeSteps
 	 * inputs are all assumed valid
@@ -541,6 +552,7 @@ public:
 		PathNodes.Remove(NULL); // really shouldn't happen but no need to crash for it
 		for (UUTPathNode* Node : PathNodes)
 		{
+			VolumeToNode.Add(Node->PhysicsVolume, Node);
 			for (NavNodeRef PolyRef : Node->Polys)
 			{
 				PolyToNode.Add(PolyRef, Node);

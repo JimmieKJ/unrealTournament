@@ -13,6 +13,7 @@ UUTChallengeManager::UUTChallengeManager(const FObjectInitializer& ObjectInitial
 : Super(ObjectInitializer)
 {
 	// @TODO FIXMESTEVE make this a blueprint
+	XPBonus = 250;
 
 	// player team roster, includes roster upgrades
 	PlayerTeamRoster = FTeamRoster(NSLOCTEXT("Challenges","PlayersTeamRoster","Players Team"));
@@ -64,13 +65,21 @@ UUTChallengeManager::UUTChallengeManager(const FObjectInitializer& ObjectInitial
 	MediumMixedRoster.Roster.Add(NAME_Gaargod);
 	EnemyTeamRosters.Add(NAME_MediumMixedTeam, MediumMixedRoster);
 
-	FTeamRoster HardMixedRoster = FTeamRoster(NSLOCTEXT("Challenges", "HardEnemyMixed", "Mixed Inhuman Team"));
-	HardMixedRoster.Roster.Add(NAME_Jakob);
-	HardMixedRoster.Roster.Add(NAME_Clanlord);
-	HardMixedRoster.Roster.Add(NAME_Skakruk);
-	HardMixedRoster.Roster.Add(NAME_Malcolm);
-	HardMixedRoster.Roster.Add(NAME_Picard);
-	EnemyTeamRosters.Add(NAME_HardMixedTeam, HardMixedRoster);
+	FTeamRoster HardMixedRosterA = FTeamRoster(NSLOCTEXT("Challenges", "HardEnemyMixed", "Mixed Inhuman Team"));
+	HardMixedRosterA.Roster.Add(NAME_Jakob);
+	HardMixedRosterA.Roster.Add(NAME_Necroth);
+	HardMixedRosterA.Roster.Add(NAME_Skakruk);
+	HardMixedRosterA.Roster.Add(NAME_Malcolm);
+	HardMixedRosterA.Roster.Add(NAME_Picard);
+	EnemyTeamRosters.Add(NAME_HardMixedTeamA, HardMixedRosterA);
+
+	FTeamRoster HardMixedRosterB = FTeamRoster(NSLOCTEXT("Challenges", "HardEnemyMixed", "Mixed Inhuman Team"));
+	HardMixedRosterB.Roster.Add(NAME_Jakob);
+	HardMixedRosterB.Roster.Add(NAME_Clanlord);
+	HardMixedRosterB.Roster.Add(NAME_Skakruk);
+	HardMixedRosterB.Roster.Add(NAME_Freylis);
+	HardMixedRosterB.Roster.Add(NAME_Picard);
+	EnemyTeamRosters.Add(NAME_HardMixedTeamB, HardMixedRosterB);
 
 	FTeamRoster EasyFFARoster = FTeamRoster(NSLOCTEXT("Challenges", "EasyFFAMixed", "Easy FFA"));
 	EasyFFARoster.Roster.Add(NAME_Genghis);
@@ -98,93 +107,100 @@ UUTChallengeManager::UUTChallengeManager(const FObjectInitializer& ObjectInitial
 
 	Challenges.Add(NAME_ChallengeDMFFA,
 		FUTChallengeInfo(TEXT("Deathmatch in Outpost 23"), TEXT("/Game/RestrictedAssets/Maps/DM-Outpost23"),
-		TEXT("DM"),
+		TEXT("?Game=DM"),
 		TEXT("Free for all Deathmatch in Outpost 23."), 
-		0, 5, NAME_EasyFFATeam, NAME_MediumFFATeam, NAME_HardFFATeam, NAME_ChallengeSlateBadgeName_DM_OP23));
+		0, 5, NAME_EasyFFATeam, NAME_MediumFFATeam, NAME_HardFFATeam, NAME_ChallengeSlateBadgeName_DM_OP23, NAME_REWARD_GoldStars));
 
 	Challenges.Add(NAME_ChallengeCTF, 
 		FUTChallengeInfo(TEXT("Capture the Flag in Titan Pass"), TEXT("/Game/RestrictedAssets/Maps/CTF-TitanPass"),
-		TEXT("CTF"),
+		TEXT("?Game=CTF"),
 		TEXT("CTF in the newest arena approved for the Liandri Grand Tournament."), 
-		4, 5, NAME_EasyNecrisTeam, NAME_MediumMixedTeam, NAME_HardMixedTeam, NAME_ChallengeSlateBadgeName_CTF_Titan));
+		4, 5, NAME_EasyNecrisTeam, NAME_MediumMixedTeam, NAME_HardMixedTeamB, NAME_ChallengeSlateBadgeName_CTF_Titan, NAME_REWARD_GoldStars));
 
 	Challenges.Add(NAME_ChallengeDuel,
 		FUTChallengeInfo(TEXT("Duel in Lea"), TEXT("/Game/EpicInternal/Lea/DM-Lea"),
-		TEXT("Duel"),
+		TEXT("?Game=Duel"),
 		TEXT("1v1 Duel in Lea. Be sure to visit the UT Marketplace to gain access to this map."),
-		0, 1, NAME_EasyNecrisTeam, NAME_MediumMixedTeam, NAME_HardMixedTeam, NAME_ChallengeSlateBadgeName_DM_Lea));
+		0, 1, NAME_EasyNecrisTeam, NAME_MediumMixedTeam, NAME_HardMixedTeamB, NAME_ChallengeSlateBadgeName_DM_Lea, NAME_REWARD_GoldStars));
 
 	Challenges.Add(NAME_ChallengeTDM,
 		FUTChallengeInfo(TEXT("Team Deathmatch in Outpost 23"), TEXT("/Game/RestrictedAssets/Maps/DM-Outpost23"),
-		TEXT("TDM"),
+		TEXT("?Game=TDM"),
 		TEXT("Team Deathmatch in Outpost 23."),
-		4, 5, NAME_EasyNecrisTeam, NAME_MediumMixedTeam, NAME_HardNecrisTeam, NAME_ChallengeSlateBadgeName_DM_OP23));
+		4, 5, NAME_EasyNecrisTeam, NAME_MediumMixedTeam, NAME_HardNecrisTeam, NAME_ChallengeSlateBadgeName_DM_OP23, NAME_REWARD_GoldStars));
 
 	Challenges.Add(NAME_ChallengeCTFThree,
 		FUTChallengeInfo(TEXT("Capture the Flag in Facing Worlds"), TEXT("/Game/RestrictedAssets/Maps/CTF-Face"),
-		TEXT("CTF"),
+		TEXT("?Game=CTF"),
 		TEXT("CTF in the legendary Facing Worlds arena."),
-		4, 5, NAME_EasyNecrisTeam, NAME_MediumNecrisTeam, NAME_HardMixedTeam, NAME_ChallengeSlateBadgeName_CTF_Face));
+		4, 5, NAME_EasyNecrisTeam, NAME_MediumNecrisTeam, NAME_HardMixedTeamA, NAME_ChallengeSlateBadgeName_CTF_Face, NAME_REWARD_GoldStars));
 
 	Challenges.Add(NAME_ChallengeDMFFATwo,
 		FUTChallengeInfo(TEXT("Deathmatch in Deck 16"), TEXT("/Game/RestrictedAssets/Maps/WIP/DM-DeckTest"),
-		TEXT("DM"),
+		TEXT("?Game=DM"),
 		TEXT("Free for all Deathmatch in Deck 16.  Liandri is renovating the legendary Deck 16 arena, but it remains a popular venue even in its unfinished state."),
-		0, 5, NAME_EasyFFATeam, NAME_MediumFFATeam, NAME_HardFFATeam, NAME_ChallengeSlateBadgeName_DM));
+		0, 5, NAME_EasyFFATeam, NAME_MediumFFATeam, NAME_HardFFATeam, NAME_ChallengeSlateBadgeName_DM, NAME_REWARD_GoldStars));
 
 	Challenges.Add(NAME_ChallengeCTFFour,
 		FUTChallengeInfo(TEXT("Capture the Flag in Pistola"), TEXT("/Game/EpicInternal/Pistola/CTF-Pistola"),
-		TEXT("CTF"),
+		TEXT("?Game=CTF"),
 		TEXT("CTF in the challenging Pistola arena.  Be sure to visit the UT Marketplace to gain access to this map."),
-		4, 5, NAME_EasyNecrisTeam, NAME_MediumMixedTeam, NAME_HardNecrisTeam, NAME_ChallengeSlateBadgeName_CTF_Pistola));
+		4, 5, NAME_EasyNecrisTeam, NAME_MediumMixedTeam, NAME_HardNecrisTeam, NAME_ChallengeSlateBadgeName_CTF_Pistola, NAME_REWARD_GoldStars));
 
 	Challenges.Add(NAME_ChallengeTDMTwo,
 		FUTChallengeInfo(TEXT("Team Deathmatch in Spacer"), TEXT("/Game/RestrictedAssets/Maps/WIP/DM-Spacer"),
-		TEXT("TDM"),
+		TEXT("?Game=TDM"),
 		TEXT("Team Deathmatch in Spacer, a challenging new arena under construction in a space station."),
-		4, 5, NAME_EasyNecrisTeam, NAME_MediumNecrisTeam, NAME_HardMixedTeam, NAME_ChallengeSlateBadgeName_DM));
+		4, 5, NAME_EasyNecrisTeam, NAME_MediumNecrisTeam, NAME_HardMixedTeamA, NAME_ChallengeSlateBadgeName_DM, NAME_REWARD_GoldStars));
 
 	Challenges.Add(NAME_ChallengeCTFTwo,
 		FUTChallengeInfo(TEXT("Capture the Flag in Big Rock"), TEXT("/Game/RestrictedAssets/Maps/WIP/CTF-BigRock"),
-		TEXT("CTF"),
+		TEXT("?Game=CTF"),
 		TEXT("CTF in the impressive Big Rock asteroid arena, still under construction."),
-		4, 5, NAME_EasyNecrisTeam, NAME_MediumMixedTeam, NAME_HardMixedTeam, NAME_ChallengeSlateBadgeName_CTF));
+		4, 5, NAME_EasyNecrisTeam, NAME_MediumMixedTeam, NAME_HardMixedTeamA, NAME_ChallengeSlateBadgeName_CTF, NAME_REWARD_GoldStars));
 
 	Challenges.Add(NAME_ChallengeDMFFAThree,
 		FUTChallengeInfo(TEXT("Deathmatch in Spacer"), TEXT("/Game/RestrictedAssets/Maps/WIP/DM-Spacer"),
-		TEXT("DM"),
+		TEXT("?Game=DM"),
 		TEXT("Free for all Deathmatch in Spacer, a challenging new arena under construction in a space station."),
-		0, 5, NAME_EasyFFATeam, NAME_MediumFFATeam, NAME_HardFFATeam, NAME_ChallengeSlateBadgeName_DM));
+		0, 5, NAME_EasyFFATeam, NAME_MediumFFATeam, NAME_HardFFATeam, NAME_ChallengeSlateBadgeName_DM, NAME_REWARD_GoldStars));
 
 	Challenges.Add(NAME_ChallengeTDMThree,
 		FUTChallengeInfo(TEXT("Team Deathmatch in Temple"), TEXT("/Game/RestrictedAssets/Maps/WIP/DM-Temple"),
-		TEXT("TDM"),
+		TEXT("?Game=TDM"),
 		TEXT("Team Deathmatch in Temple, an ancient temple ruin being restored for tournament play."),
-		4, 5, NAME_EasyNecrisTeam, NAME_MediumMixedTeam, NAME_HardMixedTeam, NAME_ChallengeSlateBadgeName_DM));
+		4, 5, NAME_EasyNecrisTeam, NAME_MediumMixedTeam, NAME_HardMixedTeamB, NAME_ChallengeSlateBadgeName_DM, NAME_REWARD_GoldStars));
 
 	Challenges.Add(NAME_ChallengeTDMFour,
 		FUTChallengeInfo(TEXT("2v2 Team Deathmatch in Lea"), TEXT("/Game/EpicInternal/Lea/DM-Lea"),
-		TEXT("TDM"),
+		TEXT("?Game=TDM"),
 		TEXT("2v2 Team Deathmatch in Lea.  Be sure to visit the UT Marketplace to gain access to this map."),
-		1, 2, NAME_EasyNecrisTeam, NAME_MediumNecrisTeam, NAME_HardMixedTeam, NAME_ChallengeSlateBadgeName_DM_Lea));
+		1, 2, NAME_EasyNecrisTeam, NAME_MediumNecrisTeam, NAME_HardMixedTeamB, NAME_ChallengeSlateBadgeName_DM_Lea, NAME_REWARD_GoldStars));
 
 	Challenges.Add(NAME_ChallengeCTFFive,
 		FUTChallengeInfo(TEXT("Capture the Flag in Blank"), TEXT("/Game/RestrictedAssets/Maps/WIP/CTF-Blank"),
-		TEXT("CTF"),
+		TEXT("?Game=CTF"),
 		TEXT("This new arena is still not complete, and doesn't even have a working name.  That hasn't stopped some exhibition matches from being staged in the arena currently called 'Blank'."),
-		4, 5, NAME_EasyNecrisTeam, NAME_MediumNecrisTeam, NAME_HardNecrisTeam, NAME_ChallengeSlateBadgeName_CTF));
+		4, 5, NAME_EasyNecrisTeam, NAME_MediumNecrisTeam, NAME_HardNecrisTeam, NAME_ChallengeSlateBadgeName_CTF, NAME_REWARD_GoldStars));
 
 	Challenges.Add(NAME_ChallengeDuelTwo,
 		FUTChallengeInfo(TEXT("Duel in ASDF"), TEXT("/Game/RestrictedAssets/Maps/WIP/DM-ASDF"),
-		TEXT("Duel"),
+		TEXT("?Game=Duel"),
 		TEXT("1v1 Duel in ASDF."),
-		0, 1, NAME_EasyFFATeam, NAME_MediumNecrisTeam, NAME_HardNecrisTeam, NAME_ChallengeSlateBadgeName_DM));
+		0, 1, NAME_EasyFFATeam, NAME_MediumNecrisTeam, NAME_HardNecrisTeam, NAME_ChallengeSlateBadgeName_DM, NAME_REWARD_GoldStars));
 
 	Challenges.Add(NAME_ChallengeTDMFive,
 		FUTChallengeInfo(TEXT("1v5 Team Deathmatch in Outpost 23"), TEXT("/Game/RestrictedAssets/Maps/DM-Outpost23"),
-		TEXT("TDM"),
+		TEXT("?Game=TDM"),
 		TEXT("Prove your worth in a 1v5 Team Deathmatch in Outpost 23."),
-		0, 5, NAME_EasyNecrisTeam, NAME_MediumMixedTeam, NAME_HardMixedTeam, NAME_ChallengeSlateBadgeName_DM_OP23));
+		0, 5, NAME_EasyNecrisTeam, NAME_MediumMixedTeam, NAME_HardMixedTeamA, NAME_ChallengeSlateBadgeName_DM_OP23, NAME_REWARD_GoldStars));
+
+	RewardCaptions.Add(NAME_REWARD_HalloweenStars, NSLOCTEXT("ChallengeManage","HalloweenStarsCaption","You have earned {0} spooky pumpkins!"));
+	RewardCaptions.Add(NAME_REWARD_GoldStars, NSLOCTEXT("ChallengeManage","GoldStarsCaption","You have earned {0} gold stars!"));
+
+	RewardInfo.Add(NAME_REWARD_HalloweenStars, FUTRewardInfo(FLinearColor(0.98,0.76,0.23,1.0), NAME_REWARDSTYLE_SCARY, NAME_REWARDSTYLE_SCARY_COMPLETED));
+	RewardInfo.Add(NAME_REWARD_GoldStars, FUTRewardInfo(FLinearColor(0.9,0.9,0.0,1.0), NAME_REWARDSTYLE_STAR, NAME_REWARDSTYLE_STAR_COMPLETED));
+
 }
 
 UUTBotCharacter* UUTChallengeManager::ChooseBotCharacter(AUTGameMode* CurrentGame, uint8& TeamNum, int32 TotalStars) const
@@ -231,7 +247,7 @@ UUTBotCharacter* UUTChallengeManager::ChooseBotCharacter(AUTGameMode* CurrentGam
 	}
 	else
 	{
-		UE_LOG(UT, Warning, TEXT("Challenge %s is Invalid"), *CurrentGame->ChallengeTag.ToString());
+		UE_LOG(UT, Warning, TEXT("%s Challenge %s is Invalid"), *GetName(), *CurrentGame->ChallengeTag.ToString());
 	}
 	return NULL;
 }
@@ -251,14 +267,17 @@ bool UUTChallengeManager::IsValidChallenge(AUTGameMode* CurrentGame, const FStri
 	if (CurrentGame->ChallengeTag != NAME_None && Challenges.Contains(CurrentGame->ChallengeTag))
 	{
 		const FUTChallengeInfo* Challenge = Challenges.Find(CurrentGame->ChallengeTag);
-/*		if (MapName != Challenge->Map.Right(MapName.Len()))
+
+		FString GameMode = CurrentGame->ParseOption(Challenge->GameURL, TEXT("Game"));
+
+		if (MapName != Challenge->Map.Right(MapName.Len()))
 		{
 			UE_LOG(UT, Warning, TEXT("CHALLENGE FAILED - Challenge in %s should be %s"), *MapName, *Challenge->Map);
 			return false;
 		}
-		else if (CurrentGame->GetClass()->GetPathName() != CurrentGame->StaticGetFullGameClassName(Challenge->GameMode))
+		else if (CurrentGame->GetClass()->GetPathName() != CurrentGame->StaticGetFullGameClassName(GameMode))
 		{
-			UE_LOG(UT, Warning, TEXT("CHALLENGE FAILED - Challenge game %s should be %s"), *CurrentGame->GetClass()->GetFullName(), *CurrentGame->StaticGetFullGameClassName(Challenge->GameMode));
+			UE_LOG(UT, Warning, TEXT("CHALLENGE FAILED - Challenge game %s should be %s [%s]"), *CurrentGame->GetClass()->GetFullName(), *CurrentGame->StaticGetFullGameClassName(GameMode), *GameMode);
 			return false;
 		}
 		else if (!GetModPakFilenameFromPkg(CurrentGame->GetOutermost()->GetName()).IsEmpty())
@@ -266,7 +285,7 @@ bool UUTChallengeManager::IsValidChallenge(AUTGameMode* CurrentGame, const FStri
 			UE_LOG(UT, Warning, TEXT("CHALLENGE FAILED - Map is overridden by mod pak file %s"), *GetModPakFilenameFromPkg(CurrentGame->GetOutermost()->GetName()));
 			return false;
 		}
-		else */
+		else
 		{
 			return true;
 		}
@@ -276,4 +295,19 @@ bool UUTChallengeManager::IsValidChallenge(AUTGameMode* CurrentGame, const FStri
 		UE_LOG(UT, Warning, TEXT("FAILED TO FIND MATCHING CHALLENGE"));
 		return false;
 	}
+}
+
+void UUTChallengeManager::UpdateChallengeFromMCP(const FMCPPulledData& MCPData)
+{
+	if (MCPData.bValid)
+	{
+		for (int32 i = 0; i < MCPData.Challenges.Num(); i++)
+		{
+			Challenges.Add(MCPData.Challenges[i].ChallengeName, MCPData.Challenges[i].Challenge );
+		}
+
+		RewardTags.Empty();
+		RewardTags = MCPData.RewardTags;
+	}
+
 }

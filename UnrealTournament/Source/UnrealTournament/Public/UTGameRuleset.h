@@ -48,6 +48,9 @@ public:
 	UPROPERTY(Config)
 	FString DefaultMap;
 
+	UPROPERTY()
+	TArray<FString> QuickPlayMaps;
+
 	UPROPERTY(Config)
 	TArray<FString> CustomMapList;
 

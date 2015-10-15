@@ -40,6 +40,77 @@ bool FUTPathLink::GetMovePoints(const FVector& StartLoc, APawn* Asker, const FNa
 	{
 		return Spec->GetMovePoints(*this, StartLoc, Asker, AgentProps, Target, FullRoute, NavMesh, MovePoints);
 	}
+	else if (ReachFlags & R_SWIM)
+	{
+		if (Start->PhysicsVolume == NULL || !Start->PhysicsVolume->bWaterVolume)
+		{
+			// use standard code to get in the water
+			return (ReachFlags & R_JUMP) ? GetJumpMovePoints(StartLoc, Asker, AgentProps, Target, FullRoute, NavMesh, MovePoints) : false;
+		}
+		else
+		{
+			NavNodeRef StartPoly = NavMesh->FindAnchorPoly(StartLoc, Asker, AgentProps);
+			// first calculate route as if we were moving along the surface of the mesh
+			TArray<NavNodeRef> PolyRoute;
+			const FVector MeshSurfaceStart = NavMesh->GetPolyCenter(StartPoly);
+			TArray<FComponentBasedPosition> OrigMovePoints;
+			if (!NavMesh->FindPolyPath(MeshSurfaceStart, AgentProps, FRouteCacheItem(NavMesh->GetPolyCenter(StartEdgePoly), StartEdgePoly), PolyRoute, false) || PolyRoute.Num() == 0 || !NavMesh->DoStringPulling(MeshSurfaceStart, PolyRoute, AgentProps, OrigMovePoints))
+			{
+				// just try swimming straight there
+				MovePoints.Add(FComponentBasedPosition(Target.GetLocation(Asker)));
+				return true;
+			}
+			else
+			{
+				bool bAddedTarget = false;
+				if (ReachFlags == R_SWIM && Target.Actor == NULL && !Target.IsDirectTarget())
+				{
+					OrigMovePoints.Add(FComponentBasedPosition(Target.GetLocation(Asker)));
+					bAddedTarget = true;
+				}
+
+				// attempt to maintain the AI's current depth in the water
+				for (const FComponentBasedPosition& Pos : OrigMovePoints)
+				{
+					if (Pos.Base != NULL)
+					{
+						// use unmodified because it could move around
+						MovePoints.Add(Pos);
+					}
+					else
+					{
+						FVector TestLoc = Pos.Get();
+						TestLoc.Z = StartLoc.Z;
+						const FVector TraceStart = (MovePoints.Num() > 0) ? MovePoints.Last().Get() : StartLoc;
+						const FCollisionShape AgentShape = FCollisionShape::MakeCapsule(AgentProps.AgentRadius, AgentProps.AgentHeight * 0.5f);
+						if (Asker->GetWorld()->SweepTestByChannel(TraceStart, TestLoc, FQuat::Identity, ECC_Pawn, AgentShape))
+						{
+							// try halfway
+							TestLoc.Z = (StartLoc.Z + Pos.Get().Z) * 0.5f;
+							if (Asker->GetWorld()->SweepTestByChannel(TraceStart, TestLoc, FQuat::Identity, ECC_Pawn, AgentShape))
+							{
+								// have to use mesh surface
+								MovePoints.Add(Pos);
+							}
+							else
+							{
+								MovePoints.Add(FComponentBasedPosition(TestLoc));
+							}
+						}
+						else
+						{
+							MovePoints.Add(FComponentBasedPosition(TestLoc));
+						}
+					}
+				}
+				if (!bAddedTarget)
+				{
+					MovePoints.Add(FComponentBasedPosition(Target.GetLocation(Asker)));
+				}
+				return true;
+			}
+		}
+	}
 	else if (ReachFlags & R_JUMP)
 	{
 		return GetJumpMovePoints(StartLoc, Asker, AgentProps, Target, FullRoute, NavMesh, MovePoints);
@@ -110,6 +181,10 @@ FLinearColor FUTPathLink::GetPathColor() const
 	if (Spec.IsValid())
 	{
 		return Spec->GetPathColor();
+	}
+	else if (ReachFlags & R_SWIM)
+	{
+		return FLinearColor(0.5f, 0.5f, 1.0f);
 	}
 	else if (ReachFlags & R_JUMP)
 	{

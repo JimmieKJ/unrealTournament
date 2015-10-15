@@ -4,20 +4,21 @@
 #include "SlateBasics.h"
 #include "Slate/SlateGameResources.h"
 #include "SUTMenuBase.h"
+#include "Widgets/SUTComboButton.h"
 
 #if !UE_SERVER
 class UNREALTOURNAMENT_API SUTInGameMenu : public SUTMenuBase
 {
 public:
-	virtual FReply OnReturnToLobby(TSharedPtr<SComboButton> MenuButton);
-	virtual FReply OnReturnToMainMenu(TSharedPtr<SComboButton> MenuButton);
+	virtual FReply OnReturnToLobby();
+	virtual FReply OnReturnToMainMenu();
 
 protected:
 
 	virtual void BuildLeftMenuBar();
-	virtual void BuildExitMenu(TSharedPtr <SComboButton> ExitButton, TSharedPtr<SVerticalBox> MenuSpace);
+	virtual void BuildExitMenu(TSharedPtr <SUTComboButton> ExitButton);
 
-	virtual FReply OnCloseMenu(TSharedPtr<SComboButton> MenuButton);
+	virtual FReply OnCloseMenu();
 
 	virtual FReply OnTeamChangeClick();
 	virtual FReply OnReadyChangeClick();
@@ -25,7 +26,7 @@ protected:
 	virtual FReply OnSpectateClick();
 	virtual void SetInitialPanel();
 	
-	virtual FReply OpenHUDSettings(TSharedPtr<SComboButton> MenuButton);
+	virtual FReply OpenHUDSettings();
 	virtual FText GetMapVoteTitle() const;
 	virtual void WriteQuitMidGameAnalytics();
 };

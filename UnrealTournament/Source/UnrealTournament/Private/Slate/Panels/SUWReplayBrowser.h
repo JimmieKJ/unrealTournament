@@ -80,6 +80,8 @@ protected:
 	virtual void OnListMouseButtonDoubleClick(TSharedPtr<FReplayData> SelectedServer);
 	virtual void OnMetaTagTextCommited(const FText& NewText, ETextCommit::Type CommitType);
 
+	virtual void PlayerIDResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
+
 	TSharedPtr< SComboBox< TSharedPtr<FString> > > FriendListComboBox;
 	TArray<TSharedPtr<FString>> FriendList;
 	TArray<FString> FriendStatIDList;
@@ -91,6 +93,7 @@ protected:
 
 	virtual FReply OnWatchClick();
 	virtual FReply OnRefreshClick();
+	virtual FReply OnPlayerIDClick();
 };
 
 #endif

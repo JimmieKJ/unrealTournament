@@ -15,6 +15,7 @@ AUTGameSession::AUTGameSession(const FObjectInitializer& ObjectInitializer)
 {
 	bSessionValid = false;
 	bNoJoinInProgress = false;
+	CantBindBeaconPortIsNotFatal = false;
 }
 
 void AUTGameSession::Destroyed()
@@ -40,12 +41,11 @@ void AUTGameSession::ValidatePlayer(const FString& Address, const TSharedPtr<cla
 		NetDriver = GetWorld()->GetNetDriver();
 	}
 
-	if ( bNoJoinInProgress && UTGameMode->HasMatchStarted() )
+	if ( AllowedAdmins.Find(UniqueId->ToString()) == INDEX_NONE && bNoJoinInProgress && UTGameMode->HasMatchStarted() )
 	{
 		ErrorMessage = TEXT("CANTJOININPROGRESS");
 		return;
 	}
-
 
 	FString LocalAddress = NetDriver->LowLevelGetNetworkNumber();
 
@@ -54,12 +54,23 @@ void AUTGameSession::ValidatePlayer(const FString& Address, const TSharedPtr<cla
 		FString UIDAsString = UniqueId->ToString();
 		for (int32 i = 0; i < BannedUsers.Num(); i++)
 		{
-			if (UIDAsString == BannedUsers[i])
+			if (UIDAsString == BannedUsers[i].UniqueID)
 			{
 				ErrorMessage = TEXT("BANNED");
 				break;
 			}
 		}
+
+		for (int32 i = 0; i < InstanceBannedUsers.Num(); i++)
+		{
+			if (UIDAsString == InstanceBannedUsers[i].UniqueID)
+			{
+				ErrorMessage = TEXT("BANNED");
+				break;
+			}
+		}
+
+
 	}
 	else if (Address != TEXT("127.0.0.1") && !FParse::Param(FCommandLine::Get(), TEXT("AllowEveryone")) && Cast<AUTLobbyGameMode>(UTGameMode) == NULL)
 	{
@@ -86,7 +97,7 @@ bool AUTGameSession::BanPlayer(class APlayerController* BannedPlayer, const FTex
 	if (PS)
 	{
 		UE_LOG(UT,Log,TEXT("Adding Ban for user '%s' (uid: %s) Reason '%s'"), *PS->PlayerName, *PS->UniqueId.ToString(), *BanReason.ToString());
-		BannedUsers.Add(PS->UniqueId.ToString());
+		BannedUsers.Add(FBanInfo(PS->PlayerName, PS->UniqueId.ToString()));
 		SaveConfig();
 
 		// Send off some analytics so we can track # of bans, etc.
@@ -115,6 +126,14 @@ bool AUTGameSession::KickPlayer(APlayerController* KickedPlayer, const FText& Ki
 	// Do not kick logged admins
 	if (KickedPlayer != NULL && Cast<UNetConnection>(KickedPlayer->Player) != NULL)
 	{
+		APlayerState* PS = KickedPlayer->PlayerState;
+		if (PS)
+		{
+			if ( UTGameMode && UTGameMode->IsGameInstanceServer() )
+			{
+				InstanceBannedUsers.Add(FBanInfo(PS->PlayerName, PS->UniqueId.ToString()));
+			}
+		}
 		KickedPlayer->ClientWasKicked(KickReason);
 		KickedPlayer->Destroy();
 		return true;
@@ -506,6 +525,20 @@ void AUTGameSession::InitHostBeacon(FOnlineSessionSettings* SessionSettings)
 		UE_LOG(UT,Log,TEXT("Server Active Port (ignore ip): %s"), *GetNetDriver()->LowLevelGetNetworkNumber());
 		UE_LOG(UT,Log,TEXT("Server Beacon Port: %i"), BeaconHostListener->GetListenPort());
 		UE_LOG(UT,Log,TEXT("---------------------------------------"));
+
+		int32 DesiredPort = AOnlineBeaconHost::StaticClass()->GetDefaultObject<AOnlineBeaconHost>()->ListenPort;
+		if (UTGameMode && !UTGameMode->IsGameInstanceServer() && BeaconHostListener->GetListenPort() != DesiredPort)
+		{
+			if (CantBindBeaconPortIsNotFatal)
+			{
+				UE_LOG(UT,Warning,TEXT("Could not bind to expected beacon port.  Your server will be unresponsive. [%i vs %i]"),BeaconHostListener->GetListenPort(), DesiredPort);
+			}
+			else
+			{
+				UE_LOG(UT,Fatal,TEXT("Could not bind to expected beacon port.  Restarting server!!! [%i vs %i]"),BeaconHostListener->GetListenPort(), DesiredPort);
+			}
+		}
+
 	}
 
 	// Update the beacon port
@@ -525,5 +558,26 @@ void AUTGameSession::DestroyHostBeacon()
 
 		BeaconHostListener->DestroyBeacon();
 		BeaconHostListener = NULL;
+	}
+}
+
+void AUTGameSession::AcknowledgeAdmin(const FString& AdminId, bool bIsAdmin)
+{
+	if (bIsAdmin)
+	{
+		// Make sure he's not already in there.
+
+		if (AllowedAdmins.Find(AdminId) == INDEX_NONE)
+		{
+			AllowedAdmins.Add(AdminId);
+		}
+
+	}
+	else
+	{
+		if (AllowedAdmins.Find(AdminId) != INDEX_NONE)
+		{
+			AllowedAdmins.Remove(AdminId);
+		}
 	}
 }

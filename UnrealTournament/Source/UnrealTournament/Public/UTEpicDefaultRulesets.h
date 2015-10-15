@@ -40,6 +40,12 @@ public:
 	UPROPERTY(Config)
 	TArray<FString> AllowedRulesets;
 
+	UPROPERTY(Config)
+	FString MutatorAddon;
+
+	UPROPERTY(Config)
+	FString IGMutatorAddon;
+
 	static void GetEpicRulesets(TArray<FString>& Rules)
 	{
 		Rules.Add(EEpicDefaultRuleTags::Deathmatch);
@@ -47,6 +53,7 @@ public:
 		Rules.Add(EEpicDefaultRuleTags::TDM);
 		Rules.Add(EEpicDefaultRuleTags::DUEL);
 		Rules.Add(EEpicDefaultRuleTags::SHOWDOWN);
+		Rules.Add(EEpicDefaultRuleTags::TEAMSHOWDOWN);
 		Rules.Add(EEpicDefaultRuleTags::CTF);
 		Rules.Add(EEpicDefaultRuleTags::BIGCTF);
 		Rules.Add(EEpicDefaultRuleTags::iDM);
@@ -68,11 +75,11 @@ public:
 			NewRuleset->Title = TEXT("Deathmatch");
 			NewRuleset->Tooltip = TEXT("Standard free-for-all Deathmatch.");
 			NewRuleset->Description = TEXT("Standard free-for-all deathmatch.\n\n<UT.Hub.RulesText_Small>TimeLimit : 10 minutes</>\n<UT.Hub.RulesText_Small>Maximum players : 6</>");
-			NewRuleset->MinPlayersToStart = 2;
+			NewRuleset->MinPlayersToStart = 3;
 			NewRuleset->MaxPlayers = 6;
 			NewRuleset->DisplayTexture = TEXT("Texture2D'/Game/RestrictedAssets/UI/GameModeBadges/GB_DM.GB_DM'");
 			NewRuleset->GameMode = TEXT("/Script/UnrealTournament.UTDMGameMode");
-			NewRuleset->GameOptions = TEXT("?TimeLimit=10?GoalScore=0");
+			NewRuleset->GameOptions = FString(TEXT("?TimeLimit=10?GoalScore=0")) + GetDefault<UUTEpicDefaultRulesets>()->MutatorAddon;
 			NewRuleset->bTeamGame = false;
 
 			NewRuleset->MaxMapsInList=16;
@@ -106,11 +113,11 @@ public:
 			NewRuleset->Title = TEXT("Big Deathmatch");
 			NewRuleset->Tooltip = TEXT("Deathmatch with large player counts on big maps.");
 			NewRuleset->Description = TEXT("Deathmatch with large player counts on big maps.\n\n<UT.Hub.RulesText_Small>TimeLimit : 10 minutes</>\n<UT.Hub.RulesText_Small>Maximum players: 16</>");
-			NewRuleset->MinPlayersToStart = 2;
+			NewRuleset->MinPlayersToStart = 8;
 			NewRuleset->MaxPlayers = 16;
 			NewRuleset->DisplayTexture = TEXT("Texture2D'/Game/RestrictedAssets/UI/GameModeBadges/GB_LargeDM.GB_LargeDM'");
 			NewRuleset->GameMode = TEXT("/Script/UnrealTournament.UTDMGameMode");
-			NewRuleset->GameOptions = TEXT("?TimeLimit=10?GoalScore=0");
+			NewRuleset->GameOptions = FString(TEXT("?TimeLimit=10?GoalScore=0")) + GetDefault<UUTEpicDefaultRulesets>()->MutatorAddon;
 			NewRuleset->bTeamGame = false;
 
 			NewRuleset->MaxMapsInList=16;
@@ -136,14 +143,50 @@ public:
 			NewRuleset->Title = TEXT("Team Deathmatch");
 			NewRuleset->Tooltip = TEXT("Red versus blue team deathmatch.");
 			NewRuleset->Description = TEXT("Red versus blue team deathmatch.\n\n<UT.Hub.RulesText_Small>TimeLimit : 20 minutes</>\n<UT.Hub.RulesText_Small>Mercy Rule : On</>\n<UT.Hub.RulesText_Small>Maximum players: 10</>");
-			NewRuleset->MinPlayersToStart = 2;
+			NewRuleset->MinPlayersToStart = 4;
 			NewRuleset->MaxPlayers = 10;
 			NewRuleset->DisplayTexture = TEXT("Texture2D'/Game/RestrictedAssets/UI/GameModeBadges/GB_TDM.GB_TDM'");
 			NewRuleset->GameMode = TEXT("/Script/UnrealTournament.UTTeamDMGameMode");
-			NewRuleset->GameOptions = TEXT("?TimeLimit=20?GoalScore=0");
+			NewRuleset->GameOptions = FString(TEXT("?TimeLimit=20?GoalScore=0")) + GetDefault<UUTEpicDefaultRulesets>()->MutatorAddon;
 			NewRuleset->bTeamGame = true;
 
 			NewRuleset->MaxMapsInList=16;
+
+			NewRuleset->EpicMaps = "/Game/RestrictedAssets/Maps/DM-Outpost23";
+			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/DM-Spacer";
+			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/DM-Vortex";
+			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/DM-Cannon";
+			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/DM-Chill";
+			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/DM-SidCastle";
+			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/DM-Deadfall";
+			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/DM-Temple";
+			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/DM-Focus";
+			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/DM-Overlord";
+			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/DM-NickTest1";
+			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/DM-Solo";
+			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/DM-Decktest";
+			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/DM-Tuba";
+			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/DM-ASDF";
+			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/EpicInternal/Lea/DM-Lea";
+			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/DM-RGB";
+			NewRuleset->DefaultMap = "/Game/RestrictedAssets/Maps/DM-Outpost23";
+		}
+		else if (NewRuleset->UniqueTag.Equals(EEpicDefaultRuleTags::TEAMSHOWDOWN, ESearchCase::IgnoreCase))
+		{
+			NewRuleset->Categories.Empty();
+			NewRuleset->Categories.Add(TEXT("TeamPlay"));
+
+			NewRuleset->Title = TEXT("Team Showdown");
+			NewRuleset->Tooltip = TEXT("Red versus blue team showdown.");
+			NewRuleset->Description = TEXT("Red versus blue team showdown.\n\n<UT.Hub.RulesText_Small>TimeLimit : 2 minute rounds</>\n<UT.Hub.RulesText_Small>Scoring : Best of 9 rounds</>\n<UT.Hub.RulesText_Small>Maximum players: 8</>");
+			NewRuleset->MinPlayersToStart = 4;
+			NewRuleset->MaxPlayers = 8;
+			NewRuleset->DisplayTexture = TEXT("Texture2D'/Game/RestrictedAssets/UI/GameModeBadges/GB_TDM.GB_TDM'");
+			NewRuleset->GameMode = TEXT("/Script/UnrealTournament.UTTeamShowdownGame");
+			NewRuleset->GameOptions = FString(TEXT("?TimeLimit=2?GoalScore=5")) + GetDefault<UUTEpicDefaultRulesets>()->MutatorAddon;
+			NewRuleset->bTeamGame = true;
+
+			NewRuleset->MaxMapsInList = 16;
 
 			NewRuleset->EpicMaps = "/Game/RestrictedAssets/Maps/DM-Outpost23";
 			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/DM-Spacer";
@@ -176,7 +219,7 @@ public:
 			NewRuleset->MaxPlayers = 2;
 			NewRuleset->DisplayTexture = TEXT("Texture2D'/Game/RestrictedAssets/UI/GameModeBadges/GB_Duel.GB_Duel'");
 			NewRuleset->GameMode = TEXT("/Script/UnrealTournament.UTDuelGame");
-			NewRuleset->GameOptions = TEXT("?TimeLimit=10?GoalScore=0");
+			NewRuleset->GameOptions = FString(TEXT("?TimeLimit=10?GoalScore=0")) + GetDefault<UUTEpicDefaultRulesets>()->MutatorAddon;
 			NewRuleset->bTeamGame = true;
 
 			NewRuleset->MaxMapsInList=16;
@@ -200,7 +243,7 @@ public:
 			NewRuleset->MaxPlayers = 2;
 			NewRuleset->DisplayTexture = TEXT("Texture2D'/Game/RestrictedAssets/UI/GameModeBadges/GB_Duel.GB_Duel'");
 			NewRuleset->GameMode = TEXT("/Script/UnrealTournament.UTShowdownGame");
-			NewRuleset->GameOptions = TEXT("?Timelimit=2?GoalScore=5");
+			NewRuleset->GameOptions = FString(TEXT("?Timelimit=2?GoalScore=5")) + GetDefault<UUTEpicDefaultRulesets>()->MutatorAddon;
 			NewRuleset->bTeamGame = true;
 
 			NewRuleset->MaxMapsInList=16;
@@ -221,11 +264,11 @@ public:
 			NewRuleset->Title = TEXT("Capture the Flag");
 			NewRuleset->Tooltip = TEXT("Capture the Flag.");
 			NewRuleset->Description = TEXT("Capture the Flag, with guns.\n\n<UT.Hub.RulesText_Small>TimeLimit : 2x 10 minute halfs</>\n<UT.Hub.RulesText_Small>Mercy Rule : On</>\n<UT.Hub.RulesText_Small>Maximum players : 10</>");
-			NewRuleset->MinPlayersToStart = 2;
+			NewRuleset->MinPlayersToStart = 4;
 			NewRuleset->MaxPlayers = 10;
 			NewRuleset->DisplayTexture = TEXT("Texture2D'/Game/RestrictedAssets/UI/GameModeBadges/GB_CTF.GB_CTF'");
 			NewRuleset->GameMode = TEXT("/Script/UnrealTournament.UTCTFGameMode");
-			NewRuleset->GameOptions = TEXT("?TimeLimit=20?GoalScore=0");
+			NewRuleset->GameOptions = FString(TEXT("?TimeLimit=20?GoalScore=0")) + GetDefault<UUTEpicDefaultRulesets>()->MutatorAddon;
 			NewRuleset->bTeamGame = true;
 
 			NewRuleset->MaxMapsInList=16;
@@ -242,6 +285,9 @@ public:
 			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/CTF-CrashSite";
 			NewRuleset->EpicMaps = NewRuleset->EpicMaps + ",/Game/RestrictedAssets/Maps/WIP/CTF-Quick";
 			NewRuleset->DefaultMap = "/Game/RestrictedAssets/Maps/CTF-TitanPass";
+			NewRuleset->QuickPlayMaps.Add(TEXT("/Game/RestrictedAssets/Maps/CTF-TitanPass"));
+			NewRuleset->QuickPlayMaps.Add(TEXT("/Game/RestrictedAssets/Maps/CTF-Face"));
+			NewRuleset->QuickPlayMaps.Add(TEXT("/Game/EpicInternal/Pistola/CTF-Pistola"));
 		}
 		else if (NewRuleset->UniqueTag.Equals(EEpicDefaultRuleTags::BIGCTF, ESearchCase::IgnoreCase))
 		{
@@ -251,11 +297,11 @@ public:
 			NewRuleset->Title = TEXT("Big Capture the Flag");
 			NewRuleset->Tooltip = TEXT("Capture the Flag with large teams.");
 			NewRuleset->Description = TEXT("Capture the Flag with large teams.\n\n<UT.Hub.RulesText_Small>TimeLimit : 2x 10 minute halfs</>\n<UT.Hub.RulesText_Small>Mercy Rule : On</>\n<UT.Hub.RulesText_Small>Maximum players : 20</>");
-			NewRuleset->MinPlayersToStart = 2;
+			NewRuleset->MinPlayersToStart = 10;
 			NewRuleset->MaxPlayers = 20;
 			NewRuleset->DisplayTexture = TEXT("Texture2D'/Game/RestrictedAssets/UI/GameModeBadges/GB_LargeCTF.GB_LargeCTF'");
 			NewRuleset->GameMode = TEXT("/Script/UnrealTournament.UTCTFGameMode");
-			NewRuleset->GameOptions = TEXT("?TimeLimit=20?GoalScore=0");
+			NewRuleset->GameOptions = FString(TEXT("?TimeLimit=20?GoalScore=0")) + GetDefault<UUTEpicDefaultRulesets>()->MutatorAddon;
 			NewRuleset->bTeamGame = true;
 
 			NewRuleset->MaxMapsInList=16;
@@ -276,11 +322,11 @@ public:
 			NewRuleset->Title = TEXT("Instagib DM");
 			NewRuleset->Tooltip = TEXT("One hit one kill Deathmatch.");
 			NewRuleset->Description = TEXT("One hit one kill Deathmatch.\n\n<UT.Hub.RulesText_Small>Mutators : Instagib</>\n<UT.Hub.RulesText_Small>TimeLimit : 10 minutes</>\n<UT.Hub.RulesText_Small>Maximum players : 10</>");
-			NewRuleset->MinPlayersToStart = 2;
+			NewRuleset->MinPlayersToStart = 3;
 			NewRuleset->MaxPlayers = 10;
 			NewRuleset->DisplayTexture = TEXT("Texture2D'/Game/RestrictedAssets/UI/GameModeBadges/GB_InstagibDM.GB_InstagibDM'");
 			NewRuleset->GameMode = TEXT("/Script/UnrealTournament.UTDMGameMode");
-			NewRuleset->GameOptions = TEXT("?TimeLimit=10?GoalScore=0?Mutator=Instagib");
+			NewRuleset->GameOptions = FString(TEXT("?TimeLimit=10?GoalScore=0?Mutator=Instagib")) + GetDefault<UUTEpicDefaultRulesets>()->IGMutatorAddon;
 			NewRuleset->bTeamGame = false;
 
 			NewRuleset->MaxMapsInList=16;
@@ -311,11 +357,11 @@ public:
 			NewRuleset->Title = TEXT("Instagib TDM");
 			NewRuleset->Tooltip = TEXT("One hit one kill Team Deathmatch.");
 			NewRuleset->Description = TEXT("One hit one kill Team Deathmatch.\n\n<UT.Hub.RulesText_Small>Mutators : Instagib</>\n<UT.Hub.RulesText_Small>TimeLimit : 20 minutes</>\n<UT.Hub.RulesText_Small>Mercy Rule : On</>\n<UT.Hub.RulesText_Small>Maximum players : 16</>");
-			NewRuleset->MinPlayersToStart = 2;
+			NewRuleset->MinPlayersToStart = 4;
 			NewRuleset->MaxPlayers = 16;
 			NewRuleset->DisplayTexture = TEXT("Texture2D'/Game/RestrictedAssets/UI/GameModeBadges/GB_InstagibDuel.GB_InstagibDuel'");
 			NewRuleset->GameMode = TEXT("/Script/UnrealTournament.UTTeamDMGameMode");
-			NewRuleset->GameOptions = TEXT("?TimeLimit=20?GoalScore=0?Mutator=Instagib");
+			NewRuleset->GameOptions = FString(TEXT("?TimeLimit=20?GoalScore=0?Mutator=Instagib")) + GetDefault<UUTEpicDefaultRulesets>()->IGMutatorAddon;
 			NewRuleset->bTeamGame = true;
 
 			NewRuleset->MaxMapsInList=16;
@@ -346,11 +392,11 @@ public:
 			NewRuleset->Title = TEXT("Instagib CTF");
 			NewRuleset->Tooltip = TEXT("Instagib CTF");
 			NewRuleset->Description = TEXT("Capture the Flag with Instagib rifles.\n\n<UT.Hub.RulesText_Small>Mutators : Instagib</>\n<UT.Hub.RulesText_Small>TimeLimit : 2x 10 minute halfs</>\n<UT.Hub.RulesText_Small>Mercy Rule : On</>\n<UT.Hub.RulesText_Small>Maximum players : 16</>");
-			NewRuleset->MinPlayersToStart = 2;
+			NewRuleset->MinPlayersToStart = 6;
 			NewRuleset->MaxPlayers = 16;
 			NewRuleset->DisplayTexture = TEXT("Texture2D'/Game/RestrictedAssets/UI/GameModeBadges/GB_InstagibCTF.GB_InstagibCTF'");
 			NewRuleset->GameMode = TEXT("/Script/UnrealTournament.UTCTFGameMode");
-			NewRuleset->GameOptions = TEXT("?TimeLimit=20?GoalScore=0?Mutator=Instagib");
+			NewRuleset->GameOptions = FString(TEXT("?TimeLimit=20?GoalScore=0?Mutator=Instagib")) + GetDefault<UUTEpicDefaultRulesets>()->IGMutatorAddon;
 			NewRuleset->bTeamGame = true;
 
 			NewRuleset->MaxMapsInList=16;
@@ -376,11 +422,11 @@ public:
 			NewRuleset->Title = TEXT("Translocator iCTF");
 			NewRuleset->Tooltip = TEXT("Translocator iCTF");
 			NewRuleset->Description = TEXT("Capture the Flag with Instagib rifles and Translocators.\n\n<UT.Hub.RulesText_Small>Mutators : Instagib</>\n<UT.Hub.RulesText_Small>TimeLimit : 2x 10 minute halfs</>\n<UT.Hub.RulesText_Small>Mercy Rule : On</>\n<UT.Hub.RulesText_Small>Maximum players : 16</>");
-			NewRuleset->MinPlayersToStart = 2;
+			NewRuleset->MinPlayersToStart = 6;
 			NewRuleset->MaxPlayers = 16;
 			NewRuleset->DisplayTexture = TEXT("Texture2D'/Game/RestrictedAssets/UI/GameModeBadges/GB_InstagibCTF.GB_InstagibCTF'");
 			NewRuleset->GameMode = TEXT("/Script/UnrealTournament.UTCTFGameMode");
-			NewRuleset->GameOptions = TEXT("?TimeLimit=20?GoalScore=0?Mutator=Instagib,AddTrans");
+			NewRuleset->GameOptions = FString(TEXT("?TimeLimit=20?GoalScore=0?Mutator=Instagib,AddTrans")) + GetDefault<UUTEpicDefaultRulesets>()->IGMutatorAddon;
 			NewRuleset->bTeamGame = true;
 
 			NewRuleset->MaxMapsInList=16;

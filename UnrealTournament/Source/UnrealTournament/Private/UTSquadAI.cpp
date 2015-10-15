@@ -329,7 +329,7 @@ bool AUTSquadAI::FollowAlternateRoute(AUTBot* B, AActor* Goal, TArray<FAlternate
 			}
 			// sanity check the goal is in there
 			{
-				NavNodeRef Poly = NavData->FindNearestPoly(Goal->GetActorLocation(), NavData->GetPOIExtent(Goal));
+				NavNodeRef Poly = NavData->UTFindNearestPoly(Goal->GetActorLocation(), NavData->GetPOIExtent(Goal));
 				NodeEval.Goals.Add(FRouteCacheItem(Goal, Goal->GetActorLocation(), Poly, NavData->GetNodeFromPoly(Poly)));
 			}
 			float Weight = 0.0f;

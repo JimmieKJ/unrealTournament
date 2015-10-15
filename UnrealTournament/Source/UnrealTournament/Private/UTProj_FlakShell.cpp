@@ -17,7 +17,7 @@ AUTProj_FlakShell::AUTProj_FlakShell(const class FObjectInitializer& ObjectIniti
 
 	TossZ = 430.0f;
 
-	DamageParams.BaseDamage = 100.0f;
+	DamageParams.BaseDamage = 80.0f;
 	DamageParams.OuterRadius = 370.0f;
 
 	Momentum = 150000.0f;
@@ -26,7 +26,7 @@ AUTProj_FlakShell::AUTProj_FlakShell(const class FObjectInitializer& ObjectIniti
 
 	// Flak shell
 	ShardSpawnCount = 5;
-	ShardSpawnAngle = 30.0f;
+	ShardSpawnAngle = 20.0f;
 }
 
 void AUTProj_FlakShell::Explode_Implementation(const FVector& HitLocation, const FVector& HitNormal, UPrimitiveComponent* HitComp)
@@ -38,35 +38,54 @@ void AUTProj_FlakShell::Explode_Implementation(const FVector& HitLocation, const
 		// On explosion spawn additional flak shards
 		if (Role == ROLE_Authority && ShardClass != NULL && ShardSpawnCount > 0)
 		{
-			// push spawn location out slightly, but be careful not to push it into world geometry
-			FVector SpawnPos = HitLocation + 10.0f * HitNormal;
-			FCollisionQueryParams TraceParams;
-			TraceParams.AddIgnoredActor(this);
-			TraceParams.AddIgnoredActor(ImpactedActor);
-			FHitResult Hit;
-			if (GetWorld()->LineTraceSingleByChannel(Hit, SpawnPos, HitLocation, ECC_Visibility, TraceParams))
+			if (Cast<APawn>(ImpactedActor))
 			{
-				SpawnPos = Hit.Location;
-			}
-
-			// Setup spawn parameters
-			FActorSpawnParameters Params;
-			Params.Instigator = Instigator;
-			Params.Owner = Instigator;
-
-			for (int32 i = 0; i < ShardSpawnCount; ++i)
-			{
-				FVector MovementDir = GetActorRotation().Vector();
-				FVector ShardDir = (MovementDir - 2.0f * HitNormal * (MovementDir | HitNormal));
-				// Randomize spawn direction along bounce direction
-				const FRotator SpawnRotation = FMath::VRandCone(ShardDir, FMath::DegreesToRadians(ShardSpawnAngle)).Rotation();
-
-				// Spawn shard
-				AUTProjectile* Proj = GetWorld()->SpawnActor<AUTProjectile>(ShardClass, SpawnPos, SpawnRotation, Params);
-				// propagate InstigatorController, since Instigator->Controller might have been disconnected by now
-				if (Proj != NULL && InstigatorController != NULL)
+				AUTProjectile* DefaultShard = Cast<AUTProjectile>(ShardClass->GetDefaultObject());
+				if (DefaultShard)
 				{
-					Proj->InstigatorController = InstigatorController;
+					// no shards, just give the damage directly to the pawn
+					FUTPointDamageEvent Event;
+					float AdjustedMomentum = DefaultShard->Momentum;
+					Event.Damage = GetDamageParams(ImpactedActor, HitLocation, AdjustedMomentum).BaseDamage;
+					Event.DamageTypeClass = DefaultShard->MyDamageType;
+					Event.HitInfo = FHitResult(ImpactedActor, HitComp, HitLocation, HitNormal);
+					Event.ShotDirection = GetVelocity().GetSafeNormal();
+					Event.Momentum = Event.ShotDirection * AdjustedMomentum;
+					ImpactedActor->TakeDamage(Event.Damage, Event, InstigatorController, this);
+				}
+			}
+			else
+			{
+				// push spawn location out slightly, but be careful not to push it into world geometry
+				FVector SpawnPos = HitLocation + 10.0f * HitNormal;
+				FCollisionQueryParams TraceParams;
+				TraceParams.AddIgnoredActor(this);
+				TraceParams.AddIgnoredActor(ImpactedActor);
+				FHitResult Hit;
+				if (GetWorld()->LineTraceSingleByChannel(Hit, SpawnPos, HitLocation, ECC_Visibility, TraceParams))
+				{
+					SpawnPos = Hit.Location;
+				}
+
+				// Setup spawn parameters
+				FActorSpawnParameters Params;
+				Params.Instigator = Instigator;
+				Params.Owner = Instigator;
+
+				for (int32 i = 0; i < ShardSpawnCount; ++i)
+				{
+					FVector MovementDir = GetActorRotation().Vector();
+					FVector ShardDir = (MovementDir - 2.0f * HitNormal * (MovementDir | HitNormal));
+					// Randomize spawn direction along bounce direction
+					const FRotator SpawnRotation = FMath::VRandCone(ShardDir, FMath::DegreesToRadians(ShardSpawnAngle)).Rotation();
+
+					// Spawn shard
+					AUTProjectile* Proj = GetWorld()->SpawnActor<AUTProjectile>(ShardClass, SpawnPos, SpawnRotation, Params);
+					// propagate InstigatorController, since Instigator->Controller might have been disconnected by now
+					if (Proj != NULL && InstigatorController != NULL)
+					{
+						Proj->InstigatorController = InstigatorController;
+					}
 				}
 			}
 		}

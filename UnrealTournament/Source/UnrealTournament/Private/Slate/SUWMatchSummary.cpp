@@ -764,12 +764,16 @@ void SUWMatchSummary::Tick(const FGeometry& AllottedGeometry, const double InCur
 	}
 
 	//Create the xp widget when on final shot
-	if (HasCamFlag(CF_ShowXPBar) && !XPBar.IsValid() && PlayerOwner.IsValid() && PlayerOwner->IsOnTrustedServer() && PlayerOwner->IsLoggedIn() && GameState.IsValid() && GameState->GetMatchState() == MatchState::WaitingPostMatch)
+	if (HasCamFlag(CF_ShowXPBar) && !XPBar.IsValid() && PlayerOwner.IsValid() && GameState.IsValid() && GameState->GetMatchState() == MatchState::WaitingPostMatch)
 	{
-		XPOverlay->AddSlot()
-		[
-			SAssignNew(XPBar, SUTXPBar).PlayerOwner(PlayerOwner)
-		];
+		AUTGameMode* Game = PlayerOwner->GetWorld()->GetAuthGameMode<AUTGameMode>();
+		if ((PlayerOwner->IsOnTrustedServer() && PlayerOwner->IsLoggedIn()) || (Game && Game->bOfflineChallenge))
+		{
+			XPOverlay->AddSlot()
+			[
+				SAssignNew(XPBar, SUTXPBar).PlayerOwner(PlayerOwner)
+			];
+		}
 	}
 }
 
@@ -1044,18 +1048,7 @@ AUTCharacter* SUWMatchSummary::RecreatePlayerPreview(AUTPlayerState* NewPS, FVec
 		PlayerPreviewMesh->PlayerState = NewPS; //PS needed for team colors
 		PlayerPreviewMesh->Health = 100; //Set to 100 so the TacCom Overlay doesn't show damage
 		PlayerPreviewMesh->DeactivateSpawnProtection();
-
-		if (NewPS->IsFemale())
-		{
-			PlayerPreviewAnimBlueprint = LoadObject<UClass>(nullptr, TEXT("/Game/RestrictedAssets/UI/ABP_Female_PlayerPreview.ABP_Female_PlayerPreview_C"));
-		}
-		else
-		{
-			PlayerPreviewAnimBlueprint = LoadObject<UClass>(nullptr, TEXT("/Game/RestrictedAssets/UI/ABP_PlayerPreview.ABP_PlayerPreview_C"));
-		}
-
-		PlayerPreviewMesh->GetMesh()->SetAnimInstanceClass(PlayerPreviewAnimBlueprint);
-
+		
 		PlayerPreviewMesh->ApplyCharacterData(NewPS->GetSelectedCharacter());
 		PlayerPreviewMesh->NotifyTeamChanged();
 
@@ -1092,6 +1085,48 @@ AUTCharacter* SUWMatchSummary::RecreatePlayerPreview(AUTPlayerState* NewPS, FVec
 			PreviewWeapon->AttachToOwner();
 			PreviewWeapons.Add(PreviewWeapon);
 		}
+
+		if (NewPS->IsFemale())
+		{
+			if (WeaponIndex % 6 == 0 || WeaponIndex % 6 == 3 || WeaponIndex % 6 == 5)
+			{
+				PlayerPreviewAnim = LoadObject<UAnimationAsset>(NULL, TEXT("/Game/RestrictedAssets/Animations/Universal/Misc_Poses/MatchPoseFemale_ShockRifle.MatchPoseFemale_ShockRifle"));
+			}
+			else if (WeaponIndex % 6 == 1)
+			{
+				PlayerPreviewAnim = LoadObject<UAnimationAsset>(NULL, TEXT("/Game/RestrictedAssets/Animations/Universal/Misc_Poses/MatchPoseFemale_Sniper.MatchPoseFemale_Sniper"));
+			}
+			else if (WeaponIndex % 6 == 2)
+			{
+				PlayerPreviewAnim = LoadObject<UAnimationAsset>(NULL, TEXT("/Game/RestrictedAssets/Animations/Universal/Misc_Poses/MatchPoseFemale_Flak_B.MatchPoseFemale_Flak_B"));
+			}
+			else if (WeaponIndex % 6 == 4)
+			{
+				PlayerPreviewAnim = LoadObject<UAnimationAsset>(NULL, TEXT("/Game/RestrictedAssets/Animations/Universal/Misc_Poses/MatchPoseFemale_Flak.MatchPoseFemale_Flak"));
+			}
+		}
+		else
+		{
+			if (WeaponIndex % 6 == 0 || WeaponIndex % 6 == 3 || WeaponIndex % 6 == 5)
+			{
+				PlayerPreviewAnim = LoadObject<UAnimationAsset>(NULL, TEXT("/Game/RestrictedAssets/Animations/Universal/Misc_Poses/MatchPose_ShockRifle.MatchPose_ShockRifle"));
+			}
+			else if (WeaponIndex % 6 == 1)
+			{
+				PlayerPreviewAnim = LoadObject<UAnimationAsset>(NULL, TEXT("/Game/RestrictedAssets/Animations/Universal/Misc_Poses/MatchPose_Sniper.MatchPose_Sniper"));
+			}
+			else if (WeaponIndex % 6 == 2)
+			{
+				PlayerPreviewAnim = LoadObject<UAnimationAsset>(NULL, TEXT("/Game/RestrictedAssets/Animations/Universal/Misc_Poses/MatchPose_Flak_B.MatchPose_Flak_B"));
+			}
+			else if (WeaponIndex % 6 == 4)
+			{
+				PlayerPreviewAnim = LoadObject<UAnimationAsset>(NULL, TEXT("/Game/RestrictedAssets/Animations/Universal/Misc_Poses/MatchPose_Flak.MatchPose_Flak"));
+			}
+		}
+
+		PlayerPreviewMesh->GetMesh()->PlayAnimation(PlayerPreviewAnim, true);
+		PlayerPreviewMesh->GetMesh()->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones;
 
 		PlayerPreviewMeshs.Add(PlayerPreviewMesh);
 		return PlayerPreviewMesh;
@@ -1353,10 +1388,10 @@ FReply SUWMatchSummary::OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent& 
 		}
 
 		//Pass the key event to PlayerInput 
-		if (UTInput->InputKey(InKeyEvent.GetKey(), EInputEvent::IE_Pressed, 1.0f, false))
+		/*if (UTInput->InputKey(InKeyEvent.GetKey(), EInputEvent::IE_Pressed, 1.0f, false))
 		{
 			return FReply::Handled();
-		}
+		}*/
 	}
 
 	return FReply::Unhandled();
@@ -1374,15 +1409,31 @@ FReply SUWMatchSummary::OnKeyUp(const FGeometry& MyGeometry, const FKeyEvent& In
 		}
 	}
 
-	//Pass the key event to PlayerInput 
 	UUTPlayerInput* UTInput = Cast<UUTPlayerInput>(GetPlayerOwner()->PlayerController->PlayerInput);
+	AUTPlayerController* UTPC = Cast<AUTPlayerController>(GetPlayerOwner()->PlayerController);
+
+	if (UTInput != nullptr && UTPC != nullptr)
+	{
+		auto MenuKeys = UTInput->GetKeysForAction("ShowMenu");
+		for (auto& MenuKey : MenuKeys)
+		{
+			if (InKeyEvent.GetKey().GetFName() == MenuKey.Key)
+			{
+				UTPC->execShowMenu();
+				return FReply::Handled();
+			}
+		}
+	}
+
+	//Pass the key event to PlayerInput 
+	/*UUTPlayerInput* UTInput = Cast<UUTPlayerInput>(GetPlayerOwner()->PlayerController->PlayerInput);
 	if (UTInput != nullptr)
 	{
 		if (UTInput->InputKey(InKeyEvent.GetKey(), EInputEvent::IE_Released, 1.0f, false))
 		{
 			return FReply::Handled();
 		}
-	}
+	}*/
 
 	return FReply::Unhandled();
 }
@@ -1788,7 +1839,7 @@ FText SUWMatchSummary::GetSwitcherText() const
 
 FSlateColor SUWMatchSummary::GetSwitcherColor() const
 {
-	if (HasCamFlag(CF_Team) && GameState.IsValid() && GameState->Teams.IsValidIndex(ViewedTeamNum))
+	if (HasCamFlag(CF_Team) && GameState.IsValid() && GameState->Teams.IsValidIndex(ViewedTeamNum) && GameState->Teams[ViewedTeamNum] != nullptr)
 	{
 		return FMath::LerpStable(GameState->Teams[ViewedTeamNum]->TeamColor, FLinearColor::White, 0.3f);
 	}

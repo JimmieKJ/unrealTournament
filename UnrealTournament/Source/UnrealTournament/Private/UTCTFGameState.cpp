@@ -196,14 +196,13 @@ bool AUTCTFGameState::IsMatchInProgress() const
 {
 	FName MatchState = GetMatchState();
 	return (MatchState == MatchState::InProgress || MatchState == MatchState::MatchIsInOvertime || MatchState == MatchState::MatchIsAtHalftime ||
-		MatchState == MatchState::MatchEnteringHalftime || MatchState == MatchState::MatchExitingHalftime ||
-		MatchState == MatchState::MatchEnteringSuddenDeath || MatchState == MatchState::MatchIsInSuddenDeath);
+		MatchState == MatchState::MatchEnteringHalftime || MatchState == MatchState::MatchExitingHalftime);
 }
 
 bool AUTCTFGameState::IsMatchInOvertime() const
 {
 	FName MatchState = GetMatchState();
-	return (MatchState == MatchState::MatchIsInOvertime || MatchState == MatchState::MatchEnteringSuddenDeath || MatchState == MatchState::MatchIsInSuddenDeath);
+	return (MatchState == MatchState::MatchIsInOvertime);
 }
 
 
@@ -211,12 +210,6 @@ bool AUTCTFGameState::IsMatchAtHalftime() const
 {
 	FName MatchState = GetMatchState();
 	return (MatchState == MatchState::MatchIsAtHalftime || MatchState == MatchState::MatchEnteringHalftime || MatchState == MatchState::MatchExitingHalftime);
-}
-
-bool AUTCTFGameState::IsMatchInSuddenDeath() const
-{
-	FName MatchState = GetMatchState();
-	return (MatchState == MatchState::MatchEnteringSuddenDeath || MatchState == MatchState::MatchIsInSuddenDeath);
 }
 
 FName AUTCTFGameState::OverrideCameraStyle(APlayerController* PCOwner, FName CurrentCameraStyle)
@@ -287,7 +280,7 @@ FText AUTCTFGameState::GetGameStatusText()
 	{
 		if (IsMatchInOvertime())
 		{
-			return NSLOCTEXT("UTFGameState", "Overtime", "Overtime!");
+			return (ElapsedTime - OvertimeStartTime < TimeLimit) ? NSLOCTEXT("UTCTFGameState", "Overtime", "Overtime!") : NSLOCTEXT("UTCTFGameState", "ExtendedOvertime", "Extended Overtime!");
 		}
 
 		return bSecondHalf ? NSLOCTEXT("UTCTFGameState", "SecondHalf", "Second Half") : NSLOCTEXT("UTCTFGameState", "FirstHalf", "First Half");

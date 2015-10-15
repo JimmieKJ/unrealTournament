@@ -4,6 +4,7 @@
 #include "SlateBasics.h"
 #include "Slate/SlateGameResources.h"
 #include "SUWindowsDesktop.h"
+#include "Widgets/SUTComboButton.h"
 
 #if !UE_SERVER
 
@@ -11,32 +12,32 @@ class UNREALTOURNAMENT_API SUTMenuBase : public SUWindowsDesktop
 {
 public:
 	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime );
-	virtual FReply OnShowServerBrowser(TSharedPtr<SComboButton> MenuButton);
+	virtual FReply OnShowServerBrowser();
 
-	virtual FReply OpenControlSettings(TSharedPtr<SComboButton> MenuButton);
-	virtual FReply OpenPlayerSettings(TSharedPtr<SComboButton> MenuButton);
-	virtual FReply OpenSocialSettings(TSharedPtr<SComboButton> MenuButton);
-	virtual FReply OpenWeaponSettings(TSharedPtr<SComboButton> MenuButton);
-	virtual FReply OpenSystemSettings(TSharedPtr<SComboButton> MenuButton);
-	virtual FReply OpenHUDSettings(TSharedPtr<SComboButton> MenuButton);
+	virtual FReply OpenControlSettings();
+	virtual FReply OpenPlayerSettings();
+	virtual FReply OpenSocialSettings();
+	virtual FReply OpenWeaponSettings();
+	virtual FReply OpenSystemSettings();
+	virtual FReply OpenHUDSettings();
 	virtual FReply OpenProfileItems();
-	virtual FReply ClearCloud(TSharedPtr<SComboButton> MenuButton);
+	virtual FReply ClearCloud();
 
 	virtual FReply OnShowServerBrowserPanel();
 
 protected:
 	TSharedPtr<class SHorizontalBox> LeftMenuBar;
 	TSharedPtr<class SHorizontalBox> RightMenuBar;
-	TArray< TSharedPtr<SComboButton> > MenuButtons;
+	TArray< TSharedPtr<SUTComboButton> > MenuButtons;
 
 	TSharedPtr<SUWPanel> HomePanel;
 
 	virtual void CreateDesktop();
 
-	virtual FReply OpenTPSReport(TSharedPtr<SComboButton> MenuButton);
-	virtual FReply OpenCredits(TSharedPtr<SComboButton> MenuButton);
-	virtual FReply OnMenuHTTPButton(FString URL, TSharedPtr<SComboButton> MenuButton);
-	virtual FReply ShowWidgetReflector(TSharedPtr<SComboButton> MenuButton);
+	virtual FReply OpenTPSReport();
+	virtual FReply OpenCredits();
+	virtual FReply OnMenuHTTPButton(FString URL);
+	virtual FReply ShowWidgetReflector();
 	virtual FReply OnOnlineClick();
 
 	virtual void BuildLeftMenuBar();
@@ -48,7 +49,7 @@ protected:
 	virtual TSharedRef<SWidget> BuildOnlinePresence();
 	virtual TSharedRef<SWidget> BuildBackground();
 
-	virtual void BuildExitMenu(TSharedPtr<SComboButton> ExitButton, TSharedPtr<SVerticalBox> MenuSpace);
+	virtual void BuildExitMenu(TSharedPtr<SUTComboButton> ExitButton);
 	
 	virtual void OnOwnerLoginStatusChanged(UUTLocalPlayer* LocalPlayerOwner, ELoginStatus::Type NewStatus, const FUniqueNetId& UniqueID);
 

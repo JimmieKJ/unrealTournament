@@ -5,6 +5,7 @@
 #include "GameFramework/GameMode.h"
 #include "UTGameMode.h"
 #include "UTDMGameMode.h"
+#include "UTWorldSettings.h"
 
 AUTMenuGameMode::AUTMenuGameMode(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -15,12 +16,39 @@ AUTMenuGameMode::AUTMenuGameMode(const class FObjectInitializer& ObjectInitializ
 }
 
 
+
 void AUTMenuGameMode::RestartGame()
 {
 	return;
 }
 void AUTMenuGameMode::BeginGame()
 {
+	return;
+}
+
+void AUTMenuGameMode::PostInitializeComponents()
+{
+	Super::PostInitializeComponents();
+
+	AUTWorldSettings* WorldSettings;
+	WorldSettings = Cast<AUTWorldSettings>(GetWorld()->GetWorldSettings());
+	if (WorldSettings)
+	{
+		FString MenuMusicPath = FDateTime().Now().GetMonth() == 10 ? TEXT("SoundWave'/Game/RestrictedAssets/Audio/Music/Music_HaveAnUnrealHalloween.Music_HaveAnUnrealHalloween'") : MenuMusicAssetName;
+		// We use a second var to make sure we never write this value back out
+		
+		if ( MenuMusicPath != TEXT("") )
+		{
+
+			MenuMusic = LoadObject<USoundBase>(NULL, *MenuMusicPath, NULL, LOAD_NoWarn | LOAD_Quiet);
+			if (MenuMusic)
+			{
+				UGameplayStatics::PlaySoundAtLocation( this, MenuMusic, FVector(0,0,0), 1.0, 1.0 );
+			}
+			
+		}
+	
+	}
 	return;
 }
 

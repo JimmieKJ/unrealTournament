@@ -141,6 +141,13 @@ void UUTGameEngine::Init(IEngineLoop* InEngineLoop)
 			VideoRecorder = &IModularFeatures::Get().GetModularFeature<UTVideoRecordingFeature>(VideoRecordingFeatureName);
 		}
 	}
+
+#if !UE_SERVER
+	ChallengeManager = NewObject<UUTChallengeManager>(GetTransientPackage(),UUTChallengeManager::StaticClass());
+	ChallengeManager->AddToRoot();
+#endif
+
+
 }
 
 void UUTGameEngine::PreExit()
@@ -268,16 +275,6 @@ bool UUTGameEngine::Exec(UWorld* InWorld, const TCHAR* Cmd, FOutputDevice& Out)
 
 }
 
-void UUTGameEngine::TickWorldTravel(FWorldContext& WorldContext, float DeltaSeconds)
-{
-	// halt network travel while waiting for redirects
-	UUTGameInstance* GI = Cast<UUTGameInstance>(WorldContext.OwningGameInstance);
-	if (GI == NULL || WorldContext.PendingNetGame == NULL || !GI->IsAutoDownloadingContent())
-	{
-		Super::TickWorldTravel(WorldContext, DeltaSeconds);
-	}
-}
-
 void UUTGameEngine::Tick(float DeltaSeconds, bool bIdleMode)
 {
 	// HACK: make sure our default URL options are in all travel URLs since FURL code to do this was removed
@@ -379,7 +376,7 @@ EBrowseReturnVal::Type UUTGameEngine::Browse( FWorldContext& WorldContext, FURL 
 #endif
 	if (URL.IsLocalInternal() && !IsRunningDedicatedServer() && !LocallyHasEntitlement(GetRequiredEntitlementFromPackageName(FName(*FPaths::GetBaseFilename(URL.Map)))))
 	{
-		Error = NSLOCTEXT("UT", "NotEntitledMap", "You do not have the rights to start this map. Visit the Marketplace to gain access.").ToString();
+		Error = NSLOCTEXT("UT", "NotEntitledMap", "You do not have the rights to start this community created map. Visit the UT Marketplace in the Launcher to gain access (it's free!).").ToString();
 		return EBrowseReturnVal::Failure;
 	}
 	else
@@ -637,6 +634,7 @@ void UUTGameEngine::IndexExpansionContent()
 				{
 					FString MD5 = MD5Sum(Data);
 					DownloadedContentChecksums.Add(PakFilename, MD5);
+					MountedDownloadedContentChecksums.Add(PakFilename, MD5);
 				}
 
 				AddAssetRegistry(PakFilename);
@@ -735,14 +733,23 @@ void UUTGameEngine::SetupLoadingScreen()
 #endif
 }
 
+static FName UT_DEFAULT_LOADING(TEXT("UT.LoadingScreen"));
+static FName UT_SPOOKY_LOADING(TEXT("UT.LoadingScreen.Halloween"));
+
+
 void UUTGameEngine::LoadMapRedrawViewports()
 {
 #if !UE_SERVER
+
+	FName Background = UT_DEFAULT_LOADING;
+	if (FDateTime().Now().GetMonth() == 10) Background = UT_SPOOKY_LOADING;
+
+	UE_LOG(UT,Log,TEXT("Background: %s"),*Background.ToString());
 	// put up a temporary widget for the loading screen for one frame
 	TSharedPtr<SImage> LoadingScreenImage;
 	if (GameViewport != NULL)
 	{
-		SAssignNew(LoadingScreenImage, SImage).Image(SUWindowsStyle::Get().GetBrush("LoadingScreen"));
+		SAssignNew(LoadingScreenImage, SImage).Image(SUTStyle::Get().GetBrush(Background));
 		GameViewport->AddViewportWidgetContent(LoadingScreenImage.ToSharedRef(), MAX_int32);
 	}
 #endif

@@ -219,7 +219,7 @@ public:
 class INetworkReplayStreamingFactory : public IModuleInterface
 {
 public:
-	virtual TSharedPtr< INetworkReplayStreamer > CreateReplayStreamer() = 0;
+	virtual TSharedPtr< INetworkReplayStreamer > CreateReplayStreamer(const struct FURL& URL) = 0;
 };
 
 /** Replay streaming factory manager */

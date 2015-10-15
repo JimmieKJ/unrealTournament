@@ -8,6 +8,7 @@
 #include "UTGameEngine.h"
 #include "UnrealNetwork.h"
 #include "UTGameViewportClient.h"
+#include "UTRconAdminInfo.h"
 
 AUTBasePlayerController::AUTBasePlayerController(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -279,7 +280,7 @@ void AUTBasePlayerController::CancelConnectViaGUID()
 }
 
 void AUTBasePlayerController::ConnectToServerViaGUID(FString ServerGUID, int32 DesiredTeam, bool bSpectate, bool bFindLastMatch)
-{
+	{
 	IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
 	if (OnlineSubsystem && !GUIDSessionSearchSettings.IsValid()) 
 	{
@@ -441,7 +442,6 @@ void AUTBasePlayerController::ClientSetPresence_Implementation(const FString& Ne
 	}
 }
 
-
 void AUTBasePlayerController::ClientGenericInitialization_Implementation()
 {
 	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
@@ -465,7 +465,6 @@ void AUTBasePlayerController::ServerReceiveRank_Implementation(int32 NewAverageR
 		PS->TotalChallengeStars = TotalStars;
 	}
 }
-
 
 void AUTBasePlayerController::ClientRequireContentItem_Implementation(const FString& PakFile, const FString& MD5)
 {
@@ -533,18 +532,28 @@ bool AUTBasePlayerController::ServerRconAuth_Validate(const FString& Password)
 
 void AUTBasePlayerController::ServerRconAuth_Implementation(const FString& Password)
 {
-	if (UTPlayerState != nullptr && !UTPlayerState->bIsRconAdmin && !GetDefault<UUTGameEngine>()->RconPassword.IsEmpty())
+	AUTBaseGameMode* GameMode = GetWorld()->GetAuthGameMode<AUTBaseGameMode>();
+	if (GameMode)
 	{
-		if (GetDefault<UUTGameEngine>()->RconPassword.Equals(Password, ESearchCase::CaseSensitive))
-		{
-			ClientSay(UTPlayerState, TEXT("Rcon authenticated!"), ChatDestinations::System);
-			UTPlayerState->bIsRconAdmin = true;
-			return;
-		}
+		GameMode->RconAuth(this, Password);
 	}
-
-	ClientSay(UTPlayerState, TEXT("Rcon password incorrect or unset"), ChatDestinations::System);
 }
+
+void AUTBasePlayerController::RconNormal()
+{
+	ServerRconNormal();
+}
+
+bool AUTBasePlayerController::ServerRconNormal_Validate() {return true;}
+void AUTBasePlayerController::ServerRconNormal_Implementation()
+{
+	AUTBaseGameMode* GameMode = GetWorld()->GetAuthGameMode<AUTBaseGameMode>();
+	if (GameMode)
+	{
+		GameMode->RconNormal(this);
+	}
+}
+
 
 
 void AUTBasePlayerController::RconExec(FString Command)
@@ -562,6 +571,14 @@ void AUTBasePlayerController::ServerRconExec_Implementation(const FString& Comma
 	if (UTPlayerState == nullptr || !UTPlayerState->bIsRconAdmin)
 	{
 		ClientSay(UTPlayerState, TEXT("Rcon not authenticated"), ChatDestinations::System);
+		return;
+	}
+
+	if (Command.ToLower() == TEXT("adminmenu"))
+	{
+		FActorSpawnParameters Params;
+		Params.Owner = this;
+		AUTRconAdminInfo* AdminInfo = GetWorld()->SpawnActor<AUTRconAdminInfo>(AUTRconAdminInfo::StaticClass(), Params);
 		return;
 	}
 
@@ -583,32 +600,31 @@ void AUTBasePlayerController::ServerRconKick_Implementation(const FString& NameO
 		return;
 	}
 
-	AGameState* GS = GetWorld()->GetGameState<AGameState>();
-	AGameMode* GM = GetWorld()->GetAuthGameMode<AGameMode>();
-	AGameSession* GSession = GM->GameSession;
-	if (GS && GM && GSession)
+	AUTBaseGameMode* GM = GetWorld()->GetAuthGameMode<AUTBaseGameMode>();
+	if (GM)
 	{
-		for (int32 i=0; i < GS->PlayerArray.Num(); i++)
+		GM->RconKick(NameOrUIDStr, bBan, Reason);
+	}
+}
+
+void AUTBasePlayerController::RconMessage(const FString& DestinationId, const FString &Message)
+{
+	ServerRconMessage(DestinationId, Message);
+}
+
+bool AUTBasePlayerController::ServerRconMessage_Validate(const FString& DestinationId, const FString &Message) { return true; }
+void AUTBasePlayerController::ServerRconMessage_Implementation(const FString& DestinationId, const FString &Message)
+{
+	if (UTPlayerState && UTPlayerState->bIsRconAdmin)
+	{
+		AUTBaseGameMode* GameMode = GetWorld()->GetAuthGameMode<AUTBaseGameMode>();
+		if (GameMode)
 		{
-			if ( (GS->PlayerArray[i]->PlayerName.ToLower() == NameOrUIDStr.ToLower()) ||
-				 (GS->PlayerArray[i]->UniqueId.ToString() == NameOrUIDStr))
-			{
-				APlayerController* PC = Cast<APlayerController>(GS->PlayerArray[i]->GetOwner());
-				if (PC)
-				{
-					if (bBan)
-					{
-						GSession->BanPlayer(PC,FText::FromString(Reason));
-					}
-					else
-					{
-						GSession->KickPlayer(PC, FText::FromString(Reason));
-					}
-				}
-			}
+			GameMode->SendRconMessage(DestinationId, Message);
 		}
 	}
 }
+
 
 void AUTBasePlayerController::HandleNetworkFailureMessage(enum ENetworkFailure::Type FailureType, const FString& ErrorString)
 {
@@ -705,5 +721,23 @@ void AUTBasePlayerController::ReceivedPlayer()
 	if (UTLocalPlayer)
 	{
 		ServerSetAvatar(UTLocalPlayer->GetAvatar());
+	}
+}
+
+void AUTBasePlayerController::ShowAdminDialog(AUTRconAdminInfo* AdminInfo)
+{
+	UUTLocalPlayer* UTLocalPlayer = Cast<UUTLocalPlayer>(Player);
+	if (UTLocalPlayer)
+	{
+		UTLocalPlayer->ShowAdminDialog(AdminInfo);
+	}
+}
+
+void AUTBasePlayerController::ShowAdminMessage(const FString& Message)
+{
+	UUTLocalPlayer* UTLocalPlayer = Cast<UUTLocalPlayer>(Player);
+	if (UTLocalPlayer)
+	{
+		UTLocalPlayer->ShowAdminMessage(Message);
 	}
 }

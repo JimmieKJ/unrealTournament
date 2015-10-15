@@ -40,9 +40,6 @@ private:
 	{
 		UTDrawStringInternal(InCanvas, DrawPos, DrawColor);
 	}
-
-	void DrawStringInternal_HackyFix( FCanvas* InCanvas, const FVector2D& DrawPos, const FLinearColor& DrawColor );
-
 };
 
 namespace ERenderObjectType

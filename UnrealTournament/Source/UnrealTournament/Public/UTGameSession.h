@@ -8,6 +8,31 @@
 #include "UTServerBeaconHost.h"
 #include "UTGameSession.generated.h"
 
+USTRUCT()
+struct FBanInfo
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY()
+	FString UserName;
+
+	UPROPERTY()
+	FString UniqueID;
+
+	FBanInfo()
+		: UserName(TEXT(""))
+		, UniqueID(TEXT(""))
+	{
+	}
+
+	FBanInfo(const FString& inUserName, const FString& inUniqueID)
+		: UserName(inUserName)
+		, UniqueID(inUniqueID)
+	{
+	}
+
+};
+
 UCLASS(Config=Game)
 class UNREALTOURNAMENT_API AUTGameSession : public AGameSession
 {
@@ -76,11 +101,21 @@ public:
 
 protected:
 	UPROPERTY(Config)
-	TArray<FString> BannedUsers;
+	TArray<FBanInfo> BannedUsers;
 
+	// Users in this array are not saved.  It's used when kicking a player from an instance.  They don't get to come back.
+	UPROPERTY()
+	TArray<FBanInfo> InstanceBannedUsers;
+
+	// Holds a list of unique ids of admins who can bypass the login checks.
+	TArray<FString> AllowedAdmins;
 
 public:
 	UPROPERTY()
 	bool bNoJoinInProgress;
 
+	UPROPERTY()
+	bool CantBindBeaconPortIsNotFatal;
+	
+	void AcknowledgeAdmin(const FString& AdminId, bool bIsAdmin);
 };

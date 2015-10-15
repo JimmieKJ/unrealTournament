@@ -946,23 +946,6 @@ int32 FEngineLoop::PreInit( const TCHAR* CmdLine )
 	FApp::SetBenchmarking(false);
 #endif // !UE_BUILD_SHIPPING
 
-	// Initialize random number generator.
-	if( FApp::IsBenchmarking() || FParse::Param(FCommandLine::Get(),TEXT("FIXEDSEED")) )
-	{
-		FMath::RandInit( 0 );
-		FMath::SRandInit( 0 );
-		UE_LOG(LogInit, Display, TEXT("RandInit(0) SRandInit(0)."));
-	}
-	else
-	{
-		uint32 Cycles1 = FPlatformTime::Cycles();
-		FMath::RandInit(Cycles1);
-		uint32 Cycles2 = FPlatformTime::Cycles();
-		FMath::SRandInit(Cycles2);
-		UE_LOG(LogInit, Display, TEXT("RandInit(%d) SRandInit(%d)."), Cycles1, Cycles2);
-	}
-
-
 	FString CheckToken = Token;
 	bool bFoundValidToken = false;
 	while (!bFoundValidToken && (CheckToken.Len() > 0))
@@ -1007,6 +990,22 @@ int32 FEngineLoop::PreInit( const TCHAR* CmdLine )
 	bHasEditorToken = false;
 #endif
 #endif	//UE_EDITOR
+
+	// Initialize random number generator.
+	if (FApp::IsBenchmarking() || FParse::Param(FCommandLine::Get(), TEXT("FIXEDSEED")))
+	{
+		FMath::RandInit(0);
+		FMath::SRandInit(0);
+		UE_LOG(LogInit, Display, TEXT("RandInit(0) SRandInit(0)."));
+	}
+	else
+	{
+		uint32 Cycles1 = FPlatformTime::Cycles();
+		FMath::RandInit(Cycles1);
+		uint32 Cycles2 = FPlatformTime::Cycles();
+		FMath::SRandInit(Cycles2);
+		UE_LOG(LogInit, Display, TEXT("RandInit(%d) SRandInit(%d)."), Cycles1, Cycles2);
+	}
 
 #if !IS_PROGRAM
 	if ( !GIsGameAgnosticExe && FApp::HasGameName() && !FPaths::IsProjectFilePathSet() )

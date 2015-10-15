@@ -10,7 +10,7 @@ AUTProj_Rocket::AUTProj_Rocket(const class FObjectInitializer& ObjectInitializer
 : Super(ObjectInitializer)
 {
 	DamageParams.BaseDamage = 100;
-	DamageParams.OuterRadius = 330.f;  
+	DamageParams.OuterRadius = 320.f;  
 	DamageParams.InnerRadius = 15.f; 
 	DamageParams.MinimumDamage = 20.f;
 	Momentum = 140000.0f;
@@ -56,10 +56,10 @@ void AUTProj_Rocket::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>&
 void AUTProj_Rocket::DamageImpactedActor_Implementation(AActor* OtherActor, UPrimitiveComponent* OtherComp, const FVector& HitLocation, const FVector& HitNormal)
 {
 	AUTCharacter* HitCharacter = Cast<AUTCharacter>(OtherActor);
-	bool bPossibleAirRocket = (HitCharacter && AirRocketRewardClass && (HitCharacter->Health > 0) && HitCharacter->GetCharacterMovement() != NULL && (HitCharacter->GetCharacterMovement()->MovementMode == MOVE_Falling) && (GetWorld()->GetTimeSeconds() - HitCharacter->FallingStartTime > 0.3f));
+	bPendingSpecialReward = (HitCharacter && AirRocketRewardClass && (HitCharacter->Health > 0) && HitCharacter->GetCharacterMovement() != NULL && (HitCharacter->GetCharacterMovement()->MovementMode == MOVE_Falling) && (GetWorld()->GetTimeSeconds() - HitCharacter->FallingStartTime > 0.3f));
 
 	Super::DamageImpactedActor_Implementation(OtherActor, OtherComp, HitLocation, HitNormal);
-	if (bPossibleAirRocket && HitCharacter && (HitCharacter->Health <= 0))
+	if (bPendingSpecialReward && HitCharacter && (HitCharacter->Health <= 0))
 	{
 		// Air Rocket reward
 		AUTPlayerController* PC = Cast<AUTPlayerController>(InstigatorController);
@@ -75,6 +75,7 @@ void AUTProj_Rocket::DamageImpactedActor_Implementation(AActor* OtherActor, UPri
 			PC->SendPersonalMessage(AirRocketRewardClass, AirRoxCount, PS, HitCharacter->PlayerState);
 		}
 	}
+	bPendingSpecialReward = false;
 }
 
 void AUTProj_Rocket::Explode_Implementation(const FVector& HitLocation, const FVector& HitNormal, UPrimitiveComponent* HitComp)

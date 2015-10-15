@@ -111,4 +111,9 @@ public:
 	UPROPERTY(Config)
 	int32 MaxPlayersInLobby;
 
+	virtual void SendRconMessage(const FString& DestinationId, const FString &Message);
+	virtual void RconKick(const FString& NameOrUIDStr, bool bBan, const FString& Reason);
+	virtual void RconAuth(AUTBasePlayerController* Admin, const FString& Password);
+	virtual void RconNormal(AUTBasePlayerController* Admin);
+
 };

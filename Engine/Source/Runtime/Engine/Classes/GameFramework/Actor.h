@@ -1744,9 +1744,6 @@ public:
 	// Allow actors to initialize themselves on the C++ side
 	virtual void PostInitializeComponents();
 
-	// hack for particle system dynamic LOD support
-	virtual bool DisableEmitterLights() const { return false; }
-
 	/**
 	 * Adds a controlling matinee actor for use during matinee playback
 	 * @param InMatineeActor	The matinee actor which controls this actor

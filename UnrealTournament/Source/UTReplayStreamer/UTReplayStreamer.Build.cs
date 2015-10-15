@@ -19,7 +19,8 @@ namespace UnrealBuildTool.Rules
 					"Json", 
 					"HTTP", 
 					"NetworkReplayStreaming", 
-					"HttpNetworkReplayStreaming" 
+					"HttpNetworkReplayStreaming",
+                    "NullNetworkReplayStreaming",
 				} );
 		}
     }

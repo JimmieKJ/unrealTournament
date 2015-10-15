@@ -5,6 +5,7 @@
 #include "UTCTFScoring.h"
 #include "Net/UnrealNetwork.h"
 #include "UTPainVolume.h"
+#include "UTLift.h"
 
 AUTCarriedObject::AUTCarriedObject(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -20,10 +21,11 @@ AUTCarriedObject::AUTCarriedObject(const FObjectInitializer& ObjectInitializer)
 	MovementComponent->MaxSpeed = 5000.0f; // needed for gravity
 	MovementComponent->InitialSpeed = 360.0f;
 	MovementComponent->SetIsReplicated(true);
+	MovementComponent->OnProjectileStop.AddDynamic(this, &AUTCarriedObject::OnStop);
 
 	SetReplicates(true);
 	bReplicateMovement = true;
-	NetPriority=3.0;
+	NetPriority = 3.0;
 	LastGameMessageTime = 0.f;
 	AutoReturnTime = 30.0f;
 	bMovementEnabled = true;
@@ -56,6 +58,14 @@ void AUTCarriedObject::Init(AUTGameObjective* NewBase)
 	HomeBase->ObjectStateWasChanged(ObjectState);
 	MoveToHome();
 	OnHolderChanged();
+}
+
+void AUTCarriedObject::OnStop(const FHitResult& Hit)
+{
+	if (Hit.Actor.IsValid() && Hit.Component.IsValid() && Cast<AUTLift>(Hit.Actor.Get()))
+	{
+		AttachRootComponentTo(Hit.Component.Get(), NAME_None, EAttachLocation::KeepWorldPosition);
+	}
 }
 
 bool AUTCarriedObject::IsHome()
@@ -97,10 +107,13 @@ void AUTCarriedObject::DetachFrom(USkeletalMeshComponent* AttachToMesh)
 
 void AUTCarriedObject::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
-	AUTCharacter* Character = Cast<AUTCharacter>(OtherActor);
-	if (Character != NULL && !GetWorld()->LineTraceTestByChannel(OtherActor->GetActorLocation(), GetActorLocation(), ECC_Pawn, FCollisionQueryParams(), WorldResponseParams))
+	if (!bIsDropping)
 	{
-		TryPickup(Character);
+		AUTCharacter* Character = Cast<AUTCharacter>(OtherActor);
+		if (Character != NULL && !GetWorld()->LineTraceTestByChannel(OtherActor->GetActorLocation(), GetActorLocation(), ECC_Pawn, FCollisionQueryParams(), WorldResponseParams))
+		{
+			TryPickup(Character);
+		}
 	}
 }
 
@@ -346,6 +359,9 @@ void AUTCarriedObject::TossObject(AUTCharacter* ObjectHolder)
 	// Throw the object.
 	if (ObjectHolder != NULL)
 	{
+		// prevent touches while dropping... we'll check them again when we're done
+		TGuardValue<bool> DropGuard(bIsDropping, true);
+
 		FVector Extra = FVector::ZeroVector;
 		if (ObjectHolder->Health > 0)
 		{
@@ -393,6 +409,10 @@ void AUTCarriedObject::TossObject(AUTCharacter* ObjectHolder)
 			if (Touched != LastHoldingPawn)
 			{
 				OnOverlapBegin(Touched, Cast<UPrimitiveComponent>(Touched->GetRootComponent()), INDEX_NONE, false, FHitResult(this, Collision, GetActorLocation(), FVector(0.0f, 0.0f, 1.0f)));
+				if (ObjectState != CarriedObjectState::Dropped)
+				{
+					break;
+				}
 			}
 		}
 	}
@@ -457,13 +477,15 @@ void AUTCarriedObject::SendHome()
 
 void AUTCarriedObject::MoveToHome()
 {
+	DetachRootComponentFromParent(true);
 	AssistTracking.Empty();
 	HolderRescuers.Empty();
 	if (HomeBase != NULL)
 	{
-		FVector BaseLocation = HomeBase->GetActorLocation() + HomeBase->GetActorRotation().RotateVector(HomeBaseOffset) + FVector(0.f, 0.f, Collision->GetScaledCapsuleHalfHeight());
+		const FVector BaseLocation = HomeBase->GetActorLocation() + HomeBase->GetActorRotation().RotateVector(HomeBaseOffset) + FVector(0.f, 0.f, Collision->GetScaledCapsuleHalfHeight());
 		MovementComponent->Velocity = FVector(0.0f,0.0f,0.0f);
 		SetActorLocationAndRotation(BaseLocation, HomeBase->GetActorRotation());
+		ensure((GetActorLocation() - BaseLocation).Size() < 1.0f);
 		ForceNetUpdate();
 	}
 }
@@ -564,6 +586,15 @@ void AUTCarriedObject::OnRep_ReplicatedMovement()
 	if (AttachmentReplication.AttachParent == NULL)
 	{
 		Super::OnRep_ReplicatedMovement();
+		if ((ObjectState == CarriedObjectState::Home) && (HomeBase != NULL))
+		{
+			const FVector BaseLocation = HomeBase->GetActorLocation() + HomeBase->GetActorRotation().RotateVector(HomeBaseOffset) + FVector(0.f, 0.f, Collision->GetScaledCapsuleHalfHeight());
+			MovementComponent->Velocity = FVector(0.0f, 0.0f, 0.0f);
+			if ((BaseLocation - GetActorLocation()).SizeSquared() > 1.f)
+			{
+				SetActorLocationAndRotation(BaseLocation, HomeBase->GetActorRotation());
+			}
+		}
 	}
 }
 void AUTCarriedObject::GatherCurrentMovement()

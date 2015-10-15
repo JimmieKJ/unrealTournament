@@ -52,7 +52,7 @@ void AUTWaterVolume::ActorLeavingVolume(class AActor* Other)
 		AUTCharacter* P = Cast<AUTCharacter>(Other);
 		if (P)
 		{
-			P->PlayWaterSound(ExitSound ? ExitSound : P->WaterExitSound);
+			P->PlayWaterSound(ExitSound ? ExitSound : P->CharacterData.GetDefaultObject()->WaterExitSound);
 		}
 		Super::ActorLeavingVolume(Other);
 	}
@@ -70,7 +70,7 @@ void AUTPainVolume::ActorEnteredVolume(class AActor* Other)
 		AUTCharacter* P = Cast<AUTCharacter>(Other);
 		if (P)
 		{
-			P->PlayWaterSound(EntrySound ? EntrySound : P->WaterEntrySound);
+			P->PlayWaterSound(EntrySound ? EntrySound : P->CharacterData.GetDefaultObject()->WaterEntrySound);
 			if (P->GetCharacterMovement())
 			{
 				P->GetCharacterMovement()->Velocity.Z *= PawnEntryVelZScaling;
@@ -100,7 +100,7 @@ void AUTPainVolume::ActorLeavingVolume(class AActor* Other)
 		AUTCharacter* P = Cast<AUTCharacter>(Other);
 		if (P)
 		{
-			P->PlayWaterSound(ExitSound ? ExitSound : P->WaterExitSound);
+			P->PlayWaterSound(ExitSound ? ExitSound : P->CharacterData.GetDefaultObject()->WaterExitSound);
 		}
 		Super::ActorLeavingVolume(Other);
 	}

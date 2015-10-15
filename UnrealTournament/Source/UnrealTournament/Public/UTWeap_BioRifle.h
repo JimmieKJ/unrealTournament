@@ -69,4 +69,9 @@ class UNREALTOURNAMENT_API AUTWeap_BioRifle : public AUTWeapon
 	void OnChargeShot();
 
 	virtual void FiringInfoUpdated_Implementation(uint8 InFireMode, uint8 FlashCount, FVector InFlashLocation) override;
+
+	bool HasAmmo(uint8 FireModeNum) override
+	{
+		return (Ammo >= 1);
+	}
 };

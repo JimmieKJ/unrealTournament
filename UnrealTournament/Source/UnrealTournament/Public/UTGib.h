@@ -1,23 +1,18 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
-
 #pragma once
 
-#include "UTCharacter.h"
+#include "UTATypes.h"
 
 #include "UTGib.generated.h"
 
-UCLASS(Abstract, BlueprintType)
+UCLASS(Abstract)
 class UNREALTOURNAMENT_API AUTGib : public AActor
 {
 	GENERATED_UCLASS_BODY()
 
 	/** gib mesh */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Gib)
-	UStaticMeshComponent* Mesh;
-
-	/** list of alternate meshes to randomly apply to Mesh instead of the default */
-	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Gib)
-	TArray<class UStaticMesh*> MeshChoices;
+	UMeshComponent* Mesh;
 
 	/** destroy after this much time alive if out of view (InitialLifeSpan indicates visible lifespan) */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Gib)
@@ -26,9 +21,8 @@ class UNREALTOURNAMENT_API AUTGib : public AActor
 	/** blood effects mirrored from owning Pawn */
 	UPROPERTY(BlueprintReadWrite, Category = Effects)
 	TArray<UParticleSystem*> BloodEffects;
-
 	UPROPERTY(BlueprintReadWrite, Category = Effects)
-	TArray<FBloodDecalInfo> BloodDecals;
+	TArray<struct FBloodDecalInfo> BloodDecals;
 
 	/** last time we spawned blood effect/decal */
 	UPROPERTY(BlueprintReadWrite, Category = Effects)

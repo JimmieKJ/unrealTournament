@@ -86,7 +86,9 @@ class UNREALTOURNAMENT_API AUTProjectile : public AActor, public IUTResetInterfa
 
 	virtual void GatherCurrentMovement() override;
 
-	virtual bool DisableEmitterLights() const override;
+	virtual bool DisableEmitterLights() const;
+
+	virtual void OnRep_Instigator() override;
 
 	/** Sphere collision component */
 	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category = Projectile)
@@ -144,6 +146,10 @@ class UNREALTOURNAMENT_API AUTProjectile : public AActor, public IUTResetInterfa
 	UPROPERTY()
 	AActor* ImpactedActor;
 
+	/** If true, projectile will trigger special reward announcement if hit player dies. */
+	UPROPERTY()
+		bool bPendingSpecialReward;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Effects)
 	TSubclassOf<class AUTImpactEffect> ExplosionEffects;
 
@@ -193,6 +199,10 @@ class UNREALTOURNAMENT_API AUTProjectile : public AActor, public IUTResetInterfa
 	/** If true (usually), move fake to server replicated position. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Projectile)
 	bool bMoveFakeToReplicatedPos;
+
+	/** If true, explode instead of bouncing off damageable geometry. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Projectile)
+		bool bDamageOnBounce;
 
 	/** Real projectile for which this projectile is providing visuals */
 	UPROPERTY()

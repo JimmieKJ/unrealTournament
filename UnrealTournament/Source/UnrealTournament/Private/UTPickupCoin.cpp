@@ -2,8 +2,6 @@
 
 #include "UnrealTournament.h"
 #include "UTPickupCoin.h"
-#include "UTKMGameMode.h"
-
 
 AUTPickupCoin::AUTPickupCoin(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)

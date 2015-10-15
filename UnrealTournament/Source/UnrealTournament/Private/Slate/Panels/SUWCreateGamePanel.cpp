@@ -8,7 +8,6 @@
 #include "UTLevelSummary.h"
 #include "../SUWScaleBox.h"
 #include "UTMutator.h"
-#include "../SUWBotConfigDialog.h"
 #include "UTGameEngine.h"
 #include "SocketSubsystem.h"
 #include "IPAddress.h"
@@ -477,7 +476,7 @@ TSharedRef<SWidget> SUWCreateGamePanel::GenerateGameNameWidget(UClass* InItem)
 		.Padding(5)
 		[
 			SNew(STextBlock)
-			.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
+			.TextStyle(SUTStyle::Get(), "UT.Font.ContextMenuItem")
 			.Text(InItem->GetDefaultObject<AUTGameMode>()->DisplayName)
 		];
 }
@@ -488,7 +487,7 @@ TSharedRef<SWidget> SUWCreateGamePanel::GenerateMapNameWidget(TWeakObjectPtr<AUT
 		.Padding(5)
 		[
 			SNew(STextBlock)
-			.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
+			.TextStyle(SUTStyle::Get(), "UT.Font.ContextMenuItem")
 			.Text(FText::FromString(InItem->Title))
 		];
 }
@@ -610,7 +609,7 @@ TSharedRef<ITableRow> SUWCreateGamePanel::GenerateMutatorListRow(UClass* Mutator
 		.Padding(5)
 		[
 			SNew(STextBlock)
-			.TextStyle(SUWindowsStyle::Get(),"UT.ContextMenu.TextStyle")
+			.TextStyle(SUTStyle::Get(), "UT.Font.ContextMenuItem")
 			.Text(FText::FromString(MutatorName))
 		]; 
 }
@@ -676,12 +675,6 @@ FReply SUWCreateGamePanel::ConfigureMutator()
 			}
 		}
 	}
-	return FReply::Handled();
-}
-
-FReply SUWCreateGamePanel::ConfigureBots()
-{
-	GetPlayerOwner()->OpenDialog(SNew(SUWBotConfigDialog).PlayerOwner(GetPlayerOwner()).GameClass(SelectedGameClass).NumBots(SelectedGameClass->GetDefaultObject<AUTGameMode>()->BotFillCount - 1));
 	return FReply::Handled();
 }
 

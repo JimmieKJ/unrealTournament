@@ -82,6 +82,10 @@ public:
 	UPROPERTY(BlueprintReadOnly, Category = Ruleset)
 	FString DefaultMap;
 
+	UPROPERTY(BlueprintReadOnly, Category = Ruleset)
+	TArray<FString> QuickPlayMaps;
+
+
 	void SetRules(UUTGameRuleset* NewRules, const TArray<FAssetData>& MapAssets);
 
 	UPROPERTY()

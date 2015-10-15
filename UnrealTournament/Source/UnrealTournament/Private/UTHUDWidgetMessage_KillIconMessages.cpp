@@ -3,6 +3,9 @@
 #include "UnrealTournament.h"
 #include "UTHUDWidgetMessage_KillIconMessages.h"
 #include "UTKillIconMessage.h"
+#include "UTSpreeMessage.h"
+#include "UTMultiKillMessage.h"
+#include "UTRewardMessage.h"
 
 UUTHUDWidgetMessage_KillIconMessages::UUTHUDWidgetMessage_KillIconMessages(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
@@ -167,6 +170,54 @@ void UUTHUDWidgetMessage_KillIconMessages::DrawMessage(int32 QueueIndex, float X
 	if (VictimPS != nullptr)
 	{
 		DrawText(FText::FromString(VictimPS->PlayerName), VictimSize.X, VictimSize.Y, MessageQueue[QueueIndex].DisplayFont, bShadowedText, ShadowDirection, ShadowColor, bOutlinedText, OutlineColor, CurrentScale, Alpha * UTHUDOwner->HUDWidgetOpacity, GetPlayerColor(VictimPS, false), ETextHorzPos::Left, ETextVertPos::Center);
+	}
+
+	// Draw any rewards gained
+	if ((MessageQueue[QueueIndex].MessageIndex >= 10) || (DmgType && DmgType->RewardAnnouncementClass))
+	{
+		int32 MsgIndex = MessageQueue[QueueIndex].MessageIndex;
+		bool bHasWeaponReward = (MsgIndex >= 10000);
+		if (bHasWeaponReward)
+		{
+			MsgIndex -= 10000 * (MsgIndex / 10000);
+			FText RewardMessage = DmgType->SpecialRewardText;
+			DrawText(RewardMessage, X, VictimSize.Y, MessageQueue[QueueIndex].DisplayFont, bShadowedText, ShadowDirection, ShadowColor, bOutlinedText, OutlineColor, CurrentScale, Alpha * UTHUDOwner->HUDWidgetOpacity, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
+			Canvas->TextSize(MessageQueue[QueueIndex].DisplayFont, RewardMessage.ToString(), XL, YL, CurrentScale);
+			X += XL;
+		}
+		bool bHasWeaponSpree = (MsgIndex >= 1000);
+		if (bHasWeaponSpree)
+		{
+			MsgIndex -= 1000 * (MsgIndex / 1000);
+		}
+		int32 SpreeIndex = MsgIndex / 100;
+		MsgIndex = MsgIndex - 100 * SpreeIndex;
+		if (DmgType && DmgType->RewardAnnouncementClass)
+		{
+			FText RewardMessage = GetDefault<UUTRewardMessage>(DmgType->RewardAnnouncementClass)->MessageText;
+			DrawText(RewardMessage, X, VictimSize.Y, MessageQueue[QueueIndex].DisplayFont, bShadowedText, ShadowDirection, ShadowColor, bOutlinedText, OutlineColor, CurrentScale, Alpha * UTHUDOwner->HUDWidgetOpacity, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
+			Canvas->TextSize(MessageQueue[QueueIndex].DisplayFont, RewardMessage.ToString(), XL, YL, CurrentScale);
+			X += XL;
+		}
+		if (MsgIndex >= 10)
+		{
+			MsgIndex = MsgIndex / 10;
+			FText  MKillMessage = GetDefault<UUTLocalMessage>(UUTMultiKillMessage::StaticClass())->GetText(FMath::Min(MsgIndex - 1, 3), true);
+			DrawText(MKillMessage, X, VictimSize.Y, MessageQueue[QueueIndex].DisplayFont, bShadowedText, ShadowDirection, ShadowColor, bOutlinedText, OutlineColor, CurrentScale, Alpha * UTHUDOwner->HUDWidgetOpacity, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
+			Canvas->TextSize(MessageQueue[QueueIndex].DisplayFont, MKillMessage.ToString(), XL, YL, CurrentScale);
+			X += XL;
+		}
+		if (SpreeIndex > 0)
+		{
+			FText SpreeMessage = GetDefault<UUTLocalMessage>(UUTSpreeMessage::StaticClass())->GetText(FMath::Min(SpreeIndex, 5), true);
+			DrawText(SpreeMessage, X, VictimSize.Y, MessageQueue[QueueIndex].DisplayFont, bShadowedText, ShadowDirection, ShadowColor, bOutlinedText, OutlineColor, CurrentScale, Alpha * UTHUDOwner->HUDWidgetOpacity, FLinearColor::Yellow, ETextHorzPos::Left, ETextVertPos::Center);
+			Canvas->TextSize(MessageQueue[QueueIndex].DisplayFont, SpreeMessage.ToString(), XL, YL, CurrentScale);
+			X += XL;
+		}
+		if (bHasWeaponSpree && DmgType)
+		{
+			DrawText(FText::FromString(DmgType->SpreeString), X, VictimSize.Y, MessageQueue[QueueIndex].DisplayFont, bShadowedText, ShadowDirection, ShadowColor, bOutlinedText, OutlineColor, CurrentScale, Alpha * UTHUDOwner->HUDWidgetOpacity, FLinearColor::Yellow, ETextHorzPos::Left, ETextVertPos::Center);
+		}
 	}
 }
 

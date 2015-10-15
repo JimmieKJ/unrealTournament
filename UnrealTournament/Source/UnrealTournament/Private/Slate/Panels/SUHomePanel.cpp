@@ -9,13 +9,21 @@
 #include "Slate/SlateGameResources.h"
 #include "SUHomePanel.h"
 #include "../SUWindowsMainMenu.h"
+#include "../Widgets/SUTButton.h"
 
 
 
 #if !UE_SERVER
 
+static FName UT_DEFAULT_BACKGROUND(TEXT("UT.HomePanel.Background"));
+static FName UT_SPOOKY_BACKGROUND(TEXT("UT.SpookyBackground"));
+
+
 void SUHomePanel::ConstructPanel(FVector2D ViewportSize)
 {
+	FName Background = UT_DEFAULT_BACKGROUND;
+	if (FDateTime().Now().GetMonth() == 10) Background = UT_SPOOKY_BACKGROUND;
+
 	this->ChildSlot
 	.VAlign(VAlign_Fill)
 	.HAlign(HAlign_Fill)
@@ -38,7 +46,7 @@ void SUHomePanel::ConstructPanel(FVector2D ViewportSize)
 					.bMaintainAspectRatio(false)
 					[
 						SNew(SImage)
-						.Image(SUTStyle::Get().GetBrush("UT.HomePanel.Background"))
+						.Image(SUTStyle::Get().GetBrush(Background))
 					]
 				]
 			]
@@ -100,6 +108,7 @@ void SUHomePanel::BuildAnnouncement()
 	if (Year == 2015 && Month <= 9 && Day <= 19)
 	{
 		AnnouncmentFadeTimer = 0.8;
+
 		AnnouncementBox->AddSlot().FillHeight(1.0)
 		[
 			SNew(SCanvas)
@@ -200,6 +209,7 @@ TSharedRef<SWidget> SUHomePanel::BuildHomePanel()
 		[
 			SNew(SVerticalBox)
 			+SVerticalBox::Slot()
+
 			.AutoHeight()
 			[
 				SNew(SHorizontalBox)
@@ -247,7 +257,7 @@ TSharedRef<SWidget> SUHomePanel::BuildHomePanel()
 								+SVerticalBox::Slot()
 								.AutoHeight()
 								[
-									SNew(SBox).WidthOverride(200).HeightOverride(100)
+									SNew(SBox).WidthOverride(100).HeightOverride(100)
 									[
 										SNew(SImage)
 										.Image(SUTStyle::Get().GetBrush("UT.HomePanel.TutorialLogo"))
@@ -441,6 +451,12 @@ TSharedRef<SWidget> SUHomePanel::BuildHomePanel()
 								[
 									SNew(SImage)
 									.Image(SUTStyle::Get().GetBrush("UT.HomePanel.IABadge"))
+								]
+								+ SOverlay::Slot()
+								[
+									SNew(SImage)
+									.Image(SUTStyle::Get().GetBrush("UT.HomePanel.NewChallenge"))
+									.Visibility(this, &SUHomePanel::ShowNewChallengeImage)
 								]
 								+ SOverlay::Slot()
 								[
@@ -803,5 +819,17 @@ FReply SUHomePanel::TrainingVideos_Click()
 	return FReply::Handled();
 }
 
+EVisibility SUHomePanel::ShowNewChallengeImage() const
+{
+	if (PlayerOwner.IsValid() && PlayerOwner->MCPPulledData.bValid)
+	{
+		if (PlayerOwner->ChallengeRevisionNumber< PlayerOwner->MCPPulledData.ChallengeRevisionNumber)
+		{
+			return EVisibility::Visible;
+		}
+	}
+
+	return EVisibility::Hidden;
+}
 
 #endif

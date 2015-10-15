@@ -201,26 +201,6 @@ struct FMovementEventInfo
 };
 
 USTRUCT(BlueprintType)
-struct FBloodDecalInfo
-{
-	GENERATED_USTRUCT_BODY()
-
-	/** material to use for the decal */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = DecalInfo)
-	UMaterialInterface* Material;
-	/** Base scale of decal */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = DecalInfo)
-	FVector2D BaseScale;
-	/** range of random scaling applied (always uniform) */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = DecalInfo)
-	FVector2D ScaleMultRange;
-
-	FBloodDecalInfo()
-		: Material(NULL), BaseScale(32.0f, 32.0f), ScaleMultRange(0.8f, 1.2f)
-	{}
-};
-
-USTRUCT(BlueprintType)
 struct FOverlayEffect
 {
 	GENERATED_USTRUCT_BODY()
@@ -826,12 +806,16 @@ public:
 
 	/** returns location of head (origin of headshot zone); will force a skeleton update if mesh hasn't been rendered (or dedicated server) so the provided position is accurate */
 	virtual FVector GetHeadLocation(float PredictionTime=0.f);
-	/** checks for a head shot - called by weapons with head shot bonuses
-	* returns true if it's a head shot, false if a miss or if some armor effect prevents head shots
+
+	/** checks for a head shot - called by weapons with head shot bonuses. */
+	UFUNCTION(BlueprintCallable, Category = Pawn)
+	virtual bool IsHeadShot(FVector HitLocation, FVector ShotDirection, float WeaponHeadScaling, AUTCharacter* ShotInstigator, float PredictionTime = 0.f);
+
+	/** Returns true if if some armor effect prevents head shots.
 	* if bConsumeArmor is true, the first item that prevents an otherwise valid head shot will be consumed
 	*/
 	UFUNCTION(BlueprintCallable, Category = Pawn)
-	virtual bool IsHeadShot(FVector HitLocation, FVector ShotDirection, float WeaponHeadScaling, bool bConsumeArmor, AUTCharacter* ShotInstigator, float PredictionTime = 0.f);
+		virtual bool BlockedHeadShot(FVector HitLocation, FVector ShotDirection, float WeaponHeadScaling, bool bConsumeArmor, AUTCharacter* ShotInstigator);
 
 	/** Called when a headshot by this character is blocked. */
 	virtual void HeadShotBlocked();
@@ -883,6 +867,9 @@ public:
 	/** last time ragdolling corpse spawned a blood decal */
 	UPROPERTY(BlueprintReadWrite, Category = Effects)
 	float LastDeathDecalTime;
+
+	UPROPERTY(BlueprintReadWrite, Category = Efftects)
+	float RagdollCollisionBleedThreshold;
 
 	/** plays clientside hit effects using the data previously stored in LastTakeHitInfo */
 	UFUNCTION(BlueprintNativeEvent, BlueprintCosmetic)
@@ -967,17 +954,9 @@ public:
 	/** Updates Pawn's rotation to the given rotation, assumed to be the Controller's ControlRotation. Respects the bUseControllerRotation* settings. */
 	virtual void FaceRotation(FRotator NewControlRotation, float DeltaTime = 0.f) override;
 
-	/** blood explosion played when gibbing */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Effects)
-	TSubclassOf<class AUTImpactEffect> GibExplosionEffect;
-
-	/** type of gib to spawn */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Effects)
-	TSubclassOf<class AUTGib> GibClass;
-
-	/** bones to gib when exploding the entire character (i.e. through GibExplosion()) */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Effects)
-	TArray<FName> GibExplosionBones;
+	// whether gibs are allowed; some death effects can turn it off
+	UPROPERTY(BlueprintReadWrite, Category = Effects)
+	bool bAllowGibs;
 
 	/** gibs the entire Pawn and destroys it (only the blood/gibs remain) */
 	UFUNCTION(BlueprintNativeEvent, BlueprintCosmetic)
@@ -985,7 +964,7 @@ public:
 
 	/** spawns a gib at the specified bone */
 	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category = Death)
-	virtual void SpawnGib(FName BoneName, TSubclassOf<class UUTDamageType> DmgType = NULL);
+	virtual void SpawnGib(const struct FGibSlotInfo& GibSlot, TSubclassOf<class UUTDamageType> DmgType = NULL);
 
 	/** plays death effects; use LastTakeHitInfo to do damage-specific death effects */
 	virtual void PlayDying();
@@ -993,6 +972,8 @@ public:
 	{
 		PlayDying();
 	}
+
+	virtual bool IsRecentlyDead();
 
 	virtual void DeactivateSpawnProtection();
 
@@ -1093,6 +1074,17 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Effects")
 	TArray< TSubclassOf<class AUTReplicatedEmitter> > TeleportEffect;
 
+	/** particle component for water footstep */
+	UPROPERTY(EditAnywhere, Category = "Effects")
+		UParticleSystem* WaterFootstepEffect;
+
+	/** particle component for water entry */
+	UPROPERTY(EditAnywhere, Category = "Effects")
+		UParticleSystem* WaterEntryEffect;
+
+	UFUNCTION(BlueprintCallable, Category = Effects)
+		virtual void PlayWaterEntryEffect(const FVector& InWaterLoc, const FVector& OutofWaterLoc);
+
 	/** plays a footstep effect; called via animation when anims are active (in vis range and not server), otherwise on interval via Tick() */
 	UFUNCTION(BlueprintCallable, Category = Effects)
 	virtual void PlayFootstep(uint8 FootNum);
@@ -1145,37 +1137,10 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
 	USoundBase* WaterFootstepSound;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
-	USoundBase* LandingSound;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
-	USoundBase* JumpSound;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
-	USoundBase* DodgeSound;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
-	USoundBase* PainSound;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
-	USoundBase* FloorSlideSound;
+	
 
 	//================================
 	// Swimming
-
-	/** Played for character pushing off underwater. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
-	USoundBase* SwimPushSound;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
-	USoundBase* WaterEntrySound;
-
-	/** Played for character entering water fast. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
-		USoundBase* FastWaterEntrySound;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
-	USoundBase* WaterExitSound;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
-	USoundBase* DrowningSound;
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
-	USoundBase* GaspSound;
 
 	/** Minimum time between playing water entry/exit sounds */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = UnderWater)
@@ -1230,10 +1195,6 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
 		USoundBase* WallSlideAmbientSound;
 
-	/** Ambient sound played while sprinting */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
-	USoundBase* SprintAmbientSound;
-
 	/** Running speed to engage sprint sound */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Sounds)
 	float SprintAmbientStartSpeed;
@@ -1273,9 +1234,6 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintCosmetic, Category = Effects)
 	virtual UMaterialInstanceDynamic* GetCharOverlayMI();
 	
-	UPROPERTY()
-	TSubclassOf<AUTCharacterContent> DefaultCharContent;
-
 	/** sets weapon overlay effect; effect must be added to the UTGameState's OverlayEffects at level startup to work correctly (for replication reasons)
 	 * multiple overlays can be active at once, but the default in the weapon code is to only display one at a time
 	 */
@@ -1347,6 +1305,13 @@ public:
 
 	virtual void PlayerChangedTeam();
 	virtual void PlayerSuicide();
+
+	UPROPERTY(BlueprintReadOnly)
+	TSubclassOf<class AUTCharacterContent> CharacterData;
+
+	// Temp replacement for CharacterData->GetDefaultObject() until 4.9 enables that in blueprints
+	UFUNCTION(BlueprintCallable, Category = Character)
+	AUTCharacterContent* GetCharacterData() const;
 
 	virtual void ApplyCharacterData(TSubclassOf<class AUTCharacterContent> Data);
 

@@ -59,4 +59,10 @@ class UNREALTOURNAMENT_API UUTMultiKillMessage : public UUTLocalMessage
 	{
 		return AnnouncementText.Num() > 0 ? AnnouncementText[FMath::Clamp<int32>(Switch, 0, AnnouncementText.Num() - 1)] : FText();
 	}
+
+	virtual bool ShouldCountInstances_Implementation(int32 MessageIndex) const override
+	{
+		return MessageIndex == AnnouncementText.Num() - 1;
+	}
+
 };

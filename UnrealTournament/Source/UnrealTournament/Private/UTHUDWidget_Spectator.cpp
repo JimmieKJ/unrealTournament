@@ -36,6 +36,7 @@ void UUTHUDWidget_Spectator::DrawSimpleMessage(FText SimpleMessage, float DeltaT
 	{
 		return;
 	}
+	float Scaling = bViewingMessage ? FMath::Max(1.f, 3.f - 6.f*(GetWorld()->GetTimeSeconds() - ViewCharChangeTime)) : 1.f;
 	float ScreenWidth = (Canvas->ClipX / RenderScale);
 	float BackgroundWidth = ScreenWidth;
 	float TextPosition = 360.f;
@@ -45,7 +46,7 @@ void UUTHUDWidget_Spectator::DrawSimpleMessage(FText SimpleMessage, float DeltaT
 	{
 		float YL = 0.0f;
 		Canvas->StrLen(UTHUDOwner->LargeFont, SimpleMessage.ToString(), BackgroundWidth, YL);
-		BackgroundWidth = FMath::Max(BackgroundWidth, 128.f) + 64.f;
+		BackgroundWidth = Scaling* (FMath::Max(BackgroundWidth, 128.f) + 64.f);
 		MessageOffset = (ScreenWidth - BackgroundWidth) * (UTGameState->HasMatchEnded() ? 0.5f : 1.f);
 		TextPosition = 32.f + MessageOffset;
 		YOffset = -32.f;
@@ -53,10 +54,10 @@ void UUTHUDWidget_Spectator::DrawSimpleMessage(FText SimpleMessage, float DeltaT
 
 	// Draw the Background
 	bMaintainAspectRatio = false;
-	DrawTexture(TextureAtlas, MessageOffset, YOffset, BackgroundWidth, 108.0f, 4, 2, 124, 128, 1.0);
+	DrawTexture(TextureAtlas, MessageOffset, YOffset, BackgroundWidth, Scaling * 108.0f, 4, 2, 124, 128, 1.0);
 	if (bViewingMessage)
 	{
-		DrawText(FText::FromString("Now Viewing"), TextPosition, YOffset + 14.f, UTHUDOwner->SmallFont, 1.f, 1.f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
+		DrawText(FText::FromString("Now Viewing"), TextPosition, YOffset + 14.f, UTHUDOwner->SmallFont, Scaling, 1.f, GetMessageColor(), ETextHorzPos::Left, ETextVertPos::Center);
 	}
 	else
 	{
@@ -68,7 +69,7 @@ void UUTHUDWidget_Spectator::DrawSimpleMessage(FText SimpleMessage, float DeltaT
 		// Draw the Spacer Bar
 		DrawTexture(TextureAtlas, 341, 54, 4, 99, 488, 13, 4, 99, 1.0f, FLinearColor::White, FVector2D(0.0, 0.5));
 	}
-	DrawText(SimpleMessage, TextPosition, YOffset + 50.f, UTHUDOwner->LargeFont, 1.f, 1.f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
+	DrawText(SimpleMessage, TextPosition, YOffset + 50.f, UTHUDOwner->LargeFont, Scaling, 1.f, GetMessageColor(), ETextHorzPos::Left, ETextVertPos::Center);
 }
 
 void UUTHUDWidget_Spectator::Draw_Implementation(float DeltaTime)
@@ -166,6 +167,11 @@ FText UUTHUDWidget_Spectator::GetSpectatorMessageText(bool &bViewingMessage)
 				}
 				if (ViewCharacter && ViewCharacter->PlayerState)
 				{
+					if (LastViewedPS != ViewCharacter->PlayerState)
+					{
+						ViewCharChangeTime = ViewCharacter->GetWorld()->GetTimeSeconds();
+						LastViewedPS = Cast<AUTPlayerState>(ViewCharacter->PlayerState);
+					}
 					FFormatNamedArguments Args;
 					Args.Add("PlayerName", FText::AsCultureInvariant(ViewCharacter->PlayerState->PlayerName));
 					bViewingMessage = true;
@@ -175,10 +181,10 @@ FText UUTHUDWidget_Spectator::GetSpectatorMessageText(bool &bViewingMessage)
 				{
 					SpectatorMessage = NSLOCTEXT("UUTHUDWidget_Spectator", "SpectatorCameraChange", "Press [ENTER] to view camera binds.");
 				}
-			}
-			else if (UTGameState->IsMatchInOvertime() && (UTGameState->bOnlyTheStrongSurvive || UTGameState->IsMatchInSuddenDeath()))
-			{
-				SpectatorMessage = NSLOCTEXT("UUTHUDWidget_Spectator", "SpectatorCameraChange", "Press [FIRE] to change viewpoint...");
+				else
+				{
+					LastViewedPS = NULL;
+				}
 			}
 			else if (UTPS && (UTCharacterOwner ? UTCharacterOwner->IsDead() : (UTHUDOwner->UTPlayerOwner->GetPawn() == NULL)))
 			{

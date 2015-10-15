@@ -60,8 +60,24 @@ void AUTHUD_Showdown::UpdateMinimapTexture(UCanvas* C, int32 Width, int32 Height
 
 				for (const FNavMeshTriangleList::FTriangle& Tri : TriList.Triangles)
 				{
-					FCanvasTriangleItem Item(FVector2D(MinimapTransform.TransformPosition(TriList.Verts[Tri.Indices[0]])), FVector2D(MinimapTransform.TransformPosition(TriList.Verts[Tri.Indices[1]])), FVector2D(MinimapTransform.TransformPosition(TriList.Verts[Tri.Indices[2]])), C->DefaultTexture->Resource);
-					C->DrawItem(Item);
+					// don't draw triangles in water
+					bool bInWater = false;
+					FVector Verts[3] = { TriList.Verts[Tri.Indices[0]], TriList.Verts[Tri.Indices[1]], TriList.Verts[Tri.Indices[2]] };
+					for (int32 i = 0; i < ARRAY_COUNT(Verts); i++)
+					{
+						UUTPathNode* Node = NavMesh->FindNearestNode(Verts[i], NavMesh->GetHumanPathSize().GetExtent());
+						if (Node != NULL && Node->PhysicsVolume != NULL && Node->PhysicsVolume->bWaterVolume)
+						{
+							bInWater = true;
+							break;
+						}
+						Verts[i] = MinimapTransform.TransformPosition(Verts[i]);
+					}
+					if (!bInWater)
+					{
+						FCanvasTriangleItem Item(FVector2D(Verts[0]), FVector2D(Verts[1]), FVector2D(Verts[2]), C->DefaultTexture->Resource);
+						C->DrawItem(Item);
+					}
 				}
 			}
 		}

@@ -29,7 +29,7 @@ public:
 };
 
 /** Default streamer that goes straight to the HD */
-class FNullNetworkReplayStreamer : public INetworkReplayStreamer
+class NULLNETWORKREPLAYSTREAMING_API FNullNetworkReplayStreamer : public INetworkReplayStreamer
 {
 public:
 	FNullNetworkReplayStreamer() :
@@ -106,5 +106,5 @@ private:
 class FNullNetworkReplayStreamingFactory : public INetworkReplayStreamingFactory
 {
 public:
-	virtual TSharedPtr< INetworkReplayStreamer > CreateReplayStreamer();
+	virtual TSharedPtr< INetworkReplayStreamer > CreateReplayStreamer(const FURL& URL);
 };

@@ -371,6 +371,11 @@ static void SetHitResultFromShapeAndFaceIndex(const PxShape* PShape,  const PxRi
 				PxMaterial* PxMat = PShape->getMaterialFromInternalFaceIndex(FaceIndex);
 				if(PxMat != NULL)
 				{
+					if ((size_t)PxMat->userData == (size_t)-1)	//This is a temp check to try and track down why we're seeing 0xffffffff for userData
+					{
+						UE_LOG(LogPhysics, Error, TEXT("Getting a material with invalid userData for OwningComponent (%s) with FaceIndex (%d)"), *OwningComponent->GetReadableName(), FaceIndex);
+					}
+
 					OutResult.PhysMaterial = FPhysxUserData::Get<UPhysicalMaterial>(PxMat->userData);
 				}
 			}

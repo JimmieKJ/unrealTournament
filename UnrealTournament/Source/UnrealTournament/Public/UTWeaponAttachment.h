@@ -122,6 +122,12 @@ public:
 
 	virtual void HolsterToOwnerNative();
 
+	/** default parameters set on overlay particle effect (if any)
+	* up to the effect to care about them
+	*/
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Effects)
+	TArray<struct FParticleSysParam> OverlayEffectParams;
+
 	/** read WeaponOverlayFlags from owner and apply the appropriate overlay material (if any) */
 	virtual void UpdateOverlays();
 
@@ -140,4 +146,8 @@ public:
 		}
 		Super::MarkComponentsAsPendingKill();
 	}
+
+	/** blueprint hook to modify team color materials */
+	UFUNCTION(BlueprintImplementableEvent, Category = "Weapon")
+	void NotifyTeamChanged();
 };

@@ -12,6 +12,7 @@
 enum EReachFlags
 {
 	R_JUMP = 0x01,
+	R_SWIM = 0x02,
 };
 
 USTRUCT(BlueprintType)
@@ -224,6 +225,9 @@ class UNREALTOURNAMENT_API UUTPathNode : public UObject
 	FLinearColor DebugDrawColor;
 #endif
 
+	/** physics volume all polys are in */
+	UPROPERTY(BlueprintReadOnly, Category = PathNode)
+	APhysicsVolume* PhysicsVolume;
 	/** smallest poly edge size (i.e. largest collision capsule that can traverse all polygons and edges in this node) */
 	UPROPERTY(BlueprintReadOnly, Category = PathNode)
 	FCapsuleSize MinPolyEdgeSize;

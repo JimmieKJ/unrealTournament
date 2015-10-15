@@ -65,9 +65,22 @@ namespace AutomationTool
 			get { return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Personal), "Library/Logs/Unreal Engine/LocalBuildLogs"); }
 		}
 
+		private string P4ExePath = null;
+
 		public override string P4Exe
 		{
-			get { return "/usr/bin/p4"; }
+			get
+			{
+				if (P4ExePath == null)
+				{
+					P4ExePath = "/usr/bin/p4";
+					if (!File.Exists(P4ExePath))
+					{
+						P4ExePath = "/usr/local/bin/p4";
+					}
+				}
+				return P4ExePath;
+			}
 		}
 
 		public override Process CreateProcess(string AppName)

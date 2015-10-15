@@ -12,4 +12,5 @@ class UNREALTOURNAMENT_API UUTPickupMessage : public UUTLocalMessage
 	virtual FText ResolveMessage_Implementation(int32 Switch, bool bTargetsPlayerState1, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject) const override;
 	virtual void ClientReceive(const FClientReceiveData& ClientData) const override;
 	virtual bool UseLargeFont(int32 MessageIndex) const override;
+	virtual bool ShouldCountInstances_Implementation(int32 MessageIndex) const override;
 };

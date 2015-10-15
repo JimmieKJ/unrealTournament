@@ -82,7 +82,7 @@ bool AUTImpactEffect::SpawnEffect_Implementation(UWorld* World, const FTransform
 	}
 }
 
-void AUTImpactEffect::CallSpawnEffect(UObject* WorldContextObject, const AUTImpactEffect* Effect, const FTransform& InTransform, UPrimitiveComponent* HitComp, AActor* SpawnedBy, AController* InstigatedBy, ESoundReplicationType SoundReplication, const FImpactEffectNamedParameters& EffectParams)
+void AUTImpactEffect::CallSpawnEffect(UObject* WorldContextObject, TSubclassOf<AUTImpactEffect> Effect, const FTransform& InTransform, UPrimitiveComponent* HitComp, AActor* SpawnedBy, AController* InstigatedBy, ESoundReplicationType SoundReplication, const FImpactEffectNamedParameters& EffectParams)
 {
 	if (WorldContextObject == NULL)
 	{
@@ -94,7 +94,7 @@ void AUTImpactEffect::CallSpawnEffect(UObject* WorldContextObject, const AUTImpa
 	}
 	else
 	{
-		Effect->SpawnEffect(WorldContextObject->GetWorld(), InTransform, HitComp, SpawnedBy, InstigatedBy, SoundReplication);
+		Effect.GetDefaultObject()->SpawnEffect(WorldContextObject->GetWorld(), InTransform, HitComp, SpawnedBy, InstigatedBy, SoundReplication);
 	}
 }
 
@@ -110,7 +110,7 @@ bool AUTImpactEffect::ShouldCreateComponent_Implementation(const USceneComponent
 	}
 }
 
-bool AUTImpactEffect::ComponentCreated_Implementation(USceneComponent* NewComp, UPrimitiveComponent* HitComp, AActor* SpawnedBy, AController* InstigatedBy, FImpactEffectNamedParameters EffectParams) const
+void AUTImpactEffect::ComponentCreated_Implementation(USceneComponent* NewComp, UPrimitiveComponent* HitComp, AActor* SpawnedBy, AController* InstigatedBy, FImpactEffectNamedParameters EffectParams) const
 {
 	UPrimitiveComponent* Prim = Cast<UPrimitiveComponent>(NewComp);
 	if (Prim != NULL)
@@ -131,6 +131,19 @@ bool AUTImpactEffect::ComponentCreated_Implementation(USceneComponent* NewComp, 
 			((UParticleSystemComponent*)Prim)->bAutoDestroy = true;
 			((UParticleSystemComponent*)Prim)->SecondsBeforeInactive = 0.0f;
 			((UParticleSystemComponent*)Prim)->InstanceParameters += EffectParams.ParticleParams;
+
+			UUTGameUserSettings* UserSettings = Cast<UUTGameUserSettings>(GEngine->GetGameUserSettings());
+			Scalability::FQualityLevels QualitySettings = UserSettings->ScalabilityQuality;
+			if ((QualitySettings.EffectsQuality < 2) && !Cast<APlayerController>(InstigatedBy))
+			{
+				for (int32 Idx = 0; Idx < ((UParticleSystemComponent*)Prim)->EmitterInstances.Num(); Idx++)
+				{
+					if (((UParticleSystemComponent*)Prim)->EmitterInstances[Idx])
+					{
+						((UParticleSystemComponent*)Prim)->EmitterInstances[Idx]->LightDataOffset = 0;
+					}
+				}
+			}
 		}
 		else if (Prim->IsA(UAudioComponent::StaticClass()))
 		{
@@ -172,9 +185,6 @@ bool AUTImpactEffect::ComponentCreated_Implementation(USceneComponent* NewComp, 
 			}
 		}
 	}
-
-	// unused, see header comment
-	return true;
 }
 
 void AUTImpactEffect::CreateEffectComponents(UWorld* World, const FTransform& BaseTransform, UPrimitiveComponent* HitComp, AActor* SpawnedBy, AController* InstigatedBy, const FImpactEffectNamedParameters& EffectParams, USceneComponent* CurrentAttachment, FName TemplateName, const TArray<USceneComponent*>& NativeCompList, const TArray<USCS_Node*>& BPNodes) const

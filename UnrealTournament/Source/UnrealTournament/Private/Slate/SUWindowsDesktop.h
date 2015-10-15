@@ -4,6 +4,7 @@
 #include "SlateBasics.h"
 #include "SUWPanel.h"
 #include "Slate/SlateGameResources.h"
+#include "Widgets/SUTComboButton.h"
 
 #if !UE_SERVER
 class UNREALTOURNAMENT_API SUWindowsDesktop : public SCompoundWidget
@@ -26,7 +27,7 @@ public:
 	virtual void OnMenuClosed();
 	virtual void CloseMenus();
 
-	virtual FReply OnMenuConsoleCommand(FString Command, TSharedPtr<SComboButton> MenuButton);
+	virtual FReply OnMenuConsoleCommand(FString Command);
 	virtual void ConsoleCommand(FString Command);
 
 	virtual void ActivatePanel(TSharedPtr<class SUWPanel> PanelToActivate);

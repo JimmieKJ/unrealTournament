@@ -21,9 +21,9 @@ class UNREALTOURNAMENT_API AUTServerBeaconLobbyClient : public AOnlineBeaconClie
 	virtual void OnConnected();
 	virtual void OnFailure();
 	
-	virtual void UpdateMatch(FString Update);
+	virtual void UpdateMatch(const FMatchUpdate& MatchUpdate);
 	virtual void UpdatePlayer(FUniqueNetIdRepl PlayerID, const FString& PlayerName, int32 PlayerScore, bool bSpectator, uint8 TeamNum, bool bLastUpdate, int32 PlayerRank, FName Avatar);
-	virtual void EndGame(FString FinalUpdate);
+	virtual void EndGame(const FMatchUpdate& FinalMatchUpdate);
 	virtual void Empty();
 
 	/**
@@ -36,14 +36,7 @@ class UNREALTOURNAMENT_API AUTServerBeaconLobbyClient : public AOnlineBeaconClie
 	 * Tells the Lobby to update it's description on the stats
 	 **/
 	UFUNCTION(server, reliable, WithValidation)
-	virtual void Lobby_UpdateMatch(uint32 InstanceID, const FString& Update);
-
-	/**
-	 * Tells the Lobby to update it's badge
-	 **/
-	UFUNCTION(server, reliable, WithValidation)
-	virtual void Lobby_UpdateBadge(uint32 InstanceID, const FString& Update);
-
+	virtual void Lobby_UpdateMatch(uint32 InstanceID, const FMatchUpdate& MatchUpdate);
 
 	/**
 	 *	Allows the instance to update the lobby regarding a given player.
@@ -55,7 +48,7 @@ class UNREALTOURNAMENT_API AUTServerBeaconLobbyClient : public AOnlineBeaconClie
 	 *	Tells the Lobby that this instance is at Game Over
 	 **/
 	UFUNCTION(server, reliable, WithValidation)
-	virtual void Lobby_EndGame(uint32 InstanceID, const FString& FinalDescription);
+	virtual void Lobby_EndGame(uint32 InstanceID, const FMatchUpdate& MatchUpdate);
 
 	/**
 	 *	Tells the Lobby server that this instance is empty and it can be recycled.
@@ -69,14 +62,14 @@ class UNREALTOURNAMENT_API AUTServerBeaconLobbyClient : public AOnlineBeaconClie
 	 * will be called to let the hub know I want to be a dedicated instance.
 	 **/
 	UFUNCTION(server, reliable, WithValidation)
-	virtual void Lobby_IsDedicatedInstance(FGuid InstanceGUID, const FString& InHubKey, const FString& ServerName);
+	virtual void Lobby_IsDedicatedInstance(FGuid InstanceGUID, const FString& InHubKey, const FString& ServerName, const FString& ServerGameMode, const FString& ServerDescription, int32 MaxPlayers, bool bTeamGame);
 
 	/**
 	 *	Called from the hub, this will let a dedicated instance know it's been authorized and is connected to 
 	 *  the Hub.
 	 **/
 	UFUNCTION(client, reliable)
-	virtual void AuthorizeDedicatedInstance(FGuid HubGuid);
+	virtual void AuthorizeDedicatedInstance(FGuid HubGuid, int32 InstanceID);
 
 	// Will cause the hub to prime the AllowedMapPackages list with all maps available on the server.
 	UFUNCTION(server, reliable, withvalidation)
@@ -90,6 +83,21 @@ class UNREALTOURNAMENT_API AUTServerBeaconLobbyClient : public AOnlineBeaconClie
 
 	UFUNCTION(client, reliable)
 	virtual void Instance_ReceiveHubID(FGuid HubGuid);
+
+	UFUNCTION(client, reliable)
+	virtual void Instance_ReceieveRconMessage(const FString& TargetUniqueId, const FString& AdminMessage);
+
+	UFUNCTION(client, reliable)
+	virtual void Instance_ReceiveUserMessage(const FString& TargetUniqueId, const FString& Message);
+
+	UFUNCTION(client, reliable)
+	virtual void Instance_ForceShutdown();
+
+	UFUNCTION(client, reliable)
+	virtual void Instance_Kick(const FString& TargetUniqueId);
+
+	UFUNCTION(client, reliable)
+	virtual void Instance_AuthorizeAdmin(const FString& AdminId, bool bIsAdmin);
 
 protected:
 

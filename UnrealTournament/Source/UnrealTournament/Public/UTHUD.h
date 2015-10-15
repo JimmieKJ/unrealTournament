@@ -324,7 +324,7 @@ private:
 	UTexture2D* DamageIndicatorTexture;
 
 public:
-
+	UFUNCTION(BlueprintCallable, Category = HUD)
 	UTexture2D* ResolveFlag(AUTPlayerState* PS, FTextureUVs& UV);
 
 	/**Returns the necessary input mode for the hud this tick*/

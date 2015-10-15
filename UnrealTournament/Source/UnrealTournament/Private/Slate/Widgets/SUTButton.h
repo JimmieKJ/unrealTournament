@@ -2,6 +2,7 @@
 
 #pragma once
 #include "SlateBasics.h"
+#include "../SUTStyle.h"
 
 #if !UE_SERVER
 
@@ -23,10 +24,16 @@ class UNREALTOURNAMENT_API SUTButton : public SButton
 		, _DesiredSizeScale( FVector2D(1,1) )
 		, _ContentScale( FVector2D(1,1) )
 		, _ButtonColorAndOpacity(FLinearColor::White)
-		, _ForegroundColor( FCoreStyle::Get().GetSlateColor( "InvertedForeground" ) )
+		, _ForegroundColor(FCoreStyle::Get().GetSlateColor("InvertedForeground"))
+		, _TextNormalColor(SUTStyle::GetSlateColor("NormalTextColor"))
+		, _TextHoverColor(SUTStyle::GetSlateColor("HoverTextColor"))
+		, _TextFocusColor(SUTStyle::GetSlateColor("FocusTextColor"))
+		, _TextPressedColor(SUTStyle::GetSlateColor("PressedTextColor"))
+		, _TextDisabledColor(SUTStyle::GetSlateColor("DisabledTextColor"))
 		, _IsFocusable( true )
-		, _IsToggleButton( false )
+		, _IsToggleButton(false)
 		, _WidgetTag(0)
+
 		{}
 
 		/** Slot for this button's content (optional) */
@@ -67,6 +74,17 @@ class UNREALTOURNAMENT_API SUTButton : public SButton
 
 		SLATE_ATTRIBUTE( FSlateColor, ForegroundColor )
 
+		SLATE_ATTRIBUTE( FSlateColor, TextNormalColor)
+
+		SLATE_ATTRIBUTE( FSlateColor, TextHoverColor )
+
+		SLATE_ATTRIBUTE( FSlateColor, TextFocusColor )
+
+		SLATE_ATTRIBUTE( FSlateColor, TextPressedColor )
+
+		SLATE_ATTRIBUTE( FSlateColor, TextDisabledColor )
+
+
 		/** Sometimes a button should only be mouse-clickable and never keyboard focusable. */
 		SLATE_ARGUMENT( bool, IsFocusable )
 
@@ -102,19 +120,30 @@ class UNREALTOURNAMENT_API SUTButton : public SButton
 	virtual void UnPressed();
 	virtual void BePressed();
 
+	int32 WidgetTag;
+
 protected:
+
+	FSlateColor NormalTextColor;
+	FSlateColor HoverTextColor;
+	FSlateColor FocusTextColor;
+	FSlateColor PressedTextColor;
+	FSlateColor DisabledTextColor;
+
+	TSharedPtr<STextBlock> TextLabel;
+
 	FUTButtonClick OnButtonClick;
 	bool bIsToggleButton;
 
 	FUTMouseOver OnMouseOver;
-
-	int32 WidgetTag;
 
 	virtual FReply Pressed(int32 MouseButtonIndex);
 	virtual FReply Released(int32 MouseButtonIndex, bool bIsUnderCusor);
 
 	virtual void Press() { };
 	virtual void Release() { };
+
+	FSlateColor GetLabelColor() const;
 
 
 };

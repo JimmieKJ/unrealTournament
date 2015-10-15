@@ -45,9 +45,8 @@ DEFINE_LOG_CATEGORY_STATIC(LogUTCharacter, Log, All);
 AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer.SetDefaultSubobjectClass<UUTCharacterMovement>(ACharacter::CharacterMovementComponentName))
 {
-	// FIXME: TEMP FOR GDC: needed because of TeamMaterials
 	static ConstructorHelpers::FObjectFinder<UClass> DefaultCharContentRef(TEXT("Class'/Game/RestrictedAssets/Character/Malcom_New/Malcolm_New.Malcolm_New_C'"));
-	DefaultCharContent = DefaultCharContentRef.Object;
+	CharacterData = DefaultCharContentRef.Object;
 
 	// Set size for collision capsule
 	GetCapsuleComponent()->InitCapsuleSize(42.f, 92.0f);
@@ -124,6 +123,8 @@ AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 	FeignNudgeMag = 100000.f;
 	bCanPickupItems = true;
 	RagdollGravityScale = 1.0f;
+	bAllowGibs = true;
+	RagdollCollisionBleedThreshold = 2000.0f;
 
 	MinPainSoundInterval = 0.35f;
 	LastPainSoundTime = -100.0f;
@@ -235,6 +236,15 @@ void AUTCharacter::BeginPlay()
 	if (CharacterCameraComponent->RelativeLocation.Size2D() > 0.0f)
 	{
 		UE_LOG(UT, Warning, TEXT("%s: CameraComponent shouldn't have X/Y translation!"), *GetName());
+	}
+	// adjust MaxSavedPositionAge for bot tracking purposes
+	for (FConstControllerIterator It = GetWorld()->GetControllerIterator(); It; ++It)
+	{
+		AUTBot* B = Cast<AUTBot>(It->Get());
+		if (B != NULL)
+		{
+			MaxSavedPositionAge = FMath::Max<float>(MaxSavedPositionAge, B->TrackingReactionTime);
+		}
 	}
 	Super::BeginPlay();
 }
@@ -541,7 +551,7 @@ FVector AUTCharacter::GetHeadLocation(float PredictionTime)
 	return Result + GetRewindLocation(PredictionTime) - GetActorLocation();
 }
 
-bool AUTCharacter::IsHeadShot(FVector HitLocation, FVector ShotDirection, float WeaponHeadScaling, bool bConsumeArmor, AUTCharacter* ShotInstigator, float PredictionTime)
+bool AUTCharacter::IsHeadShot(FVector HitLocation, FVector ShotDirection, float WeaponHeadScaling, AUTCharacter* ShotInstigator, float PredictionTime)
 {
 	if (UTCharacterMovement && UTCharacterMovement->bIsFloorSliding)
 	{
@@ -571,35 +581,38 @@ bool AUTCharacter::IsHeadShot(FVector HitLocation, FVector ShotDirection, float 
 			DrawDebugSphere(GetWorld(), HeadLocation, HeadRadius * HeadScale * WeaponHeadScaling, 10, FColor::Red, true);
 		}
 	}
+	return bHeadShot;
+}
 
-	if (bHeadShot)
+bool AUTCharacter::BlockedHeadShot(FVector HitLocation, FVector ShotDirection, float WeaponHeadScaling, bool bConsumeArmor, AUTCharacter* ShotInstigator)
+{
+	// check for inventory items that prevent headshots
+	for (TInventoryIterator<> It(this); It; ++It)
 	{
-		// check for inventory items that prevent headshots
-		for (TInventoryIterator<> It(this); It; ++It)
+		if (It->bCallDamageEvents && It->PreventHeadShot(HitLocation, ShotDirection, WeaponHeadScaling, bConsumeArmor))
 		{
-			if (It->bCallDamageEvents && It->PreventHeadShot(HitLocation, ShotDirection, WeaponHeadScaling, bConsumeArmor))
+			HeadArmorFlashCount++;
+			LastHeadArmorFlashTime = GetWorld()->GetTimeSeconds();
+			if (GetNetMode() == NM_Standalone)
 			{
-				HeadArmorFlashCount++;
-				LastHeadArmorFlashTime = GetWorld()->GetTimeSeconds();
-				if (GetNetMode() == NM_Standalone)
-				{
-					OnRepHeadArmorFlashCount();
-				}
-				if (ShotInstigator)
-				{
-					ShotInstigator->HeadShotBlocked();
-				}
-
-				// @TODO FIXMESTEVE - hack - need more elegant way of keeping headshots w/ udamage
-				if (!ShotInstigator || (ShotInstigator->DamageScaling < 2.f))
-				{
-					bHeadShot = false;
-				}
-				break;
+				OnRepHeadArmorFlashCount();
 			}
+			if (ShotInstigator)
+			{
+				ShotInstigator->HeadShotBlocked();
+			}
+
+			// @TODO FIXMESTEVE - hack - need more elegant way of keeping headshots w/ udamage
+			if (!ShotInstigator || (ShotInstigator->DamageScaling < 2.f))
+			{
+				return true;
+			}
+
+			break;
 		}
 	}
-	return bHeadShot;
+
+	return false;
 }
 
 void AUTCharacter::OnRepHeadArmorFlashCount()
@@ -637,7 +650,7 @@ FVector AUTCharacter::GetWeaponBobOffset(float DeltaTime, AUTWeapon* MyWeapon)
 	FVector Z = RotMatrix.GetScaledAxis(EAxis::Z);
 
 	float InterpTime = FMath::Min(1.f, WeaponJumpBobInterpRate*DeltaTime);
-	if (!GetCharacterMovement() || GetCharacterMovement()->IsFalling() || !MyWeapon)
+	if (!GetCharacterMovement() || GetCharacterMovement()->IsFalling())
 	{
 		// interp out weapon bob if falling
 		BobTime = 0.f;
@@ -690,7 +703,7 @@ FVector AUTCharacter::GetWeaponBobOffset(float DeltaTime, AUTWeapon* MyWeapon)
 	CurrentJumpBob.Z = (1.f - InterpTime)*CurrentJumpBob.Z + InterpTime*DesiredJumpBob.Z;
 
 	AUTPlayerController* MyPC = Cast<AUTPlayerController>(GetController()); // fixmesteve use the viewer rather than the controller (when can do everywhere)
-	float WeaponBobGlobalScaling = MyWeapon->WeaponBobScaling * (MyPC ? MyPC->WeaponBobGlobalScaling : 1.f);
+	float WeaponBobGlobalScaling = (MyWeapon ? MyWeapon->WeaponBobScaling : 1.f) * (MyPC ? MyPC->WeaponBobGlobalScaling : 1.f);
 	return WeaponBobGlobalScaling*(CurrentWeaponBob.Y + CurrentJumpBob.Y)*Y + WeaponBobGlobalScaling*(CurrentWeaponBob.Z + CurrentJumpBob.Z)*Z + CrouchEyeOffset + GetTransformedEyeOffset();
 }
 
@@ -902,7 +915,17 @@ float AUTCharacter::TakeDamage(float Damage, const FDamageEvent& DamageEvent, AC
 			SetLastTakeHitInfo(Damage, ResultDamage, ResultMomentum, HitArmor, DamageEvent);
 			if (Health <= 0)
 			{
+				AUTPlayerState* KillerPS = EventInstigator ? Cast<AUTPlayerState>(EventInstigator->PlayerState) : NULL;
+				if (KillerPS)
+				{
+					AUTProjectile* Proj = Cast<AUTProjectile>(DamageCauser);
+					KillerPS->bAnnounceWeaponReward = Proj && Proj->bPendingSpecialReward;
+				}
 				Died(EventInstigator, DamageEvent);
+				if (KillerPS)
+				{
+					KillerPS->bAnnounceWeaponReward = false;
+				}
 			}
 		}
 		else if (IsRagdoll())
@@ -1176,7 +1199,7 @@ void AUTCharacter::NotifyTakeHit(AController* InstigatedBy, int32 Damage, FVecto
 			}
 			else if ((UTDamageTypeCDO == NULL) || UTDamageTypeCDO->bCausesBlood)
 			{
-				UUTGameplayStatics::UTPlaySound(GetWorld(), PainSound, this, SRT_All, false, FVector::ZeroVector, InstigatedByPC, NULL, false);
+				UUTGameplayStatics::UTPlaySound(GetWorld(), CharacterData.GetDefaultObject()->PainSound, this, SRT_All, false, FVector::ZeroVector, InstigatedByPC, NULL, false);
 			}
 			LastPainSoundTime = GetWorld()->TimeSeconds;
 		}
@@ -1250,6 +1273,10 @@ bool AUTCharacter::Died(AController* EventInstigator, const FDamageEvent& Damage
 				}
 			}
 		}
+		if ((GetWorld()->GetTimeSeconds() - FlakShredTime < 0.05f) && FlakShredInstigator && (FlakShredInstigator == EventInstigator))
+		{
+			AnnounceShred(Cast<AUTPlayerController>(EventInstigator));
+		}
 
 		GetWorld()->GetAuthGameMode<AUTGameMode>()->Killed(EventInstigator, ControllerKilled, this, DamageEvent.DamageTypeClass);
 
@@ -1268,10 +1295,6 @@ bool AUTCharacter::Died(AController* EventInstigator, const FDamageEvent& Damage
 		OnDied.Broadcast(EventInstigator, DamageEvent.DamageTypeClass ? DamageEvent.DamageTypeClass.GetDefaultObject() : NULL);
 
 		PlayDying();
-		if ((GetWorld()->GetTimeSeconds() - FlakShredTime < 0.05f) && FlakShredInstigator && (FlakShredInstigator == EventInstigator))
-		{
-			AnnounceShred(Cast<AUTPlayerController>(EventInstigator));
-		}
 
 		//Stop ghosts on death
 		if (GhostComponent->bGhostRecording)
@@ -1293,7 +1316,9 @@ void AUTCharacter::AnnounceShred(AUTPlayerController *KillerPC)
 	if (KillerPS && CloseFlakRewardMessageClass)
 	{
 		KillerPS->ModifyStatsValue(FlakShredStatName, 1);
+		KillerPS->bAnnounceWeaponReward = true;
 		KillerPC->SendPersonalMessage(CloseFlakRewardMessageClass, KillerPS->GetStatsValue(FlakShredStatName), PlayerState, KillerPS);
+
 	}
 }
 
@@ -1362,6 +1387,7 @@ void AUTCharacter::StartRagdoll()
 
 	GetCharacterMovement()->StopActiveMovement();
 	GetCharacterMovement()->Velocity = FVector::ZeroVector;
+	bApplyWallSlide = false;
 
 	// set up the custom physics override, if necessary
 	SetRagdollGravityScale(RagdollGravityScale);
@@ -1472,6 +1498,11 @@ FVector AUTCharacter::GetLocationCenterOffset() const
 	return (!IsRagdoll() || RootComponent != GetMesh()) ? FVector::ZeroVector : (GetMesh()->Bounds.Origin - GetMesh()->GetComponentLocation());
 }
 
+bool AUTCharacter::IsRecentlyDead()
+{
+	return IsDead() && (GetWorld()->GetTimeSeconds() - TimeOfDeath < 1.f);
+}
+
 void AUTCharacter::PlayDying()
 {
 	TimeOfDeath = GetWorld()->TimeSeconds;
@@ -1487,42 +1518,18 @@ void AUTCharacter::PlayDying()
 	{
 		GetMesh()->SetMorphTarget(FName(TEXT("HatHair")), 0.0f);
 	}
-	if (Hat && Hat->GetAttachParentActor())
-	{
-		Hat->DetachRootComponentFromParent(true);
-
-		Hat->OnWearerDeath(LastTakeHitInfo.DamageType);
-
-		if (Hat->bDontDropOnDeath)
-		{
-			Hat->Destroy();
-		}
-		else
-		{
-			Hat->SetLifeSpan(7.0f);
-		}
-	}
 
 	if (LeaderHat && LeaderHat->GetAttachParentActor())
 	{
-		LeaderHat->DetachRootComponentFromParent(true);
-
 		LeaderHat->OnWearerDeath(LastTakeHitInfo.DamageType);
-
-		if (LeaderHat->bDontDropOnDeath)
-		{
-			LeaderHat->Destroy();
-		}
-		else
-		{
-			LeaderHat->SetLifeSpan(7.0f);
-		}
+	}
+	else if (Hat && Hat->GetAttachParentActor())
+	{
+		Hat->OnWearerDeath(LastTakeHitInfo.DamageType);
 	}
 
 	if (Eyewear && Eyewear->GetAttachParentActor())
 	{
-		Eyewear->DetachRootComponentFromParent(true);
-
 		Eyewear->OnWearerDeath(LastTakeHitInfo.DamageType);
 	}
 
@@ -1557,45 +1564,82 @@ void AUTCharacter::PlayDying()
 		GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 		SetLifeSpan(0.25f);
 	}
+
+	if (Hat && Hat->GetAttachParentActor())
+	{
+		Hat->DetachRootComponentFromParent(true);
+
+		if (Hat->bDontDropOnDeath)
+		{
+			Hat->Destroy();
+		}
+		else
+		{
+			Hat->SetLifeSpan(7.0f);
+		}
+	}
+
+	if (LeaderHat && LeaderHat->GetAttachParentActor())
+	{
+		LeaderHat->DetachRootComponentFromParent(true);
+
+		if (LeaderHat->bDontDropOnDeath)
+		{
+			LeaderHat->Destroy();
+		}
+		else
+		{
+			LeaderHat->SetLifeSpan(7.0f);
+		}
+	}
+
+	if (Eyewear && Eyewear->GetAttachParentActor())
+	{
+		Eyewear->DetachRootComponentFromParent(true);
+	}
 }
 
 void AUTCharacter::GibExplosion_Implementation()
 {
-	if (GibExplosionEffect != NULL)
+	if (bAllowGibs && CharacterData != NULL)
 	{
-		GibExplosionEffect.GetDefaultObject()->SpawnEffect(GetWorld(), RootComponent->GetComponentTransform(), GetMesh(), this, NULL, SRT_None);
-	}
-	for (FName BoneName : GibExplosionBones)
-	{
-		SpawnGib(BoneName, *LastTakeHitInfo.DamageType);
-	}
-
-	// note: if some local PlayerController is using for a ViewTarget, leave around until they switch off to prevent camera issues
-	if ((GetNetMode() == NM_Client || GetNetMode() == NM_Standalone) && !IsLocallyViewed())
-	{
-		Destroy();
-	}
-	else
-	{
-		// need to delay for replication
-		if (IsRagdoll())
+		const AUTCharacterContent* CharDataObj = CharacterData.GetDefaultObject();
+		if (CharDataObj->GibExplosionEffect != NULL)
 		{
-			StopRagdoll();
-			bInRagdollRecovery = false;
-			GetMesh()->SetSimulatePhysics(false);
-			GetMesh()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+			CharDataObj->GibExplosionEffect.GetDefaultObject()->SpawnEffect(GetWorld(), RootComponent->GetComponentTransform(), GetMesh(), this, NULL, SRT_None);
 		}
-		SetActorHiddenInGame(true);
-		SetActorEnableCollision(false);
-		GetCharacterMovement()->DisableMovement();
-		if (GetNetMode() == NM_DedicatedServer)
+		for (const FGibSlotInfo& GibSlot : CharDataObj->Gibs)
 		{
-			SetLifeSpan(0.25f);
+			SpawnGib(GibSlot, *LastTakeHitInfo.DamageType);
+		}
+
+		// note: if some local PlayerController is using for a ViewTarget, leave around until they switch off to prevent camera issues
+		if ((GetNetMode() == NM_Client || GetNetMode() == NM_Standalone) && !IsLocallyViewed())
+		{
+			Destroy();
 		}
 		else
 		{
-			FTimerHandle TempHandle;
-			GetWorldTimerManager().SetTimer(TempHandle, this, &AUTCharacter::DeathCleanupTimer, 1.0f, false);
+			// need to delay for replication
+			if (IsRagdoll())
+			{
+				StopRagdoll();
+				bInRagdollRecovery = false;
+				GetMesh()->SetSimulatePhysics(false);
+				GetMesh()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+			}
+			SetActorHiddenInGame(true);
+			SetActorEnableCollision(false);
+			GetCharacterMovement()->DisableMovement();
+			if (GetNetMode() == NM_DedicatedServer)
+			{
+				SetLifeSpan(0.25f);
+			}
+			else
+			{
+				FTimerHandle TempHandle;
+				GetWorldTimerManager().SetTimer(TempHandle, this, &AUTCharacter::DeathCleanupTimer, 1.0f, false);
+			}
 		}
 	}
 }
@@ -1613,11 +1657,32 @@ void AUTCharacter::DeathCleanupTimer()
 	}
 }
 
-void AUTCharacter::SpawnGib(FName BoneName, TSubclassOf<UUTDamageType> DmgType)
+void AUTCharacter::SpawnGib(const FGibSlotInfo& GibInfo, TSubclassOf<UUTDamageType> DmgType)
 {
-	if (GibClass != NULL)
+	if (GibInfo.GibType != NULL && bAllowGibs)
 	{
-		FTransform SpawnPos = GetMesh()->GetSocketTransform(BoneName);
+		TSubclassOf<AUTGib> GibClass = GibInfo.GibType;
+		
+		TSubclassOf<AUTGib> HatGibClass = nullptr;
+		if (LeaderHat)
+		{
+			HatGibClass = LeaderHat->OverrideGib(GibInfo.BoneName);
+		}
+		else if (Hat)
+		{
+			HatGibClass = Hat->OverrideGib(GibInfo.BoneName);
+		}
+		if (HatGibClass)
+		{
+			GibClass = HatGibClass;
+		}
+
+		FTransform SpawnPos = GetMesh()->GetSocketTransform(GibInfo.BoneName);
+		if (SpawnPos.GetScale3D().Size() <= 0.0f)
+		{
+			// on client headshot scale-to-zero may have already been applied
+			SpawnPos.RemoveScaling();
+		}
 		FActorSpawnParameters Params;
 		Params.bNoCollisionFail = true;
 		Params.Instigator = this;
@@ -1630,8 +1695,8 @@ void AUTCharacter::SpawnGib(FName BoneName, TSubclassOf<UUTDamageType> DmgType)
 			Gib->SetActorScale3D(Gib->GetActorScale3D() * SpawnPos.GetScale3D());
 			if (Gib->Mesh != NULL)
 			{
-				FVector Vel = (GetMesh() == RootComponent) ? GetMesh()->GetComponentVelocity() : GetCharacterMovement()->Velocity;
-				Vel += (Gib->GetActorLocation() - GetActorLocation()).GetSafeNormal() * Vel.Size() * 0.25f;
+				FVector Vel = (GetMesh() == RootComponent) ? GetMesh()->GetComponentVelocity() : (UTCharacterMovement->Velocity + UTCharacterMovement->GetPendingImpulse());
+				Vel += (Gib->GetActorLocation() - GetActorLocation()).GetSafeNormal() * FMath::Max<float>(400.0f, Vel.Size() * 0.25f);
 				Gib->Mesh->SetPhysicsLinearVelocity(Vel, false);
 			}
 			if (DmgType != NULL)
@@ -1683,7 +1748,7 @@ void AUTCharacter::ServerFeignDeath_Implementation()
 					{
 						FHitResult FakeHit(this, NULL, GetActorLocation(), GetActorRotation().Vector());
 						FUTPointDamageEvent FakeDamageEvent(0, FakeHit, FVector(0, 0, 0), UUTDmgType_FeignFail::StaticClass());
-						UUTGameplayStatics::UTPlaySound(GetWorld(), PainSound, this, SRT_All, false, FVector::ZeroVector, Cast<AUTPlayerController>(Controller), NULL, false);
+						UUTGameplayStatics::UTPlaySound(GetWorld(), CharacterData.GetDefaultObject()->PainSound, this, SRT_All, false, FVector::ZeroVector, Cast<AUTPlayerController>(Controller), NULL, false);
 						Died(NULL, FakeDamageEvent);
 					}
 					else
@@ -2885,6 +2950,17 @@ void AUTCharacter::PlayFootstep(uint8 FootNum)
 	if (FeetAreInWater())
 	{
 		UUTGameplayStatics::UTPlaySound(GetWorld(), WaterFootstepSound, this, SRT_IfSourceNotReplicated);
+		if (GetMesh() && (GetWorld()->GetTimeSeconds() - GetMesh()->LastRenderTime < 0.05f)
+			&& (GetCachedScalabilityCVars().DetailMode != 0))
+		{
+			AUTWorldSettings* WS = Cast<AUTWorldSettings>(GetWorld()->GetWorldSettings());
+			if (WS->EffectIsRelevant(this, GetActorLocation(), true, true, 5000.f, 0.f, false))
+			{
+				FVector EffectLocation = GetActorLocation();
+				EffectLocation.Z = EffectLocation.Z + 4.f - GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
+				UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), WaterFootstepEffect, EffectLocation, GetActorRotation(), true);
+			}
+		}
 	}
 	else if (GetLocalViewer())
 	{
@@ -2936,7 +3012,7 @@ void AUTCharacter::PlayJump_Implementation(const FVector& JumpLocation, const FV
 {
 	DesiredJumpBob = WeaponJumpBob;
 	TargetEyeOffset.Z = EyeOffsetJumpBob;
-	UUTGameplayStatics::UTPlaySound(GetWorld(), JumpSound, this, SRT_IfSourceNotReplicated, false, JumpLocation);
+	UUTGameplayStatics::UTPlaySound(GetWorld(), CharacterData.GetDefaultObject()->JumpSound, this, SRT_IfSourceNotReplicated, false, JumpLocation);
 }
 
 void AUTCharacter::Falling()
@@ -2971,17 +3047,17 @@ void AUTCharacter::OnDodge_Implementation(const FVector& DodgeLocation, const FV
 	}
 	if (GetCharacterMovement() && GetCharacterMovement()->IsSwimming())
 	{
-		UUTGameplayStatics::UTPlaySound(GetWorld(), SwimPushSound, this, SRT_IfSourceNotReplicated, false, DodgeLocation);
+		UUTGameplayStatics::UTPlaySound(GetWorld(), CharacterData.GetDefaultObject()->SwimPushSound, this, SRT_IfSourceNotReplicated, false, DodgeLocation);
 	}
 	else
 	{
-		UUTGameplayStatics::UTPlaySound(GetWorld(), DodgeSound, this, SRT_IfSourceNotReplicated, false, DodgeLocation);
+		UUTGameplayStatics::UTPlaySound(GetWorld(), CharacterData.GetDefaultObject()->DodgeSound, this, SRT_IfSourceNotReplicated, false, DodgeLocation);
 	}
 }
 
 void AUTCharacter::OnSlide_Implementation(const FVector & SlideLocation, const FVector &SlideDir)
 {
-	UUTGameplayStatics::UTPlaySound(GetWorld(), FloorSlideSound, this, SRT_IfSourceNotReplicated, false, SlideLocation);
+	UUTGameplayStatics::UTPlaySound(GetWorld(), CharacterData.GetDefaultObject()->FloorSlideSound, this, SRT_IfSourceNotReplicated, false, SlideLocation);
 
 	FRotator TurnRot(0.f, GetActorRotation().Yaw, 0.f);
 	FRotationMatrix TurnRotMatrix = FRotationMatrix(TurnRot);
@@ -3046,19 +3122,20 @@ void AUTCharacter::Landed(const FHitResult& Hit)
 
 		if (UTCharacterMovement && UTCharacterMovement->bIsFloorSliding)
 		{
-			UUTGameplayStatics::UTPlaySound(GetWorld(), FloorSlideSound, this, SRT_None);
+			UUTGameplayStatics::UTPlaySound(GetWorld(), CharacterData.GetDefaultObject()->FloorSlideSound, this, SRT_None);
 			if (FeetAreInWater())
 			{
-				UUTGameplayStatics::UTPlaySound(GetWorld(), WaterEntrySound, this, SRT_None);
+				PlayWaterSound(CharacterData.GetDefaultObject()->WaterEntrySound);
 			}
 		}
 		else if (FeetAreInWater())
 		{
-			UUTGameplayStatics::UTPlaySound(GetWorld(), WaterEntrySound, this, SRT_None);
+			PlayWaterSound(CharacterData.GetDefaultObject()->WaterEntrySound);
+			PlayWaterEntryEffect(GetActorLocation() - FVector(0.f, 0.f, GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight()), GetActorLocation());
 		}
 		else
 		{
-			UUTGameplayStatics::UTPlaySound(GetWorld(), LandingSound, this, SRT_None);
+			UUTGameplayStatics::UTPlaySound(GetWorld(), CharacterData.GetDefaultObject()->LandingSound, this, SRT_None);
 			if ((LandEffect != NULL) && (FMath::Abs(GetCharacterMovement()->Velocity.Z) > LandEffectSpeed))
 			{
 				UParticleSystemComponent* LandedPSC = UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), LandEffect, GetActorLocation() - FVector(0.f,0.f, GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight()), Hit.Normal.Rotation(), true);
@@ -3077,15 +3154,30 @@ void AUTCharacter::Landed(const FHitResult& Hit)
 
 void AUTCharacter::EnteredWater(AUTWaterVolume* WaterVolume)
 {
-	PlayWaterSound(WaterVolume->EntrySound ? WaterVolume->EntrySound : WaterEntrySound);
+	PlayWaterSound(WaterVolume->EntrySound ? WaterVolume->EntrySound : CharacterData.GetDefaultObject()->WaterEntrySound);
 	if (UTCharacterMovement)
 	{
 		if ((FMath::Abs(UTCharacterMovement->Velocity.Z) > UTCharacterMovement->MaxWaterSpeed) && IsLocallyControlled() && Cast<APlayerController>(GetController()))
 		{
-			UUTGameplayStatics::UTPlaySound(GetWorld(), FastWaterEntrySound, this, SRT_None);
+			UUTGameplayStatics::UTPlaySound(GetWorld(), CharacterData.GetDefaultObject()->FastWaterEntrySound, this, SRT_None);
 		}
 		UTCharacterMovement->Velocity.Z *= WaterVolume->PawnEntryVelZScaling;
 		UTCharacterMovement->BrakingDecelerationSwimming = WaterVolume->BrakingDecelerationSwimming;
+		PlayWaterEntryEffect(GetActorLocation(), GetActorLocation() + FVector(0.f, 0.f, 100.f));
+	}
+}
+
+void AUTCharacter::PlayWaterEntryEffect(const FVector& InWaterLoc, const FVector& OutofWaterLoc)
+{
+	if (GetMesh() && (GetWorld()->GetTimeSeconds() - GetMesh()->LastRenderTime < 0.05f)
+		&& (GetCachedScalabilityCVars().DetailMode != 0))
+	{
+		AUTWorldSettings* WS = Cast<AUTWorldSettings>(GetWorld()->GetWorldSettings());
+		if (WS->EffectIsRelevant(this, GetActorLocation(), true, true, 10000.f, 0.f, false))
+		{
+			FVector EffectLocation = UTCharacterMovement->FindWaterLine(InWaterLoc, OutofWaterLoc);
+			UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), WaterEntryEffect, EffectLocation, GetActorRotation(), true);
+		}
 	}
 }
 
@@ -3156,11 +3248,16 @@ void AUTCharacter::OnRagdollCollision(AActor* OtherActor, UPrimitiveComponent* O
 {
 	if (IsDead())
 	{
-		// maybe spawn blood as the ragdoll smacks into things
-		if (OtherComp != NULL && OtherActor != this && GetWorld()->TimeSeconds - LastDeathDecalTime > 0.25f && GetWorld()->TimeSeconds - GetLastRenderTime() < 1.0f)
+		if (NormalImpulse.SizeSquared() > RagdollCollisionBleedThreshold * RagdollCollisionBleedThreshold)
 		{
-			SpawnBloodDecal(GetActorLocation(), -Hit.Normal);
-			LastDeathDecalTime = GetWorld()->TimeSeconds;
+			//UE_LOG(LogUTCharacter, Log, TEXT("RagdollCollision %f %f %f"), NormalImpulse.X, NormalImpulse.Y, NormalImpulse.Z);
+
+			// maybe spawn blood as the ragdoll smacks into things
+			if (OtherComp != NULL && OtherActor != this && GetWorld()->TimeSeconds - LastDeathDecalTime > 0.25f && GetWorld()->TimeSeconds - GetLastRenderTime() < 1.0f)
+			{
+				SpawnBloodDecal(GetActorLocation(), -Hit.Normal);
+				LastDeathDecalTime = GetWorld()->TimeSeconds;
+			}
 		}
 	}
 	// cause falling damage on Z axis collisions
@@ -3289,6 +3386,15 @@ void AUTCharacter::UpdateCharOverlays()
 					Child->DestroyComponent(false);
 				}
 			}
+
+			if (LeaderHat)
+			{
+				LeaderHat->SetActorHiddenInGame(false);
+			}
+			else if (Hat)
+			{
+				Hat->SetActorHiddenInGame(false);
+			}
 		}
 	}
 	else if (GS != NULL)
@@ -3364,6 +3470,15 @@ void AUTCharacter::UpdateCharOverlays()
 					break;
 				}
 			}
+		}
+
+		if (LeaderHat && LeaderHat->bHideWithOverlay)
+		{
+			LeaderHat->SetActorHiddenInGame(true);
+		}
+		if (Hat && Hat->bHideWithOverlay)
+		{
+			Hat->SetActorHiddenInGame(true);
 		}
 	}
 }
@@ -3694,6 +3809,10 @@ void AUTCharacter::Tick(float DeltaTime)
 	{
 		GetWeapon()->UpdateViewBob(DeltaTime);
 	}
+	else
+	{
+		GetWeaponBobOffset(DeltaTime, NULL);
+	}
 	AUTPlayerController* MyPC = GetLocalViewer();
 	if (MyPC && GetCharacterMovement()) 
 	{
@@ -3722,17 +3841,17 @@ void AUTCharacter::Tick(float DeltaTime)
 			{
 				float NewLocalAmbientVolume = FMath::Min(1.f, (GetCharacterMovement()->Velocity.Size2D() - SprintAmbientStartSpeed) / (UTCharacterMovement->SprintSpeed - SprintAmbientStartSpeed));
 				LocalAmbientVolume = LocalAmbientVolume*(1.f - DeltaTime) + NewLocalAmbientVolume*DeltaTime;
-				SetLocalAmbientSound(SprintAmbientSound, LocalAmbientVolume, false);
+				SetLocalAmbientSound(CharacterData.GetDefaultObject()->SprintAmbientSound, LocalAmbientVolume, false);
 			}
-			else if ((LocalAmbientSound == SprintAmbientSound) && (LocalAmbientVolume > 0.05f))
+			else if ((LocalAmbientSound == CharacterData.GetDefaultObject()->SprintAmbientSound) && (LocalAmbientVolume > 0.05f))
 			{
 				LocalAmbientVolume = LocalAmbientVolume*(1.f - DeltaTime);
-				SetLocalAmbientSound(SprintAmbientSound, LocalAmbientVolume, false);
+				SetLocalAmbientSound(CharacterData.GetDefaultObject()->SprintAmbientSound, LocalAmbientVolume, false);
 			}
 			else
 			{
 				SetLocalAmbientSound(WallSlideAmbientSound, 0.f, true);
-				SetLocalAmbientSound(SprintAmbientSound, 0.f, true);
+				SetLocalAmbientSound(CharacterData.GetDefaultObject()->SprintAmbientSound, 0.f, true);
 			}
 		}
 	}
@@ -3788,7 +3907,7 @@ void AUTCharacter::Tick(float DeltaTime)
 			{
 				if (bHeadWasUnderwater && (GetWorld()->GetTimeSeconds() - LastBreathTime > MaxUnderWaterTime - 5.f))
 				{
-					UUTGameplayStatics::UTPlaySound(GetWorld(), GaspSound, this, SRT_None);
+					UUTGameplayStatics::UTPlaySound(GetWorld(), CharacterData.GetDefaultObject()->GaspSound, this, SRT_None);
 				}
 				LastBreathTime = GetWorld()->GetTimeSeconds();
 			}
@@ -3875,7 +3994,7 @@ void AUTCharacter::TakeDrowningDamage()
 {
 	FUTPointDamageEvent DamageEvent(DrowningDamagePerSecond, FHitResult(this, GetCapsuleComponent(), GetActorLocation(), FVector(0.0f, 0.0f, 1.0f)), FVector(0.0f, 0.0f, -1.0f), UUTDmgType_Drown::StaticClass());
 	TakeDamage(DrowningDamagePerSecond, DamageEvent, Controller, this);
-	UUTGameplayStatics::UTPlaySound(GetWorld(), DrowningSound, this, SRT_None);
+	UUTGameplayStatics::UTPlaySound(GetWorld(), CharacterData.GetDefaultObject()->DrowningSound, this, SRT_None);
 }
 
 uint8 AUTCharacter::GetTeamNum() const
@@ -4000,10 +4119,19 @@ void AUTCharacter::SetCosmeticsFromPlayerState()
 	}
 }
 
+AUTCharacterContent* AUTCharacter::GetCharacterData() const
+{
+	return CharacterData.GetDefaultObject();
+}
+
 void AUTCharacter::ApplyCharacterData(TSubclassOf<AUTCharacterContent> CharType)
 {
 	AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
-	const AUTCharacterContent* Data = (CharType != NULL) ? CharType.GetDefaultObject() : (DefaultCharContent != NULL ? DefaultCharContent.GetDefaultObject() : NULL);
+	if (CharType != NULL)
+	{
+		CharacterData = CharType;
+	}
+	const AUTCharacterContent* Data = CharacterData.GetDefaultObject();
 	if (Data->Mesh != NULL)
 	{
 		FComponentReregisterContext ReregisterContext(GetMesh());
@@ -4093,6 +4221,10 @@ void AUTCharacter::NotifyTeamChanged()
 		{
 			Weapon->NotifyTeamChanged();
 		}
+		if (WeaponAttachment != nullptr)
+		{
+			WeaponAttachment->NotifyTeamChanged();
+		}
 	}
 }
 
@@ -4106,7 +4238,7 @@ void AUTCharacter::PlayerSuicide()
 	{
 		FHitResult FakeHit(this, NULL, GetActorLocation(), GetActorRotation().Vector());
 		FUTPointDamageEvent FakeDamageEvent(0, FakeHit, FVector(0, 0, 0), UUTDmgType_Suicide::StaticClass());
-		UUTGameplayStatics::UTPlaySound(GetWorld(), PainSound, this, SRT_All, false, FVector::ZeroVector, Cast<AUTPlayerController>(Controller), NULL, false);
+		UUTGameplayStatics::UTPlaySound(GetWorld(), CharacterData.GetDefaultObject()->PainSound, this, SRT_All, false, FVector::ZeroVector, Cast<AUTPlayerController>(Controller), NULL, false);
 		Died(NULL, FakeDamageEvent);
 	}
 }
@@ -4246,7 +4378,7 @@ void AUTCharacter::FellOutOfWorld(const UDamageType& DmgType)
 	{
 		FHitResult FakeHit(this, NULL, GetActorLocation(), GetActorRotation().Vector());
 		FUTPointDamageEvent FakeDamageEvent(0, FakeHit, FVector(0, 0, 0), DmgType.GetClass());
-		UUTGameplayStatics::UTPlaySound(GetWorld(), PainSound, this, SRT_All, false, FVector::ZeroVector, Cast<AUTPlayerController>(Controller), NULL, false);
+		UUTGameplayStatics::UTPlaySound(GetWorld(), CharacterData.GetDefaultObject()->PainSound, this, SRT_All, false, FVector::ZeroVector, Cast<AUTPlayerController>(Controller), NULL, false);
 		Died(NULL, FakeDamageEvent);
 	}
 }
@@ -4363,7 +4495,7 @@ void AUTCharacter::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector
 	if (UTPS != NULL && UTPC != NULL && (bSpectating || (PC->GetViewTarget() != this)) && (GetWorld()->TimeSeconds - GetLastRenderTime() < 0.5f) &&
 		FVector::DotProduct(CameraDir, (GetActorLocation() - CameraPosition)) > 0.0f && GS != NULL)
 	{
-		float Dist = (CameraPosition - GetActorLocation()).Size();
+		float Dist = (CameraPosition - GetActorLocation()).Size() * FMath::Tan(FMath::DegreesToRadians(PC->PlayerCameraManager->GetFOVAngle()*0.5f));
 		if ((GS->OnSameTeam(PC->GetPawn(), this) || bSpectating || GS->HasMatchEnded() || GS->IsMatchAtHalftime()) && (bTacCom || Dist <= (bSpectating ? SpectatorIndicatorMaxDistance : TeamPlayerIndicatorMaxDistance)))
 		{
 			float TextXL, YL;
@@ -4385,9 +4517,9 @@ void AUTCharacter::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector
 			}
 			UFont* TinyFont = AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->TinyFont;
 			Canvas->TextSize(TinyFont, PlayerState->PlayerName, TextXL, YL, Scale, Scale);
-			float X, Y;
-			Canvas->TextSize(TinyFont, FString("+999  A999"), X, Y, Scale, Scale);
-			float XL = bFarAway ? TextXL : FMath::Max(X, TextXL);
+			float BarWidth, Y;
+			Canvas->TextSize(TinyFont, FString("AAAWWW"), BarWidth, Y, Scale, Scale);
+			float XL = bFarAway ? TextXL : FMath::Max(BarWidth, TextXL);
 			FVector WorldPosition = GetMesh()->GetComponentLocation();
 			FVector ScreenPosition = Canvas->Project(WorldPosition + FVector(0.f, 0.f, GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight() * 2.25f));
 			float XPos = ScreenPosition.X - 0.5f*XL;
@@ -4413,29 +4545,36 @@ void AUTCharacter::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector
 
 				if (!bFarAway)
 				{
-					TextItem.SetColor(FLinearColor(0.2f, 0.5f, 0.2f, 0.6f));
-					FFormatNamedArguments Args;
-					Args.Add("Health", FText::AsNumber(Health));
-					TextItem.Text = FText::Format(NSLOCTEXT("UTCharacter", "HealthDisplay", "+{Health}"), Args);
-
-					float XOffset = XPos;
-					if (ArmorAmount == 0)
+					BarWidth -= 2.f*Border;
+					XPos += Border;
+					const float BarHeight = 6.f;
+					const float BarSpacing = 2.f;
+					UTexture* BarTexture = AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->HUDAtlas;
+					FLinearColor BarColor = FLinearColor::Green;
+					BarColor.A = 0.5f;
+					Canvas->SetLinearDrawColor(BarColor);
+					float HealthWidth = BarWidth * FMath::Min(HealthMax, Health) / FMath::Max(Health, HealthMax);
+					float BarY = YPos - YL + Height - 2.5f*BarHeight - BarSpacing;
+					Canvas->DrawTile(BarTexture, XPos, BarY, HealthWidth, BarHeight, 185.f, 400.f, 4.f, 4.f);
+					if (Health != 100)
 					{
-						Canvas->TextSize(TinyFont, TextItem.Text.ToString(), X, Y, Scale, Scale);
-						XOffset += 0.5f * (XL - X);
+						BarColor = (Health > 100) ? FLinearColor(0.4f, 0.6f, 2.f, 0.5f) : FLinearColor(0.f, 0.f, 0.f, 0.4f);
+						Canvas->SetLinearDrawColor(BarColor);
+						Canvas->DrawTile(BarTexture, XPos + HealthWidth, BarY, BarWidth - HealthWidth, BarHeight, 185.f, 400.f, 4.f, 4.f);
 					}
-					TextItem.Position = FVector2D(FMath::TruncToFloat(Canvas->OrgX + XOffset), FMath::TruncToFloat(Canvas->OrgY + YPos - 0.51f*YL));
-					Canvas->DrawItem(TextItem);
-
 					if (ArmorAmount > 0)
 					{
-						TextItem.SetColor(FLinearColor(0.5f, 0.5f, 0.2f, 0.6f));
-						FFormatNamedArguments ArmorArgs;
-						ArmorArgs.Add("Armor", FText::AsNumber(ArmorAmount));
-						TextItem.Text = FText::Format(NSLOCTEXT("UTCharacter", "ArmorDisplay", "A{Armor}"), ArmorArgs);
-						Canvas->TextSize(TinyFont, "A" + TextItem.Text.ToString(), X, Y, Scale, Scale);
-						TextItem.Position = FVector2D(FMath::TruncToFloat(Canvas->OrgX + XPos + XL - Border - X), FMath::TruncToFloat(Canvas->OrgY + YPos - 0.5f*YL));
-						Canvas->DrawItem(TextItem);
+						BarColor = FLinearColor::Yellow;
+						BarColor.A = 0.5f;
+						Canvas->SetLinearDrawColor(BarColor);
+						float ArmorWidth = BarWidth * ArmorAmount / FMath::Max(1.f, float(MaxStackedArmor));
+						Canvas->DrawTile(BarTexture, XPos, BarY + BarHeight + BarSpacing, ArmorWidth, BarHeight, 185.f, 400.f, 4.f, 4.f);
+						if (ArmorAmount < MaxStackedArmor)
+						{
+							BarColor = FLinearColor(0.f, 0.f, 0.f, 0.4f);
+							Canvas->SetLinearDrawColor(BarColor);
+							Canvas->DrawTile(BarTexture, XPos + ArmorWidth, BarY + BarHeight + BarSpacing, BarWidth - ArmorWidth, BarHeight, 185.f, 400.f, 4.f, 4.f);
+						}
 					}
 				}
 			}
@@ -4531,15 +4670,14 @@ void AUTCharacter::SetEyewearClass(TSubclassOf<AUTEyewear> EyewearClass)
 void AUTCharacter::SetHatVariant(int32 NewHatVariant)
 {
 	HatVariant = NewHatVariant;
-
-	if (Hat != nullptr)
-	{
-		Hat->OnVariantSelected(HatVariant);
-	}
-
+	
 	if (LeaderHat != nullptr)
 	{
 		LeaderHat->OnVariantSelected(HatVariant);
+	}
+	else if (Hat != nullptr)
+	{
+		Hat->OnVariantSelected(HatVariant);
 	}
 }
 
@@ -4570,7 +4708,11 @@ bool AUTCharacter::IsWearingAnyCosmetic()
 
 void AUTCharacter::OnRepCosmeticFlashCount()
 {
-	if (Hat)
+	if (LeaderHat)
+	{
+		LeaderHat->OnFlashCountIncremented();
+	}
+	else if (Hat)
 	{
 		Hat->OnFlashCountIncremented();
 	}
@@ -4578,7 +4720,11 @@ void AUTCharacter::OnRepCosmeticFlashCount()
 
 void AUTCharacter::OnRepCosmeticSpreeCount()
 {
-	if (Hat)
+	if (LeaderHat)
+	{
+		LeaderHat->OnSpreeLevelChanged(CosmeticSpreeCount);
+	}
+	else if (Hat)
 	{
 		Hat->OnSpreeLevelChanged(CosmeticSpreeCount);
 	}
@@ -5053,11 +5199,21 @@ void AUTCharacter::HasHighScoreChanged_Implementation()
 		if (LeaderHat == nullptr)
 		{
 			TSubclassOf<class AUTHatLeader> LeaderHatClass;
-			if (Hat && Hat->LeaderHatClass && Hat->LeaderHatClass->IsChildOf(AUTHatLeader::StaticClass()))
+
+			// See if player has selected a leader hat class
+			AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
+			if (PS && PS->LeaderHatClass)
+			{
+				LeaderHatClass = PS->LeaderHatClass;
+			}
+
+			// Check if equipped hat has a leader variant
+			if (LeaderHatClass == nullptr && Hat && Hat->LeaderHatClass && Hat->LeaderHatClass->IsChildOf(AUTHatLeader::StaticClass()))
 			{
 				LeaderHatClass = Hat->LeaderHatClass;
 			}
-
+			
+			// Check if game mode is blocking default leader hat, if not use the default
 			if (LeaderHatClass == nullptr)
 			{
 				AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();

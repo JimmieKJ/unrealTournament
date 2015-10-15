@@ -33,6 +33,9 @@ protected:
 	FHUDRenderObject_Texture ArmorIcon;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
+		FHUDRenderObject_Texture FlagIconTemplate;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")
 	FHUDRenderObject_Texture PaperDollBase;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "RenderObject")

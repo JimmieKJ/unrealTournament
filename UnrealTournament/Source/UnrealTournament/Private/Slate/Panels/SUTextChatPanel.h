@@ -44,11 +44,6 @@ public:
 		return MakeShareable(new FChatDestination(inCaption, inChatDestination, inWeight));
 	}
 
-	FSlateColor GetButtonColorAndOpacity() const
-	{
-		return (Button.IsValid() && Button->IsPressed() ? FSlateColor(FLinearColor::White) : FSlateColor(FLinearColor::Gray));
-	}	
-
 	FText GetButtonCaption()
 	{
 		return Caption;
@@ -166,7 +161,10 @@ class UNREALTOURNAMENT_API SUTextChatPanel : public SCompoundWidget
 public:	
 	/** needed for every widget */
 	void Construct(const FArguments& InArgs);
-	
+
+	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime );
+
+
 	// Make sure to clean up the delegates in the destructor
 	virtual ~SUTextChatPanel();
 	
@@ -181,6 +179,8 @@ public:
 	TSharedPtr<SUPlayerListPanel> ConnectedPlayerListPanel;
 
 	void RouteBufferedChat();
+
+	virtual void SetChatText(const FString& NewText);
 
 protected:
 	// The Player Owner that owns this panel

@@ -6,6 +6,7 @@
 #include "StatNames.h"
 #include "UTCTFGameMessage.h"
 #include "UTMutator.h"
+#include "UTTeamScoreboard.h"
 
 AUTTeamDMGameMode::AUTTeamDMGameMode(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -18,13 +19,6 @@ AUTTeamDMGameMode::AUTTeamDMGameMode(const FObjectInitializer& ObjectInitializer
 	DisplayName = NSLOCTEXT("UTGameMode", "TDM", "Team Deathmatch");
 	XPMultiplier = 3.0f;
 }
-
-void AUTTeamDMGameMode::InitGame( const FString& MapName, const FString& Options, FString& ErrorMessage )
-{
-	Super::InitGame(MapName, Options, ErrorMessage);
-	bOnlyTheStrongSurvive = false;
-}
-
 
 void AUTTeamDMGameMode::ScoreTeamKill_Implementation(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType)
 {

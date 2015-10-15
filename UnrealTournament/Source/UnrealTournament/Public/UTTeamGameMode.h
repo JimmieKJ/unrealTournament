@@ -31,7 +31,7 @@ class UNREALTOURNAMENT_API AUTTeamGameMode : public AUTGameMode
 	bool bAllowURLTeamCountOverride;
 
 	/** whether we should attempt to keep teams balanced */
-	UPROPERTY(Config, EditAnywhere, BlueprintReadWrite, Category = TeamGame)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = TeamGame)
 	bool bBalanceTeams;
 
 	/** whether we should announce your team */
@@ -68,6 +68,7 @@ class UNREALTOURNAMENT_API AUTTeamGameMode : public AUTGameMode
 	virtual void FindAndMarkHighScorer() override;
 	virtual void HandlePlayerIntro() override;
 	virtual bool PlayerWonChallenge() override;
+	virtual void BroadcastDeathMessage(AController* Killer, AController* Other, TSubclassOf<UDamageType> DamageType) override;
 
 	virtual void CheckBotCount() override;
 	virtual void DefaultTimer() override;
@@ -104,7 +105,9 @@ class UNREALTOURNAMENT_API AUTTeamGameMode : public AUTGameMode
 	/** Broadcast a message when team scores */
 	virtual void BroadcastScoreUpdate(APlayerState* ScoringPlayer, AUTTeamInfo* ScoringTeam);
 
+	virtual void GetGood() override;
+
 protected:
 	virtual void SendEndOfGameStats(FName Reason);
-	virtual void UpdateLobbyBadge(FString BadgeText);
+	virtual void UpdateLobbyScore(FMatchUpdate& MatchUpdate);
 };

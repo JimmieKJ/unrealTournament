@@ -39,6 +39,8 @@ protected:
 	float AnnouncmentTimer;
 	float AnnouncmentFadeTimer;
 
+	EVisibility ShowNewChallengeImage() const;
+
 };
 
 #endif

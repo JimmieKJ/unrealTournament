@@ -125,7 +125,7 @@ APhysicsVolume* FindPhysicsVolume(UWorld* World, const FVector& TestLoc, const F
 	{
 		const FOverlapResult& Link = Hits[HitIdx];
 		APhysicsVolume* const V = Cast<APhysicsVolume>(Link.GetActor());
-		if (V != NULL && (V->Priority > NewVolume->Priority))
+		if (V != NULL && V->Priority > NewVolume->Priority && (V->bPhysicsOnContact || V->EncompassesPoint(TestLoc)))
 		{
 			NewVolume = V;
 		}
@@ -145,12 +145,20 @@ static TMap<FName, FString> HackedEntitlementTable = []()
 	TMap<FName, FString> Result;
 	Result.Add(TEXT("BP_Round_HelmetGoggles"), TEXT("91afa66fbf744726af33dba391657296"));
 	Result.Add(TEXT("BP_Round_HelmetGoggles_C"), TEXT("91afa66fbf744726af33dba391657296"));
+	Result.Add(TEXT("BP_Round_HelmetLeader"), TEXT("91afa66fbf744726af33dba391657296"));
+	Result.Add(TEXT("BP_Round_HelmetLeader_C"), TEXT("91afa66fbf744726af33dba391657296"));
 	Result.Add(TEXT("BP_SkullMask"), TEXT("606862e8a0ec4f5190f67c6df9d4ea81"));
 	Result.Add(TEXT("BP_SkullMask_C"), TEXT("606862e8a0ec4f5190f67c6df9d4ea81"));
+	Result.Add(TEXT("BP_SkullHornsMask"), TEXT("606862e8a0ec4f5190f67c6df9d4ea81"));
+	Result.Add(TEXT("BP_SkullHornsMask_C"), TEXT("606862e8a0ec4f5190f67c6df9d4ea81"));
 	Result.Add(TEXT("BP_BaseballHat"), TEXT("8747335f79dd4bec8ddc03214c307950"));
 	Result.Add(TEXT("BP_BaseballHat_C"), TEXT("8747335f79dd4bec8ddc03214c307950"));
+	Result.Add(TEXT("BP_BaseballHat_Leader"), TEXT("8747335f79dd4bec8ddc03214c307950"));
+	Result.Add(TEXT("BP_BaseballHat_Leader_C"), TEXT("8747335f79dd4bec8ddc03214c307950"));
 	Result.Add(TEXT("BP_CardboardHat"), TEXT("9a1ad6c3c10e438f9602c14ad1b67bfa"));
 	Result.Add(TEXT("BP_CardboardHat_C"), TEXT("9a1ad6c3c10e438f9602c14ad1b67bfa"));
+	Result.Add(TEXT("BP_CardboardHat_Leader"), TEXT("9a1ad6c3c10e438f9602c14ad1b67bfa"));
+	Result.Add(TEXT("BP_CardboardHat_Leader_C"), TEXT("9a1ad6c3c10e438f9602c14ad1b67bfa"));
 	Result.Add(TEXT("DM-Lea"), TEXT("0d5e275ca99d4cf0b03c518a6b279e26"));
 	Result.Add(TEXT("CTF-Pistola"), TEXT("48d281f487154bb29dd75bd7bb95ac8e"));
 	return Result;
@@ -234,20 +242,27 @@ bool LocallyOwnsItemFor(const FString& Path)
 
 bool LocallyHasAchievement(FName Achievement)
 {
-	const TIndirectArray<FWorldContext>& AllWorlds = GEngine->GetWorldContexts();
-	for (const FWorldContext& Context : AllWorlds)
+	if (Achievement == NAME_None)
 	{
-		for (FLocalPlayerIterator It(GEngine, Context.World()); It; ++It)
+		return true;
+	}
+	else
+	{
+		const TIndirectArray<FWorldContext>& AllWorlds = GEngine->GetWorldContexts();
+		for (const FWorldContext& Context : AllWorlds)
 		{
-			UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(*It);
-			if (LP != NULL && LP->GetProfileSettings() != NULL && LP->GetProfileSettings()->Achievements.Contains(Achievement))
+			for (FLocalPlayerIterator It(GEngine, Context.World()); It; ++It)
 			{
-				return true;
+				UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(*It);
+				if (LP != NULL && LP->GetProfileSettings() != NULL && LP->GetProfileSettings()->Achievements.Contains(Achievement))
+				{
+					return true;
+				}
 			}
 		}
-	}
 
-	return false;
+		return false;
+	}
 }
 
 void GetAllAssetData(UClass* BaseClass, TArray<FAssetData>& AssetList, bool bRequireEntitlements)
@@ -286,6 +301,7 @@ void GetAllAssetData(UClass* BaseClass, TArray<FAssetData>& AssetList, bool bReq
 	RootPaths.Add(TEXT("/Game/RestrictedAssets/ProfileItems/"));
 	RootPaths.Add(TEXT("/Game/EpicInternal/Lea/"));
 	RootPaths.Add(TEXT("/Game/EpicInternal/Pistola/"));
+	RootPaths.Add(TEXT("/Game/EpicInternal/Stu/"));
 	// Cooked data has the asset data already set up
 	AssetRegistry.ScanPathsSynchronous(RootPaths);
 #endif
@@ -465,10 +481,18 @@ void GetAllBlueprintAssetData(UClass* BaseClass, TArray<FAssetData>& AssetList, 
 			}
 			else
 			{
-				const FString* NeedsItem = AssetList[i].TagsAndValues.Find(FName(TEXT("bRequiresItem")));
-				if (NeedsItem != NULL && NeedsItem->ToBool() && !LocallyOwnsItemFor(AssetList[i].ObjectPath.ToString()))
+				const FString* ReqAchievement = AssetList[i].TagsAndValues.Find(FName(TEXT("RequiredAchievement")));
+				if (ReqAchievement != NULL && !LocallyHasAchievement(**ReqAchievement))
 				{
 					AssetList.RemoveAt(i);
+				}
+				else
+				{
+					const FString* NeedsItem = AssetList[i].TagsAndValues.Find(FName(TEXT("bRequiresItem")));
+					if (NeedsItem != NULL && NeedsItem->ToBool() && !LocallyOwnsItemFor(AssetList[i].ObjectPath.ToString()))
+					{
+						AssetList.RemoveAt(i);
+					}
 				}
 			}
 		}
@@ -489,7 +513,7 @@ FString GetModPakFilenameFromPkg(const FString& PkgName)
 		{
 			FPakFile* Pak = NULL;
 			PakFileMgr->FindFileInPakFiles(*Filename, &Pak);
-			return (Pak != NULL && !Pak->GetFilename().StartsWith(TEXT("unrealtournament-"))) ? Pak->GetFilename() : FString();
+			return (Pak != NULL && !FPaths::GetBaseFilename(Pak->GetFilename()).StartsWith(TEXT("unrealtournament-"))) ? Pak->GetFilename() : FString();
 		}
 		else
 		{

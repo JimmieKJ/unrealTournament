@@ -35,20 +35,21 @@ protected:
 	virtual TSharedRef<SWidget> BuildWatchSubMenu();
 	virtual TSharedRef<SWidget> BuildTutorialSubMenu();
 
-	virtual FReply OnShowGamePanel(TSharedPtr<SComboButton> MenuButton);
 	virtual FReply OnCloseClicked();
 
-	virtual FReply OnYourReplaysClick(TSharedPtr<SComboButton> MenuButton);
-	virtual FReply OnRecentReplaysClick(TSharedPtr<SComboButton> MenuButton);
+	virtual FReply OnYourReplaysClick();
+	virtual FReply OnRecentReplaysClick();
 
-	virtual FReply OnLiveGameReplaysClick(TSharedPtr<SComboButton> MenuButton);
+	virtual FReply OnLiveGameReplaysClick();
 
-	virtual FReply OnBootCampClick(TSharedPtr<SComboButton> MenuButton);
-	virtual FReply OnCommunityClick(TSharedPtr<SComboButton> MenuButton);
+	virtual FReply OnBootCampClick();
+	virtual FReply OnCommunityClick();
 
-	virtual FReply OnPlayQuickMatch(TSharedPtr<SComboButton> MenuButton, FString QuickMatchType);
 
-	virtual FReply OnConnectIP(TSharedPtr<SComboButton> MenuButton);
+	virtual FReply OnPlayQuickMatch(FString QuickMatchType);
+	virtual FReply OnShowGamePanel();
+
+	virtual FReply OnConnectIP();
 	virtual void ConnectIPDialogResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
 
 	virtual void OpenDelayedMenu();
@@ -65,7 +66,7 @@ protected:
 
 	virtual FReply OnShowHomePanel() override;
 
-	virtual FReply OnFragCenterClick(TSharedPtr<SComboButton> MenuButton);
+	virtual FReply OnFragCenterClick();
 
 	TSharedPtr<SUTFragCenterPanel> FragCenterPanel;
 	TWeakObjectPtr<class UUserWidget> TutorialMenu;

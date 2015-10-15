@@ -144,6 +144,7 @@ public:
 	UPROPERTY(Config)
 	TArray<FPackageRedirectReference> RedirectReferences;
 
+	virtual void GatherRequiredRedirects(TArray<FPackageRedirectReference>& Redirects);
 	virtual bool FindRedirect(const FString& PackageName, FPackageRedirectReference& Redirect);
 	virtual void GameWelcomePlayer(UNetConnection* Connection, FString& RedirectURL) override;
 private:
@@ -156,4 +157,10 @@ public:
 	virtual void BuildWeaponInfo(AUTPlayerState* PlayerState, TSharedPtr<class SUTTabWidget> TabWidget, TArray<TSharedPtr<struct TAttributeStat> >& StatList){};
 	virtual void BuildMovementInfo(AUTPlayerState* PlayerState, TSharedPtr<class SUTTabWidget> TabWidget, TArray<TSharedPtr<struct TAttributeStat> >& StatList){};
 
+	virtual void SendRconMessage(const FString& DestinationId, const FString &Message);
+
+	// Kicks a player
+	virtual void RconKick(const FString& NameOrUIDStr, bool bBan, const FString& Reason);
+	virtual void RconAuth(AUTBasePlayerController* Admin, const FString& Password);
+	virtual void RconNormal(AUTBasePlayerController* Admin);
 };

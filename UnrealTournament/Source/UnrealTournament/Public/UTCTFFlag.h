@@ -15,11 +15,30 @@ class UNREALTOURNAMENT_API AUTCTFFlag : public AUTCarriedObject
 
 	// Flag mesh scaling when held
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = GameObject)
-		float FlagHeldScale;
+	float FlagHeldScale;
+
+	/** How much to blend in cloth when flag is home. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Flag)
+	float ClothBlendHome;
+
+	/** How much to blend in cloth when flag is held. */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Flag)
+	float ClothBlendHeld;
 
 	// The mesh for the flag
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = GameObject)
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Flag)
 	USkeletalMeshComponent* Mesh;
+
+	/** played on friendly flag when a capture is scored */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Flag)
+	UParticleSystem* CaptureEffect;
+
+	/** used to trigger the capture effect */
+	UPROPERTY(ReplicatedUsing = PlayCaptureEffect)
+	uint8 CaptureEffectCount;
+
+	UFUNCTION(BlueprintCallable, Category = Flag)
+	virtual void PlayCaptureEffect();
 
 	USkeletalMeshComponent* GetMesh() const
 	{
@@ -41,7 +60,7 @@ class UNREALTOURNAMENT_API AUTCTFFlag : public AUTCarriedObject
 
 	/** World time when flag was last dropped. */
 	UPROPERTY()
-		float FlagDropTime;
+	float FlagDropTime;
 
 	/** Broadcast delayed flag drop announcement. */
 	virtual void DelayedDropMessage();

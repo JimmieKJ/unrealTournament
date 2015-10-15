@@ -2,28 +2,28 @@
 #pragma once
 
 #include "Runtime/Engine/Classes/Engine/DemoNetDriver.h"
+#include "UTDemoRecSpectator.h"
 
 #include "UTDemoNetDriver.generated.h"
 
 UCLASS(CustomConstructor)
-class UNREALTOURNAMENT_API UUTDemoNetDriver : public UNetDriver// UDemoNetDriver
+class UNREALTOURNAMENT_API UUTDemoNetDriver : public UDemoNetDriver
 {
-	GENERATED_UCLASS_BODY()
-
-	UUTDemoNetDriver(const FObjectInitializer& OI)
-	: Super(OI)
-	{}
-
-	// evil, evil hack to get around lack of _API on DemoNetDriver
-	// don't try this at home!
-	inline void HackProcessRemoteFunction(AActor* Actor, UFunction* Function, void* Parameters, FOutParmRec* OutParms, FFrame* Stack, UObject* SubObject)
-	//virtual void ProcessRemoteFunction(AActor* Actor, UFunction* Function, void* Parameters, FOutParmRec* OutParms, FFrame* Stack, UObject* SubObject) override
+	GENERATED_BODY()
+public:
+	virtual void ProcessRemoteFunction(AActor* Actor, UFunction* Function, void* Parameters, FOutParmRec* OutParms, FFrame* Stack, UObject* SubObject) override
 	{
-		if (IsServer() && ClientConnections.Num() > 0)
+		if (IsServer() && ClientConnections.Num() > 0 && Cast<AUTDemoRecSpectator>(Actor) != NULL)
 		{
 			InternalProcessRemoteFunction(Actor, SubObject, ClientConnections[0], Function, Parameters, OutParms, Stack, true);
-			// need to flush right away to avoid dumb assert
-			ClientConnections[0]->FlushNet();
+		}
+		else
+		{
+			Super::ProcessRemoteFunction(Actor, Function, Parameters, OutParms, Stack, SubObject);
 		}
 	}
+
+protected:
+	virtual void WriteGameSpecificDemoHeader(TArray<FString>& GameSpecificData) override;
+	virtual bool ProcessGameSpecificDemoHeader(const TArray<FString>& GameSpecificData, FString& Error) override;
 };

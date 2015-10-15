@@ -31,6 +31,8 @@ class UNREALTOURNAMENT_API UUTPlayerInput : public UPlayerInput
 public:
 	UUTPlayerInput();
 
+	virtual void PostInitProperties() override;
+
 	UPROPERTY(Config)
 	TArray<FCustomKeyBinding> CustomBinds;
 

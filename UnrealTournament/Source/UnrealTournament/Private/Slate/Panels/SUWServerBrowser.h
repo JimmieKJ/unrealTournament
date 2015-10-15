@@ -4,6 +4,7 @@
 #include "Slate/SlateGameResources.h"
 #include "../SUWindowsStyle.h"
 #include "../SUWPanel.h"
+#include "../Widgets/SUTButton.h"
 #include "SUMatchPanel.h"
 #include "UTLocalPlayer.h"
 #include "UTOnlineGameSearchBase.h"
@@ -61,7 +62,7 @@ public:
 
 	virtual TSharedRef<SWidget> GenerateWidgetForColumn( const FName& ColumnName ) override
 	{
-		FSlateFontInfo ItemEditorFont = SUWindowsStyle::Get().GetFontStyle("UWindows.Standard.Font.Small"); //::Get().GetFontStyle(TEXT("NormalFont"));
+		FSlateFontInfo ItemEditorFont = SUTStyle::Get().GetFontStyle("UT.Font.ServerBrowser.List.Normal"); 
 
 		FText ColumnText;
 		if (ServerRuleData.IsValid())
@@ -134,7 +135,7 @@ public:
 
 	virtual TSharedRef<SWidget> GenerateWidgetForColumn( const FName& ColumnName ) override
 	{
-		FSlateFontInfo ItemEditorFont = SUWindowsStyle::Get().GetFontStyle("UWindows.Standard.Font.Small"); //::Get().GetFontStyle(TEXT("NormalFont"));
+		FSlateFontInfo ItemEditorFont = SUTStyle::Get().GetFontStyle("UT.Font.ServerBrowser.List.Normal"); 
 
 		FText ColumnText;
 		if (ServerPlayerData.IsValid())
@@ -474,7 +475,7 @@ public:
 
 	virtual TSharedRef<SWidget> GenerateWidgetForColumn( const FName& ColumnName ) override
 	{
-		FSlateFontInfo ItemEditorFont = SUWindowsStyle::Get().GetFontStyle("UWindows.Standard.Font.Small"); //::Get().GetFontStyle(TEXT("NormalFont"));
+		FSlateFontInfo ItemEditorFont = SUTStyle::Get().GetFontStyle("UT.Font.ServerBrowser.List.Normal"); 
 		bool bErrorPing = (ServerData->Ping < 0);
 		FText ColumnText;
 		if (ServerData.IsValid())
@@ -546,7 +547,7 @@ public:
 					IconBox->AddSlot()
 						[
 							SNew( SImage )		
-								.Image(SUWindowsStyle::Get().GetBrush("UWindows.Standard.ServerBrowser.Lan"))
+								.Image(SUTStyle::Get().GetBrush("UT.Icons.Lan.Small"))
 						];
 				
 				}
@@ -556,7 +557,7 @@ public:
 					IconBox->AddSlot()
 						[
 							SNew( SImage )		
-								.Image(SUWindowsStyle::Get().GetBrush("UWindows.Standard.ServerBrowser.Lock"))
+								.Image(SUTStyle::Get().GetBrush("UT.Icons.Lock.Small"))
 						];
 				}
 
@@ -642,13 +643,15 @@ protected:
 	TSharedPtr<SDPIScaler> UnScaler;
 
 	TSharedPtr<class SButton> JoinIPButton;
-	TSharedPtr<class SButton> RefreshButton;
-	TSharedPtr<class SButton> SpectateButton;
-	TSharedPtr<class SButton> JoinButton;
+	TSharedPtr<class SUTButton> RefreshButton;
+	TSharedPtr<class SUTButton> SpectateButton;
+	TSharedPtr<class SUTButton> JoinButton;
 	TSharedPtr<class STextBlock> StatusText;
 	TSharedPtr<class STextBlock> BrowserTypeText;
-	TSharedPtr<class SComboButton> GameFilter;
-	TSharedPtr<class STextBlock> GameFilterText;
+	TSharedPtr<class SUTComboButton> GameFilter;
+	
+	FText GameFilterText;
+	FText GetGameFilterText() const;
 
 	// The Slate widget that displays the current list
 	TSharedPtr< SListView< TSharedPtr<FServerData> > > InternetServerList;
@@ -799,7 +802,6 @@ private:
 	TSharedPtr<FServerData> RandomHUB;
 	TSharedPtr<SHorizontalBox> ServerListControlBox;
 
-	float GetReverseScale() const;
 	virtual FText GetStatusText() const;
 
 protected:
@@ -817,6 +819,9 @@ protected:
 	void FoundServer(FOnlineSessionSearchResult& Result);
 	void JoinQuickInstance(const FString& InstanceGuid, bool bAsSpectator);
 	void RestrictedWarning();
+
+	TSharedPtr<STextBlock> FilterMsg;
+	void OnFilterTextChanged(const FText& NewText);
 };
 
 #endif

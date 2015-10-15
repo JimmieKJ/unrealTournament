@@ -78,9 +78,6 @@ void AUTTeamGameMode::InitGame(const FString& MapName, const FString& Options, F
 	}
 
 	MercyScore = FMath::Max(0, GetIntOption(Options, TEXT("MercyScore"), MercyScore));
-
-	// TDM never kills off players going in to overtime
-	bOnlyTheStrongSurvive = false;
 }
 
 void AUTTeamGameMode::InitGameState()
@@ -420,6 +417,17 @@ void AUTTeamGameMode::DefaultTimer()
 	}
 }
 
+void AUTTeamGameMode::BroadcastDeathMessage(AController* Killer, AController* Other, TSubclassOf<UDamageType> DamageType)
+{
+	TSubclassOf<UUTDamageType> UTDamage(*DamageType);
+	if (Killer && UTDamage && UTDamage.GetDefaultObject()->bCausedByWorld && !IsEnemy(Killer, Other) && (TeamDamagePct == 0.f))
+	{
+		// Don't show "killer" in death message if death was actually from environmental damage
+		Killer = NULL;
+	}
+	Super::BroadcastDeathMessage(Killer, Other, DamageType);
+}
+
 bool AUTTeamGameMode::ModifyDamage_Implementation(int32& Damage, FVector& Momentum, APawn* Injured, AController* InstigatedBy, const FHitResult& HitInfo, AActor* DamageCauser, TSubclassOf<UDamageType> DamageType)
 {
 	if (InstigatedBy != NULL && InstigatedBy != Injured->Controller && Cast<AUTGameState>(GameState)->OnSameTeam(Injured, InstigatedBy))
@@ -660,7 +668,7 @@ void AUTTeamGameMode::SendEndOfGameStats(FName Reason)
 			if (PS != NULL)
 			{
 				PS->SetStatsValue(NAME_MatchesPlayed, 1);
-				PS->SetStatsValue(NAME_TimePlayed, UTGameState->ElapsedTime);
+				PS->SetStatsValue(NAME_TimePlayed, PS->ElapsedTime);
 
 				if (UTGameState->WinningTeam == PS->Team)
 				{
@@ -688,7 +696,7 @@ void AUTTeamGameMode::SendEndOfGameStats(FName Reason)
 				}
 
 				PS->SetStatsValue(NAME_MatchesPlayed, 1);
-				PS->SetStatsValue(NAME_TimePlayed, UTGameState->ElapsedTime);
+				PS->SetStatsValue(NAME_TimePlayed, PS->ElapsedTime);
 
 				if (UTGameState->WinningTeam == PS->Team)
 				{
@@ -757,13 +765,23 @@ void AUTTeamGameMode::FindAndMarkHighScorer()
 	}
 }
 
-void AUTTeamGameMode::UpdateLobbyBadge(FString BadgeText)
+void AUTTeamGameMode::UpdateLobbyScore(FMatchUpdate& MatchUpdate)
 {
-	TArray<int32> Scores;
-	Scores.Add( UTGameState->Teams.Num() > 0 ? UTGameState->Teams[0]->Score : 0);
-	Scores.Add( UTGameState->Teams.Num() > 1 ? UTGameState->Teams[1]->Score : 0);
+	for (int32 i = 0; i < UTGameState->Teams.Num(); i++)
+	{
+		MatchUpdate.TeamScores.Add(UTGameState->Teams[i]->Score);
+	}
+}
 
-	if (BadgeText != TEXT("")) BadgeText += TEXT("\n");
-	BadgeText += FString::Printf(TEXT("<UWindows.Standard.MatchBadge.Red>%i</><UWindows.Standard.MatchBadge> - </><UWindows.Standard.MatchBadge.Blue>%i</>"), Scores[0], Scores[1]);
-	Super::UpdateLobbyBadge(BadgeText);
+
+void AUTTeamGameMode::GetGood()
+{
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	if (GetNetMode() == NM_Standalone)
+	{
+		Super::GetGood();
+		Teams[0]->Score = 1;
+		Teams[1]->Score = 99;
+	}
+#endif
 }

@@ -1,6 +1,8 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "UTCharacterContent.h"
+
 #include "UTDmg_SniperHeadshot.generated.h"
 
 UCLASS(CustomConstructor)
@@ -17,7 +19,27 @@ class UNREALTOURNAMENT_API UUTDmg_SniperHeadshot : public UUTDamageType
 
 	virtual void PlayDeathEffects_Implementation(AUTCharacter* DyingPawn) const override
 	{
-		DyingPawn->SpawnGib(DyingPawn->HeadBone);
+		FGibSlotInfo GibInfo;
+		if (DyingPawn->CharacterData != NULL)
+		{
+			for (const FGibSlotInfo& DefaultGib : DyingPawn->CharacterData.GetDefaultObject()->Gibs)
+			{
+				if (GibInfo.GibType == NULL)
+				{
+					// default if head bone not found
+					GibInfo = DefaultGib;
+				}
+				else if (DefaultGib.BoneName == DyingPawn->HeadBone)
+				{
+					GibInfo = DefaultGib;
+					break;
+				}
+			}
+		}
+		if (GibInfo.GibType != NULL)
+		{
+			DyingPawn->SpawnGib(GibInfo);
+		}
 		DyingPawn->SetHeadScale(0.0f);
 	}
 };

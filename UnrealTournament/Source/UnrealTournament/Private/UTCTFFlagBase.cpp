@@ -30,7 +30,7 @@ void AUTCTFFlagBase::CreateCarriedObject()
 	MyFlag = Cast<AUTCTFFlag>(CarriedObject);
 	if (MyFlag && MyFlag->GetMesh())
 	{
-		MyFlag->GetMesh()->ClothBlendWeight = 0.f;
+		MyFlag->GetMesh()->ClothBlendWeight = MyFlag->ClothBlendHome;
 	}
 }
 
@@ -58,7 +58,22 @@ void AUTCTFFlagBase::ObjectWasPickedUp(AUTCharacter* NewHolder, bool bWasHome)
 
 	if (bWasHome)
 	{
-		UUTGameplayStatics::UTPlaySound(GetWorld(), FlagTakenSound, this);
+		if (!EnemyFlagTakenSound)
+		{
+			EnemyFlagTakenSound = FlagTakenSound;
+		}
+		for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
+		{
+			AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
+			if (PC && ((PC->PlayerState && PC->PlayerState->bOnlySpectator) || (PC->GetTeamNum() == GetTeamNum())))
+			{
+				PC->ClientPlaySound(FlagTakenSound, 1.f);
+			}
+			else if (PC)
+			{
+				PC->HearSound(EnemyFlagTakenSound, this, GetActorLocation(), true, false);
+			}
+		}
 	}
 }
 

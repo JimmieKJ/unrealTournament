@@ -50,8 +50,8 @@ void AUTWeapAttachment_Enforcer::AttachToOwnerNative()
 
 void AUTWeapAttachment_Enforcer::UpdateOverlays()
 {
-	WeaponType.GetDefaultObject()->UpdateOverlaysShared(this, UTOwner, Mesh, OverlayMesh);
-	WeaponType.GetDefaultObject()->UpdateOverlaysShared(this, UTOwner, LeftMesh, LeftOverlayMesh);
+	WeaponType.GetDefaultObject()->UpdateOverlaysShared(this, UTOwner, Mesh, OverlayEffectParams, OverlayMesh);
+	WeaponType.GetDefaultObject()->UpdateOverlaysShared(this, UTOwner, LeftMesh, OverlayEffectParams, LeftOverlayMesh);
 }
 
 void AUTWeapAttachment_Enforcer::SetSkin(UMaterialInterface* NewSkin)

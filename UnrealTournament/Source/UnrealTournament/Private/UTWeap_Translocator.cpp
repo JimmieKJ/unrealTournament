@@ -352,7 +352,7 @@ bool AUTWeap_Translocator::DoAssistedJump()
 						HitLoc.Z += ZDiff * 0.5f;
 						FVector Extent = UTOwner->GetSimpleCollisionCylinderExtent() * FVector(2.0f, 2.0f, 1.0f);
 						Extent.Z += FMath::Abs<float>(ZDiff) * 0.5f;
-						NavNodeRef WallPoly = NavData->FindNearestPoly(HitLoc, Extent);
+						NavNodeRef WallPoly = NavData->UTFindNearestPoly(HitLoc, Extent);
 						if (WallPoly != INVALID_NAVNODEREF)
 						{
 							TArray<FLine> Walls = NavData->GetPolyWalls(WallPoly);

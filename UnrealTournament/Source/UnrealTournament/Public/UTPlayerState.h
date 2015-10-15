@@ -7,6 +7,7 @@
 #include "OnlineSubsystemTypes.h"
 #include "UTDamageType.h"
 #include "UTHat.h"
+#include "UTHatLeader.h"
 #include "UTEyewear.h"
 #include "UTTaunt.h"
 #include "Http.h"
@@ -62,6 +63,7 @@ struct FEmoteRepInfo
 };
 
 class AUTReplicatedMapInfo;
+class AUTRconAdminInfo;
 
 UCLASS()
 class UNREALTOURNAMENT_API AUTPlayerState : public APlayerState, public IUTTeamInterface
@@ -134,6 +136,14 @@ public:
 	UPROPERTY(BlueprintReadWrite, replicated, Category = PlayerState)
 	uint32 bPendingTeamSwitch : 1;
 
+	/** Persistent so deathmessage can know about it. */
+	UPROPERTY()
+		uint32 bAnnounceWeaponSpree : 1;
+
+	/** Persistent so deathmessage can know about it. */
+	UPROPERTY()
+		uint32 bAnnounceWeaponReward : 1;
+
 	/** Color to display ready text. */
 	FLinearColor ReadyColor;
 
@@ -149,6 +159,7 @@ public:
 	/** Count of fast ready state changes. */
 	int32 ReadySwitchCount;
 
+	UFUNCTION(BlueprintCallable, Category = PlayerState)
 	virtual void UpdateReady();
 
 	/** Voice used by this player/bot for speech (taunts, etc.). */
@@ -220,7 +231,7 @@ public:
 	UPROPERTY(BlueprintReadOnly, replicated, Category = PlayerState)
 	AUTPlayerState* LastKillerPlayerState;
 
-	UPROPERTY(BlueprintReadOnly, Category = PlayerState)
+	UPROPERTY(BlueprintReadOnly, Category = PlayerState, replicated)
 	bool bIsRconAdmin;
 
 	UPROPERTY(BlueprintReadOnly, replicated, Category = PlayerState)
@@ -253,6 +264,8 @@ public:
 	UPROPERTY(replicated)
 		TSubclassOf<class AUTWeapon> FavoriteWeapon;
 
+	UPROPERTY()
+	int32 ElapsedTime;
 
 protected:
 	/** XP player had before current match, read from backend (-1 until successful read) */
@@ -282,9 +295,9 @@ public:
 
 	void GiveXP(const FXPBreakdown& AddXP);
 	void ClampXP(int32 MaxValue);
-	void ApplyBotXPPenalty()
+	void ApplyBotXPPenalty(float GameDifficulty)
 	{
-		XP *= 0.5f;
+		XP = XP * (0.4f + FMath::Clamp(GameDifficulty, 0.f, 7.f) * 0.05f);
 	}
 
 	// How long until this player can respawn.  It's not directly replicated to the clients instead it's set
@@ -392,8 +405,14 @@ public:
 	UFUNCTION()
 	virtual void OnRepHat();
 
+	UPROPERTY(replicated)
+	TSubclassOf<AUTHatLeader> LeaderHatClass;
+	
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerReceiveHatClass(const FString& NewHatClass);
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	virtual void ServerReceiveLeaderHatClass(const FString& NewLeaderHatClass);
 
 	UPROPERTY(replicatedUsing = OnRepEyewear)
 	TSubclassOf<AUTEyewear> EyewearClass;
@@ -560,7 +579,7 @@ public:
 	void ModifyStatsValue(FName StatsName, float Change);
 
 	// Average ELO rank for this player.
-	UPROPERTY(Replicated)
+	UPROPERTY(Replicated, BlueprintReadOnly, Category = PlayerState)
 	int32 AverageRank;
 	UPROPERTY(Replicated)
 	int32 DuelRank;
@@ -690,6 +709,10 @@ public:
 	/** Transient, used to sort players */
 	UPROPERTY()
 		float MatchHighlightScore;
+
+	UFUNCTION(Client, Reliable)
+	virtual void ClientReceiveRconMessage(const FString& Message);
+
 };
 
 

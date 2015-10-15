@@ -20,12 +20,15 @@ class SUTQuickMatch;
 class SUWLoginDialog;
 class SUWRedirectDialog;
 class SUWMapVoteDialog;
+class SUTAdminDialog;
 class SUTReplayWindow;
 class FFriendsAndChatMessage;
 class AUTPlayerState;
 class SUWMatchSummary;
 class SUTJoinInstance;
 class FServerData;
+class AUTRconAdminInfo;
+class SUTDownloadAllDialog;
 
 DECLARE_MULTICAST_DELEGATE_ThreeParams(FPlayerOnlineStatusChanged, class UUTLocalPlayer*, ELoginStatus::Type, const FUniqueNetId&);
 
@@ -78,8 +81,8 @@ public:
 	FUTFriend()
 	{}
 
-	FUTFriend(FString inUserId, FString inDisplayName)
-		: UserId(inUserId), DisplayName(inDisplayName)
+	FUTFriend(FString inUserId, FString inDisplayName, bool inActualFriend)
+		: UserId(inUserId), DisplayName(inDisplayName), bActualFriend(inActualFriend)
 	{}
 
 
@@ -88,6 +91,9 @@ public:
 
 	UPROPERTY()
 	FString DisplayName;
+
+	UPROPERTY()
+	bool bActualFriend;
 };
 
 UCLASS(config=Engine)
@@ -111,6 +117,7 @@ public:
 	virtual void HideMenu();
 	virtual void OpenTutorialMenu();
 	virtual void ShowToast(FText ToastText);	// NOTE: Need to add a type/etc so that they can be skinned better.
+	virtual void ShowAdminMessage(FString Message);
 
 	virtual void MessageBox(FText MessageTitle, FText MessageText);
 
@@ -180,6 +187,8 @@ protected:
 	TSharedPtr<class SUTQuickMatch> QuickMatchDialog;
 	TSharedPtr<class SUWLoginDialog> LoginDialog;
 
+	TSharedPtr<class SUTAdminDialog> AdminDialog;
+
 #endif
 
 	bool bWantsToConnectAsSpectator;
@@ -204,6 +213,8 @@ public:
 	 */
 	virtual FString GetHatPath() const;
 	virtual void SetHatPath(const FString& NewHatPath);
+	virtual FString GetLeaderHatPath() const;
+	virtual void SetLeaderHatPath(const FString& NewLeaderHatPath);
 	virtual FString GetEyewearPath() const;
 	virtual void SetEyewearPath(const FString& NewEyewearPath);
 	virtual int32 GetHatVariant() const;
@@ -326,6 +337,7 @@ private:
 	IOnlineSessionPtr OnlineSessionInterface;
 	IOnlinePresencePtr OnlinePresenceInterface;
 	IOnlineFriendsPtr OnlineFriendsInterface;
+	IOnlineTitleFilePtr OnlineTitleFileInterface;
 
 	// Our delegate references....
 	FDelegateHandle OnLoginCompleteDelegate;		
@@ -342,6 +354,8 @@ private:
 	FDelegateHandle OnDestroySessionCompleteDelegate;
 	FDelegateHandle OnFindFriendSessionCompleteDelegate;
 	
+	FDelegateHandle OnReadTitleFileCompleteDelegate;
+
 public:
 	virtual void LoadProfileSettings();
 	UFUNCTION()
@@ -367,6 +381,8 @@ protected:
 	virtual void OnDeleteUserFileComplete(bool bWasSuccessful, const FUniqueNetId& InUserId, const FString& FileName);
 	virtual void OnEnumerateUserFilesComplete(bool bWasSuccessful, const FUniqueNetId& InUserId);
 	virtual void OnReadProfileItemsComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded);
+
+	virtual void OnReadTitleFileComplete(bool bWasSuccessful, const FString& Filename);
 
 #if !UE_SERVER
 	TSharedPtr<class SUWDialog> HUDSettings;
@@ -408,6 +424,7 @@ public:
 	inline virtual int32 GetRankCTF() { return CTF_ELO; }
 
 	// Returns what badge should represent player's skill level.
+	UFUNCTION(BlueprintCallable, Category = Badge)
 	static void GetBadgeFromELO(int32 EloRating, int32& BadgeLevel, int32& SubLevel);
 
 	// Connect to a server via the session id.  Returns TRUE if the join continued, or FALSE if it failed to start
@@ -496,8 +513,16 @@ protected:
 
 #endif
 
+public:
 	// Holds the current status of any ongoing downloads.
 	FText DownloadStatusText;
+	FString Download_CurrentFile;
+	int32 Download_NumBytes;
+	int32 Download_NumFilesLeft;
+	float Download_Percentage;
+
+
+
 
 	virtual void ConnectingDialogCancel(TSharedPtr<SCompoundWidget> Dialog, uint16 ButtonID);
 public:
@@ -582,6 +607,9 @@ public:
 	FString RecordedReplayTitle;
 	TSharedPtr<SUWDialog> YoutubeDialog;
 	TSharedPtr<class SUWYoutubeConsent> YoutubeConsentDialog;
+
+	void TestYoutubeConsentForUpload(const FString& RequestURL);
+	void TestYoutubeConsentResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
 #endif
 
 	virtual void VerifyGameSession(const FString& ServerSessionId);
@@ -665,11 +693,18 @@ public:
 	UPROPERTY()
 		FText RosterUpgradeText;
 
+	/** Set at end of match if earned new stars. */
+	UPROPERTY()
+		int32 EarnedStars;
+
 	// Returns the Total # of stars collected by this player.
 	int32 GetTotalChallengeStars();
 
 	// Returns the # of stars for a given challenge tag.  Returns 0 if this challenge hasn't been started
 	int32 GetChallengeStars(FName ChallengeTag);
+
+	// Returns the total # of stars in a given reward group
+	int32 GetRewardStars(FName RewardTag);
 
 	// Returns the date a challenge was last updated as a string
 	FString GetChallengeDate(FName ChallengeTag);
@@ -677,10 +712,48 @@ public:
 	// Marks a challenge as completed.
 	void ChallengeCompleted(FName ChallengeTag, int32 Stars);
 
+	void SkullPickedUp();
+
 	void AwardAchievement(FName AchievementName);
 
 
 	bool QuickMatchCheckFull();
 	void RestartQuickMatch();
-	
+
+	static const FString& GetMCPStorageFilename()
+	{
+		const static FString MCPStorageFilename = "UnrealTournmentMCPStorage.json";
+		return MCPStorageFilename;
+	}
+
+
+	// Holds data pulled from the MCP upon login.
+	FMCPPulledData MCPPulledData;
+
+	// Holds the current challenge update count.  It should only be set when you 
+	// enter the challenge menu.
+	UPROPERTY(config)
+	int32 ChallengeRevisionNumber;
+
+	void ShowAdminDialog(AUTRconAdminInfo* AdminInfo);
+	void AdminDialogClosed();
+
+#if !UE_SERVER
+
+	virtual int32 NumDialogsOpened()
+	{
+		return OpenDialogs.Num();
+	}
+#endif
+
+public:
+	void DownloadAll();
+	void CloseDownloadAll();
+
+protected:
+#if !UE_SERVER
+	TSharedPtr<SUTDownloadAllDialog> DownloadAllDialog;
+#endif
+
+
 };

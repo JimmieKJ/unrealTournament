@@ -65,6 +65,7 @@ void AUTReplicatedGameRuleset::SetRules(UUTGameRuleset* NewRules, const TArray<F
 	MaxPlayers			= NewRules->MaxPlayers;
 	bTeamGame			= NewRules->bTeamGame;
 	DefaultMap			= NewRules->DefaultMap;
+	QuickPlayMaps		= NewRules->QuickPlayMaps;
 
 	MaxMapsInList = NewRules->MaxMapsInList;
 

@@ -17,6 +17,14 @@ public:
 	virtual void RestartPlayer(AController* aPlayer);
 	virtual TSubclassOf<AGameMode> SetGameMode(const FString& MapName, const FString& Options, const FString& Portal); // FIXME: waiting on engine: override
 	void Logout( AController* Exiting );
+	
+	virtual void PostInitializeComponents() override;
+
+	UPROPERTY(config)
+	FString MenuMusicAssetName;
+
+protected:
+	USoundBase* MenuMusic;
 };
 
 

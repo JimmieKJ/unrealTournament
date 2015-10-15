@@ -23,21 +23,17 @@ FLinearColor UUTVictimMessage::GetMessageColor_Implementation(int32 MessageIndex
 
 FText UUTVictimMessage::GetText(int32 Switch,bool bTargetsPlayerState1,class APlayerState* RelatedPlayerState_1,class APlayerState* RelatedPlayerState_2,class UObject* OptionalObject) const
 {
-	switch(Switch)
+	if (Switch == 1)
 	{
-		case 0:	
-			return GetDefault<UUTVictimMessage>()->YouWereKilledByText;
-
-		case 1:
-			UClass* DamageTypeClass = Cast<UClass>(OptionalObject);
-			const UUTDamageType* DmgType = DamageTypeClass ? Cast<UUTDamageType>(DamageTypeClass->GetDefaultObject()) : NULL;
-			if (!DmgType)
-			{
-				DmgType = Cast<UUTDamageType>(UUTDamageType::StaticClass()->GetDefaultObject());
-			}
-			return DmgType->SelfVictimMessage;
+		UClass* DamageTypeClass = Cast<UClass>(OptionalObject);
+		const UUTDamageType* DmgType = DamageTypeClass ? Cast<UUTDamageType>(DamageTypeClass->GetDefaultObject()) : NULL;
+		if (!DmgType)
+		{
+			DmgType = Cast<UUTDamageType>(UUTDamageType::StaticClass()->GetDefaultObject());
+		}
+		return DmgType->SelfVictimMessage;
 	}
 
-	return FText::GetEmpty();
+	return GetDefault<UUTVictimMessage>()->YouWereKilledByText;
 }
 

@@ -158,7 +158,7 @@ bool UUTLocalMessage::IsConsoleMessage(int32 Switch) const
     return GetDefault<UUTLocalMessage>(GetClass())->bIsConsoleMessage;
 }
 
-bool UUTLocalMessage::PartiallyDuplicates(int32 Switch1, int32 Switch2, UObject* OptionalObject1, UObject* OptionalObject2 )
+bool UUTLocalMessage::PartiallyDuplicates(int32 Switch1, int32 Switch2, UObject* OptionalObject1, UObject* OptionalObject2 ) const
 {
 	return (Switch1 == Switch2);
 }
@@ -166,6 +166,11 @@ bool UUTLocalMessage::PartiallyDuplicates(int32 Switch1, int32 Switch2, UObject*
 FName UUTLocalMessage::GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject) const
 {
 	return NAME_None;
+}
+
+float UUTLocalMessage::GetAnnouncementSpacing_Implementation(int32 Switch, const UObject* OptionalObject) const
+{
+	return 0.2f;
 }
 
 USoundBase* UUTLocalMessage::GetAnnouncementSound_Implementation(int32 Switch, const UObject* OptionalObject) const
@@ -196,4 +201,9 @@ FText UUTLocalMessage::Blueprint_GetText_Implementation(int32 Switch, bool bTarg
 float UUTLocalMessage::Blueprint_GetLifeTime_Implementation(int32 Switch) const
 {
 	return GetDefault<UUTLocalMessage>(GetClass())->Lifetime;
+}
+
+bool UUTLocalMessage::ShouldCountInstances_Implementation(int32 MessageIndex) const
+{
+	return false;
 }

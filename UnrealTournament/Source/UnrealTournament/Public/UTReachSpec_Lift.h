@@ -135,7 +135,7 @@ class UNREALTOURNAMENT_API UUTReachSpec_Lift : public UUTReachSpec
 			}
 			else
 			{
-				NavNodeRef LiftPoly = NavMesh->FindNearestPoly(LiftLoc, FVector(AgentProps.AgentRadius, AgentProps.AgentRadius, AgentProps.AgentHeight * 0.5f + Lift->GetComponentsBoundingBox().GetExtent().Z)); // extra height because lift is partially in the way
+				NavNodeRef LiftPoly = NavMesh->UTFindNearestPoly(LiftLoc, FVector(AgentProps.AgentRadius, AgentProps.AgentRadius, AgentProps.AgentHeight * 0.5f + Lift->GetComponentsBoundingBox().GetExtent().Z)); // extra height because lift is partially in the way
 				if (LiftPoly != INVALID_NAVNODEREF)
 				{
 					TArray<NavNodeRef> PolyRoute;

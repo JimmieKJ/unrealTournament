@@ -44,7 +44,7 @@ class UNREALTOURNAMENT_API AUTWeap_ImpactHammer : public AUTWeapon
 	UFUNCTION(Client, Reliable)
 	virtual void ClientAutoHit(AActor* Target);
 
-	virtual bool NeedsAmmoDisplay() const override
+	virtual bool NeedsAmmoDisplay_Implementation() const override
 	{
 		return false;
 	}

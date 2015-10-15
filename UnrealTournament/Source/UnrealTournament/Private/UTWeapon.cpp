@@ -54,6 +54,7 @@ AUTWeapon::AUTWeapon(const FObjectInitializer& ObjectInitializer)
 	FireEffectCount = 0;
 	FireZOffset = 0.f;
 	FireZOffsetTime = 0.f;
+	MaxTracerDist = 5000.f;
 
 	InactiveState = ObjectInitializer.CreateDefaultSubobject<UUTWeaponStateInactive>(this, TEXT("StateInactive"));
 	ActiveState = ObjectInitializer.CreateDefaultSubobject<UUTWeaponStateActive>(this, TEXT("StateActive"));
@@ -725,7 +726,7 @@ void AUTWeapon::PlayWeaponAnim(UAnimMontage* WeaponAnim, UAnimMontage* HandsAnim
 {
 	if (RateOverride <= 0.0f)
 	{
-		RateOverride = UTOwner->GetFireRateMultiplier();
+		RateOverride = UTOwner ? UTOwner->GetFireRateMultiplier() : 1.f;
 	}
 	if (UTOwner != NULL)
 	{
@@ -764,6 +765,12 @@ void AUTWeapon::PlayFiringEffects()
 		if (FireSound.IsValidIndex(EffectFiringMode) && FireSound[EffectFiringMode] != NULL)
 		{
 			UUTGameplayStatics::UTPlaySound(GetWorld(), FireSound[EffectFiringMode], UTOwner, SRT_AllButOwner);
+		}
+
+		// reload sound on local shooter
+		if ((GetNetMode() != NM_DedicatedServer) && UTOwner && UTOwner->GetLocalViewer() && ReloadSound.IsValidIndex(EffectFiringMode) && ReloadSound[EffectFiringMode] != NULL)
+		{
+			UUTGameplayStatics::UTPlaySound(GetWorld(), ReloadSound[EffectFiringMode], UTOwner, SRT_None);
 		}
 
 		if (ShouldPlay1PVisuals() && GetWeaponHand() != HAND_Hidden)
@@ -851,8 +858,13 @@ void AUTWeapon::PlayImpactEffects(const FVector& TargetLoc, uint8 FireMode, cons
 			}
 			FireEffectCount = 0;
 			UParticleSystemComponent* PSC = UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), FireEffect[FireMode], AdjustedSpawnLocation, SpawnRotation, true);
-			PSC->SetVectorParameter(NAME_HitLocation, TargetLoc);
-			PSC->SetVectorParameter(NAME_LocalHitLocation, PSC->ComponentToWorld.InverseTransformPosition(TargetLoc));
+
+			// limit dist to target
+			FVector AdjustedTargetLoc = ((TargetLoc - AdjustedSpawnLocation).SizeSquared() > 4000000.f)
+				? AdjustedSpawnLocation + MaxTracerDist * (TargetLoc - AdjustedSpawnLocation).GetSafeNormal()
+				: TargetLoc;
+			PSC->SetVectorParameter(NAME_HitLocation, AdjustedTargetLoc);
+			PSC->SetVectorParameter(NAME_LocalHitLocation, PSC->ComponentToWorld.InverseTransformPosition(AdjustedTargetLoc));
 			ModifyFireEffect(PSC);
 		}
 		// perhaps the muzzle flash also contains hit effect (constant beam, etc) so set the parameter on it instead
@@ -984,7 +996,7 @@ bool AUTWeapon::HasAmmo(uint8 FireModeNum)
 	return (AmmoCost.IsValidIndex(FireModeNum) && Ammo >= AmmoCost[FireModeNum]);
 }
 
-bool AUTWeapon::NeedsAmmoDisplay() const
+bool AUTWeapon::NeedsAmmoDisplay_Implementation() const
 {
 	for (int32 i = GetNumFireModes() - 1; i >= 0; i--)
 	{
@@ -1844,7 +1856,7 @@ TArray<UMeshComponent*> AUTWeapon::Get1PMeshes_Implementation() const
 	return Result;
 }
 
-void AUTWeapon::UpdateOverlaysShared(AActor* WeaponActor, AUTCharacter* InOwner, USkeletalMeshComponent* InMesh, USkeletalMeshComponent*& InOverlayMesh) const
+void AUTWeapon::UpdateOverlaysShared(AActor* WeaponActor, AUTCharacter* InOwner, USkeletalMeshComponent* InMesh, const TArray<FParticleSysParam>& InOverlayEffectParams, USkeletalMeshComponent*& InOverlayMesh) const
 {
 	AUTGameState* GS = WeaponActor ? WeaponActor->GetWorld()->GetGameState<AUTGameState>() : NULL;
 	if (GS != NULL && InOwner != NULL && InMesh != NULL)
@@ -1891,6 +1903,11 @@ void AUTWeapon::UpdateOverlaysShared(AActor* WeaponActor, AUTCharacter* InOwner,
 				}
 				PSC->AttachTo(InOverlayMesh, TopOverlay.ParticleAttachPoint);
 				PSC->SetTemplate(TopOverlay.Particles);
+				PSC->InstanceParameters = InOverlayEffectParams;
+				static FName NAME_Weapon(TEXT("Weapon"));
+				static FName NAME_1PWeapon(TEXT("1PWeapon"));
+				PSC->SetActorParameter(NAME_Weapon, WeaponActor);
+				PSC->SetActorParameter(NAME_1PWeapon, WeaponActor);
 			}
 			else
 			{
@@ -1940,7 +1957,7 @@ void AUTWeapon::UpdateOverlaysShared(AActor* WeaponActor, AUTCharacter* InOwner,
 }
 void AUTWeapon::UpdateOverlays()
 {
-	UpdateOverlaysShared(this, GetUTOwner(), Mesh, OverlayMesh);
+	UpdateOverlaysShared(this, GetUTOwner(), Mesh, OverlayEffectParams, OverlayMesh);
 }
 
 void AUTWeapon::SetSkin(UMaterialInterface* NewSkin)

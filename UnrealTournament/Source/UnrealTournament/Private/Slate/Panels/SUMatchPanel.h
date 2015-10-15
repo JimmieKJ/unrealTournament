@@ -120,9 +120,16 @@ public:
 
 	FText GetRuleTitle()
 	{
-		if ( MatchInfo.IsValid() && MatchInfo->CurrentRuleset.IsValid() )
+		if ( MatchInfo.IsValid())
 		{
-			return FText::FromString(MatchInfo->CurrentRuleset->Title);
+			if ( MatchInfo->CurrentRuleset.IsValid() )
+			{
+				return FText::FromString(MatchInfo->CurrentRuleset->Title);
+			}
+			else if (MatchInfo->bDedicatedMatch)
+			{
+				return FText::FromString(MatchInfo->DedicatedServerName);
+			}
 		}
 
 		return FText::FromString(RuleTitle);
@@ -132,11 +139,19 @@ public:
 	{
 		if ( MatchInfo.IsValid() )
 		{
-			if (MatchInfo->InitialMapInfo.IsValid())
+			if (MatchInfo->bDedicatedMatch)
 			{
-				return FText::FromString(MatchInfo->InitialMapInfo->Title);
+				return FText::FromString(FString::Printf(TEXT("%s (%s)"), *MatchInfo->InitialMap, *MatchInfo->DedicatedServerGameMode));
 			}
-			return FText::FromString(MatchInfo->InitialMap);
+			else
+			{
+				if (MatchInfo->InitialMapInfo.IsValid())
+				{
+					return FText::FromString(MatchInfo->InitialMapInfo->Title);
+				}
+				return FText::FromString(MatchInfo->InitialMap);
+
+			}
 		}
 
 		return FText::FromString(MapName);
@@ -144,7 +159,12 @@ public:
 
 	FText GetMaxPlayers()
 	{
-		int32 MP = ( MatchInfo.IsValid() && MatchInfo->CurrentRuleset.IsValid() ) ? MatchInfo->CurrentRuleset->MaxPlayers : MaxPlayers;
+		int32 MP = MaxPlayers;
+		if ( MatchInfo.IsValid() )
+		{
+			MP = (MatchInfo->CurrentRuleset.IsValid()) ? MatchInfo->CurrentRuleset->MaxPlayers : MatchInfo->DedicatedServerMaxPlayers;
+		}
+
 		return FText::Format(NSLOCTEXT("SUMatchPanel","MaxPlayerFormat","Out of {0}"), FText::AsNumber(MP));
 	}
 
@@ -237,8 +257,11 @@ protected:
 	FReply JoinMatchButtonClicked(TSharedPtr<FTrackedMatch> InItem);
 	FReply SpectateMatchButtonClicked(TSharedPtr<FTrackedMatch> InItem);
 
-	FMatchPanelJoinMatchDelegate OnJoinMatchDelegate;
+	FReply DownloadAllButtonClicked();
 
+	FMatchPanelJoinMatchDelegate OnJoinMatchDelegate;
+	
+	TSharedPtr<SUTButton> DownloadContentButton;
 };
 
 #endif

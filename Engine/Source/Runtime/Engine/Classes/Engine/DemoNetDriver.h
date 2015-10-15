@@ -152,4 +152,16 @@ public:
 
 	void ReplayStreamingReady( bool bSuccess, bool bRecord );
 	void CheckpointReady( const bool bSuccess, const int64 SkipExtraTimeInMS );
+
+protected:
+	/** allows subclasses to write game specific data to demo header which is then handled by ProcessGameSpecificDemoHeader */
+	virtual void WriteGameSpecificDemoHeader(TArray<FString>& GameSpecificData)
+	{}
+	/** allows subclasses to read game specific data from demo
+	 * return false to cancel playback
+	 */
+	virtual bool ProcessGameSpecificDemoHeader(const TArray<FString>& GameSpecificData, FString& Error)
+	{
+		return true;
+	}
 };

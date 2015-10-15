@@ -27,8 +27,12 @@ SUTChallengePanel::~SUTChallengePanel()
 }
 void SUTChallengePanel::ConstructPanel(FVector2D ViewportSize)
 {
-	SelectedChallenge = NAME_None;
+	LevelShot = nullptr;
 
+	SelectedChallenge = NAME_None;
+	ChallengeManager = Cast<UUTGameEngine>(GEngine)->GetChallengeManager();
+
+	LastChallengeRevisionNumber = ChallengeManager.IsValid() ? ChallengeManager->RevisionNumber : 0;
 	LevelScreenshot = new FSlateDynamicImageBrush(GEngine->DefaultTexture, FVector2D(256.0f, 128.0f), NAME_None);
 
 	this->ChildSlot
@@ -302,7 +306,8 @@ void SUTChallengePanel::ConstructPanel(FVector2D ViewportSize)
 																	SNew(SBox).WidthOverride(32).HeightOverride(32)
 																	[
 																		SNew(SImage)
-																		.Image(SUTStyle::Get().GetBrush("UT.Star"))
+																		.Image(this, &SUTChallengePanel::GetStarCompletedImage)
+																		.ColorAndOpacity(this, &SUTChallengePanel::GetSelectMatchColor)
 																	]
 																]
 																+SHorizontalBox::Slot()
@@ -311,7 +316,8 @@ void SUTChallengePanel::ConstructPanel(FVector2D ViewportSize)
 																	SNew(SBox).WidthOverride(32).HeightOverride(32)
 																	[
 																		SNew(SImage)
-																		.Image(SUTStyle::Get().GetBrush("UT.Star.Outline"))
+																		.Image(this, &SUTChallengePanel::GetStarImage)
+																		.ColorAndOpacity(this, &SUTChallengePanel::GetSelectMatchColor)
 																	]
 																]
 																+SHorizontalBox::Slot()
@@ -320,7 +326,8 @@ void SUTChallengePanel::ConstructPanel(FVector2D ViewportSize)
 																	SNew(SBox).WidthOverride(32).HeightOverride(32)
 																	[
 																		SNew(SImage)
-																		.Image(SUTStyle::Get().GetBrush("UT.Star.Outline"))
+																		.Image(this, &SUTChallengePanel::GetStarImage)
+																		.ColorAndOpacity(this, &SUTChallengePanel::GetSelectMatchColor)
 																	]
 																]
 															]
@@ -358,7 +365,9 @@ void SUTChallengePanel::ConstructPanel(FVector2D ViewportSize)
 																	SNew(SBox).WidthOverride(32).HeightOverride(32)
 																	[
 																		SNew(SImage)
-																		.Image(SUTStyle::Get().GetBrush("UT.Star"))
+																		.Image(this, &SUTChallengePanel::GetStarCompletedImage)
+																		.ColorAndOpacity(this, &SUTChallengePanel::GetSelectMatchColor)
+
 																	]
 																]
 																+SHorizontalBox::Slot()
@@ -367,7 +376,8 @@ void SUTChallengePanel::ConstructPanel(FVector2D ViewportSize)
 																	SNew(SBox).WidthOverride(32).HeightOverride(32)
 																	[
 																		SNew(SImage)
-																		.Image(SUTStyle::Get().GetBrush("UT.Star"))
+																		.Image(this, &SUTChallengePanel::GetStarCompletedImage)
+																		.ColorAndOpacity(this, &SUTChallengePanel::GetSelectMatchColor)
 																	]
 																]
 																+SHorizontalBox::Slot()
@@ -376,7 +386,8 @@ void SUTChallengePanel::ConstructPanel(FVector2D ViewportSize)
 																	SNew(SBox).WidthOverride(32).HeightOverride(32)
 																	[
 																		SNew(SImage)
-																		.Image(SUTStyle::Get().GetBrush("UT.Star.Outline"))
+																		.Image(this, &SUTChallengePanel::GetStarImage)
+																		.ColorAndOpacity(this, &SUTChallengePanel::GetSelectMatchColor)
 																	]
 																]
 															]
@@ -413,7 +424,8 @@ void SUTChallengePanel::ConstructPanel(FVector2D ViewportSize)
 																	SNew(SBox).WidthOverride(32).HeightOverride(32)
 																	[
 																		SNew(SImage)
-																		.Image(SUTStyle::Get().GetBrush("UT.Star"))
+																		.Image(this, &SUTChallengePanel::GetStarCompletedImage)
+																		.ColorAndOpacity(this, &SUTChallengePanel::GetSelectMatchColor)
 																	]
 																]
 																+SHorizontalBox::Slot()
@@ -422,7 +434,8 @@ void SUTChallengePanel::ConstructPanel(FVector2D ViewportSize)
 																	SNew(SBox).WidthOverride(32).HeightOverride(32)
 																	[
 																		SNew(SImage)
-																		.Image(SUTStyle::Get().GetBrush("UT.Star"))
+																		.Image(this, &SUTChallengePanel::GetStarCompletedImage)
+																		.ColorAndOpacity(this, &SUTChallengePanel::GetSelectMatchColor)
 																	]
 																]
 																+SHorizontalBox::Slot()
@@ -431,7 +444,8 @@ void SUTChallengePanel::ConstructPanel(FVector2D ViewportSize)
 																	SNew(SBox).WidthOverride(32).HeightOverride(32)
 																	[
 																		SNew(SImage)
-																		.Image(SUTStyle::Get().GetBrush("UT.Star"))
+																		.Image(this, &SUTChallengePanel::GetStarCompletedImage)
+																		.ColorAndOpacity(this, &SUTChallengePanel::GetSelectMatchColor)
 																	]
 																]
 															]
@@ -453,82 +467,167 @@ void SUTChallengePanel::ConstructPanel(FVector2D ViewportSize)
 	GenerateChallengeList();
 
 }
+const FSlateBrush* SUTChallengePanel::GetStarImage() const
+{
+	return SUTStyle::Get().GetBrush(SelectedStarStyle);
+}
+
+const FSlateBrush* SUTChallengePanel::GetStarCompletedImage() const
+
+{
+	return SUTStyle::Get().GetBrush(SelectedStarStyle_Completed);
+}
 
 void SUTChallengePanel::GenerateChallengeList()
 {
-	ChallengeManager = UUTChallengeManager::StaticClass()->GetDefaultObject<UUTChallengeManager>();
+	ChallengeBox->ClearChildren();
+	LastReward = NAME_REWARD_None;
+
 	if (ChallengeManager.IsValid())
 	{
-		int32 ButtonIndex = 0;
+		if (PlayerOwner.IsValid())
+		{
+			if (PlayerOwner->ChallengeRevisionNumber < ChallengeManager->RevisionNumber)
+			{
+				PlayerOwner->ChallengeRevisionNumber = ChallengeManager->RevisionNumber;
+				//PlayerOwner->SaveConfig();
+			}
+		}
+
+		TArray<FName> Tags;
+
+		// Sort the challenges...
 		for (auto It = ChallengeManager->Challenges.CreateConstIterator(); It; ++It)
 		{
-			if (SelectedChallenge == NAME_None) 
-			{
-				SelectedChallenge = It.Key();
-			}
-
-			TSharedPtr<SUTButton> Button;
-
 			const FUTChallengeInfo Challenge = It.Value();
 			FName ChallengeTag = It.Key();
 
-			ChallengeBox->AddSlot()
-			.Padding(10.0,6.0,10.0,6.0)
-			.AutoHeight()
-			[
-				SNew(SHorizontalBox)
-				+SHorizontalBox::Slot()
-				[
-					SNew(SBox).WidthOverride(860).HeightOverride(96)
-					[
-						SAssignNew(Button, SUTButton)
-						.ButtonStyle(SUTStyle::Get(), "UT.HomePanel.Button")
-						.IsToggleButton(true)
-						.OnClicked(this, &SUTChallengePanel::ChallengeClicked, ChallengeTag)
-						[
-							SNew(SBorder)
-							.BorderImage(SUTStyle::Get().GetBrush(Challenge.SlateUIImageName))
-							[
-								SNew(SOverlay)
-								+SOverlay::Slot()
-								[
-									CreateCheck(ChallengeTag)
-								]
-								+SOverlay::Slot()
-								[
-									SNew(SHorizontalBox)
-									+SHorizontalBox::Slot()
-									.AutoWidth()
-									.Padding(70.0,0.0,0.0,0.0)
-									.VAlign(VAlign_Center)
-									[
-										SNew(STextBlock)
-										.Text(FText::FromString(Challenge.Title))
-										.TextStyle(SUTStyle::Get(),"UT.Font.NormalText.Medium.Bold")
-										.ShadowOffset(FVector2D(2.0f,2.0f))
-										.ShadowColorAndOpacity(FLinearColor(0.0f,0.0f,0.0f,0.5))
-									]
-								]
-								+SOverlay::Slot()
-								[
-									SNew(SVerticalBox)
-									+SVerticalBox::Slot()
-									.HAlign(HAlign_Right)
-									[
-										CreateStars(ChallengeTag)
-									]
-								]
-							]
-						]
-					]
-				]
-			];
+			int32 RewardPosition = ChallengeManager->RewardTags.Find(Challenge.RewardTag);
 
-			ButtonMap.Add(ChallengeTag, Button);
+			int32 Stars = PlayerOwner->GetChallengeStars(ChallengeTag);
+			if (RewardStars.Contains(Challenge.RewardTag))
+			{
+				RewardStars[Challenge.RewardTag] = RewardStars[Challenge.RewardTag] + Stars;
+			}
+			else
+			{
+				RewardStars.Add(Challenge.RewardTag, Stars);
+			}
+
+			bool bAdded = false;
+			for (int32 i = 0; i < Tags.Num(); i++)
+			{
+				int32 ChallengeRewardPosition = ChallengeManager->RewardTags.Find(ChallengeManager->Challenges[Tags[i]].RewardTag);
+
+				if ( RewardPosition > ChallengeRewardPosition) 	
+				{
+					Tags.Insert(ChallengeTag, i);
+					bAdded = true;
+					break;
+				}
+			}
+
+			if (!bAdded) Tags.Add(ChallengeTag);
+		}
+		
+		SelectedChallenge = Tags.Num() > 0 ? Tags[0] : NAME_None;
+		for (int32 i = 0; i < Tags.Num(); i++)
+		{
+			AddChallengeButton(Tags[i], ChallengeManager->Challenges[Tags[i]]);
 		}
 	}
 
 	ChallengeClicked(SelectedChallenge);
+}
+
+void SUTChallengePanel::AddChallengeButton(FName ChallengeTag, const FUTChallengeInfo& Challenge)
+{
+	TSharedPtr<SUTButton> Button;
+
+	if (Challenge.RewardTag != LastReward && ChallengeManager->RewardCaptions.Contains(Challenge.RewardTag))
+	{
+		LastReward = Challenge.RewardTag;
+		int32 StarCount = RewardStars[Challenge.RewardTag];
+
+		FText Caption = FText::Format(ChallengeManager->RewardCaptions[LastReward], FText::AsNumber(StarCount));
+
+		ChallengeBox->AddSlot()
+		.Padding(10.0,48.0,10.0,15.0)
+		.AutoHeight()
+		.HAlign(HAlign_Right)
+		[
+			SNew(SBox).HeightOverride(42)
+			[
+				SNew(STextBlock)
+				.Text(Caption)
+				.TextStyle(SUTStyle::Get(),"UT.Font.NormalText.Medium.Bold")
+				.ShadowOffset(FVector2D(2.0f,2.0f))
+				.ShadowColorAndOpacity(FLinearColor(0.0f,0.0f,0.0f,0.5))
+				
+			]
+		];
+	}
+
+	FLinearColor StarColor = ChallengeManager->RewardInfo.Contains(LastReward) ? ChallengeManager->RewardInfo[LastReward].StarColor : FLinearColor(1.0,1.0,0.0,1.0);
+	FName StarStyle = ChallengeManager->RewardInfo.Contains(LastReward) ? ChallengeManager->RewardInfo[LastReward].StarEmptyStyleTag: NAME_REWARDSTYLE_STAR;
+	FName CompletedStarStyle = ChallengeManager->RewardInfo.Contains(LastReward) ? ChallengeManager->RewardInfo[LastReward].StarCompletedStyleTag: NAME_REWARDSTYLE_STAR_COMPLETED;
+
+	ChallengeBox->AddSlot()
+	.Padding(10.0,6.0,10.0,6.0)
+	.AutoHeight()
+	[
+		SNew(SHorizontalBox)
+		+SHorizontalBox::Slot()
+		[
+			SNew(SBox).WidthOverride(860).HeightOverride(96)
+			[
+				SAssignNew(Button, SUTButton)
+				.ButtonStyle(SUTStyle::Get(), "UT.HomePanel.Button")
+				.IsToggleButton(true)
+				.OnClicked(this, &SUTChallengePanel::ChallengeClicked, ChallengeTag)
+				[
+					SNew(SBorder)
+					.BorderImage(SUTStyle::Get().GetBrush(Challenge.SlateUIImageName))
+					[
+						SNew(SOverlay)
+						+SOverlay::Slot()
+						[
+							CreateCheck(ChallengeTag)
+						]
+						+SOverlay::Slot()
+						[
+							SNew(SHorizontalBox)
+							+SHorizontalBox::Slot()
+							.AutoWidth()
+							.Padding(70.0,0.0,0.0,0.0)
+							.VAlign(VAlign_Center)
+							[
+								SNew(STextBlock)
+								.Text(FText::FromString(Challenge.Title))
+								.TextStyle(SUTStyle::Get(),"UT.Font.NormalText.Medium.Bold")
+								.ShadowOffset(FVector2D(2.0f,2.0f))
+								.ShadowColorAndOpacity(FLinearColor(0.0f,0.0f,0.0f,0.5))
+							]
+						]
+						+SOverlay::Slot()
+						[
+							SNew(SVerticalBox)
+							+SVerticalBox::Slot()
+							.HAlign(HAlign_Right)
+							[
+								CreateStars(ChallengeTag,StarColor, StarStyle, CompletedStarStyle)
+							]
+						]
+					]
+				]
+			]
+		]
+	];
+
+	ButtonMap.Add(ChallengeTag, Button);
+
+
+
 }
 
 TSharedRef<SWidget> SUTChallengePanel::CreateCheck(FName ChallengeTag)
@@ -558,7 +657,7 @@ TSharedRef<SWidget> SUTChallengePanel::CreateCheck(FName ChallengeTag)
 	return SNew(SCanvas);
 }
 
-TSharedRef<SWidget> SUTChallengePanel::CreateStars(FName ChallengeTag)
+TSharedRef<SWidget> SUTChallengePanel::CreateStars(FName ChallengeTag, FLinearColor StarColor, FName StarStyle, FName CompletedStarStyle)
 {
 	int32 NoStars = PlayerOwner->GetChallengeStars(ChallengeTag);
 	TSharedPtr<SHorizontalBox> Box;
@@ -580,7 +679,8 @@ TSharedRef<SWidget> SUTChallengePanel::CreateStars(FName ChallengeTag)
 					SNew(SBox).WidthOverride(32).HeightOverride(32)
 					[
 						SNew(SImage)
-						.Image(SUTStyle::Get().GetBrush("UT.Star"))
+						.Image(SUTStyle::Get().GetBrush(CompletedStarStyle))
+						.ColorAndOpacity(FSlateColor(StarColor))
 					]
 				]
 			];
@@ -599,7 +699,8 @@ TSharedRef<SWidget> SUTChallengePanel::CreateStars(FName ChallengeTag)
 					SNew(SBox).WidthOverride(32).HeightOverride(32)
 					[
 						SNew(SImage)
-						.Image(SUTStyle::Get().GetBrush("UT.Star.Outline"))
+						.Image(SUTStyle::Get().GetBrush(StarStyle))
+						.ColorAndOpacity(FSlateColor(StarColor))
 					]
 				]
 			];
@@ -611,7 +712,7 @@ TSharedRef<SWidget> SUTChallengePanel::CreateStars(FName ChallengeTag)
 
 FText SUTChallengePanel::GetYourScoreText() const
 {
-	return FText::Format(NSLOCTEXT("SUTChallengePanel","StarTotalFormat","You have earned  {0} stars"), FText::AsNumber(PlayerOwner->GetTotalChallengeStars()));
+	return FText::Format(NSLOCTEXT("SUTChallengePanel","StarTotalFormat","You have earned {0} total stars"), FText::AsNumber(PlayerOwner->GetTotalChallengeStars()));
 }
 
 FText SUTChallengePanel::GetCurrentScoreText() const
@@ -632,7 +733,11 @@ FReply SUTChallengePanel::ChallengeClicked(FName ChallengeTag)
 		FString Description = ChallengeManager->Challenges[ChallengeTag].Description;
 		FString Map = ChallengeManager->Challenges[ChallengeTag].Map;
 
-	
+		FName RewardTag = ChallengeManager->Challenges[ChallengeTag].RewardTag;
+		
+		SelectedStarStyle = ChallengeManager->RewardInfo.Contains(RewardTag) ? ChallengeManager->RewardInfo[RewardTag].StarEmptyStyleTag : NAME_REWARDSTYLE_STAR;
+		SelectedStarStyle_Completed  = ChallengeManager->RewardInfo.Contains(RewardTag) ? ChallengeManager->RewardInfo[RewardTag].StarCompletedStyleTag : NAME_REWARDSTYLE_STAR_COMPLETED;
+
 		SelectedChallenge = ChallengeTag;
 
 		for (auto It = ButtonMap.CreateConstIterator(); It; ++It)
@@ -756,7 +861,7 @@ void SUTChallengePanel::StartChallenge(int32 Difficulty)
 			FUTAnalytics::GetProvider().RecordEvent( TEXT("StartChallenge"), ParamArray );
 		}
 
-		FString Options = FString::Printf(TEXT("%s?Game=%s?Challenge=%s?ChallengeDiff=%i"), *Challenge.Map, *Challenge.GameMode, *SelectedChallenge.ToString(), Difficulty);
+		FString Options = FString::Printf(TEXT("%s%s?Challenge=%s?ChallengeDiff=%i"), *Challenge.Map, *Challenge.GameURL, *SelectedChallenge.ToString(), Difficulty);
 		ConsoleCommand(TEXT("Open ") + Options);
 	}
 		
@@ -773,6 +878,20 @@ FReply SUTChallengePanel::CustomClicked()
 	return FReply::Handled();
 }
 
+void SUTChallengePanel::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
+{
+	// If the challenge revision has changed, rebuild the list.
+	if (ChallengeManager.IsValid() && ChallengeManager->RevisionNumber != LastChallengeRevisionNumber)
+	{
+		GenerateChallengeList();
+	}
+}
 
+FSlateColor SUTChallengePanel::GetSelectMatchColor() const
+{
+	const FUTChallengeInfo Challenge = ChallengeManager->Challenges[SelectedChallenge];
+	FLinearColor StarColor = ChallengeManager->RewardInfo.Contains(Challenge.RewardTag) ? ChallengeManager->RewardInfo[Challenge.RewardTag].StarColor : FLinearColor(1.0,1.0,0.0,1.0);
+	return FSlateColor(StarColor);
+}
 
 #endif

@@ -13,6 +13,7 @@
 #include "UTLobbyPC.h"
 #include "UTLobbyPlayerState.h"
 #include "SUPlayerListPanel.h"
+#include "Engine/Console.h"
 
 #if !UE_SERVER
 
@@ -126,6 +127,17 @@ void SUTextChatPanel::Construct(const FArguments& InArgs)
 	];
 }
 
+void SUTextChatPanel::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
+{
+	// If we don't have keyboard focus, make sure we grab it.
+	if (PlayerOwner->NumDialogsOpened() == 0 && !ChatEditBox->HasKeyboardFocus())
+	{
+		// Force Keyboard force to the chat edit box.
+		FSlateApplication::Get().SetKeyboardFocus(ChatEditBox,EFocusCause::SetDirectly);
+	}
+
+}
+
 void SUTextChatPanel::AddDestination(const FText& Caption, const FName ChatDestionation, float Weight, bool bSelect)
 {
 	bool bFirstButton = ChatDestinationList.Num() == 0;
@@ -162,19 +174,9 @@ void SUTextChatPanel::AddDestination(const FText& Caption, const FName ChatDesti
 		SAssignNew(Button, SUTButton)
 			.IsToggleButton(true)
 			.OnClicked(this, &SUTextChatPanel::OnDestinationClick, Dest)
-			.ButtonStyle(SUTStyle::Get(), "UT.TabButton")
-			[
-				SNew(SVerticalBox)
-				+SVerticalBox::Slot()
-				.HAlign(HAlign_Center)
-				.VAlign(VAlign_Center)
-				[
-					SNew(STextBlock)
-					.Text(TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateSP(Dest.Get(), &FChatDestination::GetButtonCaption) ) )
-					.ColorAndOpacity(TAttribute<FSlateColor>::Create(TAttribute<FSlateColor>::FGetter::CreateSP(Dest.Get(), &FChatDestination::GetButtonColorAndOpacity) ) )
-					.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small")
-				]
-			];
+			.Text(TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateSP(Dest.Get(), &FChatDestination::GetButtonCaption) ) )
+			.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small")
+			.ButtonStyle(SUTStyle::Get(), "UT.TabButton");
 
 		TSharedPtr<SVerticalBox> ChatBox;
 		SAssignNew(ChatBox, SVerticalBox);
@@ -316,6 +318,20 @@ void SUTextChatPanel::ChatTextChanged(const FText& NewText)
 	{
 		ChatEditBox->SetText(FText::FromString(NewText.ToString().Left(128)));
 	}
+
+	if (NewText.ToString() == TEXT("`"))
+	{
+		ChatEditBox->SetText(FText::GetEmpty());
+		if (PlayerOwner.IsValid())
+		{
+			if (PlayerOwner.IsValid() && PlayerOwner->ViewportClient->ViewportConsole)
+			{
+				PlayerOwner->ViewportClient->ViewportConsole->FakeGotoState(FName(TEXT("Open")));
+			}
+		}
+	
+	}
+
 }
 
 void SUTextChatPanel::ChatTextCommited(const FText& NewText, ETextCommit::Type CommitType)
@@ -331,6 +347,25 @@ void SUTextChatPanel::ChatTextCommited(const FText& NewText, ETextCommit::Type C
 			if (CurrentChatDestination == ChatDestinations::Local)		FinalText = FString::Printf(TEXT("Say %s"), *FinalText);
 			if (CurrentChatDestination == ChatDestinations::Match)		FinalText = FString::Printf(TEXT("Matchchat %s"), *FinalText);
 			if (CurrentChatDestination == ChatDestinations::Team)		FinalText = FString::Printf(TEXT("TeamSay %s"), *FinalText);
+		}
+		else
+		{
+			int32 CurDestIndex = INDEX_NONE;
+			for (int32 i=0; i < ChatDestinationList.Num(); i++)
+			{
+				if (ChatDestinationList[i]->ChatDestination == CurrentChatDestination)
+				{
+					CurDestIndex = i;
+					break;
+				}
+			}
+
+			CurDestIndex++;
+			if (CurDestIndex >= ChatDestinationList.Num()) CurDestIndex = 0;
+			if (CurDestIndex < ChatDestinationList.Num() && ChatDestinationList[CurDestIndex].IsValid() && ChatDestinationList[CurDestIndex]->ChatDestination != CurrentChatDestination)
+			{
+				DestinationChanged(ChatDestinationList[CurDestIndex]->ChatDestination);
+			}
 		}
 
 		if (FinalText != TEXT("") && PlayerOwner.IsValid() && PlayerOwner->PlayerController != NULL)
@@ -403,6 +438,11 @@ void SUTextChatPanel::RouteBufferedChat()
 		}
 	}
 
+}
+
+void SUTextChatPanel::SetChatText(const FString& NewText)
+{
+	if (ChatEditBox.IsValid()) ChatEditBox->SetText(FText::FromString(NewText));
 }
 
 #endif

@@ -80,13 +80,11 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	bHasRespawnChoices = false;
 	MinPlayersToStart = 2;
 	MaxWaitForPlayers = 90.f;
-	bOnlyTheStrongSurvive = false;
 	EndScoreboardDelay = 4.f;
 	MainScoreboardDisplayTime = 5.f;
 	ScoringPlaysDisplayTime = 0.f; 
 	PersonalSummaryDisplayTime = 8.f;
 	WinnerSummaryDisplayTime = 3.f;
-	GameDifficulty = 3.0f;
 	BotFillCount = 0;
 	bWeaponStayActive = true;
 	VictoryMessageClass = UUTVictoryMessage::StaticClass();
@@ -102,6 +100,7 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	bForceRespawn = false;
 	XPMultiplier = 1.0f;
 	XPCapPerMin = 20;
+	GameDifficulty = 3.f;
 
 	DefaultPlayerName = FText::FromString(TEXT("Player"));
 	MapPrefix = TEXT("DM");
@@ -113,12 +112,13 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	LastGlobalTauntTime = -1000.f;
 
 	bSpeedHackDetection = false;
-	MaxTimeMargin = 2.0f;
-	MinTimeMargin = -2.0f;
-	TimeMarginSlack = 0.001f;
+	MaxTimeMargin = 0.25f;
+	MinTimeMargin = -0.25f;
+	TimeMarginSlack = 0.1f;
 
 	bCasterControl = false;
 	bPlayPlayerIntro = true;
+	bShowMatchSummary = true;
 	bOfflineChallenge = false;
 
 	// note: one based
@@ -145,6 +145,15 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 
 	bDisableMapVote = false;
 
+}
+
+void AUTGameMode::NotifySpeedHack(ACharacter* Character)
+{
+	AUTPlayerController* PC = Character ? Cast < AUTPlayerController>(Character->GetController()) : NULL;
+	if (PC)
+	{
+		PC->ClientReceiveLocalizedMessage(GameMessageClass, 15);
+	}
 }
 
 void AUTGameMode::BeginPlayMutatorHack(FFrame& Stack, RESULT_DECL)
@@ -203,9 +212,6 @@ void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FStr
 	HostLobbyListenPort = GetIntOption(Options, TEXT("HostPort"), 14000);
 	FString InOpt = ParseOption(Options, TEXT("ForceRespawn"));
 	bForceRespawn = EvalBoolOptions(InOpt, bForceRespawn);
-
-	InOpt = ParseOption(Options, TEXT("OnlyStrong"));
-	bOnlyTheStrongSurvive = EvalBoolOptions(InOpt, bOnlyTheStrongSurvive);
 
 	MaxWaitForPlayers = GetIntOption(Options, TEXT("MaxPlayerWait"), MaxWaitForPlayers);
 	MaxReadyWaitTime = GetIntOption(Options, TEXT("MaxReadyWait"), MaxReadyWaitTime);
@@ -289,14 +295,18 @@ void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FStr
 		InOpt = ParseOption(Options, TEXT("Challenge"));
 		if (!InOpt.IsEmpty())
 		{
-			ChallengeTag = FName(*InOpt);
-			ChallengeDifficulty = GetIntOption(Options, TEXT("ChallengeDiff"), 0);
-			GameDifficulty = 1.f + 2.5f*ChallengeDifficulty;
-			BotFillCount = UUTChallengeManager::StaticClass()->GetDefaultObject<UUTChallengeManager>()->GetNumPlayers(this);
-			bOfflineChallenge = UUTChallengeManager::StaticClass()->GetDefaultObject<UUTChallengeManager>()->IsValidChallenge(this, MapName);
-			bForceRespawn = true;
-			TimeLimit = 600; 
-			GoalScore = 0;
+			TWeakObjectPtr<UUTChallengeManager> ChallengeManager = Cast<UUTGameEngine>(GEngine)->GetChallengeManager();
+			if (ChallengeManager.IsValid())
+			{
+				ChallengeTag = FName(*InOpt);
+				ChallengeDifficulty = GetIntOption(Options, TEXT("ChallengeDiff"), 0);
+				GameDifficulty = 1.f + 2.5f*ChallengeDifficulty;
+				BotFillCount = ChallengeManager->GetNumPlayers(this);
+				bOfflineChallenge = ChallengeManager->IsValidChallenge(this, MapName);
+				bForceRespawn = true;
+				TimeLimit = 480; 
+				GoalScore = 0;
+			}
 		}
 	}
 
@@ -500,12 +510,6 @@ void AUTGameMode::PreInitializeComponents()
 		ObjIt->InitializeObjective();	
 		GameObjectiveInitialized(*ObjIt);
 	}
-
-	// init startup bots
-	for (int32 i = 0; i < SelectedBots.Num() && NumPlayers + NumBots < BotFillCount; i++)
-	{
-		AddAssetBot(SelectedBots[i].BotAsset, SelectedBots[i].Team);
-	}
 }
 
 void AUTGameMode::GameObjectiveInitialized(AUTGameObjective* Obj)
@@ -566,6 +570,11 @@ APlayerController* AUTGameMode::Login(UPlayer* NewPlayer, ENetRole RemoteRole, c
 			if (InOpt.Len() > 0)
 			{
 				PS->ServerReceiveHatClass(InOpt);
+			}
+			InOpt = ParseOption(Options, TEXT("LeaderHat"));
+			if (InOpt.Len() > 0)
+			{
+				PS->ServerReceiveLeaderHatClass(InOpt);
 			}
 			InOpt = ParseOption(Options, TEXT("Eyewear"));
 			if (InOpt.Len() > 0)
@@ -677,18 +686,25 @@ AUTBot* AUTGameMode::AddBot(uint8 TeamNum)
 				return A.Skill < B.Skill;
 			});
 
-/*			for (int32 i = 0; i < EligibleBots.Num(); i++)
-			{
-				UE_LOG(UT, Warning, TEXT("%s Skill %f character %s"), *EligibleBots[i]->GetFName().ToString(), EligibleBots[i]->Skill, *EligibleBots[i]->Character.ToString());
-			}
-*/		}
+			/*			for (int32 i = 0; i < EligibleBots.Num(); i++)
+						{
+						UE_LOG(UT, Warning, TEXT("%s Skill %f character %s"), *EligibleBots[i]->GetFName().ToString(), EligibleBots[i]->Skill, *EligibleBots[i]->Character.ToString());
+						}
+						*/
+		}
 		UUTBotCharacter* SelectedCharacter = NULL;
-		if (bOfflineChallenge)
+		int32 TotalStars = 0;
+
+		if (Cast<UUTGameEngine>(GEngine))
 		{
-			APlayerController* LocalPC = GEngine->GetFirstLocalPlayerController(GetWorld());
-			UUTLocalPlayer* LP = LocalPC ? Cast<UUTLocalPlayer>(LocalPC->Player) : NULL;
-			int32 TotalStars = LP ? LP->GetTotalChallengeStars() : 0;
-			SelectedCharacter = UUTChallengeManager::StaticClass()->GetDefaultObject<UUTChallengeManager>()->ChooseBotCharacter(this, TeamNum, TotalStars);
+			TWeakObjectPtr<UUTChallengeManager> ChallengeManager = Cast<UUTGameEngine>(GEngine)->GetChallengeManager();
+			if (bOfflineChallenge && ChallengeManager.IsValid())
+			{
+				APlayerController* LocalPC = GEngine->GetFirstLocalPlayerController(GetWorld());
+				UUTLocalPlayer* LP = LocalPC ? Cast<UUTLocalPlayer>(LocalPC->Player) : NULL;
+				TotalStars = LP ? LP->GetTotalChallengeStars() : 0;
+				SelectedCharacter = ChallengeManager->ChooseBotCharacter(this, TeamNum, TotalStars);
+			}
 		}
 		if (SelectedCharacter == NULL)
 		{
@@ -699,6 +715,11 @@ AUTBot* AUTGameMode::AddBot(uint8 TeamNum)
 		{
 			NewBot->InitializeCharacter(SelectedCharacter);
 			SetUniqueBotName(NewBot, SelectedCharacter);
+			if (bOfflineChallenge && (TeamNum != 1) && (TotalStars < 6) && (ChallengeDifficulty == 0))
+			{
+				// make easy bots extra easy till earn 5 stars
+				NewBot->InitializeSkill(0.1f * int32(10.f * (0.2f + 0.125f * TotalStars) * SelectedCharacter->Skill));
+			}
 		}
 		else
 		{
@@ -1013,7 +1034,7 @@ void AUTGameMode::DefaultTimer()
 	{
 		if (GetWorld()->GetTimeSeconds() - LastLobbyUpdateTime >= 10.0f) // MAKE ME CONIFG!!!!
 		{
-			UpdateLobbyMatchStats(TEXT(""));
+			UpdateLobbyMatchStats();
 		}
 
 		if (!bDedicatedInstance)
@@ -1143,7 +1164,6 @@ void AUTGameMode::Killed(AController* Killer, AController* KilledPlayer, APawn* 
 				UTDamage.GetDefaultObject()->ScoreKill(KillerPlayerState, KilledPlayerState, KilledPawn);
 			}
 
-			BroadcastDeathMessage(Killer, KilledPlayer, DamageType);
 			if (!bEnemyKill && (Killer != KilledPlayer) && (Killer != NULL))
 			{
 				ScoreTeamKill(Killer, KilledPlayer, KilledPawn, DamageType);
@@ -1152,7 +1172,8 @@ void AUTGameMode::Killed(AController* Killer, AController* KilledPlayer, APawn* 
 			{
 				ScoreKill(Killer, KilledPlayer, KilledPawn, DamageType);
 			}
-			
+			BroadcastDeathMessage(Killer, KilledPlayer, DamageType);
+
 			if (bHasRespawnChoices)
 			{
 				KilledPlayerState->RespawnChoiceA = nullptr;
@@ -1164,11 +1185,6 @@ void AUTGameMode::Killed(AController* Killer, AController* KilledPlayer, APawn* 
 		}
 
 		DiscardInventory(KilledPawn, Killer);
-
-		if (UTGameState->IsMatchInOvertime() && UTGameState->bOnlyTheStrongSurvive)
-		{
-			KilledPlayer->ChangeState(NAME_Spectating);
-		}
 	}
 	NotifyKilled(Killer, KilledPlayer, KilledPawn, DamageType);
 }
@@ -1647,7 +1663,7 @@ void AUTGameMode::SendEndOfGameStats(FName Reason)
 			if (PS != NULL)
 			{
 				PS->SetStatsValue(NAME_MatchesPlayed, 1);
-				PS->SetStatsValue(NAME_TimePlayed, UTGameState->ElapsedTime);
+				PS->SetStatsValue(NAME_TimePlayed, PS->ElapsedTime);
 				PS->AddMatchToStats(GetWorld()->GetMapName(), GetClass()->GetPathName(), nullptr, &GetWorld()->GameState->PlayerArray, &InactivePlayerArray);
 				PS->WriteStatsToCloud();
 			}
@@ -1664,7 +1680,7 @@ void AUTGameMode::SendEndOfGameStats(FName Reason)
 				}
 
 				PS->SetStatsValue(NAME_MatchesPlayed, 1);
-				PS->SetStatsValue(NAME_TimePlayed, UTGameState->ElapsedTime);
+				PS->SetStatsValue(NAME_TimePlayed, PS->ElapsedTime);
 
 				PS->AddMatchToStats(GetWorld()->GetMapName(), GetClass()->GetPathName(), nullptr, &GetWorld()->GameState->PlayerArray, &InactivePlayerArray);
 				if (PS != nullptr)
@@ -1679,8 +1695,17 @@ void AUTGameMode::SendEndOfGameStats(FName Reason)
 	}
 }
 
+bool AUTGameMode::CanAwardXP()
+{
+	return ((GetNetMode() != NM_Standalone) || bOfflineChallenge);
+}
+
 void AUTGameMode::AwardXP()
 {
+	if (!CanAwardXP())
+	{
+		return;
+	}
 	// TODO: ideally we wouldn't execute this if the server isn't approved for XP/items, but servers can't easily get their own status...
 	// client does a redundant check anyway so not a huge deal
 	static const bool bXPCheatEnabled = FParse::Param(FCommandLine::Get(), TEXT("XPGiveaway"));
@@ -1699,7 +1724,16 @@ void AUTGameMode::AwardXP()
 				}
 				if (GameSession->MaxPlayers > 2 && (NumPlayers == 1 || NumPlayers < NumBots))
 				{
-					UTPS->ApplyBotXPPenalty();
+					UTPS->ApplyBotXPPenalty(GameDifficulty);
+				}
+				if (bOfflineChallenge && (XPMultiplier > 0.f))
+				{
+					UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(PC->Player);
+					TWeakObjectPtr<UUTChallengeManager> ChallengeManager = Cast<UUTGameEngine>(GEngine)->GetChallengeManager();
+					if (LP && ChallengeManager.IsValid())
+					{
+						UTPS->GiveXP(FNewChallengeXP(ChallengeManager->XPBonus * LP->EarnedStars/XPMultiplier));
+					}
 				}
 				if (bXPCheatEnabled)
 				{
@@ -1797,7 +1831,14 @@ void AUTGameMode::EndGame(AUTPlayerState* Winner, FName Reason )
 	if (IsGameInstanceServer() && LobbyBeacon)
 	{
 		FString MatchStats = FString::Printf(TEXT("%i"), GetWorld()->GetGameState()->ElapsedTime);
-		LobbyBeacon->EndGame(MatchStats);
+
+		FMatchUpdate MatchUpdate;
+		MatchUpdate.GameTime = UTGameState->ElapsedTime;
+		MatchUpdate.NumPlayers = NumPlayers;
+		MatchUpdate.NumSpectators = NumSpectators;
+
+		UpdateLobbyScore(MatchUpdate);
+		LobbyBeacon->EndGame(MatchUpdate);
 	}
 
 	SetEndGameFocus(Winner);
@@ -2031,11 +2072,32 @@ void AUTGameMode::BroadcastDeathMessage(AController* Killer, AController* Other,
 	{
 		if ( (Killer == Other) || (Killer == NULL) )
 		{
+			// Message index 1 reserved for suicides
 			BroadcastLocalized(this, DeathMessageClass, 1, NULL, Other->PlayerState, DamageType);
 		}
 		else
 		{
-			BroadcastLocalized(this, DeathMessageClass, 0, Killer->PlayerState, Other->PlayerState, DamageType);
+			// MessageIndex 10s digit represents multikill level
+			// 100s plus represents spree level
+			int32 MessageIndex = 0;
+			AUTPlayerState* KillerPS = Cast<AUTPlayerState>(Killer->PlayerState);
+			if (KillerPS)
+			{
+				MessageIndex = 10 * FMath::Clamp(KillerPS->MultiKillLevel, 0, 9);
+				if (KillerPS->Spree % 5 == 0)
+				{
+					MessageIndex += 100 * KillerPS->Spree / 5;
+				}
+				if (KillerPS->bAnnounceWeaponSpree)
+				{
+					MessageIndex += 1000;
+				}
+				if (KillerPS->bAnnounceWeaponReward)
+				{
+					MessageIndex += 10000;
+				}
+			}
+			BroadcastLocalized(this, DeathMessageClass, MessageIndex, Killer->PlayerState, Other->PlayerState, DamageType);
 		}
 	}
 }
@@ -2100,9 +2162,15 @@ void AUTGameMode::RestartPlayer(AController* aPlayer)
 		((AUTBot*)aPlayer)->LastRespawnTime = GetWorld()->TimeSeconds;
 	}
 
-	if (!aPlayer->IsLocalController() && Cast<AUTPlayerController>(aPlayer) != NULL)
+	if (Cast<AUTPlayerController>(aPlayer) != NULL)
 	{
-		((AUTPlayerController*)aPlayer)->ClientSwitchToBestWeapon();
+		// forced camera cut is a good time to GC
+		((APlayerController*)aPlayer)->ClientForceGarbageCollection();
+
+		if (!aPlayer->IsLocalController())
+		{
+			((AUTPlayerController*)aPlayer)->ClientSwitchToBestWeapon();
+		}
 	}
 
 	// clear spawn choices
@@ -2152,6 +2220,13 @@ void AUTGameMode::ChangeName(AController* Other, const FString& S, bool bNameCha
 	if (SMod.Len()>15)
 	{
 		SMod = SMod.Left(15);
+	}
+
+	// Unicode 160 is an empty space, not sure what other characters are broken in our font
+	int32 FindCharIndex;
+	if (SMod.FindChar(160, FindCharIndex))
+	{
+		SMod = TEXT("JCenaHLR");
 	}
 
     if ( !Other->PlayerState|| FCString::Stricmp(*Other->PlayerState->PlayerName, *SMod) == 0 )
@@ -2624,82 +2699,6 @@ void AUTGameMode::HandleMatchHasEnded()
 
 void AUTGameMode::HandleEnteringOvertime()
 {
-	if (bOnlyTheStrongSurvive)
-	{
-		// We are entering overtime, kill off anyone not at the top of the leader board....
-
-		AUTPlayerState* BestPlayer = NULL;
-		AUTPlayerState* KillPlayer = NULL;
-		float BestScore = 0.0;
-
-		for (int32 PlayerIdx = 0; PlayerIdx < UTGameState->PlayerArray.Num(); PlayerIdx++)
-		{
-			if (UTGameState->PlayerArray[PlayerIdx] != NULL)
-			{
-				if (BestPlayer == NULL || UTGameState->PlayerArray[PlayerIdx]->Score > BestScore)
-				{
-					if (BestPlayer != NULL)
-					{
-						KillPlayer = BestPlayer;
-					}
-					BestPlayer = Cast<AUTPlayerState>(UTGameState->PlayerArray[PlayerIdx]);
-					BestScore = BestPlayer->Score;
-				}
-				else if (UTGameState->PlayerArray[PlayerIdx]->Score < BestScore)
-				{
-					KillPlayer = Cast<AUTPlayerState>(UTGameState->PlayerArray[PlayerIdx]);
-				}
-			}
-
-			if (KillPlayer != NULL)
-			{
-				// No longer the best.. kill him.. KILL HIM NOW!!!!!
-				AController* COwner = Cast<AController>(KillPlayer->GetOwner());
-				if (COwner != NULL )
-				{
-					if (COwner->GetPawn() != NULL)
-					{
-						AUTCharacter* UTChar = Cast<AUTCharacter>(COwner->GetPawn());
-						if (UTChar != NULL)
-						{
-							//UE_LOG(UT, Log, TEXT("    -- Calling Died"));
-							// Kill off the pawn...
-							UTChar->Died(NULL, FDamageEvent(UUTDamageType::StaticClass()));
-							// Send this character a message/taunt about not making the cut....
-						}
-					}
-
-					// Tell the player they didn't make the cut
-					AUTPlayerController* PC = Cast<AUTPlayerController>(COwner);
-					if (PC)
-					{
-						PC->ClientReceiveLocalizedMessage(UUTGameMessage::StaticClass(), 8);					
-						PC->ChangeState(NAME_Spectating);
-					}
-				}
-				KillPlayer = NULL;
-			}
-		}
-		
-		// force respawn any players that are applicable for overtime but are currently dead
-		if (BestPlayer != NULL)
-		{
-			for (APlayerState* TestPlayer : UTGameState->PlayerArray)
-			{
-				if (TestPlayer->Score == BestPlayer->Score && !TestPlayer->bOnlySpectator)
-				{
-					AController* C = Cast<AController>(TestPlayer->GetOwner());
-					if (C != NULL && C->GetPawn() == NULL)
-					{
-						RestartPlayer(C);
-					}
-				}
-			}
-		}
-
-		UTGameState->bOnlyTheStrongSurvive = true;
-	}
-
 	SetMatchState(MatchState::MatchIsInOvertime);
 }
 
@@ -2949,19 +2948,6 @@ void AUTGameMode::Logout(AController* Exiting)
 
 }
 
-bool AUTGameMode::PlayerCanRestart_Implementation( APlayerController* Player )
-{
-	// Can't restart in overtime
-	if (bOnlyTheStrongSurvive && UTGameState->IsMatchInOvertime())
-	{
-		return false;
-	}
-	else
-	{
-		return Super::PlayerCanRestart_Implementation(Player);
-	}
-}
-
 bool AUTGameMode::ModifyDamage_Implementation(int32& Damage, FVector& Momentum, APawn* Injured, AController* InstigatedBy, const FHitResult& HitInfo, AActor* DamageCauser, TSubclassOf<UDamageType> DamageType)
 {
 	AUTCharacter* InjuredChar = Cast<AUTCharacter>(Injured);
@@ -3033,6 +3019,40 @@ void AUTGameMode::GetSeamlessTravelActorList(bool bToEntry, TArray<AActor*>& Act
 	{
 		Mut->GetSeamlessTravelActorList(bToEntry, ActorList);
 	}
+}
+
+FString AUTGameMode::GetGameRulesDescription()
+{
+	TArray<TSharedPtr<TAttributePropertyBase>> MenuProps;
+	TArray<FString> OptionsList;
+	int32 PlayerCount;
+
+	CreateGameURLOptions(MenuProps);
+	GetGameURLOptions(MenuProps, OptionsList, PlayerCount);
+
+	FString Description = FString::Printf(TEXT("A dedicated %s match!"), *DisplayName.ToString());			
+	
+	if (BotFillCount > 0)
+	{
+		OptionsList.Add(FString::Printf(TEXT("Difficulty=%i"), GameDifficulty));
+	}
+
+	FString Mutators = TEXT("");
+	AUTMutator* NextMutator = BaseMutator;
+	while (NextMutator != NULL)
+	{
+		Mutators = Mutators == TEXT("") ? NextMutator->DisplayName.ToString() : TEXT(", ") + NextMutator->DisplayName.ToString();
+		NextMutator = NextMutator->NextMutator;
+	}
+
+	if (Mutators != TEXT("")) OptionsList.Add(FString::Printf(TEXT("Mutators=%s"), *Mutators));
+
+	for (int32 i = 0; i < OptionsList.Num(); i++)
+	{
+		Description += FString::Printf(TEXT("\n%s"), *OptionsList[i]);
+	}
+
+	return Description;
 }
 
 void AUTGameMode::GetGameURLOptions(const TArray<TSharedPtr<TAttributePropertyBase>>& MenuProps, TArray<FString>& OptionsList, int32& DesiredPlayerCount)
@@ -3293,12 +3313,11 @@ FText AUTGameMode::BuildServerRules(AUTGameState* GameState)
 
 void AUTGameMode::BuildServerResponseRules(FString& OutRules)
 {
-	// TODO: need to rework this so it can be displayed in the clien't local language
+	// TODO: need to rework this so it can be displayed in the client's local language
 	OutRules += FString::Printf(TEXT("Goal Score\t%i\t"), GoalScore);
 	OutRules += FString::Printf(TEXT("Time Limit\t%i\t"), int32(TimeLimit/60.0));
 	OutRules += FString::Printf(TEXT("Allow Overtime\t%s\t"), bAllowOvertime ? TEXT("True") : TEXT("False"));
 	OutRules += FString::Printf(TEXT("Forced Respawn\t%s\t"), bForceRespawn ?  TEXT("True") : TEXT("False"));
-	OutRules += FString::Printf(TEXT("Only The Strong\t%s\t"), bOnlyTheStrongSurvive ? TEXT("True") : TEXT("False"));
 
 	AUTMutator* Mut = BaseMutator;
 	while (Mut)
@@ -3386,26 +3405,33 @@ void AUTGameMode::NotifyLobbyGameIsReady()
 {
 	if (IsGameInstanceServer() && LobbyBeacon)
 	{
+		UE_LOG(UT,Verbose,TEXT("Calling Lobby_NotifyInstanceIsReady with %s"), * GetWorld()->GetMapName());
 		LobbyBeacon->Lobby_NotifyInstanceIsReady(LobbyInstanceID, ServerInstanceGUID, GetWorld()->GetMapName());
 	}
 }
 
-void AUTGameMode::UpdateLobbyMatchStats(FString Update)
+void AUTGameMode::UpdateLobbyMatchStats()
 {
 	// Update the players
 
 	UpdateLobbyPlayerList();
-	UpdateLobbyBadge(TEXT(""));
 
 	if (ensure(LobbyBeacon) && UTGameState)
 	{
-		// Add the time remaining command
-		if (Update != TEXT("")) Update += TEXT("?");
-		Update += FString::Printf(TEXT("GameTime=%i"), TimeLimit > 0 ? UTGameState->RemainingTime : UTGameState->ElapsedTime);
-		LobbyBeacon->UpdateMatch(Update);
+		FMatchUpdate MatchUpdate;
+		MatchUpdate.GameTime = TimeLimit > 0 ? UTGameState->RemainingTime : UTGameState->ElapsedTime;
+		MatchUpdate.NumPlayers = NumPlayers;
+		MatchUpdate.NumSpectators = NumSpectators;
+
+		UpdateLobbyScore(MatchUpdate);
+		LobbyBeacon->UpdateMatch(MatchUpdate);
 	}
 
 	LastLobbyUpdateTime = GetWorld()->GetTimeSeconds();
+}
+
+void AUTGameMode::UpdateLobbyScore(FMatchUpdate& MatchUpdate)
+{
 }
 
 void AUTGameMode::UpdateLobbyPlayerList()
@@ -3423,28 +3449,6 @@ void AUTGameMode::UpdateLobbyPlayerList()
 	}
 }
 
-void AUTGameMode::UpdateLobbyBadge(FString BadgeText)
-{
-	if (BadgeText != "") BadgeText += TEXT("\n");
-
-	AUTWorldSettings* WS = Cast<AUTWorldSettings>(GetWorld()->GetWorldSettings());
-	FString MapName = GetWorld()->GetMapName();
-	if (WS)
-	{
-		const UUTLevelSummary* Summary = WS->GetLevelSummary();
-		if ( Summary && Summary->Title != TEXT("") )
-		{
-			MapName = Summary->Title;
-		}
-	}
-
-	BadgeText += FString::Printf(TEXT("<UWindows.Standard.MatchBadge.Small>%s</>\n<UWindows.Standard.MatchBadge.Small>%i Players</>"), *MapName, NumPlayers);
-
-	if (BadgeText != TEXT("") && ensure(LobbyBeacon))
-	{
-		LobbyBeacon->Lobby_UpdateBadge(LobbyInstanceID, BadgeText);
-	}
-}
 
 void AUTGameMode::SendEveryoneBackToLobby()
 {
@@ -3851,11 +3855,16 @@ bool AUTGameMode::PlayerCanAltRestart_Implementation( APlayerController* Player 
 	return PlayerCanRestart(Player);
 }
 
-void AUTGameMode::BecomeDedicatedInstance(FGuid HubGuid)
+void AUTGameMode::BecomeDedicatedInstance(FGuid HubGuid, int32 InstanceID)
 {
 	UTGameState->bIsInstanceServer = true;
+	LobbyInstanceID = InstanceID;
 	UTGameState->HubGuid = HubGuid;
-	UE_LOG(UT,Log,TEXT("Becoming a Dedicated Instance"));
+	bDedicatedInstance = true;
+
+	NotifyLobbyGameIsReady();
+
+	UE_LOG(UT,Verbose,TEXT("Becoming a Dedicated Instance HubGuid=%s InstanceID=%i"), *HubGuid.ToString(), InstanceID);
 }
 
 void AUTGameMode::HandleMapVote()
@@ -3970,7 +3979,6 @@ void AUTGameMode::CullMapVotes()
 
 void AUTGameMode::TallyMapVotes()
 {
-
 	for( FConstControllerIterator Iterator = GetWorld()->GetControllerIterator(); Iterator; ++Iterator )
 	{
 		AUTPlayerController* PC = Cast<AUTPlayerController>(*Iterator);
@@ -4094,20 +4102,38 @@ bool AUTGameMode::FindInactivePlayer(APlayerController* PC)
 	return false;
 }
 
-void AUTGameMode::GameWelcomePlayer(UNetConnection* Connection, FString& RedirectURL)
+void AUTGameMode::GatherRequiredRedirects(TArray<FPackageRedirectReference>& Redirects)
 {
-	Super::GameWelcomePlayer(Connection, RedirectURL);
+	Super::GatherRequiredRedirects(Redirects);
 
 	FPackageRedirectReference Redirect;
-	uint8 MessageType = UNMT_Redirect;
 
 	// mutator paks
 	for (TActorIterator<AUTMutator> It(GetWorld()); It; ++It)
 	{	
 		if (FindRedirect(GetModPakFilenameFromPkg(It->GetClass()->GetOutermost()->GetName()), Redirect))
 		{
-			FString RedirectPath = Redirect.ToString();
-			FNetControlMessage<NMT_GameSpecific>::Send(Connection, MessageType, RedirectPath);
+			Redirects.Add(Redirect);
 		}
 	}
+}
+
+void AUTGameMode::GetGood()
+{
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+	if (GetNetMode() == NM_Standalone)
+	{
+		UTGameState->RemainingTime = 1;
+		TimeLimit = 2;
+
+		for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
+		{
+			AUTPlayerState *PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
+			if (PS)
+			{
+				PS->Score = Cast<APlayerController>(PS->GetOwner()) ? 100 : 1;
+			}
+		}
+	}
+#endif
 }

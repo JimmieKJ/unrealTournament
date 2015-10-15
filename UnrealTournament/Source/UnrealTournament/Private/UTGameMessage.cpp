@@ -12,7 +12,6 @@ UUTGameMessage::UUTGameMessage(const class FObjectInitializer& ObjectInitializer
 
 	GameBeginsMessage = NSLOCTEXT("UTGameMessage","GameBeginsMessage","START!");
 	OvertimeMessage = NSLOCTEXT("UTGameMessage","OvertimeMessage","OVERTIME");
-	SuddenDeathMessage = NSLOCTEXT("UTGameMessage", "SuddenDeathMessage", "SUDDEN DEATH");
 	CantBeSpectator = NSLOCTEXT("UTGameMessage", "CantBeSpectator", "You can not become a spectator!");
 	CantBePlayer = NSLOCTEXT("UTGameMessage","CantBePlayer","Sorry, you can not become a player!");
 	SwitchLevelMessage = NSLOCTEXT("UTGameMessage","SwitchLevelMessage","Loading....");
@@ -25,6 +24,7 @@ UUTGameMessage::UUTGameMessage(const class FObjectInitializer& ObjectInitializer
 	GameChanger = NSLOCTEXT("UTGameMessage", "GameChanger", "Game Changer!");
 	KickVote = NSLOCTEXT("UTGameMessage", "KickVote", "{Player1Name} voted to kick {Player2Name}");
 	NotEnoughMoney = NSLOCTEXT("UTGameMessage", "NotEnoughMoney", "{Player1Name}, you lack the funds to buy it.");
+	PotentialSpeedHack = NSLOCTEXT("UTGameMessage", "Speedhack", "Possible speedhack detected.");
 
 	bIsStatusAnnouncement = true;
 }
@@ -81,9 +81,6 @@ FText UUTGameMessage::GetText(int32 Switch = 0, bool bTargetsPlayerState1 = fals
 		case 6:
 			return GetDefault<UUTGameMessage>(GetClass())->BecameSpectator;
 			break;
-		case 7:
-			return GetDefault<UUTGameMessage>(GetClass())->SuddenDeathMessage;
-			break;
 		case 8:
 			return GetDefault<UUTGameMessage>(GetClass())->DidntMakeTheCut;
 			break;
@@ -103,6 +100,8 @@ FText UUTGameMessage::GetText(int32 Switch = 0, bool bTargetsPlayerState1 = fals
 			return GetDefault<UUTGameMessage>(GetClass())->KickVote;
 		case 14:
 			return GetDefault<UUTGameMessage>(GetClass())->NotEnoughMoney;
+		case 15:
+			return GetDefault<UUTGameMessage>(GetClass())->PotentialSpeedHack;
 		default:
 			return FText::GetEmpty();
 	}
@@ -113,7 +112,6 @@ FName UUTGameMessage::GetAnnouncementName_Implementation(int32 Switch, const UOb
 	switch (Switch)
 	{
 		case 1: return TEXT("Overtime"); break;
-		case 7: return TEXT("SuddenDeath"); break;
 		case 9: return TEXT("YouAreOnRedTeam"); break;
 		case 10: return TEXT("YouAreOnBlueTeam"); break;
 	}

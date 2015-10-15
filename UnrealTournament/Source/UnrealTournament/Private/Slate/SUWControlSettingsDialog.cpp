@@ -278,7 +278,7 @@ void SUWControlSettingsDialog::CreateBinds()
 		->AddAxisMapping("MoveUp", -1.0f)
 		->AddActionMapping("Crouch")
 		->AddDefaults(EKeys::LeftControl, EKeys::C)));
-	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Single Tap Dodge", "Single Tap Dodge")))
+	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "One Tap Dodge", "One Tap Dodge")))
 		->AddActionMapping("SingleTapDodge")
 		->AddDefaults(EKeys::V)));
 	//Weapons
@@ -900,7 +900,7 @@ TSharedRef<SWidget> SUWControlSettingsDialog::BuildMovementTab()
 			[
 				SNew(STextBlock)
 				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-				.Text(NSLOCTEXT("SUWControlSettingsDialog", "SingleTapWallDodge", "Enable single tap wall dodge"))
+				.Text(NSLOCTEXT("SUWControlSettingsDialog", "SingleTapWallDodge", "Enable one tap wall dodge"))
 			]
 		]
 		+ SHorizontalBox::Slot()
@@ -926,7 +926,7 @@ TSharedRef<SWidget> SUWControlSettingsDialog::BuildMovementTab()
 			[
 				SNew(STextBlock)
 				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-				.Text(NSLOCTEXT("SUWControlSettingsDialog", "SingleTapAfterJump", "Single tap wall dodge only after jump"))
+				.Text(NSLOCTEXT("SUWControlSettingsDialog", "SingleTapAfterJump", "One tap wall dodge only after jump"))
 			]
 		]
 		+ SHorizontalBox::Slot()
@@ -952,7 +952,7 @@ TSharedRef<SWidget> SUWControlSettingsDialog::BuildMovementTab()
 			[
 				SNew(STextBlock)
 				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-				.Text(NSLOCTEXT("SUWControlSettingsDialog", "MaxDodgeTapTime", "Single Tap Wall Dodge Hold Time"))
+				.Text(NSLOCTEXT("SUWControlSettingsDialog", "MaxDodgeTapTime", "One Tap Wall Dodge Hold Time"))
 			]
 		]
 		+ SHorizontalBox::Slot()

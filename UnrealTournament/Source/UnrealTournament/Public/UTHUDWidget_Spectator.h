@@ -21,11 +21,21 @@ public:
 
 	virtual FText GetSpectatorMessageText(bool &bShortMessage);
 
+	virtual FLinearColor GetMessageColor() const
+	{
+		return FLinearColor::White;
+	}
 protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spectator")
 	UTexture2D* TextureAtlas;
 	virtual float GetDrawScaleOverride();
 
-private:
+	/** Last viewed player. */
+	UPROPERTY()
+	class AUTPlayerState* LastViewedPS;
 
+	/** Last time viewed player changed. */
+	float ViewCharChangeTime;
+
+private:
 };

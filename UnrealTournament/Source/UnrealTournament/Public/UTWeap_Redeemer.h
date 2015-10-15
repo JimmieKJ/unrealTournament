@@ -21,10 +21,15 @@ class UNREALTOURNAMENT_API AUTWeap_Redeemer : public AUTWeapon
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
 		USoundBase* PutDownSound;
 
+	UPROPERTY()
+		AUTRemoteRedeemer* RemoteRedeemer;
+
 	virtual AUTProjectile* FireProjectile() override;
 
 	virtual void BringUp(float OverflowTime) override;
 	virtual bool PutDown() override;
+	virtual void AddAmmo(int32 Amount) override;
+
 
 	virtual float SuggestAttackStyle_Implementation() override;
 	virtual float SuggestDefenseStyle_Implementation() override;

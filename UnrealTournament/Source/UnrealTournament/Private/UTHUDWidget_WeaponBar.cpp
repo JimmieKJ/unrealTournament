@@ -220,7 +220,7 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 						float Width = bSelected ? 9.f : 7.f;
 						float X = (Width * -1.f) - 2.f;
 						float Y = YPosition + 4.f;
-						DrawTexture(BarTexture, X, Y, Width, BarHeight, BarTextureUVs.U, BarTextureUVs.V, BarTextureUVs.UL, BarTextureUVs.VL, 1.0, FLinearColor::Black);
+						DrawTexture(BarTexture, X, Y, Width, BarHeight, BarTextureUVs.U, BarTextureUVs.V, BarTextureUVs.UL, BarTextureUVs.VL, UTHUDOwner->HUDWidgetOpacity, FLinearColor::Black);
 
 						Y = Y + BarHeight - 1 - ((BarHeight-2) * AmmoPerc);
 						BarHeight = (BarHeight -2) * AmmoPerc;
@@ -233,7 +233,7 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 						{
 							BarColor = FLinearColor(1.f, 1.f, 0.5f, 1.f);
 						}
-						DrawTexture(BarTexture, X+1, Y, Width-2, BarHeight, BarTextureUVs.U, BarTextureUVs.V, BarTextureUVs.UL, BarTextureUVs.VL, 1.0, BarColor);
+						DrawTexture(BarTexture, X + 1, Y, Width - 2, BarHeight, BarTextureUVs.U, BarTextureUVs.V, BarTextureUVs.UL, BarTextureUVs.VL, UTHUDOwner->HUDWidgetOpacity, BarColor);
 					}
 				}
 

@@ -98,12 +98,6 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 	UPROPERTY(Replicated)
 	int32 PlayersNeeded;
 
-	UPROPERTY(Replicated)
-	uint32 bOnlyTheStrongSurvive:1;
-
-	UPROPERTY(Replicated)
-	uint32 bViewKillerOnDeath:1;
-
 	/** How much time is remaining in this match. */
 	UPROPERTY(Replicated, ReplicatedUsing = OnRep_RemainingTime, BlueprintReadOnly, Category = GameState)
 	int32 RemainingTime;
@@ -186,9 +180,6 @@ class UNREALTOURNAMENT_API AUTGameState : public AGameState
 
 	UFUNCTION(BlueprintCallable, Category = GameState)
 	virtual bool IsMatchAtHalftime() const;
-
-	UFUNCTION(BlueprintCallable, Category = GameState)
-	virtual bool IsMatchInSuddenDeath() const;
 
 	UFUNCTION(BlueprintCallable, Category = GameState)
 	virtual bool IsMatchInOvertime() const;
@@ -478,6 +469,8 @@ public:
 	/** Current index to use as basis for next selection in Taunt list. */
 	UPROPERTY()
 		int32 TauntSelectionIndex;
+
+	virtual void FillOutRconPlayerList(TArray<FRconPlayerData>& PlayerList);
 };
 
 

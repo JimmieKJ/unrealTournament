@@ -45,6 +45,30 @@ const int32 FONT_SIZE_Large = 32;
 const int32 FONT_SIZE_Huge = 64;
 
 const int32 FONT_SIZE_Notice = 20;
+const int32 FONT_SIZE_Browser = 16;
+
+const FColor SuperDark(1,1,1,255);
+const FColor Dark(4,4,4,255);
+const FColor Navy(0,0,4,255);
+const FColor Medium(10,10,10,255);
+const FColor Light(14,14,14,255);
+const FColor SuperLight(32,32,32,255);
+const FColor UltraBright(61,135,255,255);
+const FColor Disabled(189,189,189,255);
+const FColor Shaded(4,4,4,200);
+
+const FColor TestRed(128,0,0,255);
+const FColor TestBlue(0,0,128,255);
+const FColor TestGreen(0,128,0,255);
+const FColor TestYellow(128,128,0,255);
+const FColor TestPurple(128,0,128,255);
+const FColor TestAqua(0,128,128,255);
+
+const FColor TabSelected(128,128,128,255);
+
+
+const FColor Pressed(250,250,250,255);
+const FColor Hovered(200,200,200,255);
 
 FSlateSound SUTStyle::ButtonPressSound;
 FSlateSound SUTStyle::ButtonHoverSound;
@@ -69,11 +93,13 @@ TSharedRef<FSlateStyleSet> SUTStyle::Create()
 	PauseSound = FSlateSound::FromName_DEPRECATED(FName("SoundCue'/Game/RestrictedAssets/Audio/UI/A_UI_Pause01_Cue.A_UI_Pause01_Cue'"));
 
 	SetFonts(StyleRef);
+	SetIcons(StyleRef);
 	SetCommonStyle(StyleRef);
 	SetAvatars(StyleRef);
 	SetRankBadges(StyleRef);
 	SetChallengeBadges(StyleRef);
-
+	SetContextMenus(StyleRef);
+	SetServerBrowser(StyleRef);
 	return StyleRef;
 }
 
@@ -96,6 +122,9 @@ void SUTStyle::SetFonts(TSharedRef<FSlateStyleSet> StyleRef)
 
 	Style.Set("UT.Font.NormalText.Large", FTextBlockStyle().SetFont(TTF_FONT("/UTStyle/Fonts/Lato/Lato-Regular", FONT_SIZE_Large)).SetColorAndOpacity(FLinearColor::White));
 	Style.Set("UT.Font.NormalText.Large.Bold", FTextBlockStyle().SetFont(TTF_FONT("/UTStyle/Fonts/Lato/Lato-Bold", FONT_SIZE_Large)).SetColorAndOpacity(FLinearColor::White));
+	
+	Style.Set("UT.Font.TeamScore.Red", FTextBlockStyle().SetFont(TTF_FONT("/UTStyle/Fonts/Lato/Lato-Bold", FONT_SIZE_Large)).SetColorAndOpacity(FLinearColor::Red));
+	Style.Set("UT.Font.TeamScore.Blue", FTextBlockStyle().SetFont(TTF_FONT("/UTStyle/Fonts/Lato/Lato-Bold", FONT_SIZE_Large)).SetColorAndOpacity(FLinearColor::Blue));
 
 	Style.Set("UT.Font.NormalText.Huge", FTextBlockStyle().SetFont(TTF_FONT("/UTStyle/Fonts/Lato/Lato-Regular", FONT_SIZE_Huge)).SetColorAndOpacity(FLinearColor::White));
 	Style.Set("UT.Font.NormalText.Huge.Bold", FTextBlockStyle().SetFont(TTF_FONT("/UTStyle/Fonts/Lato/Lato-Bold", FONT_SIZE_Huge)).SetColorAndOpacity(FLinearColor::White));
@@ -104,10 +133,34 @@ void SUTStyle::SetFonts(TSharedRef<FSlateStyleSet> StyleRef)
 	Style.Set("UT.Font.Notice.Gold", FTextBlockStyle().SetFont(TTF_FONT("/UTStyle/Fonts/Lato/Lato-Regular", FONT_SIZE_Notice)).SetColorAndOpacity(FLinearColor(255.0, 255.0, 96 / 255.0 ,1.0)));
 	Style.Set("UT.Font.Notice.Blue", FTextBlockStyle().SetFont(TTF_FONT("/UTStyle/Fonts/Lato/Lato-Regular", FONT_SIZE_Notice)).SetColorAndOpacity(FLinearColor(25.0/255.0,48.0 / 255.0,180.0 / 255, 1.0)));
 
+	Style.Set("UT.Font.MenuBarText", FTextBlockStyle().SetFont(TTF_FONT("/UTStyle/Fonts/Lato/Lato-Regular", FONT_SIZE_Large)).SetColorAndOpacity(FLinearColor::White));
 
-
+	Style.Set("UT.Font.ServerBrowser.List.Header", FTextBlockStyle().SetFont(TTF_FONT("/UTStyle/Fonts/Lato/Lato-Bold", FONT_SIZE_Browser)).SetColorAndOpacity(FLinearColor::White));
+	Style.Set("UT.Font.ServerBrowser.List.Normal", TTF_FONT("/UTStyle/Fonts/Lato/Lato-Regular", FONT_SIZE_Browser));
+	Style.Set("UT.Font.ServerBrowser.List.Bold", TTF_FONT("/UTStyle/Fonts/Lato/Lato-Bold", FONT_SIZE_Browser));
 
 }
+
+
+void SUTStyle::SetIcons(TSharedRef<FSlateStyleSet> StyleRef)
+{
+	FSlateStyleSet& Style = StyleRef.Get();
+	Style.Set("UT.Icon.Lock.Small", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.Lock.Small", FVector2D(18,18), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+	Style.Set("UT.Icon.Lan.Small", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.Lan.Small", FVector2D(18,18), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+	Style.Set("UT.Icon.Friends.Small", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.Friends.Small", FVector2D(18,18), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+	Style.Set("UT.Icon.Checkmark", new IMAGE_BRUSH( "/UTStyle/Icons/UT.Icon.Checkmark", FVector2D(64,64), FLinearColor(1.0f, 1.0f, 0.0f, 1.0f) ));
+	Style.Set("UT.Icon.PlayerCard", new IMAGE_BRUSH("/UTStyle/Icons/UT.Icon.PlayCard", FVector2D(48,48)));
+
+	Style.Set("UT.Icon.BackArrow", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.BackArrow", FVector2D(12,8), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+	Style.Set("UT.Icon.ComboTick", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.ComboTick", FVector2D(8,8), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+	Style.Set("UT.Icon.SortDown", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.SortDown", FVector2D(8,4), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+	Style.Set("UT.Icon.SortDownX2", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.SortDownX2", FVector2D(16,4), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+	Style.Set("UT.Icon.SortUp", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.SortDown", FVector2D(8,4), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+	Style.Set("UT.Icon.SortUpX2", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.SortDownX2", FVector2D(16,4), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+
+	Style.Set("UT.Icon.Alert", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.Alert", FVector2D(64,64), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+}
+
 
 void SUTStyle::SetCommonStyle(TSharedRef<FSlateStyleSet> StyleRef)
 {
@@ -133,19 +186,19 @@ void SUTStyle::SetCommonStyle(TSharedRef<FSlateStyleSet> StyleRef)
 
 
 	Style.Set("UT.SimpleButton.Dark", FButtonStyle()
-		.SetNormal( FSlateColorBrush(FColor(4,4,4,255)) )
-		.SetHovered( FSlateColorBrush(FColor(10,10,10,255)) )
-		.SetPressed( FSlateColorBrush(FColor(61,135,255,255)) )
-		.SetDisabled( FSlateColorBrush(FColor(189,189,189,255)) )
+		.SetNormal( FSlateColorBrush(Dark) )
+		.SetHovered( FSlateColorBrush(Hovered) )
+		.SetPressed( FSlateColorBrush(Pressed) )
+		.SetDisabled( FSlateColorBrush(Disabled) )
 		.SetHoveredSound(ButtonHoverSound)
 		.SetPressedSound(ButtonPressSound)
 	);
 
 	Style.Set("UT.SimpleButton.Medium", FButtonStyle()
-		.SetNormal( FSlateColorBrush(FColor(8,8,8,255)) )
-		.SetHovered( FSlateColorBrush(FColor(13,13,13,255)) )
-		.SetPressed( FSlateColorBrush(FColor(61,135,255,255)) )
-		.SetDisabled( FSlateColorBrush(FColor(189,189,189,255)) )
+		.SetNormal( FSlateColorBrush(Medium) )
+		.SetHovered( FSlateColorBrush(Hovered) )
+		.SetPressed( FSlateColorBrush(Pressed) )
+		.SetDisabled( FSlateColorBrush(Disabled) )
 		.SetHoveredSound(ButtonHoverSound)
 		.SetPressedSound(ButtonPressSound)
 	);
@@ -160,30 +213,41 @@ void SUTStyle::SetCommonStyle(TSharedRef<FSlateStyleSet> StyleRef)
 	Style.Set("UT.ListBackground.Even", new FSlateColorBrush(FColor(5,5,5,255)));
 	Style.Set("UT.ListBackground.Odd", new FSlateColorBrush(FColor(7,7,7,255)));
 
-	Style.Set("UT.HeaderBackground.SuperDark", new FSlateColorBrush(FColor(1,1,1,255)));
-	Style.Set("UT.HeaderBackground.Dark", new FSlateColorBrush(FColor(4,4,4,255)));
-	Style.Set("UT.HeaderBackground.Navy", new FSlateColorBrush(FColor(0,0,4,255)));
-	Style.Set("UT.HeaderBackground.Light", new FSlateColorBrush(FColor(14,14,14,255)));
-	Style.Set("UT.HeaderBackground.SuperLight", new FSlateColorBrush(FColor(32,32,32,255)));
-	Style.Set("UT.HeaderBackground.Medium", new FSlateColorBrush(FColor(10,10,10,255)));
-	Style.Set("UT.HeaderBackground.Shaded", new FSlateColorBrush(FColor(4,4,4,200)));
+	Style.Set("UT.HeaderBackground.SuperDark", new FSlateColorBrush(SuperDark));
+	Style.Set("UT.HeaderBackground.Dark", new FSlateColorBrush(Dark));
+	Style.Set("UT.HeaderBackground.Navy", new FSlateColorBrush(Navy));
+	Style.Set("UT.HeaderBackground.Medium", new FSlateColorBrush(Medium));
+	Style.Set("UT.HeaderBackground.Light", new FSlateColorBrush(Light));
+	Style.Set("UT.HeaderBackground.SuperLight", new FSlateColorBrush(SuperLight));
+	Style.Set("UT.HeaderBackground.Shaded", new FSlateColorBrush(Shaded));
+
 	Style.Set("UT.Box", new FSlateColorBrush(FColor(13,13,13,153)));
 	Style.Set("UT.Divider", new FSlateColorBrush(FColor(25,25,25,255)));
 
-	Style.Set("UT.Star", new IMAGE_BRUSH( "Star24x24", FVector2D(24,24), FLinearColor(1.0f, 1.0f, 0.0f, 1.0f) ));
-	Style.Set("UT.Star.Outline", new IMAGE_BRUSH( "StarOutline24x24", FVector2D(24,24), FLinearColor(1.0f, 1.0f, 0.0f, 1.0f) ));
+	Style.Set("UT.Star", new IMAGE_BRUSH( "Star24x24", FVector2D(24,24) ));
+	Style.Set("UT.Star.Outline", new IMAGE_BRUSH( "StarOutline24x24", FVector2D(24,24) ));
 
-	Style.Set("UT.Icon.Checkmark", new IMAGE_BRUSH( "/UTStyle/Icons/UT.Icon.Checkmark", FVector2D(64,64), FLinearColor(1.0f, 1.0f, 0.0f, 1.0f) ));
-	Style.Set("UT.Icon.PlayerCard", new IMAGE_BRUSH("/UTStyle/Icons/UT.Icon.PlayCard", FVector2D(48,48)));
+	Style.Set("UT.ScaryStar", new IMAGE_BRUSH( "/UTStyle/ChallengeBadges/PumpkinA", FVector2D(24,24) ));
+	Style.Set("UT.ScaryStar.Completed", new IMAGE_BRUSH( "/UTStyle/ChallengeBadges/PumpkinB", FVector2D(24,24) ));
 
 	Style.Set("UT.TabButton", FButtonStyle()
-		.SetNormal( FSlateColorBrush(FColor(4,4,4,255) ) )
-		.SetHovered( FSlateColorBrush(FColor(14,14,14,255) ) )
-		.SetPressed( FSlateNoResource(FVector2D(256.0f, 256.0f) ) )
-		.SetDisabled( FSlateColorBrush(FColor(1,1,1,255) ) )
+		.SetNormal( FSlateColorBrush(Dark) )
+		.SetHovered( FSlateColorBrush(Hovered) )
+		.SetPressed( FSlateColorBrush(TabSelected) )
+		.SetDisabled( FSlateColorBrush(Disabled) )
 		.SetHoveredSound(ButtonHoverSound)
-		.SetPressedSound(ButtonPressSound)
+		.SetPressedSound(ButtonPressSound) 
 		);
+
+	Style.Set("UT.EditBox", FEditableTextBoxStyle()
+		.SetFont(TTF_FONT("/UTStyle/Fonts/Lato/Lato-Regular", FONT_SIZE_Small))
+		.SetForegroundColor(FLinearColor(0.75f,0.75f,0.75f,1.0f))
+		.SetBackgroundImageNormal( FSlateNoResource(FVector2D(128.0f, 128.0f)))
+		.SetBackgroundImageHovered( FSlateNoResource(FVector2D(128.0f, 128.0f)))
+		.SetBackgroundImageFocused( FSlateNoResource(FVector2D(128.0f, 128.0f)))
+		.SetBackgroundImageReadOnly( FSlateNoResource(FVector2D(128.0f, 128.0f)))
+		);
+
 
 	Style.Set("UT.ChatEditBox", FEditableTextBoxStyle()
 		.SetFont(TTF_FONT("/UTStyle/Fonts/Lato/Lato-Regular", FONT_SIZE_Small))
@@ -214,10 +278,7 @@ void SUTStyle::SetCommonStyle(TSharedRef<FSlateStyleSet> StyleRef)
 	Style.Set("UT.MatchBadge.Circle", new IMAGE_BRUSH( "UTStyle/MatchBadges/UT.MatchBadge.Circle", FVector2D(78.0f, 78.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
 	Style.Set("UT.MatchBadge.Circle.Thin", new IMAGE_BRUSH( "UTStyle/MatchBadges/UT.MatchBadge.Circle.Thin", FVector2D(78.0f, 78.0f), FLinearColor(0.3f, 0.3f, 0.3f, 1.0f) ));
 
-	Style.Set("UT.Icon.Lock.Small", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.Lock.Small", FVector2D(18,18), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
-	Style.Set("UT.Icon.Friends.Small", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.Friends.Small", FVector2D(18,18), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
-
-	Style.Set("UT.MatchList.Row", FTableRowStyle()
+	Style.Set("UT.List.Row", FTableRowStyle()
 		.SetEvenRowBackgroundBrush(FSlateColorBrush(FColor(4,4,4,255)))
 		.SetEvenRowBackgroundHoveredBrush(FSlateColorBrush(FColor(5,5,5,255)))
 		.SetOddRowBackgroundBrush(FSlateColorBrush(FColor(6,6,6,255)))
@@ -271,6 +332,15 @@ void SUTStyle::SetCommonStyle(TSharedRef<FSlateStyleSet> StyleRef)
 		Style.Set("UT.HomePanel.IABadge", &IABadgeBrushAsset->Brush);
 	}
 
+	FStringAssetReference NewChallenge(TEXT("/Game/RestrictedAssets/SlateLargeImages/NewChallenge_Brush.NewChallenge_Brush"));
+	USlateBrushAsset* NewChallengeBrushAsset = Cast<USlateBrushAsset>(NewChallenge.TryLoad());
+	if (NewChallengeBrushAsset)
+	{
+		NewChallengeBrushAsset->AddToRoot();
+		Style.Set("UT.HomePanel.NewChallenge", &NewChallengeBrushAsset->Brush);
+	}
+
+
 	Style.Set("UT.HomePanel.FragCenterLogo", new IMAGE_BRUSH("UTStyle/MainPanel/FragCenterEmblem", FVector2D(644, 644), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
 	Style.Set("UT.HomePanel.Flak", new IMAGE_BRUSH( "UTStyle/MainPanel/Flak", FVector2D(180,180), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
 	Style.Set("UT.HomePanel.FMBadge", new IMAGE_BRUSH( "UTStyle/MainPanel/FMBadge", FVector2D(380,270), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
@@ -281,18 +351,66 @@ void SUTStyle::SetCommonStyle(TSharedRef<FSlateStyleSet> StyleRef)
 
 	Style.Set("UT.HomePanel.Button", FButtonStyle()
 		.SetNormal( FSlateNoResource(FVector2D(256.0f, 256.0f) ))
-		.SetHovered( BOX_BRUSH("UTStyle/MainPanel/Highlight", FVector2D(256,256), FMargin(16.0f / 256.0f, 16.0f/256.0f, 16.0f / 256.0f, 16.0f/256.0f), FLinearColor(25.0/256.0, 48.0/256.0, 180.0 / 256.0, 1.0) ))
-		.SetPressed( BOX_BRUSH("UTStyle/MainPanel/Highlight", FVector2D(256,256), FMargin(16.0f / 256.0f, 16.0f/256.0f, 16.0f / 256.0f, 16.0f/256.0f), FLinearColor(67.0/256.0, 128.0/256.0, 224.0 / 256.0, 1.0) ))
+		.SetHovered( BOX_BRUSH("UTStyle/MainPanel/Highlight", FVector2D(256,256), FMargin(16.0f / 256.0f, 16.0f/256.0f, 16.0f / 256.0f, 16.0f/256.0f), FLinearColor(200.0/255.0, 200.0/255.0, 200.0 / 255.0, 1.0) ))
+		.SetPressed( BOX_BRUSH("UTStyle/MainPanel/Highlight", FVector2D(256,256), FMargin(16.0f / 256.0f, 16.0f/256.0f, 16.0f / 256.0f, 16.0f/256.0f), FLinearColor(1.0, 1.0, 1.0, 1.0) ))
 		.SetDisabled( FSlateNoResource(FVector2D(256.0f, 256.0f) ))
 		.SetHoveredSound(ButtonHoverSound)
 		.SetPressedSound(ButtonPressSound)
 	);
+
+	Style.Set("UT.Button.MenuBar", FButtonStyle()
+		.SetNormal( FSlateNoResource(FVector2D(256.0f, 256.0f)) )
+		.SetPressed( FSlateColorBrush(Pressed) )
+		.SetHovered( FSlateColorBrush(Hovered) )
+		.SetDisabled( FSlateColorBrush(Disabled) )
+		.SetHoveredSound(ButtonHoverSound)
+		.SetPressedSound(ButtonPressSound)
+	);
+
 
 	Style.Set( "UT.ProgressBar", FProgressBarStyle()
 		.SetBackgroundImage( FSlateColorBrush(FColor(4,4,4,255)) )
 		.SetFillImage( FSlateColorBrush(FColor(200,200,200,255)) )
 		.SetMarqueeImage( FSlateColorBrush(FColor(255,255,255,255)) )
 		);
+
+
+	FComboButtonStyle ComboButton = FComboButtonStyle()
+		.SetButtonStyle(Style.GetWidgetStyle<FButtonStyle>("UT.Button.MenuBar"))
+		.SetDownArrowImage(IMAGE_BRUSH("UWindows.ComboBox.TickMark", FVector2D(8.0,4.0)))
+		.SetMenuBorderBrush(FSlateColorBrush(Medium))
+		.SetMenuBorderPadding(FMargin(5.0f, 0.05, 5.0f, 0.0f));
+	Style.Set("UT.ComboButton", ComboButton);
+
+	Style.Set("UT.ComboBox", FComboBoxStyle()
+		.SetComboButtonStyle(ComboButton)
+		);
+
+	FStringAssetReference HalloweenBackground(TEXT("SlateBrushAsset'/Game/RestrictedAssets/SlateLargeImages/UIBackgroundHalloween2015_Brush.UIBackgroundHalloween2015_Brush'"));
+	USlateBrushAsset* HalloweenBackgroundAsset = Cast<USlateBrushAsset>(HalloweenBackground.TryLoad());
+	if (HalloweenBackgroundAsset)
+	{
+		HalloweenBackgroundAsset->AddToRoot();
+		Style.Set("UT.SpookyBackground", &HalloweenBackgroundAsset->Brush);
+	}
+
+	FStringAssetReference LoadingScreen(TEXT("/Game/RestrictedAssets/SlateLargeImages/LoadingScreen_Brush.LoadingScreen_Brush"));
+	USlateBrushAsset* LoadingScreenBrushAsset = Cast<USlateBrushAsset>(LoadingScreen.TryLoad());
+	if (LoadingScreenBrushAsset)
+	{
+		LoadingScreenBrushAsset->AddToRoot();
+		Style.Set("UT.LoadingScreen", &LoadingScreenBrushAsset->Brush);
+	}
+
+	FStringAssetReference HalloweenLoadingScreen(TEXT("SlateBrushAsset'/Game/RestrictedAssets/SlateLargeImages/LoadingScreenHalloween2015_Brush.LoadingScreenHalloween2015_Brush'"));
+	USlateBrushAsset* HalloweenLoadingScreenBrushAsset = Cast<USlateBrushAsset>(HalloweenLoadingScreen.TryLoad());
+	if (HalloweenLoadingScreenBrushAsset)
+	{
+		HalloweenLoadingScreenBrushAsset->AddToRoot();
+		Style.Set("UT.LoadingScreen.Halloween", &HalloweenLoadingScreenBrushAsset->Brush);
+	}
+
+
 }
 
 void SUTStyle::SetAvatars(TSharedRef<FSlateStyleSet> StyleRef)
@@ -325,14 +443,81 @@ void SUTStyle::SetRankBadges(TSharedRef<FSlateStyleSet> StyleRef)
 void SUTStyle::SetChallengeBadges(TSharedRef<FSlateStyleSet> StyleRef)
 {
 	FSlateStyleSet& Style = StyleRef.Get();
-	Style.Set("UT.ChallengeBadges.DM", new IMAGE_BRUSH( "UTStyle/ChallengeBadges/DeathmatchChallenge", FVector2D(880.0f, 256.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
-	Style.Set("UT.ChallengeBadges.CTF", new IMAGE_BRUSH( "UTStyle/ChallengeBadges/CaptureTheFlagChallenge", FVector2D(880.0f, 256.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
-	Style.Set("UT.ChallengeBadges.CTF_Face", new IMAGE_BRUSH("UTStyle/ChallengeBadges/CaptureTheFlagChallenge_FacingWorlds", FVector2D(880.0f, 256.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
-	Style.Set("UT.ChallengeBadges.CTF_Pistola", new IMAGE_BRUSH("UTStyle/ChallengeBadges/CaptureTheFlagChallenge_Pistola", FVector2D(880.0f, 256.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
-	Style.Set("UT.ChallengeBadges.CTF_Titan", new IMAGE_BRUSH("UTStyle/ChallengeBadges/CaptureTheFlagChallenge_TitanPass", FVector2D(880.0f, 256.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
-	Style.Set("UT.ChallengeBadges.DM_Lea", new IMAGE_BRUSH("UTStyle/ChallengeBadges/DeathmatchChallenge_Lea", FVector2D(880.0f, 256.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
-	Style.Set("UT.ChallengeBadges.DM_OP23", new IMAGE_BRUSH("UTStyle/ChallengeBadges/DeathmatchChallenge_OP23", FVector2D(880.0f, 256.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+	Style.Set("UT.ChallengeBadges.DM", new IMAGE_BRUSH( "UTStyle/ChallengeBadges/DeathmatchChallenge", FVector2D(880.0f, 96.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
+	Style.Set("UT.ChallengeBadges.CTF", new IMAGE_BRUSH( "UTStyle/ChallengeBadges/CaptureTheFlagChallenge", FVector2D(880.0f, 96.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));
+	Style.Set("UT.ChallengeBadges.CTF_Face", new IMAGE_BRUSH("UTStyle/ChallengeBadges/CaptureTheFlagChallenge_FacingWorlds", FVector2D(880.0f, 96.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+	Style.Set("UT.ChallengeBadges.CTF_Pistola", new IMAGE_BRUSH("UTStyle/ChallengeBadges/CaptureTheFlagChallenge_Pistola", FVector2D(880.0f, 96.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+	Style.Set("UT.ChallengeBadges.CTF_Titan", new IMAGE_BRUSH("UTStyle/ChallengeBadges/CaptureTheFlagChallenge_TitanPass", FVector2D(880.0f, 96.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+	Style.Set("UT.ChallengeBadges.DM_Lea", new IMAGE_BRUSH("UTStyle/ChallengeBadges/DeathmatchChallenge_Lea", FVector2D(880.0f, 96.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+	Style.Set("UT.ChallengeBadges.DM_OP23", new IMAGE_BRUSH("UTStyle/ChallengeBadges/DeathmatchChallenge_OP23", FVector2D(880.0f, 96.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+
+	Style.Set("UT.ChallengeBadges.GenericA", new IMAGE_BRUSH("UTStyle/ChallengeBadges/GenericChallengeA", FVector2D(880.0f, 96.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+	Style.Set("UT.ChallengeBadges.GenericB", new IMAGE_BRUSH("UTStyle/ChallengeBadges/GenericChallengeB", FVector2D(880.0f, 96.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+	Style.Set("UT.ChallengeBadges.GenericC", new IMAGE_BRUSH("UTStyle/ChallengeBadges/GenericChallengeC", FVector2D(880.0f, 96.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+	Style.Set("UT.ChallengeBadges.GenericD", new IMAGE_BRUSH("UTStyle/ChallengeBadges/GenericChallengeD", FVector2D(880.0f, 96.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+	Style.Set("UT.ChallengeBadges.GenericE", new IMAGE_BRUSH("UTStyle/ChallengeBadges/GenericChallengeE", FVector2D(880.0f, 96.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+	Style.Set("UT.ChallengeBadges.GenericF", new IMAGE_BRUSH("UTStyle/ChallengeBadges/GenericChallengeF", FVector2D(880.0f, 96.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+	Style.Set("UT.ChallengeBadges.GenericG", new IMAGE_BRUSH("UTStyle/ChallengeBadges/GenericChallengeG", FVector2D(880.0f, 96.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+	Style.Set("UT.ChallengeBadges.GenericH", new IMAGE_BRUSH("UTStyle/ChallengeBadges/GenericChallengeH", FVector2D(880.0f, 96.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+
+	Style.Set("UT.ChallengeBadges.SpookyA", new IMAGE_BRUSH("UTStyle/ChallengeBadges/HalloweenA", FVector2D(880.0f, 96.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+	Style.Set("UT.ChallengeBadges.SpookyB", new IMAGE_BRUSH("UTStyle/ChallengeBadges/HalloweenB", FVector2D(880.0f, 96.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+	Style.Set("UT.ChallengeBadges.SpookyC", new IMAGE_BRUSH("UTStyle/ChallengeBadges/HalloweenC", FVector2D(880.0f, 96.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+	Style.Set("UT.ChallengeBadges.SpookyD", new IMAGE_BRUSH("UTStyle/ChallengeBadges/HalloweenD", FVector2D(880.0f, 96.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+	Style.Set("UT.ChallengeBadges.SpookyE", new IMAGE_BRUSH("UTStyle/ChallengeBadges/HalloweenE", FVector2D(880.0f, 96.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+	Style.Set("UT.ChallengeBadges.SpookyF", new IMAGE_BRUSH("UTStyle/ChallengeBadges/HalloweenF", FVector2D(880.0f, 96.0f), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
 }
+
+void SUTStyle::SetContextMenus(TSharedRef<FSlateStyleSet> StyleRef)
+{
+	FSlateStyleSet& Style = StyleRef.Get();
+
+	Style.Set("UT.ContextMenu.Item", FButtonStyle()
+		.SetNormal ( FSlateColorBrush(Medium) )
+		.SetHovered( FSlateColorBrush(Hovered) )
+		.SetPressed( FSlateColorBrush(Pressed) )
+		.SetDisabled( FSlateColorBrush(SuperDark) )
+		.SetHoveredSound(ButtonHoverSound)
+		.SetPressedSound(ButtonPressSound)
+		);
+
+	Style.Set("UT.ContextMenu.Fill", new FSlateColorBrush(Medium));
+	Style.Set("UT.ContextMenu.Item.Spacer", new FSlateColorBrush(SuperDark));
+	Style.Set("UT.Font.ContextMenuItem", FTextBlockStyle().SetFont(TTF_FONT("/UTStyle/Fonts/Lato/Lato-Regular", FONT_SIZE_Small)).SetColorAndOpacity(FLinearColor::White));
+
+}
+
+void SUTStyle::SetServerBrowser(TSharedRef<FSlateStyleSet> StyleRef)
+{
+	FSlateStyleSet& Style = StyleRef.Get();
+
+	const FTableColumnHeaderStyle TableColumnHeaderStyle = FTableColumnHeaderStyle()
+		.SetSortPrimaryAscendingImage(*Style.GetBrush("UT.Icon.SortUp"))
+		.SetSortPrimaryDescendingImage(*Style.GetBrush("UT.Icon.SortDown"))
+		.SetSortSecondaryAscendingImage(*Style.GetBrush("UT.Icon.SortUpX2"))
+		.SetSortSecondaryDescendingImage(*Style.GetBrush("UT.Icon.SortDownX2"))
+		.SetNormalBrush(FSlateColorBrush(Light))
+		.SetHoveredBrush(FSlateColorBrush(Hovered))
+		.SetMenuDropdownImage(*Style.GetBrush("UT.Icon.ComboTick"))
+		.SetMenuDropdownNormalBorderBrush(FSlateColorBrush(Dark))
+		.SetMenuDropdownHoveredBorderBrush(FSlateColorBrush(Dark));
+
+	Style.Set("UT.List.Header.Column", TableColumnHeaderStyle);
+
+	const FSplitterStyle TableHeaderSplitterStyle = FSplitterStyle()
+		.SetHandleNormalBrush(FSlateColorBrush(SuperDark))
+		.SetHandleHighlightBrush(FSlateColorBrush(Dark));
+
+	Style.Set("UT.List.Header", FHeaderRowStyle()
+		.SetColumnStyle(TableColumnHeaderStyle)
+		.SetLastColumnStyle(TableColumnHeaderStyle)
+		.SetColumnSplitterStyle(TableHeaderSplitterStyle)
+		.SetBackgroundBrush(FSlateColorBrush(Dark))
+		.SetForegroundColor(FLinearColor(SuperDark))
+		);
+
+}
+
 
 END_SLATE_FUNCTION_BUILD_OPTIMIZATION
 
@@ -352,4 +537,15 @@ const ISlateStyle& SUTStyle::Get()
 {
 	return * UWindowsStyleInstance;
 }
+
+const FSlateColor SUTStyle::GetSlateColor( const FName PropertyName, const ANSICHAR* Specifier)
+{
+	if (PropertyName == FName(TEXT("FocusTextColor"))) return FSlateColor(FLinearColor(1.0,1.0,1.0,1.0));
+	else if (PropertyName == FName(TEXT("HoverTextColor"))) return FSlateColor(FLinearColor(0.0,0.0,0.0,1.0));
+	else if (PropertyName == FName(TEXT("PressedTextColor"))) return FSlateColor(FLinearColor(0.0,0.0,0.0,1.0));
+	else if (PropertyName == FName(TEXT("DisabledTextColor"))) return FSlateColor(FLinearColor(0.0,0.0,0.0,1.0));
+	
+	return FSlateColor(FLinearColor(0.6,0.6,0.6,1.0));
+}
+
 #endif

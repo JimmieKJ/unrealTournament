@@ -25,51 +25,22 @@ void SUTReplayMenu::BuildLeftMenuBar()
 }
 
 
-void SUTReplayMenu::BuildExitMenu(TSharedPtr<SComboButton> ExitButton, TSharedPtr<SVerticalBox> MenuSpace)
+void SUTReplayMenu::BuildExitMenu(TSharedPtr<SUTComboButton> ExitButton)
 {
-	MenuSpace->AddSlot()
-	.AutoHeight()
-	[
-		SNew(SButton)
-		.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
-		.ContentPadding(FMargin(10.0f, 5.0f))
-		.Text(NSLOCTEXT("SUTMenuBase", "MenuBar_Exit_ReturnToGame", "Close Menu"))
-		.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
-		.OnClicked(this, &SUTReplayMenu::OnCloseMenu, ExitButton)
-	];
-
-	MenuSpace->AddSlot()
-	.VAlign(VAlign_Center)
-	.HAlign(HAlign_Fill)
-	.Padding(FMargin(0.0f, 2.0f))
-	[
-		SNew(SImage)
-		.Image(SUWindowsStyle::Get().GetBrush("UT.ContextMenu.Spacer"))
-	];
-
-	MenuSpace->AddSlot()
-	.AutoHeight()
-	[
-		SNew(SButton)
-		.ButtonStyle(SUWindowsStyle::Get(), "UT.ContextMenu.Button")
-		.ContentPadding(FMargin(10.0f, 5.0f))
-		.Text(NSLOCTEXT("SUTInGameMenu", "MenuBar_ReturnToMainMenu", "Return to Main Menu"))
-		.TextStyle(SUWindowsStyle::Get(), "UT.ContextMenu.TextStyle")
-		.OnClicked(this, &SUTReplayMenu::OnReturnToMainMenu, ExitButton)
-	];
+	ExitButton->AddSubMenuItem(NSLOCTEXT("SUTMenuBase", "MenuBar_Exit_ReturnToGame", "Close Menu"), FOnClicked::CreateSP(this, &SUTReplayMenu::OnCloseMenu));
+	ExitButton->AddSpacer();
+	ExitButton->AddSubMenuItem(NSLOCTEXT("SUTInGameMenu", "MenuBar_ReturnToMainMenu", "Return to Main Menu"), FOnClicked::CreateSP(this, &SUTReplayMenu::OnReturnToMainMenu));
 }
 
-FReply SUTReplayMenu::OnCloseMenu(TSharedPtr<SComboButton> MenuButton)
+FReply SUTReplayMenu::OnCloseMenu()
 {
-	if (MenuButton.IsValid()) MenuButton->SetIsOpen(false);
 	CloseMenus();
 
 	return FReply::Handled();
 }
 
-FReply SUTReplayMenu::OnReturnToMainMenu(TSharedPtr<SComboButton> MenuButton)
+FReply SUTReplayMenu::OnReturnToMainMenu()
 {
-	if (MenuButton.IsValid()) MenuButton->SetIsOpen(false);
 	CloseMenus();
 	PlayerOwner->ReturnToMainMenu();
 	return FReply::Handled();

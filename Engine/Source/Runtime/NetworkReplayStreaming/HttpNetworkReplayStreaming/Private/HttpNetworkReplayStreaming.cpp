@@ -592,7 +592,7 @@ void FHttpNetworkReplayStreamer::FlushCheckpointInternal( uint32 TimeInMS )
 	}
 
 	// Upload any new streamed data to the http server
-	UE_LOG( LogHttpReplay, Log, TEXT( "FHttpNetworkReplayStreamer::FlushCheckpointInternal. Size: %i, StreamChunkIndex: %i" ), CheckpointArchive.Buffer.Num(), StreamChunkIndex );
+	UE_LOG( LogHttpReplay, Display, TEXT( "FHttpNetworkReplayStreamer::FlushCheckpointInternal. Size: %i, StreamChunkIndex: %i" ), CheckpointArchive.Buffer.Num(), StreamChunkIndex );
 
 	// Create the Http request and add to pending request list
 	TSharedRef<class IHttpRequest> HttpRequest = FHttpModule::Get().CreateRequest();
@@ -1616,7 +1616,7 @@ bool FHttpNetworkReplayStreamer::IsStreaming() const
 
 IMPLEMENT_MODULE( FHttpNetworkReplayStreamingFactory, HttpNetworkReplayStreaming )
 
-TSharedPtr< INetworkReplayStreamer > FHttpNetworkReplayStreamingFactory::CreateReplayStreamer()
+TSharedPtr< INetworkReplayStreamer > FHttpNetworkReplayStreamingFactory::CreateReplayStreamer(const FURL& URL)
 {
 	TSharedPtr< FHttpNetworkReplayStreamer > Streamer( new FHttpNetworkReplayStreamer );
 
