@@ -15,8 +15,15 @@
 
 #if !UE_SERVER
 
+static FName UT_DEFAULT_BACKGROUND(TEXT("UT.HomePanel.Background"));
+static FName UT_SPOOKY_BACKGROUND(TEXT("UT.SpookyBackground"));
+
+
 void SUHomePanel::ConstructPanel(FVector2D ViewportSize)
 {
+	FName Background = UT_DEFAULT_BACKGROUND;
+	if (FDateTime().Now().GetMonth() == 10) Background = UT_SPOOKY_BACKGROUND;
+
 	this->ChildSlot
 	.VAlign(VAlign_Fill)
 	.HAlign(HAlign_Fill)
@@ -39,7 +46,7 @@ void SUHomePanel::ConstructPanel(FVector2D ViewportSize)
 					.bMaintainAspectRatio(false)
 					[
 						SNew(SImage)
-						.Image(SUTStyle::Get().GetBrush("UT.HomePanel.Background"))
+						.Image(SUTStyle::Get().GetBrush(Background))
 					]
 				]
 			]

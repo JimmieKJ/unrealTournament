@@ -386,6 +386,30 @@ void SUTStyle::SetCommonStyle(TSharedRef<FSlateStyleSet> StyleRef)
 		.SetComboButtonStyle(ComboButton)
 		);
 
+	FStringAssetReference HalloweenBackground(TEXT("SlateBrushAsset'/Game/RestrictedAssets/SlateLargeImages/UIBackgroundHalloween2015_Brush.UIBackgroundHalloween2015_Brush'"));
+	USlateBrushAsset* HalloweenBackgroundAsset = Cast<USlateBrushAsset>(HalloweenBackground.TryLoad());
+	if (HalloweenBackgroundAsset)
+	{
+		HalloweenBackgroundAsset->AddToRoot();
+		Style.Set("UT.SpookyBackground", &HalloweenBackgroundAsset->Brush);
+	}
+
+	FStringAssetReference LoadingScreen(TEXT("/Game/RestrictedAssets/SlateLargeImages/LoadingScreen_Brush.LoadingScreen_Brush"));
+	USlateBrushAsset* LoadingScreenBrushAsset = Cast<USlateBrushAsset>(LoadingScreen.TryLoad());
+	if (LoadingScreenBrushAsset)
+	{
+		LoadingScreenBrushAsset->AddToRoot();
+		Style.Set("UT.LoadingScreen", &LoadingScreenBrushAsset->Brush);
+	}
+
+	FStringAssetReference HalloweenLoadingScreen(TEXT("SlateBrushAsset'/Game/RestrictedAssets/SlateLargeImages/LoadingScreenHalloween2015_Brush.LoadingScreenHalloween2015_Brush'"));
+	USlateBrushAsset* HalloweenLoadingScreenBrushAsset = Cast<USlateBrushAsset>(HalloweenLoadingScreen.TryLoad());
+	if (HalloweenLoadingScreenBrushAsset)
+	{
+		HalloweenLoadingScreenBrushAsset->AddToRoot();
+		Style.Set("UT.LoadingScreen.Halloween", &HalloweenLoadingScreenBrushAsset->Brush);
+	}
+
 
 }
 

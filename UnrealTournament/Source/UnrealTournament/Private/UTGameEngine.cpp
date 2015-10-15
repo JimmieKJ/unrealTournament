@@ -733,14 +733,23 @@ void UUTGameEngine::SetupLoadingScreen()
 #endif
 }
 
+static FName UT_DEFAULT_LOADING(TEXT("UT.LoadingScreen"));
+static FName UT_SPOOKY_LOADING(TEXT("UT.LoadingScreen.Halloween"));
+
+
 void UUTGameEngine::LoadMapRedrawViewports()
 {
 #if !UE_SERVER
+
+	FName Background = UT_DEFAULT_LOADING;
+	if (FDateTime().Now().GetMonth() == 10) Background = UT_SPOOKY_LOADING;
+
+	UE_LOG(UT,Log,TEXT("Background: %s"),*Background.ToString());
 	// put up a temporary widget for the loading screen for one frame
 	TSharedPtr<SImage> LoadingScreenImage;
 	if (GameViewport != NULL)
 	{
-		SAssignNew(LoadingScreenImage, SImage).Image(SUWindowsStyle::Get().GetBrush("LoadingScreen"));
+		SAssignNew(LoadingScreenImage, SImage).Image(SUTStyle::Get().GetBrush(Background));
 		GameViewport->AddViewportWidgetContent(LoadingScreenImage.ToSharedRef(), MAX_int32);
 	}
 #endif
