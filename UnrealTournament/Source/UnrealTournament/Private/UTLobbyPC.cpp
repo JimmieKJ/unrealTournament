@@ -271,6 +271,7 @@ void AUTLobbyPC::GetAllRedirects(TSharedPtr<SUTDownloadAllDialog> inDownloadDial
 
 void AUTLobbyPC::DownloadAllContent()
 {
+#if !UE_SERVER
 	if (RedirectCount > 0 && AllRedirects.Num() == RedirectCount)
 	{
 		UUTLocalPlayer* LocalPlayer = Cast<UUTLocalPlayer>(Player);
@@ -286,8 +287,7 @@ void AUTLobbyPC::DownloadAllContent()
 		DownloadDialog->Done();
 		DownloadDialog.Reset();
 	}
-
-
+#endif
 }
 
 bool AUTLobbyPC::ServerSendRedirectCount_Validate() { return true; }
