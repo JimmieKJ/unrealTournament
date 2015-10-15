@@ -3376,9 +3376,17 @@ void UUTLocalPlayer::SkullPickedUp()
 	if (CurrentProfileSettings)
 	{
 		CurrentProfileSettings->SkullCount++;
-		if (CurrentProfileSettings->SkullCount > 423)
+		if (CurrentProfileSettings->SkullCount > 200)
 		{
-			AwardAchievement(AchievementIDs::PumpkinHead2015);
+			AwardAchievement(AchievementIDs::PumpkinHead2015Level1);
+		}
+		if (CurrentProfileSettings->SkullCount > 1000)
+		{
+			AwardAchievement(AchievementIDs::PumpkinHead2015Level2);
+		}
+		if (CurrentProfileSettings->SkullCount > 5000)
+		{
+			AwardAchievement(AchievementIDs::PumpkinHead2015Level3);
 		}
 	}
 }

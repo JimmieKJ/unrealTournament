@@ -27,7 +27,9 @@ namespace AchievementIDs
 	extern const FName ChallengeStars25;
 	extern const FName ChallengeStars35;
 	extern const FName ChallengeStars45;
-	extern const FName PumpkinHead2015;
+	extern const FName PumpkinHead2015Level1;
+	extern const FName PumpkinHead2015Level2;
+	extern const FName PumpkinHead2015Level3;
 	extern const FName ChallengePumpkins5;
 	extern const FName ChallengePumpkins10;
 	extern const FName ChallengePumpkins15;
