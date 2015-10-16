@@ -336,10 +336,15 @@ void AUTTeamGameMode::HandlePlayerIntro()
 			{
 				for (int32 j = i + 1; j < SortedTeams.Num(); j++)
 				{
-					if (SortedTeams[i]->GetSize() > SortedTeams[j]->GetSize() + 1)
+					while (SortedTeams[i]->GetSize() > SortedTeams[j]->GetSize() + 1)
 					{
 						UTGameState->bForcedBalance = true;
-						ChangeTeam(SortedTeams[i]->GetTeamMembers()[0], j);
+						AController* ToBeMoved = SortedTeams[i]->GetTeamMembers()[0];
+						if (!ChangeTeam(ToBeMoved, j) || UTGameState->OnSameTeam(ToBeMoved, SortedTeams[i]))
+						{
+							// abort if failed to actually change team so we don't end up in recursion
+							break;
+						}
 						SortedTeams.Sort([](AUTTeamInfo& A, AUTTeamInfo& B) { return A.GetSize() > B.GetSize(); });
 					}
 				}
