@@ -550,8 +550,20 @@ public:
 		UNavigationSystem::StaticClass()->GetDefaultObject()->PostInitProperties();
 
 		PathNodes.Remove(NULL); // really shouldn't happen but no need to crash for it
+	}
+
+	virtual void PostInitializeComponents()
+	{
+		Super::PostInitializeComponents();
+
+		// init lookup hashes
 		for (UUTPathNode* Node : PathNodes)
 		{
+			// DefaultPhysicsVolume is transient, put it back if needed so all nodes have a volume
+			if (Node->PhysicsVolume == NULL)
+			{
+				Node->PhysicsVolume = GetWorld()->GetDefaultPhysicsVolume();
+			}
 			VolumeToNode.Add(Node->PhysicsVolume, Node);
 			for (NavNodeRef PolyRef : Node->Polys)
 			{
