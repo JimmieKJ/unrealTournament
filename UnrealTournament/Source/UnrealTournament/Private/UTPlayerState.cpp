@@ -630,7 +630,7 @@ bool AUTPlayerState::ServerReceiveEyewearVariant_Validate(int32 NewVariant)
 
 void AUTPlayerState::ServerReceiveHatClass_Implementation(const FString& NewHatClass)
 {
-	if (GetWorld()->IsPlayInEditor() || GetNetMode() != NM_Standalone || HatClass == NULL || !GetWorld()->GetGameState()->HasMatchStarted())
+	if (GetWorld()->IsPlayInEditor() || GetNetMode() == NM_Standalone || HatClass == NULL || !GetWorld()->GetGameState()->HasMatchStarted())
 	{
 		HatClass = LoadClass<AUTHat>(NULL, *NewHatClass, NULL, LOAD_NoWarn, NULL);
 
@@ -662,7 +662,7 @@ bool AUTPlayerState::ServerReceiveHatClass_Validate(const FString& NewHatClass)
 
 void AUTPlayerState::ServerReceiveLeaderHatClass_Implementation(const FString& NewLeaderHatClass)
 {
-	if (GetNetMode() != NM_Standalone || LeaderHatClass == NULL || !GetWorld()->GetGameState()->HasMatchStarted())
+	if (GetNetMode() == NM_Standalone || LeaderHatClass == NULL || !GetWorld()->GetGameState()->HasMatchStarted())
 	{
 		LeaderHatClass = LoadClass<AUTHatLeader>(NULL, *NewLeaderHatClass, NULL, LOAD_NoWarn, NULL);
 
@@ -680,7 +680,7 @@ bool AUTPlayerState::ServerReceiveLeaderHatClass_Validate(const FString& NewHatC
 
 void AUTPlayerState::ServerReceiveEyewearClass_Implementation(const FString& NewEyewearClass)
 {
-	if (GetNetMode() != NM_Standalone || EyewearClass == NULL || !GetWorld()->GetGameState()->HasMatchStarted())
+	if (GetNetMode() == NM_Standalone || EyewearClass == NULL || !GetWorld()->GetGameState()->HasMatchStarted())
 	{
 		EyewearClass = LoadClass<AUTEyewear>(NULL, *NewEyewearClass, NULL, LOAD_NoWarn, NULL);
 		OnRepEyewear();
@@ -927,7 +927,7 @@ bool AUTPlayerState::ServerSetCharacter_Validate(const FString& CharacterPath)
 }
 void AUTPlayerState::ServerSetCharacter_Implementation(const FString& CharacterPath)
 {
-	if (GetNetMode() != NM_Standalone || SelectedCharacter == NULL || !GetWorld()->GetGameState()->HasMatchStarted())
+	if (GetNetMode() == NM_Standalone || SelectedCharacter == NULL || !GetWorld()->GetGameState()->HasMatchStarted())
 	{
 		AUTCharacter* MyPawn = GetUTCharacter();
 		// suicide if feign death because the mesh reset causes physics issues
