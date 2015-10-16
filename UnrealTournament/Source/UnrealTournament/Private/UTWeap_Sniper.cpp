@@ -149,7 +149,11 @@ void AUTWeap_Sniper::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 		{
 			if (!C->BlockedHeadShot(Hit.Location, FireDir, GetHeadshotScale(), true, UTOwner))
 			{
-				Damage = HeadshotDamage;
+				AUTBot* B = Cast<AUTBot>(UTOwner->Controller);
+				if (!B || (B->Skill + B->Personality.Accuracy > 3.5f))
+				{
+					Damage = HeadshotDamage;
+				}
 			}
 			if (HeadshotDamageType != NULL)
 			{
