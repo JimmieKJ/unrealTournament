@@ -742,7 +742,10 @@ void UUTGameEngine::LoadMapRedrawViewports()
 #if !UE_SERVER
 
 	FName Background = UT_DEFAULT_LOADING;
-	if (FDateTime().Now().GetMonth() == 10) Background = UT_SPOOKY_LOADING;
+	if ((FDateTime().Now().GetMonth() == 10) || ((FDateTime().Now().GetMonth() == 11) && (FDateTime().Now().GetDay() == 1)))
+	{
+		Background = UT_SPOOKY_LOADING;
+	}
 
 	UE_LOG(UT,Log,TEXT("Background: %s"),*Background.ToString());
 	// put up a temporary widget for the loading screen for one frame

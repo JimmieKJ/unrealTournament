@@ -34,7 +34,9 @@ void AUTMenuGameMode::PostInitializeComponents()
 	WorldSettings = Cast<AUTWorldSettings>(GetWorld()->GetWorldSettings());
 	if (WorldSettings)
 	{
-		FString MenuMusicPath = FDateTime().Now().GetMonth() == 10 ? TEXT("SoundWave'/Game/RestrictedAssets/Audio/Music/Music_HaveAnUnrealHalloween.Music_HaveAnUnrealHalloween'") : MenuMusicAssetName;
+		FString MenuMusicPath = ((FDateTime().Now().GetMonth() == 10) || ((FDateTime().Now().GetMonth() == 11) && (FDateTime().Now().GetDay() == 1)))
+			? TEXT("SoundWave'/Game/RestrictedAssets/Audio/Music/Music_HaveAnUnrealHalloween.Music_HaveAnUnrealHalloween'") 
+			: MenuMusicAssetName;
 		// We use a second var to make sure we never write this value back out
 		
 		if ( MenuMusicPath != TEXT("") )
