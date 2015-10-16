@@ -42,7 +42,7 @@ UUTChallengeManager::UUTChallengeManager(const FObjectInitializer& ObjectInitial
 	EnemyTeamRosters.Add(NAME_EasyNecrisTeam, EasyNecrisRoster);
 
 	FTeamRoster MediumNecrisRoster = FTeamRoster(NSLOCTEXT("Challenges", "MediumEnemyNecris", "Necris Adept Team"));
-	MediumNecrisRoster.Roster.Add(NAME_Malakai);
+	MediumNecrisRoster.Roster.Add(NAME_Leeb);
 	MediumNecrisRoster.Roster.Add(NAME_Cadaver);
 	MediumNecrisRoster.Roster.Add(NAME_Cryss);
 	MediumNecrisRoster.Roster.Add(NAME_Kragoth);

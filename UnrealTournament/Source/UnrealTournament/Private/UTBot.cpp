@@ -287,7 +287,7 @@ void AUTBot::InitializeSkill(float NewBaseSkill)
 
 	// no prediction error for really high skill bots
 	// we still want some offset error because that will sometimes actually cause "correct" aim when combined with TrackingReactionTime
-	if (AimingSkill >= 7.0f)
+	if (AimingSkill > 7.0f)
 	{
 		MaxTrackingPredictionError = 0.f;
 	}
@@ -297,7 +297,7 @@ void AUTBot::InitializeSkill(float NewBaseSkill)
 	}
 	MaxTrackingOffsetError = GetClass()->GetDefaultObject<AUTBot>()->MaxTrackingOffsetError * 6.0f / (AimingSkill + 2.0f);
 
-	TrackingErrorUpdateInterval = GetClass()->GetDefaultObject<AUTBot>()->TrackingErrorUpdateInterval * 7.0f / (AimingSkill + 2.0f);
+	TrackingErrorUpdateInterval = GetClass()->GetDefaultObject<AUTBot>()->TrackingErrorUpdateInterval * 12.f / (AimingSkill + 5.f);
 	TrackingPredictionError = MaxTrackingPredictionError;
 	AdjustedMaxTrackingOffsetError = MaxTrackingOffsetError;
 
@@ -352,7 +352,8 @@ void AUTBot::SetPeripheralVision()
 			}
 			else
 			{
-				PeripheralVision = 1.0f - 0.2f * Skill;
+				PeripheralVision = 1.0f - 0.16f * Skill;
+				bSlowerZAcquire = (Skill < 5.f);
 			}
 
 			PeripheralVision = FMath::Min<float>(PeripheralVision - Personality.Alertness * 0.5f, 0.8f);
@@ -1967,7 +1968,7 @@ bool AUTBot::WeaponProficiencyCheck()
 		{
 			Proficiency += 2.0f;
 		}
-		return (Proficiency > 2.0f + FMath::FRand() * 4.0f);
+		return (Proficiency > 3.0f + FMath::FRand() * 3.0f);
 	}
 }
 
