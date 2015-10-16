@@ -724,6 +724,8 @@ void AUTBot::Tick(float DeltaTime)
 			if (CurrentAction == NULL)
 			{
 				UE_LOG(UT, Warning, TEXT("%s (%s) failed to get an action from ExecuteWhatToDoNext()"), *GetName(), *PlayerState->PlayerName);
+				GoalString = TEXT("BUG - NO ACTION - Setting CampAction");
+				StartNewAction(CampAction);
 			}
 			if (GetPawn() != NULL)
 			{
@@ -2910,7 +2912,8 @@ void AUTBot::DoHunt(APawn* NewHuntTarget)
 	if (NewHuntTarget == NULL || GetEnemyInfo(NewHuntTarget, false) == NULL)
 	{
 		UE_LOG(UT, Warning, TEXT("Bot %s in DoHunt() with no enemy"), *PlayerState->PlayerName);
-		DoTacticalMove();
+		GoalString = TEXT("BUG - HUNT WITH BAD TARGET - Force CampAction");
+		StartNewAction(CampAction);
 	}
 	else
 	{
