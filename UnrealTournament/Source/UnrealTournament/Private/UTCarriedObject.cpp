@@ -110,7 +110,10 @@ void AUTCarriedObject::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* O
 	if (!bIsDropping)
 	{
 		AUTCharacter* Character = Cast<AUTCharacter>(OtherActor);
-		if (Character != NULL && !GetWorld()->LineTraceTestByChannel(OtherActor->GetActorLocation(), GetActorLocation(), ECC_Pawn, FCollisionQueryParams(), WorldResponseParams))
+		// we need to make sure the character's collision is still in the OverlappingComponents list; we might have been returned by a previous touch that would invalidate subsequent touches
+		// this doesn't actually check against the collision geometry so it's safe against large movements that pass entirely through us
+		if ( Character != NULL && Collision->IsOverlappingActor(OtherActor) &&
+			!GetWorld()->LineTraceTestByChannel(OtherActor->GetActorLocation(), GetActorLocation(), ECC_Pawn, FCollisionQueryParams(), WorldResponseParams) )
 		{
 			TryPickup(Character);
 		}

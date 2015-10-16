@@ -13,9 +13,14 @@ AUTMenuGameMode::AUTMenuGameMode(const class FObjectInitializer& ObjectInitializ
 	GameStateClass = AUTGameState::StaticClass();
 	PlayerStateClass = AUTPlayerState::StaticClass();
 	PlayerControllerClass = AUTPlayerController::StaticClass();
+
+	static ConstructorHelpers::FObjectFinder<USoundBase> DefaultMusicRef[] = { TEXT("/Game/RestrictedAssets/Audio/Music/Music_UTMenu_Classic.Music_UTMenu_Classic"), TEXT("/Game/RestrictedAssets/Audio/Music/Music_HaveAnUnrealHalloween.Music_HaveAnUnrealHalloween") };
+
+	for (int32 i = 0; i < ARRAY_COUNT(DefaultMusicRef); i++)
+	{
+		DefaultMusics.Add(DefaultMusicRef[i].Object);
+	}
 }
-
-
 
 void AUTMenuGameMode::RestartGame()
 {
