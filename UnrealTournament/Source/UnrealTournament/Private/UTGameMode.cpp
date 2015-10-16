@@ -145,6 +145,7 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 
 	bDisableMapVote = false;
 
+	AntiCheatEngine = nullptr;
 }
 
 void AUTGameMode::NotifySpeedHack(ACharacter* Character)
@@ -318,6 +319,12 @@ void AUTGameMode::InitGame( const FString& MapName, const FString& Options, FStr
 	// If we are a lobby instance, establish a communication beacon with the lobby.  For right now, this beacon is created on the local host
 	// but in time, the lobby's address will have to be passed
 	RecreateLobbyBeacon();
+	
+	static const FName AntiCheatFeatureName("AntiCheat");
+	if (IModularFeatures::Get().IsModularFeatureAvailable(AntiCheatFeatureName))
+	{
+		AntiCheatEngine = &IModularFeatures::Get().GetModularFeature<UTAntiCheatModularFeature>(AntiCheatFeatureName);
+	}
 }
 
 void AUTGameMode::AddMutator(const FString& MutatorPath)
@@ -619,6 +626,12 @@ APlayerController* AUTGameMode::Login(UPlayer* NewPlayer, ENetRole RemoteRole, c
 			}
 		}
 	}
+
+	if (AntiCheatEngine)
+	{
+		AntiCheatEngine->OnPlayerLogin(Result, Options, UniqueId);
+	}
+
 	return Result;
 }
 
@@ -2868,7 +2881,6 @@ void AUTGameMode::PostLogin( APlayerController* NewPlayer )
 			UTGameSession->UpdateGameState();
 		}
 	}
-
 	
 	if (bIsCastingGuidePC)
 	{
@@ -2918,6 +2930,11 @@ void AUTGameMode::Logout(AController* Exiting)
 		FUTAnalytics::GetProvider().RecordEvent( TEXT("PlayerLogoutStat"), ParamArray );
 		PS->RespawnChoiceA = NULL;
 		PS->RespawnChoiceB = NULL;
+	}
+
+	if (AntiCheatEngine)
+	{
+		AntiCheatEngine->OnPlayerLogout(Cast<APlayerController>(Exiting));
 	}
 
 	if (Cast<AUTBot>(Exiting) != NULL)

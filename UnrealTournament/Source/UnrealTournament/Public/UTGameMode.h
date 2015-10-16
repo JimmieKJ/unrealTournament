@@ -4,6 +4,7 @@
 #include "TAttributeProperty.h"
 #include "UTServerBeaconLobbyClient.h"
 #include "UTReplicatedLoadoutInfo.h"
+#include "UTAntiCheatModularFeature.h"
 #include "UTGameMode.generated.h"
 
 /** Defines the current state of the game. */
@@ -745,6 +746,8 @@ private:
 
 	UPROPERTY(globalconfig)
 	FStringAssetReference EventReward;
+
+	UTAntiCheatModularFeature* AntiCheatEngine;
 
 public:
 	UPROPERTY(Config)
