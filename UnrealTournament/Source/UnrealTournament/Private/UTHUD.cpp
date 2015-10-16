@@ -774,6 +774,12 @@ float AUTHUD::GetCrosshairScale()
 			PickupScale = (1.f + 5.f * (LastPickupTime + 0.3f - WorldTime));
 		}
 	}
+
+	if (Canvas != NULL)
+	{
+		PickupScale = PickupScale * Canvas->ClipX / 1920.f;
+	}
+
 	return PickupScale;
 }
 
