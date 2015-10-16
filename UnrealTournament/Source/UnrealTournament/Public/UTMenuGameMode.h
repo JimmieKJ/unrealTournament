@@ -24,7 +24,12 @@ public:
 	FString MenuMusicAssetName;
 
 protected:
+	UPROPERTY()
 	USoundBase* MenuMusic;
+
+	/** default music options for cooking */
+	UPROPERTY()
+	TArray<USoundBase*> DefaultMusics;
 };
 
 
