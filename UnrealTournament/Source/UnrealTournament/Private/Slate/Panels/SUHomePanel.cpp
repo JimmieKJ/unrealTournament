@@ -22,7 +22,10 @@ static FName UT_SPOOKY_BACKGROUND(TEXT("UT.SpookyBackground"));
 void SUHomePanel::ConstructPanel(FVector2D ViewportSize)
 {
 	FName Background = UT_DEFAULT_BACKGROUND;
-	if (FDateTime().Now().GetMonth() == 10) Background = UT_SPOOKY_BACKGROUND;
+	if ((FDateTime().Now().GetMonth() == 10) || ((FDateTime().Now().GetMonth() == 11) && (FDateTime().Now().GetDay() == 1)))
+	{
+		Background = UT_SPOOKY_BACKGROUND;
+	}
 
 	this->ChildSlot
 	.VAlign(VAlign_Fill)
