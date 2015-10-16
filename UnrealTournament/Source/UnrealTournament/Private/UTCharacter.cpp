@@ -33,6 +33,8 @@
 #include "UTWaterVolume.h"
 #include "UTLift.h"
 
+static FName NAME_HatSocket(TEXT("HatSocket"));
+
 UUTMovementBaseInterface::UUTMovementBaseInterface(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {}
@@ -4607,7 +4609,9 @@ void AUTCharacter::SetHatClass(TSubclassOf<AUTHat> HatClass)
 		{
 			FVector HatRelativeLocation = Hat->GetRootComponent()->RelativeLocation;
 			FRotator HatRelativeRotation = Hat->GetRootComponent()->RelativeRotation;
-			Hat->AttachRootComponentTo(GetMesh(), FName(TEXT("HatSocket")), EAttachLocation::SnapToTarget, true);
+			Hat->AttachRootComponentTo(GetMesh(), NAME_HatSocket, EAttachLocation::SnapToTarget, true);
+			// SnapToTarget doesn't actually snap scale, so do that manually
+			Hat->GetRootComponent()->SetWorldScale3D(GetMesh()->GetSocketTransform(NAME_HatSocket).GetScale3D());
 			Hat->SetActorRelativeRotation(HatRelativeRotation);
 			Hat->SetActorRelativeLocation(HatRelativeLocation);
 			Hat->OnVariantSelected(HatVariant);
@@ -4651,7 +4655,10 @@ void AUTCharacter::SetEyewearClass(TSubclassOf<AUTEyewear> EyewearClass)
 		Eyewear = GetWorld()->SpawnActor<AUTEyewear>(EyewearClass, GetActorLocation(), GetActorRotation(), Params);
 		if (Eyewear != NULL)
 		{
-			Eyewear->AttachRootComponentTo(GetMesh(), FName(TEXT("GlassesSocket")), EAttachLocation::SnapToTarget, true);
+			static FName NAME_GlassesSocket(TEXT("GlassesSocket"));
+			Eyewear->AttachRootComponentTo(GetMesh(), NAME_GlassesSocket, EAttachLocation::SnapToTarget, true);
+			// SnapToTarget doesn't actually snap scale, so do that manually
+			Eyewear->GetRootComponent()->SetWorldScale3D(GetMesh()->GetSocketTransform(NAME_GlassesSocket).GetScale3D());
 			Eyewear->OnVariantSelected(EyewearVariant);
 			// We may already be invisible
 			Eyewear->SetActorHiddenInGame(bInvisible);
@@ -5239,7 +5246,9 @@ void AUTCharacter::HasHighScoreChanged_Implementation()
 			{
 				FVector HatRelativeLocation = LeaderHat->GetRootComponent()->RelativeLocation;
 				FRotator HatRelativeRotation = LeaderHat->GetRootComponent()->RelativeRotation;
-				LeaderHat->AttachRootComponentTo(GetMesh(), FName(TEXT("HatSocket")), EAttachLocation::SnapToTarget, true);
+				LeaderHat->AttachRootComponentTo(GetMesh(), NAME_HatSocket, EAttachLocation::SnapToTarget, true);
+				// SnapToTarget doesn't actually snap scale, so do that manually
+				LeaderHat->GetRootComponent()->SetWorldScale3D(GetMesh()->GetSocketTransform(NAME_HatSocket).GetScale3D());
 				LeaderHat->SetActorRelativeRotation(HatRelativeRotation);
 				LeaderHat->SetActorRelativeLocation(HatRelativeLocation);
 				LeaderHat->OnVariantSelected(HatVariant);
