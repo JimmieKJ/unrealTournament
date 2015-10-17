@@ -394,7 +394,7 @@ void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bE
 			if (Spree % 5 == 0)
 			{
 				FName SKStat[5] = { NAME_SpreeKillLevel0, NAME_SpreeKillLevel1, NAME_SpreeKillLevel2, NAME_SpreeKillLevel3, NAME_SpreeKillLevel4 };
-				ModifyStatsValue(SKStat[FMath::Min(Spree / 5, 4)], 1);
+				ModifyStatsValue(SKStat[FMath::Min(Spree / 5 - 1, 4)], 1);
 				bShouldTauntKill = true;
 
 				if (GetWorld()->GetAuthGameMode() != NULL)
@@ -404,13 +404,13 @@ void AUTPlayerState::IncrementKills(TSubclassOf<UDamageType> DamageType, bool bE
 
 				if (UTChar != NULL && UTChar->IsWearingAnyCosmetic())
 				{
-					UTChar->CosmeticSpreeCount = FMath::Min(Spree / 5, 4);
+					UTChar->CosmeticSpreeCount = FMath::Min(Spree / 5, 5);
 					UTChar->OnRepCosmeticSpreeCount();
 				}
 
 				if (GM)
 				{
-					GM->AddSpreeKillEventToReplay(Controller, FMath::Min(Spree / 5, 4));
+					GM->AddSpreeKillEventToReplay(Controller, FMath::Min(Spree / 5, 5));
 				}
 			}
 		}
