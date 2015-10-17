@@ -80,8 +80,9 @@ struct FPlayerCompare
 			if (B->bIsSpectator) BValue += 51;
 
 		}
-
-		//UE_LOG(UT,Log,TEXT("Sort:  %s (%i) vs %s (%i) - %i < %i???"), *A->PlayerName, A->TeamNum, *B->PlayerName, B->TeamNum, AValue, BValue);			
+/*
+		UE_LOG(UT,Log,TEXT("Sort:  %s (%i) vs %s (%i) - %i < %i???"), *A->PlayerName, A->TeamNum, *B->PlayerName, B->TeamNum, AValue, BValue);			
+*/
 		return (AValue != BValue) ? AValue < BValue : (A->PlayerName < B->PlayerName);
 	}
 };
@@ -235,7 +236,7 @@ void SUPlayerListPanel::GetMenuContent(FString SearchTag, TArray<FMenuOptionData
 	MenuOptions.Empty();
 
 	// Showing a player card requires a valid player state which players in an instance might not have.
-	if (!TrackedPlayers[Idx]->bIsInMatch)
+	if (!TrackedPlayers[Idx]->bInInstance)
 	{
 		MenuOptions.Add(FMenuOptionData(NSLOCTEXT("PlayerListSubMenu","ShowPlayerCard","Player Card"), EPlayerListContentCommand::PlayerCard));
 	}
@@ -389,7 +390,6 @@ void SUPlayerListPanel::Tick( const FGeometry& AllottedGeometry, const double In
 	AUTGameState* GameState = PlayerOwner->GetWorld()->GetGameState<AUTGameState>();
 	if (GameState && PlayerOwner.IsValid() && PlayerOwner->PlayerController)
 	{
-	
 		if (PlayerOwner.IsValid() && PlayerOwner->PlayerController && PlayerOwner->PlayerController->PlayerState)
 		{
 			OwnerPlayerState = Cast<AUTLobbyPlayerState>(PlayerOwner->PlayerController->PlayerState);
@@ -444,16 +444,26 @@ void SUPlayerListPanel::Tick( const FGeometry& AllottedGeometry, const double In
 				}
 			}
 		}
-	
+
+/*
+		UE_LOG(UT,Log,TEXT("==================================================[ Tick"));
+		for (int32 i=0 ; i < TrackedPlayers.Num(); i++)
+		{
+			UE_LOG(UT,Log,TEXT("   TP %i : %s %s"), i, *TrackedPlayers[i]->PlayerName, *TrackedPlayers[i]->PlayerID.ToString());
+		}
+
+		UE_LOG(UT,Log,TEXT(""));
+*/
 
 		// First go though all of the players on this server.
 		for (int32 i=0; i < GameState->PlayerArray.Num(); i++)
 		{
+//			FString DebugStr = FString::Printf(TEXT("  Testing %i "), i);
+
 			AUTPlayerState* PlayerState = Cast<AUTPlayerState>(GameState->PlayerArray[i]);
 			if (PlayerState)
 			{
 				bool bIsInMatch = IsInMatch(PlayerState);
-
 				AUTLobbyPlayerState* LobbyPlayerState = Cast<AUTLobbyPlayerState>(PlayerState);
 				bool bIsHost = (LobbyPlayerState && LobbyPlayerState->CurrentMatch && LobbyPlayerState->CurrentMatch->OwnerId == LobbyPlayerState->UniqueId);
 				bool bIsInAnyMatch = (LobbyPlayerState && LobbyPlayerState->CurrentMatch);
@@ -467,15 +477,21 @@ void SUPlayerListPanel::Tick( const FGeometry& AllottedGeometry, const double In
 					TeamNum = 255;
 				}
 
+				bool bIsSpec = (LobbyPlayerState && LobbyPlayerState->DesiredTeamNum == 255);
+				
+//				DebugStr = DebugStr + FString::Printf(TEXT("PlayerName = %s bIsInMAtch = %i  bIsHost = %i  bIsInAnyMatch = %i bIsSpec = %i (%s)"), *PlayerState->PlayerName, bIsInMatch, bIsHost, bIsInAnyMatch, bIsSpec, *LobbyPlayerState->UniqueId.ToString() );
+
 				if (ShouldShowPlayer(PlayerState->UniqueId, TeamNum, bIsInMatch))
 				{
 					int32 Idx = IsTracked(GameState->PlayerArray[i]->UniqueId);
-					if (Idx != INDEX_NONE && Idx < GameState->PlayerArray.Num() && GameState->PlayerArray[Idx] != NULL)
+
+//					DebugStr = DebugStr + FString::Printf(TEXT(" TrackedIdx = %i"), Idx);
+
+					if (Idx != INDEX_NONE && Idx < TrackedPlayers.Num())
 					{
 						// This player lives to see another day
 						TrackedPlayers[Idx]->bPendingKill = false;
 
-						bool bIsSpec = (LobbyPlayerState && LobbyPlayerState->DesiredTeamNum == 255);
 						if (TrackedPlayers[Idx]->bIsSpectator != bIsSpec)
 						{
 							TrackedPlayers[Idx]->bIsSpectator = bIsSpec;
@@ -517,6 +533,8 @@ void SUPlayerListPanel::Tick( const FGeometry& AllottedGeometry, const double In
 					}
 				}
 			}
+
+//			UE_LOG(UT,Log,TEXT("%s"),*DebugStr);
 		}
 
 		// If this is a lobby game, then pull players from the instanced arrays...
@@ -550,6 +568,7 @@ void SUPlayerListPanel::Tick( const FGeometry& AllottedGeometry, const double In
 					}
 				}
 			}
+		
 		}
 	}
 
@@ -565,6 +584,11 @@ void SUPlayerListPanel::Tick( const FGeometry& AllottedGeometry, const double In
 		}
 		else if (TrackedPlayers[i]->bInInstance) bNeedInstanceHeader = true;
 	}
+
+/*	
+	UE_LOG(UT,Log,TEXT("-------------------------- %i || %i"), bNeedsRefresh,bListNeedsUpdate);
+	UE_LOG(UT,Log,TEXT("  "));
+*/
 
 	if (bNeedInstanceHeader)
 	{
