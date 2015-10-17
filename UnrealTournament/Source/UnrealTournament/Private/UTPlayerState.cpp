@@ -917,6 +917,11 @@ void AUTPlayerState::SetCharacter(const FString& CharacterPath)
 			}
 		}
 #endif
+		// make sure it's not an invalid base class
+		if (SelectedCharacter != NULL && ((SelectedCharacter->ClassFlags & CLASS_Abstract) || SelectedCharacter.GetDefaultObject()->GetMesh()->SkeletalMesh == NULL))
+		{
+			SelectedCharacter = NULL;
+		}
 		NotifyTeamChanged();
 	}
 }
