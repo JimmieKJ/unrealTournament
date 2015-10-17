@@ -1057,6 +1057,7 @@ AUTCharacter* SUWMatchSummary::RecreatePlayerPreview(AUTPlayerState* NewPS, FVec
 		PlayerPreviewMesh->SetEyewearClass(NewPS->EyewearClass);
 		PlayerPreviewMesh->SetEyewearVariant(NewPS->EyewearVariant);
 
+		int32 WeaponIndexToSpawn = 0;
 		if (!PreviewWeapon)
 		{
 			UClass* PreviewAttachmentType = NewPS->FavoriteWeapon ? NewPS->FavoriteWeapon->GetDefaultObject<AUTWeapon>()->AttachmentType : NULL;
@@ -1070,7 +1071,8 @@ AUTCharacter* SUWMatchSummary::RecreatePlayerPreview(AUTPlayerState* NewPS, FVec
 				PreviewAttachments[3] = LoadClass<AUTWeaponAttachment>(NULL, TEXT("/Game/RestrictedAssets/Weapons/ShockRifle/ShockAttachment.ShockAttachment_C"), NULL, LOAD_None, NULL);
 				PreviewAttachments[4] = LoadClass<AUTWeaponAttachment>(NULL, TEXT("/Game/RestrictedAssets/Weapons/Flak/BP_Flak_Attach.BP_Flak_Attach_C"), NULL, LOAD_None, NULL);
 				PreviewAttachments[5] = PreviewAttachments[3];
-				PreviewAttachmentType = PreviewAttachments[WeaponIndex % 6];
+				WeaponIndexToSpawn = WeaponIndex % 6;
+				PreviewAttachmentType = PreviewAttachments[WeaponIndexToSpawn];
 				WeaponIndex++;
 			}
 			if (PreviewAttachmentType != NULL)
@@ -1088,40 +1090,42 @@ AUTCharacter* SUWMatchSummary::RecreatePlayerPreview(AUTPlayerState* NewPS, FVec
 
 		if (NewPS->IsFemale())
 		{
-			if (WeaponIndex % 6 == 0 || WeaponIndex % 6 == 3 || WeaponIndex % 6 == 5)
+			switch (WeaponIndexToSpawn)
 			{
-				PlayerPreviewAnim = LoadObject<UAnimationAsset>(NULL, TEXT("/Game/RestrictedAssets/Animations/Universal/Misc_Poses/MatchPoseFemale_ShockRifle.MatchPoseFemale_ShockRifle"));
-			}
-			else if (WeaponIndex % 6 == 1)
-			{
+			case 1:
 				PlayerPreviewAnim = LoadObject<UAnimationAsset>(NULL, TEXT("/Game/RestrictedAssets/Animations/Universal/Misc_Poses/MatchPoseFemale_Sniper.MatchPoseFemale_Sniper"));
-			}
-			else if (WeaponIndex % 6 == 2)
-			{
+				break;
+			case 2:
 				PlayerPreviewAnim = LoadObject<UAnimationAsset>(NULL, TEXT("/Game/RestrictedAssets/Animations/Universal/Misc_Poses/MatchPoseFemale_Flak_B.MatchPoseFemale_Flak_B"));
-			}
-			else if (WeaponIndex % 6 == 4)
-			{
+				break;
+			case 4:
 				PlayerPreviewAnim = LoadObject<UAnimationAsset>(NULL, TEXT("/Game/RestrictedAssets/Animations/Universal/Misc_Poses/MatchPoseFemale_Flak.MatchPoseFemale_Flak"));
+				break;
+			case 0:
+			case 3:
+			case 5:
+			default:
+				PlayerPreviewAnim = LoadObject<UAnimationAsset>(NULL, TEXT("/Game/RestrictedAssets/Animations/Universal/Misc_Poses/MatchPoseFemale_ShockRifle.MatchPoseFemale_ShockRifle"));
 			}
 		}
 		else
 		{
-			if (WeaponIndex % 6 == 0 || WeaponIndex % 6 == 3 || WeaponIndex % 6 == 5)
+			switch (WeaponIndexToSpawn)
 			{
-				PlayerPreviewAnim = LoadObject<UAnimationAsset>(NULL, TEXT("/Game/RestrictedAssets/Animations/Universal/Misc_Poses/MatchPose_ShockRifle.MatchPose_ShockRifle"));
-			}
-			else if (WeaponIndex % 6 == 1)
-			{
+			case 1:
 				PlayerPreviewAnim = LoadObject<UAnimationAsset>(NULL, TEXT("/Game/RestrictedAssets/Animations/Universal/Misc_Poses/MatchPose_Sniper.MatchPose_Sniper"));
-			}
-			else if (WeaponIndex % 6 == 2)
-			{
+				break;
+			case 2:
 				PlayerPreviewAnim = LoadObject<UAnimationAsset>(NULL, TEXT("/Game/RestrictedAssets/Animations/Universal/Misc_Poses/MatchPose_Flak_B.MatchPose_Flak_B"));
-			}
-			else if (WeaponIndex % 6 == 4)
-			{
+				break;
+			case 4:
 				PlayerPreviewAnim = LoadObject<UAnimationAsset>(NULL, TEXT("/Game/RestrictedAssets/Animations/Universal/Misc_Poses/MatchPose_Flak.MatchPose_Flak"));
+				break;
+			case 0:
+			case 3:
+			case 5:
+			default:
+				PlayerPreviewAnim = LoadObject<UAnimationAsset>(NULL, TEXT("/Game/RestrictedAssets/Animations/Universal/Misc_Poses/MatchPose_ShockRifle.MatchPose_ShockRifle"));
 			}
 		}
 
