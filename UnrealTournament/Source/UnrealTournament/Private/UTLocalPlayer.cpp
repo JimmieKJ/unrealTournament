@@ -3377,6 +3377,7 @@ void UUTLocalPlayer::SkullPickedUp()
 {
 	if (CurrentProfileSettings)
 	{
+		CurrentProfileSettings->bNeedProfileWriteOnLevelChange = true;
 		CurrentProfileSettings->SkullCount++;
 		if (CurrentProfileSettings->SkullCount > 200)
 		{

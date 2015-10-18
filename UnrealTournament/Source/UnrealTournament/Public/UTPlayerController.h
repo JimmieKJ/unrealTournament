@@ -804,6 +804,15 @@ public:
 	UFUNCTION(BlueprintCallable, Category = PlayerController)
 	virtual void SkullPickedUp();
 
+	UFUNCTION(client, reliable)
+	void ClientSkullPickedUp();
+
+	UFUNCTION(BlueprintCallable, Category = PlayerController)
+	virtual void PumpkinPickedUp(float GainedAmount, float GoalAmount);
+
+	UFUNCTION(client, reliable)
+	void ClientPumpkinPickedUp(float GainedAmount, float GoalAmount);
+
 protected:
 	int32 ParseWeaponBind(FString ActionName);
 	FString FixedupKeyname(FString KeyName);
