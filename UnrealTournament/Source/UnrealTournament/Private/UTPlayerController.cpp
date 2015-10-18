@@ -3387,11 +3387,31 @@ void AUTPlayerController::ResolveKeybind(FString Command, TArray<FString>& Keys,
 
 void AUTPlayerController::SkullPickedUp()
 {
+	ClientSkullPickedUp();
+}
+
+void AUTPlayerController::ClientSkullPickedUp_Implementation()
+{
 	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
 	if (LP)
 	{
 		LP->SkullPickedUp();
 	}
+}
+
+void AUTPlayerController::PumpkinPickedUp(float GainedAmount, float GoalAmount)
+{
+	ClientPumpkinPickedUp(GainedAmount, GoalAmount);
+}
+
+void AUTPlayerController::ClientPumpkinPickedUp_Implementation(float GainedAmount, float GoalAmount)
+{
+	static FName FacePumpkins(TEXT("FacePumpkins"));
+	float TotalPumpkins = 0.0f;
+	UUTGameplayStatics::GetBestTime(GetWorld(), FacePumpkins, TotalPumpkins);
+	TotalPumpkins += GainedAmount;
+	TotalPumpkins = FMath::Min(GoalAmount, TotalPumpkins);
+	UUTGameplayStatics::SetBestTime(GetWorld(), FacePumpkins, TotalPumpkins);
 }
 
 void AUTPlayerController::DebugTest(FString TestCommand)
