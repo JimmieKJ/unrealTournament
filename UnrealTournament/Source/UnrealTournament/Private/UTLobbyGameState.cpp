@@ -985,7 +985,7 @@ AUTLobbyMatchInfo* AUTLobbyGameState::FindMatch(FGuid MatchID)
 	return NULL;
 }
 
-void AUTLobbyGameState::HandleQuickplayRequest(AUTServerBeaconClient* Beacon, const FString& MatchType, int32 ELORank)
+void AUTLobbyGameState::HandleQuickplayRequest(AUTServerBeaconClient* Beacon, const FString& MatchType, int32 ELORank, bool bBeginner)
 {
 	// Look through all available matches and see if there is 
 
@@ -1079,6 +1079,13 @@ void AUTLobbyGameState::HandleQuickplayRequest(AUTServerBeaconClient* Beacon, co
 			NewMatchInfo->NotifyBeacons.Add(Beacon);
 			NewMatchInfo->bJoinAnytime = true;
 			NewMatchInfo->bSpectatable = true;
+
+			if (!bTrainingGround && bBeginner)
+			{
+				NewMatchInfo->bRankLocked = true;
+				NewMatchInfo->AverageRank = ELORank;
+			}
+
 			NewMatchInfo->LaunchMatch(true,1);
 		}
 	}

@@ -227,7 +227,7 @@ protected:
 	virtual bool AddDedicatedInstance(FGuid InstanceGUID, const FString& AccessKey, const FString& ServerName, const FString& ServerGameMode, const FString& ServerDescription, int32 MaxPlayers, bool bTeamGame);
 	void FillOutRconPlayerList(TArray<FRconPlayerData>& PlayerList);
 public:
-	virtual void HandleQuickplayRequest(AUTServerBeaconClient* Beacon, const FString& MatchType, int32 ELORank);
+	virtual void HandleQuickplayRequest(AUTServerBeaconClient* Beacon, const FString& MatchType, int32 ELORank, bool bBeginner);
 
 	// Sets a limit on the # of spectators allowed in an instance
 	UPROPERTY(Config)
