@@ -164,7 +164,7 @@ TSharedRef<SWidget> SUTXPBar::BuildBreakdownWidget(TAttribute<FText> TextAttribu
 
 FText SUTXPBar::GetLevelText() const
 {
-	int32 CurrentXP = FMath::Max(GetXP() - GetXPBreakdown().Total(), 0) + (int32)InterpXP;
+	int32 CurrentXP = FMath::Max(GetXP() - GetXPBreakdown().Total(), 0.f) + InterpXP;
 	int32 Level = GetLevelForXP(CurrentXP);
 	return FText::Format(NSLOCTEXT("SUTXPBar", "LevelNum", " Level {0} "), FText::AsNumber(Level));
 }
@@ -221,23 +221,23 @@ FText SUTXPBar::GetBreakdownText_ChallengeXP() const
 
 FText SUTXPBar::GetGainedXPText() const
 {
-	if (InterpXP > 0)
+	if (InterpXP > 0.f)
 	{
-		return FText::Format(NSLOCTEXT("SUTXPBar", "XPGained", " +{0} XP Gained "), FText::AsNumber((int32)InterpXP));
+		return FText::Format(NSLOCTEXT("SUTXPBar", "XPGained", " +{0} XP Gained "), FText::AsNumber(int32(InterpXP)));
 	}
 	return FText::GetEmpty();
 }
 
 FText SUTXPBar::GetCurrentXPText() const
 {
-	int32 CurrentXP = FMath::Max(GetXP() - GetXPBreakdown().Total(), 0) + (int32)InterpXP;
+	int32 CurrentXP = FMath::Max(GetXP() - GetXPBreakdown().Total(), 0.f) + InterpXP;
 	int32 NextLevelXP = GetXPForLevel(GetLevelForXP(CurrentXP)) - CurrentXP;
 	return FText::Format(NSLOCTEXT("SUTXPBar", "CurrentXP", " {0} XP "), (NextLevelXP > 0) ? FText::AsNumber(CurrentXP) : FText::AsNumber(GetXP()));
 }
 
 FText SUTXPBar::GetRemainingXPText() const
 {
-	int32 CurrentXP = FMath::Max(GetXP() - GetXPBreakdown().Total(), 0) + (int32)InterpXP;
+	int32 CurrentXP = FMath::Max(GetXP() - GetXPBreakdown().Total(), 0.f) + InterpXP;
 	int32 NextLevelXP = GetXPForLevel(GetLevelForXP(CurrentXP)) - CurrentXP;
 	if (NextLevelXP > 0)
 	{
@@ -261,7 +261,7 @@ FMargin SUTXPBar::GetBreakdownMargin() const
 	return FMargin(4.f + ((1-InterpAlpha) * 1000.0f), 2.f);
 }
 
-int32 SUTXPBar::GetXP() const
+float SUTXPBar::GetXP() const
 {
 	if (PlayerOwner.IsValid())
 	{
@@ -275,7 +275,7 @@ int32 SUTXPBar::GetXP() const
 			return PlayerOwner->GetProfileSettings()->LocalXP;
 		}
 	}
-	return 0;
+	return 0.f;
 }
 
 FXPBreakdown SUTXPBar::GetXPBreakdown() const
@@ -295,7 +295,7 @@ void SUTXPBar::Tick(const FGeometry& AllottedGeometry, const double InCurrentTim
 	if (PlayerOwner.IsValid() && PlayerOwner->GetWorld() != nullptr)
 	{
 		FXPBreakdown XPBreakdown = GetXPBreakdown();
-		float OldXP = FMath::Max(GetXP() - XPBreakdown.Total(), 0);
+		float OldXP = FMath::Max(GetXP() - XPBreakdown.Total(), 0.f);
 		int32 OldLevel = GetLevelForXP(OldXP + InterpXP);
 
 		//Easeout interp xp bar fillup
@@ -303,7 +303,7 @@ void SUTXPBar::Tick(const FGeometry& AllottedGeometry, const double InCurrentTim
 		InterpAlpha = FMath::Clamp(InterpTime / XP_ANIM_TIME, 0.0f, 1.0f);
 		InterpAlpha = 1 - (1 - InterpAlpha) * (1 - InterpAlpha) * (1 - InterpAlpha);
 
-		InterpXP = GetXPBreakdown().Total() * InterpAlpha;
+		InterpXP = XPBreakdown.Total() * InterpAlpha;
 		int32 NewLevel = GetLevelForXP(OldXP + InterpXP);
 
 		//New level gained
@@ -386,11 +386,10 @@ int32 SUTXPBar::OnPaint(const FPaintArgs& Args, const FGeometry& AllottedGeometr
 
 	//This assumes that the new XP has already been added to the local player
 	FXPBreakdown XPBreakdown = GetXPBreakdown();
-	float OldXP = FMath::Max(GetXP() - XPBreakdown.Total(), 0);
+	float OldXP = FMath::Max(GetXP() - XPBreakdown.Total(), 0.f);
 	float CurrentXP = OldXP + InterpXP;
 	int32 Level = GetLevelForXP(CurrentXP);
-
-	int32 NextLevelXP = GetXPForLevel(GetLevelForXP(CurrentXP)) - CurrentXP;
+	int32 NextLevelXP = GetXPForLevel(Level+1) - CurrentXP;
 	if (NextLevelXP > 0)
 	{
 		//Draw the XP that was there before match end

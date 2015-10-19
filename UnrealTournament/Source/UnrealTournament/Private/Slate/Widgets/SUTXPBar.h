@@ -54,7 +54,7 @@ protected:
 
 	FMargin GetBreakdownMargin() const;
 	TOptional<FSlateRenderTransform> GetLevelTransform() const;
-	int32 GetXP() const;
+	float GetXP() const;
 	FXPBreakdown GetXPBreakdown() const;
 
 	virtual void OnLevelUp(int32 NewLevel);

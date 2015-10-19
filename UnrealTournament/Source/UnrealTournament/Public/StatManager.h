@@ -75,7 +75,7 @@ struct FXPBreakdown
 		float ChallengeXP;
 
 	/** returns sum of all XP awards */
-	inline int32 Total() const
+	inline float Total() const
 	{
 		return ScoreXP + KillAwardXP + OffenseXP + DefenseXP + ChallengeXP;
 	}
