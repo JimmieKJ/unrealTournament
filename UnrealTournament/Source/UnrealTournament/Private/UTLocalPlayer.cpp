@@ -3416,7 +3416,8 @@ void UUTLocalPlayer::ChallengeCompleted(FName ChallengeTag, int32 Stars)
 		}
 		if (!bFound)
 		{
-			CurrentProfileSettings->ChallengeResults.Add(FUTChallengeResult(ChallengeTag,Stars));
+			EarnedStars = Stars;
+			CurrentProfileSettings->ChallengeResults.Add(FUTChallengeResult(ChallengeTag, Stars));
 		}
 
 		// Look up the Challenge info for this challenge...
