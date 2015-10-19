@@ -1805,8 +1805,8 @@ TSharedRef<SWidget> AUTPlayerState::BuildRankInfo()
 		];
 		
 		int32 Level = GetLevelForXP(PrevXP);
-		int32 LevelXPStart = GetXPForLevel(Level - 1);
-		int32 LevelXPEnd = GetXPForLevel(Level);
+		int32 LevelXPStart = GetXPForLevel(Level);
+		int32 LevelXPEnd = GetXPForLevel(Level+1);
 		int32 LevelXPRange = LevelXPEnd - LevelXPStart;
 
 		FText TooltipXP = FText::Format(NSLOCTEXT("AUTPlayerState", "XPTooltipCap", " {0} XP"), FText::AsNumber(FMath::Max(0,PrevXP)));
