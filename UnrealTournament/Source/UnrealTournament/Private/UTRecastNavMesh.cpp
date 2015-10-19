@@ -2724,7 +2724,7 @@ void AUTRecastNavMesh::AddToNavigation(AActor* NewPOI)
 		}
 		else
 		{
-			UE_LOG(UT, Warning, TEXT("Failed to add %s to path network: no nearby navigable area was found"), *NewPOI->GetName());
+			//UE_LOG(UT, Warning, TEXT("Failed to add %s to path network: no nearby navigable area was found (location: %s)"), *NewPOI->GetName(), *NewPOI->GetActorLocation().ToString());
 		}
 	}
 }
