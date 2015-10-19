@@ -13,7 +13,7 @@ UUTChallengeManager::UUTChallengeManager(const FObjectInitializer& ObjectInitial
 : Super(ObjectInitializer)
 {
 	// @TODO FIXMESTEVE make this a blueprint
-	XPBonus = 250;
+	XPBonus = 150;
 
 	// player team roster, includes roster upgrades
 	PlayerTeamRoster = FTeamRoster(NSLOCTEXT("Challenges","PlayersTeamRoster","Players Team"));

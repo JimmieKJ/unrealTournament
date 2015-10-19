@@ -1745,7 +1745,7 @@ void AUTGameMode::AwardXP()
 					TWeakObjectPtr<UUTChallengeManager> ChallengeManager = Cast<UUTGameEngine>(GEngine)->GetChallengeManager();
 					if (LP && ChallengeManager.IsValid())
 					{
-						UTPS->GiveXP(FNewChallengeXP(ChallengeManager->XPBonus * LP->EarnedStars/XPMultiplier));
+						UTPS->GiveXP(FNewChallengeXP(ChallengeManager->XPBonus * float(LP->EarnedStars) / XPMultiplier));
 					}
 				}
 				if (bXPCheatEnabled)
