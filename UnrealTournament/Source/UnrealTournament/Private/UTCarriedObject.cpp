@@ -110,12 +110,17 @@ void AUTCarriedObject::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* O
 	if (!bIsDropping)
 	{
 		AUTCharacter* Character = Cast<AUTCharacter>(OtherActor);
-		// we need to make sure the character's collision is still in the OverlappingComponents list; we might have been returned by a previous touch that would invalidate subsequent touches
-		// this doesn't actually check against the collision geometry so it's safe against large movements that pass entirely through us
-		if ( Character != NULL && Collision->IsOverlappingActor(OtherActor) &&
-			!GetWorld()->LineTraceTestByChannel(OtherActor->GetActorLocation(), GetActorLocation(), ECC_Pawn, FCollisionQueryParams(), WorldResponseParams) )
+		if (Character != NULL && !GetWorld()->LineTraceTestByChannel(OtherActor->GetActorLocation(), GetActorLocation(), ECC_Pawn, FCollisionQueryParams(), WorldResponseParams))
 		{
-			TryPickup(Character);
+			// FIXME: hack workaround for instant cap bug
+			if ((Character->GetActorLocation() - GetActorLocation()).Size2D() > (Character->GetSimpleCollisionRadius() + GetSimpleCollisionRadius()) * 4.0f + Character->GetCharacterMovement()->GetMaxSpeed() / 30.0f)
+			{
+				UE_LOG(UT, Error, TEXT("Preventing insta-cap bug! Character location %s my location %s my state %s"), *Character->GetActorLocation().ToString(), *GetActorLocation().ToString(), *ObjectState.ToString());
+			}
+			else
+			{
+				TryPickup(Character);
+			}
 		}
 	}
 }
@@ -405,6 +410,7 @@ void AUTCarriedObject::TossObject(AUTCharacter* ObjectHolder)
 	if (ObjectState == CarriedObjectState::Dropped)
 	{
 		// make sure no other players are touching the flag and should cause it to change state immediately
+		Collision->UpdateOverlaps();
 		TArray<AActor*> Touching;
 		GetOverlappingActors(Touching, APawn::StaticClass());
 		for (AActor* Touched : Touching)
@@ -488,7 +494,6 @@ void AUTCarriedObject::MoveToHome()
 		const FVector BaseLocation = HomeBase->GetActorLocation() + HomeBase->GetActorRotation().RotateVector(HomeBaseOffset) + FVector(0.f, 0.f, Collision->GetScaledCapsuleHalfHeight());
 		MovementComponent->Velocity = FVector(0.0f,0.0f,0.0f);
 		SetActorLocationAndRotation(BaseLocation, HomeBase->GetActorRotation());
-		ensure((GetActorLocation() - BaseLocation).Size() < 1.0f);
 		ForceNetUpdate();
 	}
 }
@@ -499,7 +504,6 @@ void AUTCarriedObject::Score_Implementation(FName Reason, AUTCharacter* ScoringP
 	AUTGameMode* Game = GetWorld()->GetAuthGameMode<AUTGameMode>();
 	if (Game != NULL)
 	{
-
 		Game->ScoreObject(this, ScoringPawn, ScoringPS, Reason);
 	}
 	SendHome();
