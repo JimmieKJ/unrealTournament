@@ -1947,10 +1947,10 @@ TSharedRef<SWidget> AUTPlayerState::BuildRankInfo()
 
 		];
 
-		AUTPlayerController* PC = Cast<AUTPlayerController>(GetOwner());
+		AUTBasePlayerController* PC = Cast<AUTBasePlayerController>(GetOwner());
 		if (PC)
 		{
-			UUTLocalPlayer* LP = PC->GetUTLocalPlayer();
+			UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(PC->Player);
 			if (LP && LP->GetProfileSettings() && LP->GetProfileSettings()->SkullCount > 0)
 			{				
 				VBox->AddSlot()
