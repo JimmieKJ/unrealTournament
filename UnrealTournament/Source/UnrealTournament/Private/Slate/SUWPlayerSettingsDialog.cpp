@@ -778,7 +778,7 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 			if (LeaderHatPathList[i] == GetPlayerOwner()->GetLeaderHatPath())
 			{
 				LeaderHatComboBox->SetSelectedItem(LeaderHatList[i]);
-				bFoundSelectedHat = true;
+				bFoundSelectedLeaderHat = true;
 				break;
 			}
 		}
