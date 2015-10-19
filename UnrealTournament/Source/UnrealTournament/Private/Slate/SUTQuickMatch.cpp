@@ -328,19 +328,9 @@ void SUTQuickMatch::OnServerBeaconResult(AUTServerBeaconClient* Sender, FServerB
 	{
 		if (PingTrackers[i].Beacon == Sender)
 		{
-
-			// Throw out non-epic hubs
-
-			if (PingTrackers[i].Server->ServerTrustLevel > 0)
-			{
-				PingTrackers.RemoveAt(i, 1);
-				break;
-			}
-
-			// Discard training ground hubs if the player isn't a beginner and discard non-training ground hubs if they are one
-			else if ( (!bIsBeginner && PingTrackers[i].Server->bServerIsTrainingGround) ||
-				 (bIsBeginner && !PingTrackers[i].Server->bServerIsTrainingGround) )
-			{
+			// Discard training ground hubs if the player isn't a beginner
+			if ( !bIsBeginner && PingTrackers[i].Server->bServerIsTrainingGround) 
+				 			{
 				PingTrackers.RemoveAt(i, 1);
 				break;
 			}
@@ -354,14 +344,15 @@ void SUTQuickMatch::OnServerBeaconResult(AUTServerBeaconClient* Sender, FServerB
 				for (int32 Idx=0; Idx < FinalList.Num(); Idx++)
 				{
 					if ( (!FinalList[Idx]->bServerIsTrainingGround && bIsBeginner && PingTrackers[i].Server->bServerIsTrainingGround) ||			
-						 (FinalList[Idx]->ServerTrustLevel < PingTrackers[i].Server->ServerTrustLevel) ||											
+						 (FinalList[Idx]->ServerTrustLevel > PingTrackers[i].Server->ServerTrustLevel) ||											
 						 (FinalList[Idx]->Ping > Sender->Ping) )
 					{
 						// Insert here..
 
 						FinalList.Insert(PingTrackers[i].Server, Idx);
 						bInserted = true;
-						break;					}
+						break;					
+					}
 				}
 
 				PingTrackers[i].Server->bHasFriends = HasFriendsInInstances(Sender->Instances, PlayerOwner);
@@ -420,16 +411,6 @@ void SUTQuickMatch::FindBestMatch()
 			}
 		}
 
-		// Now reject any servers outside of our tolerance
-
-		for (int32 i = FinalList.Num()-1; i >=0 ; i--)
-		{
-			if (FinalList[i]->Ping >=  BestPing->Ping * 2)			
-			{
-				FinalList.RemoveAt(i);
-			}
-		}
-
 		// find the best server with friends on it.
 		for (int32 i=1;i<FinalList.Num();i++)
 		{
@@ -452,6 +433,7 @@ void SUTQuickMatch::FindBestMatch()
 	}
 	else
 	{
+		UE_LOG(UT,Log,TEXT("No more hubs to try and connect to!"));
 		NoAvailableMatches();
 	}
 }
@@ -584,7 +566,7 @@ void SUTQuickMatch::AttemptQuickMatch()
 	HubResponseWaitTime = 0.0;
 
 	BestServer->Beacon->OnRequestQuickplay = FServerRequestQuickplayDelegate::CreateSP(this, & SUTQuickMatch::RequestQuickPlayResults);
-	BestServer->Beacon->ServerRequestQuickplay(QuickMatchType, GetPlayerOwner()->GetBaseELORank());
+	BestServer->Beacon->ServerRequestQuickplay(QuickMatchType, GetPlayerOwner()->GetBaseELORank(), GetPlayerOwner()->IsConsideredABeginnner());
 }
 
 

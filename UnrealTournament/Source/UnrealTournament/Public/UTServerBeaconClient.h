@@ -87,7 +87,7 @@ class UNREALTOURNAMENT_API AUTServerBeaconClient : public AOnlineBeaconClient
 	// Asks the hub if this client can get added to a quick play session.  This will be called because
 	// the quickplay manager has decided this server is the best match.  The server will respond with one of the 3 functions below.
 	UFUNCTION(server, reliable, withvalidation)
-	virtual void ServerRequestQuickplay(const FString& MatchType, int32 ELORank);
+	virtual void ServerRequestQuickplay(const FString& MatchType, int32 ELORank, bool bBeginner);
 
 	// If no quick play matches are available, let the client know to pick a new server.  This can occur if all of the available instances
 	// are taken on a hub.  
