@@ -965,6 +965,11 @@ void AUTBot::UpdateMovementOptions()
 	}
 
 	ConsiderTranslocation();
+	// ConsiderTranslocation() may call StopFiring() -> could result in suicide
+	if (GetPawn() == NULL)
+	{
+		return;
+	}
 
 	// if moving evasively, check if should dodge to move target
 	if ( bUseSerpentineMovement && Skill >= 3.0f && GetUTChar() != NULL && MoveTarget.IsValid() && (CurrentPath.IsSet() || (Enemy != NULL && MoveTarget.Actor.Get() == Enemy)) && CurrentPath.Spec.Get() == NULL && CurrentPath.ReachFlags == 0 &&
