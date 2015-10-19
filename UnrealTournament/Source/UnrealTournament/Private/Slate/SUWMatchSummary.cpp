@@ -824,7 +824,7 @@ void SUWMatchSummary::SetupIntroCam()
 
 	//Play the intro music
 	AUTPlayerController* UTPC = Cast<AUTPlayerController>(GetPlayerOwner()->PlayerController);
-	USoundBase* Music = LoadObject<USoundBase>(NULL, TEXT("/Game/RestrictedAssets/Audio/Music/FragCenterIntro.FragCenterIntro"), NULL, LOAD_NoWarn | LOAD_Quiet);
+	USoundBase* Music = LoadObject<USoundBase>(NULL, TEXT("/Game/RestrictedAssets/Audio/Music/Music_FragCenterIntro.Music_FragCenterIntro"), NULL, LOAD_NoWarn | LOAD_Quiet);
 	if (UTPC != nullptr && Music != nullptr)
 	{
 		UTPC->ClientPlaySound(Music);
