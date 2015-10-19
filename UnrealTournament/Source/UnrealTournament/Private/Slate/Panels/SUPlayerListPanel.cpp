@@ -522,6 +522,7 @@ void SUPlayerListPanel::Tick( const FGeometry& AllottedGeometry, const double In
 						if (UTPlayerState)
 						{
 							TrackedPlayers[Idx]->Avatar = UTPlayerState->Avatar;
+							TrackedPlayers[Idx]->bInInstance = false;
 						}
 					}
 					else if (PlayerState && !PlayerState->bPendingKillPending)
@@ -544,7 +545,7 @@ void SUPlayerListPanel::Tick( const FGeometry& AllottedGeometry, const double In
 			for (int32 i = 0; i < LobbyGameState->AvailableMatches.Num(); i++)
 			{
 				AUTLobbyMatchInfo* MatchInfo = LobbyGameState->AvailableMatches[i];
-				if (MatchInfo)			
+				if (MatchInfo && MatchInfo->CurrentState != ELobbyMatchState::Returning && MatchInfo->CurrentState != ELobbyMatchState::Recycling)			
 				{
 					for (int32 j = 0; j < MatchInfo->PlayersInMatchInstance.Num(); j++)					
 					{
