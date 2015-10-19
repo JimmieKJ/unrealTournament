@@ -153,7 +153,7 @@ void UUTGameInstance::RedirectResult(TSharedPtr<SCompoundWidget> Widget, uint16 
 		LastTriedDemo.Empty();
 		bRetriedDemoAfterRedirects = false;
 	}
-	else if (ActiveRedirectDialogs.Num() == 0 && !bRetriedDemoAfterRedirects)
+	else if (ActiveRedirectDialogs.Num() == 0 && !bRetriedDemoAfterRedirects && !LastTriedDemo.IsEmpty())
 	{
 		bRetriedDemoAfterRedirects = true;
 		GEngine->Exec(GetWorld(), *FString::Printf(TEXT("DEMOPLAY %s"), *LastTriedDemo));
