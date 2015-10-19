@@ -1336,7 +1336,9 @@ bool UPrimitiveComponent::MoveComponentImpl( const FVector& Delta, const FQuat& 
 
 	// static things can move before they are registered (e.g. immediately after streaming), but not after.
 	static const FText WarnText = LOCTEXT("InvalidMove", "move");
-	if (CheckStaticMobilityAndWarn(WarnText))
+	// don't warn if the component isn't really moving
+	// this happens when spawning from blueprints
+	if (Mobility != EComponentMobility::Movable && ((Delta.IsZero() && NewRotationQuat.Equals(ComponentToWorld.GetRotation())) || CheckStaticMobilityAndWarn(WarnText)))
 	{
 		if (OutHit)
 		{
