@@ -994,6 +994,7 @@ void UUTGameViewportClient::HttpRequestComplete(FHttpRequestPtr HttpRequest, FHt
 				{
 					FCoreDelegates::OnMountPak.Execute(FullFilePath, 0);
 					UTEngine->MountedDownloadedContentChecksums.Add(BaseFilename, MD5);
+					UTEngine->AddAssetRegistry(BaseFilename);
 				}
 			}
 		}
