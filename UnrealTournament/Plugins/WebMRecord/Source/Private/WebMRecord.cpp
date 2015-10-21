@@ -1246,6 +1246,9 @@ void FCaptureAudioWorker::InitAudioLoopback()
 				hr = AudioClient->GetMixFormat(&WFX);
 				if (hr == S_OK)
 				{
+					// Force sample rate to 44.1kHz
+					WFX->nSamplesPerSec = 44100;
+
 					// May need to create a silent audio stream to work around an issue from 2008, hopefully not anymore
 					// https://social.msdn.microsoft.com/Forums/windowsdesktop/en-US/c7ba0a04-46ce-43ff-ad15-ce8932c00171/loopback-recording-causes-digital-stuttering?forum=windowspro-audiodevelopment
 
