@@ -757,6 +757,16 @@ void UUTGameViewportClient::Tick(float DeltaSeconds)
 	}
 
 	UpdateRedirects(DeltaSeconds);
+
+	UUTLocalPlayer* FirstPlayer = Cast<UUTLocalPlayer>(GEngine->GetLocalPlayerFromControllerId(this, 0));	// Grab the first local player.
+	if (FirstPlayer && FirstPlayer->SkipWorldRender())
+	{
+		GEngine->GameViewport->bDisableWorldRendering = true;
+	}
+	else
+	{
+		GEngine->GameViewport->bDisableWorldRendering = false;
+	}
 }
 
 void UUTGameViewportClient::UpdateRedirects(float DeltaTime)

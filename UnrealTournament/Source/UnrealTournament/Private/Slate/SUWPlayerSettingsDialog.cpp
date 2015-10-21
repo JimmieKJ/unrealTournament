@@ -57,6 +57,8 @@ void SUWPlayerSettingsDialog::Construct(const FArguments& InArgs)
 	bSpinPlayer = true;
 	bLeaderHatSelectedLast = false;
 
+	bSkipWorldRender = true;
+
 	CameraLocations.Add(FVector(-100.0f, -40, -90));
 	CameraLocations.Add(FVector(0.0f, -55, -60));
 	CameraLocations.Add(FVector(400.0f, -140, -50));

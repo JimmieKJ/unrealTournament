@@ -278,6 +278,7 @@ public:
 	 **/
 	virtual void RemoveChatArchiveChangedDelegate(FDelegateHandle DelegateHandle);
 
+	virtual bool SkipWorldRender();
 
 #if !UE_SERVER
 	virtual void ToastCompleted();

@@ -2698,10 +2698,7 @@ void UUTLocalPlayer::OpenMatchSummary(AUTGameState* GameState)
 		CloseMatchSummary();
 	}
 	SAssignNew(MatchSummaryWindow, SUWMatchSummary).PlayerOwner(this).GameState(GameState);
-
-	//Disable world rendering since this is a fullscreen widget with a render target
-	GEngine->GameViewport->bDisableWorldRendering = true;
-
+	
 	UUTGameViewportClient* UTGVC = Cast<UUTGameViewportClient>(GEngine->GameViewport);
 	if (MatchSummaryWindow.IsValid() && UTGVC != nullptr)
 	{
@@ -2721,10 +2718,7 @@ void UUTLocalPlayer::CloseMatchSummary()
 	{
 		UTGVC->RemoveViewportWidgetContent(MatchSummaryWindow.ToSharedRef());
 		MatchSummaryWindow.Reset();
-
-		//Enable rendering again
-		GEngine->GameViewport->bDisableWorldRendering = false;
-
+		
 		//Since we use SUInGameHomePanel for the time being for chat, we need to clear bForceScores
 		AUTPlayerController* PC = Cast<AUTPlayerController>(PlayerController);
 		if (PC && PC->MyUTHUD)
@@ -3628,4 +3622,21 @@ int32 UUTLocalPlayer::NumDialogsOpened()
 }
 #endif
 
+bool UUTLocalPlayer::SkipWorldRender()
+{
+#if !UE_SERVER
+	if (MatchSummaryWindow.IsValid())
+	{
+		return true;
+	}
 
+	for (auto& Dialog : OpenDialogs)
+	{
+		if (Dialog.IsValid() && Dialog.Get()->bSkipWorldRender)
+		{
+			return true;
+		}
+	}
+#endif
+	return false;
+}
