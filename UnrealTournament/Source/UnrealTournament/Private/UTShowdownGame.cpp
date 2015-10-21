@@ -42,6 +42,12 @@ void AUTShowdownGame::InitGame(const FString& MapName, const FString& Options, F
 	bXRayBreaker = EvalBoolOptions(ParseOption(Options, TEXT("XRayBreaker")), bXRayBreaker);
 	bPowerupBreaker = EvalBoolOptions(ParseOption(Options, TEXT("PowerupBreaker")), bPowerupBreaker);
 	bBroadcastPlayerHealth = EvalBoolOptions(ParseOption(Options, TEXT("BroadcastPlayerHealth")), bBroadcastPlayerHealth);
+
+	// this game mode requires a goal score
+	if (GoalScore <= 0)
+	{
+		GoalScore = 5;
+	}
 }
 
 void AUTShowdownGame::InitGameState()
