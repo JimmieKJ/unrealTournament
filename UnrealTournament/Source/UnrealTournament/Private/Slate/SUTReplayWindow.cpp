@@ -1195,6 +1195,9 @@ void SUTReplayWindow::BookmarkDataReady(const TArray<uint8>& Data, bool bSucceed
 				StringData.ParseIntoArray(Parsed, TEXT(" "), true);
 				if (Parsed.Num() >= 2)
 				{
+					Parsed[0].ReplaceInline(TEXT("%20"), TEXT(" "));
+					Parsed[1].ReplaceInline(TEXT("%20"), TEXT(" "));
+
 					StringData = Parsed[0] + TEXT(" killed ") + Parsed[1];
 				}
 			}
@@ -1204,11 +1207,14 @@ void SUTReplayWindow::BookmarkDataReady(const TArray<uint8>& Data, bool bSucceed
 				StringData.ParseIntoArray(Parsed, TEXT(" "), true);
 				if (Parsed.Num() >= 1)
 				{
+					Parsed[0].ReplaceInline(TEXT("%20"), TEXT(" "));
 					StringData = Parsed[0];
 				}
 				
 				if (Parsed.Num() >= 2)
 				{
+					Parsed[0].ReplaceInline(TEXT("%20"), TEXT(" "));
+
 					if (Parsed[1] == TEXT("0"))
 					{
 						StringData = TEXT("Double Kill: ") + Parsed[0];
@@ -1234,6 +1240,8 @@ void SUTReplayWindow::BookmarkDataReady(const TArray<uint8>& Data, bool bSucceed
 				StringData.ParseIntoArray(Parsed, TEXT(" "), true);
 				if (Parsed.Num() >= 2)
 				{
+					Parsed[0].ReplaceInline(TEXT("%20"), TEXT(" "));
+
 					if (Parsed[1] == TEXT("0"))
 					{
 						StringData = TEXT("Killing Spree: ") + Parsed[0];

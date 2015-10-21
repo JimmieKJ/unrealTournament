@@ -1315,17 +1315,21 @@ void AUTGameMode::AddKillEventToReplay(AController* Killer, AController* Other, 
 	{
 		return;
 	}
-
+	
 	UDemoNetDriver* DemoNetDriver = GetWorld()->DemoNetDriver;
 	if (DemoNetDriver != nullptr && DemoNetDriver->ServerConnection == nullptr)
 	{
 		AUTPlayerState* KillerPlayerState = Cast<AUTPlayerState>(Killer->PlayerState);
 		AUTPlayerState* OtherPlayerState = Cast<AUTPlayerState>(Other->PlayerState);
+
+		FString KillerName = KillerPlayerState ? *KillerPlayerState->PlayerName : TEXT("None");
+		FString VictimName = OtherPlayerState ? *OtherPlayerState->PlayerName : TEXT("None");
+
+		KillerName.ReplaceInline(TEXT(" "), TEXT("%20"));
+		VictimName.ReplaceInline(TEXT(" "), TEXT("%20"));
+
 		TArray<uint8> Data;
-		FString KillInfo = FString::Printf(TEXT("%s %s %s"),
-											KillerPlayerState ? *KillerPlayerState->PlayerName : TEXT("None"),
-											OtherPlayerState ? *OtherPlayerState->PlayerName : TEXT("None"),
-											*DamageType->GetName());
+		FString KillInfo = FString::Printf(TEXT("%s %s %s"), *KillerName, *VictimName, *DamageType->GetName());
 
 		FMemoryWriter MemoryWriter(Data);
 		MemoryWriter.Serialize(TCHAR_TO_ANSI(*KillInfo), KillInfo.Len() + 1);
@@ -1349,8 +1353,11 @@ void AUTGameMode::AddMultiKillEventToReplay(AController* Killer, int32 MultiKill
 	if (Killer && DemoNetDriver != nullptr && DemoNetDriver->ServerConnection == nullptr)
 	{
 		AUTPlayerState* KillerPlayerState = Cast<AUTPlayerState>(Killer->PlayerState);
+		FString KillerName = KillerPlayerState ? *KillerPlayerState->PlayerName : TEXT("None");
+		KillerName.ReplaceInline(TEXT(" "), TEXT("%20"));
+
 		TArray<uint8> Data;
-		FString KillInfo = FString::Printf(TEXT("%s %d"), KillerPlayerState ? *KillerPlayerState->PlayerName : TEXT("None"), MultiKillLevel);
+		FString KillInfo = FString::Printf(TEXT("%s %d"), *KillerName, MultiKillLevel);
 
 		FMemoryWriter MemoryWriter(Data);
 		MemoryWriter.Serialize(TCHAR_TO_ANSI(*KillInfo), KillInfo.Len() + 1);
@@ -1374,8 +1381,11 @@ void AUTGameMode::AddSpreeKillEventToReplay(AController* Killer, int32 SpreeLeve
 	if (Killer && DemoNetDriver != nullptr && DemoNetDriver->ServerConnection == nullptr)
 	{
 		AUTPlayerState* KillerPlayerState = Cast<AUTPlayerState>(Killer->PlayerState);
+		FString KillerName = KillerPlayerState ? *KillerPlayerState->PlayerName : TEXT("None");
+		KillerName.ReplaceInline(TEXT(" "), TEXT("%20"));
+
 		TArray<uint8> Data;
-		FString KillInfo = FString::Printf(TEXT("%s %d"), KillerPlayerState ? *KillerPlayerState->PlayerName : TEXT("None"), SpreeLevel);
+		FString KillInfo = FString::Printf(TEXT("%s %d"), *KillerName, SpreeLevel);
 
 		FMemoryWriter MemoryWriter(Data);
 		MemoryWriter.Serialize(TCHAR_TO_ANSI(*KillInfo), KillInfo.Len() + 1);
