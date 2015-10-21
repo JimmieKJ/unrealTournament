@@ -8,6 +8,8 @@
 #include "UTCTFRewardMessage.h"
 #include "UnrealNetwork.h"
 
+static FName NAME_Wipe(TEXT("Wipe"));
+
 AUTCTFFlag::AUTCTFFlag(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
@@ -29,6 +31,8 @@ AUTCTFFlag::AUTCTFFlag(const FObjectInitializer& ObjectInitializer)
 	MessageClass = UUTCTFGameMessage::StaticClass();
 	bAlwaysRelevant = true;
 	bTeamPickupSendsHome = true;
+	PrimaryActorTick.bCanEverTick = true;
+	PrimaryActorTick.bStartWithTickEnabled = true;
 
 	ClothBlendHome = 0.f;
 	ClothBlendHeld = 0.5f;
@@ -46,12 +50,16 @@ void AUTCTFFlag::OnConstruction(const FTransform& Transform)
 void AUTCTFFlag::PostInitializeComponents()
 {
 	Super::PostInitializeComponents();
-	if ((GetNetMode() == NM_DedicatedServer) || (GetCachedScalabilityCVars().DetailMode == 0))
+	if (GetNetMode() == NM_DedicatedServer || GetCachedScalabilityCVars().DetailMode == 0)
 	{
 		if (GetMesh())
 		{
 			GetMesh()->bDisableClothSimulation = true;
 		}
+	}
+	if (GetNetMode() != NM_DedicatedServer)
+	{
+		MeshMID = Mesh->CreateAndSetMaterialInstanceDynamic(1);
 	}
 }
 
@@ -136,6 +144,12 @@ void AUTCTFFlag::OnObjectStateChanged()
 	}
 }
 
+void AUTCTFFlag::SendHome()
+{
+	PlayReturnedEffects();
+	Super::SendHome();
+}
+
 void AUTCTFFlag::SendHomeWithNotify()
 {
 	SendGameMessage(1, NULL, NULL);
@@ -207,9 +221,77 @@ void AUTCTFFlag::DelayedDropMessage()
 	}
 }
 
+void AUTCTFFlag::PlayReturnedEffects()
+{
+	if (GetNetMode() != NM_DedicatedServer)
+	{
+		if (ReturnParamCurve != NULL)
+		{
+			ReturningMesh = DuplicateObject<USkeletalMeshComponent>(Mesh, this);
+			ReturningMesh->AttachParent = NULL;
+			ReturningMesh->RelativeLocation = Mesh->GetComponentLocation();
+			ReturningMesh->RelativeRotation = Mesh->GetComponentRotation();
+			ReturningMesh->RelativeScale3D = Mesh->GetComponentScale();
+			ReturningMeshMID = ReturningMesh->CreateAndSetMaterialInstanceDynamicFromMaterial(1, GetClass()->GetDefaultObject<AUTCTFFlag>()->Mesh->GetMaterial(1));
+			ReturningMeshMID->SetScalarParameterValue(NAME_Wipe, ReturnParamCurve->GetFloatValue(0.0f));
+			ReturningMesh->RegisterComponent();
+		}
+		UGameplayStatics::SpawnEmitterAtLocation(this, ReturnSrcEffect, GetActorLocation(), GetActorRotation());
+		if (HomeBase != NULL)
+		{
+			UGameplayStatics::SpawnEmitterAtLocation(this, ReturnDestEffect, GetHomeLocation(), HomeBase->GetActorRotation());
+		}
+	}
+}
+
+void AUTCTFFlag::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+
+	// tick return material effect
+	if (ReturningMeshMID != NULL)
+	{
+		ReturnEffectTime += DeltaTime;
+		float MinTime, MaxTime;
+		ReturnParamCurve->GetTimeRange(MinTime, MaxTime);
+		if (ReturnEffectTime >= MaxTime)
+		{
+			ReturningMesh->DestroyComponent(false);
+			ReturningMesh = NULL;
+			ReturningMeshMID = NULL;
+			MeshMID->SetScalarParameterValue(NAME_Wipe, 0.0f);
+			ReturnEffectTime = 0.0f;
+		}
+		else
+		{
+			const float Value = ReturnParamCurve->GetFloatValue(ReturnEffectTime);
+			ReturningMeshMID->SetScalarParameterValue(NAME_Wipe, Value);
+			MeshMID->SetScalarParameterValue(NAME_Wipe, 1.0f - Value);
+		}
+	}
+}
+
 void AUTCTFFlag::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
 	DOREPLIFETIME(AUTCTFFlag, CaptureEffectCount);
+}
+
+static FName SavedObjectState;
+
+void AUTCTFFlag::PreNetReceive()
+{
+	Super::PreNetReceive();
+
+	SavedObjectState = ObjectState;
+}
+
+void AUTCTFFlag::PostNetReceiveLocationAndRotation()
+{
+	if (ObjectState != SavedObjectState && ObjectState == CarriedObjectState::Home)
+	{
+		PlayReturnedEffects();
+	}
+	Super::PostNetReceiveLocationAndRotation();
 }

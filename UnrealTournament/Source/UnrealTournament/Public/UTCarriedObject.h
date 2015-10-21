@@ -148,11 +148,11 @@ class UNREALTOURNAMENT_API AUTCarriedObject : public AActor, public IUTTeamInter
 	 *	Drops the object in to the world and allows it to become a pickup.
 	 *  @Killer The controller that cause this object to be dropped
 	 **/
-	UFUNCTION(BlueprintCallable, Category = GameObject)
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = GameObject)
 	virtual void Drop(AController* Killer = NULL);
 
 	/**	Sends this object back to its base */
-	UFUNCTION(BlueprintCallable, Category = GameObject)
+	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category = GameObject)
 	virtual void SendHome();
 	virtual void SendHomeWithNotify();
 
@@ -258,6 +258,9 @@ protected:
 	/**	Called from both Drop and SendHome - cleans up the current holder.*/
 	UFUNCTION()
 	virtual void NoLongerHeld(AController* InstigatedBy = NULL);
+
+	/** return location for object when returning home */
+	virtual FVector GetHomeLocation() const;
 
 	/**	Move the flag to it's home base*/
 	UFUNCTION()

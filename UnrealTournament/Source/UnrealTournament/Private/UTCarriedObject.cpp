@@ -484,6 +484,19 @@ void AUTCarriedObject::SendHome()
 	MoveToHome();
 }
 
+FVector AUTCarriedObject::GetHomeLocation() const
+{
+	if (HomeBase == NULL)
+	{
+		UE_LOG(UT, Warning, TEXT("Carried object querying home location with no home"), *GetName());
+		return GetActorLocation();
+	}
+	else
+	{
+		return HomeBase->GetActorLocation() + HomeBase->GetActorRotation().RotateVector(HomeBaseOffset) + FVector(0.f, 0.f, Collision->GetScaledCapsuleHalfHeight());
+	}
+}
+
 void AUTCarriedObject::MoveToHome()
 {
 	DetachRootComponentFromParent(true);
@@ -491,9 +504,8 @@ void AUTCarriedObject::MoveToHome()
 	HolderRescuers.Empty();
 	if (HomeBase != NULL)
 	{
-		const FVector BaseLocation = HomeBase->GetActorLocation() + HomeBase->GetActorRotation().RotateVector(HomeBaseOffset) + FVector(0.f, 0.f, Collision->GetScaledCapsuleHalfHeight());
 		MovementComponent->Velocity = FVector(0.0f,0.0f,0.0f);
-		SetActorLocationAndRotation(BaseLocation, HomeBase->GetActorRotation());
+		SetActorLocationAndRotation(GetHomeLocation(), HomeBase->GetActorRotation());
 		ForceNetUpdate();
 	}
 }
