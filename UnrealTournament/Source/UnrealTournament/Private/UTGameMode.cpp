@@ -2900,6 +2900,9 @@ void AUTGameMode::PostLogin( APlayerController* NewPlayer )
 
 	CheckBotCount();
 
+	// Check if a (re)joining player is the leader
+	FindAndMarkHighScorer();
+
 	HUDClass = SavedHUDClass;
 }
 
