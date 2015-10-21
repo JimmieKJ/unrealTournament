@@ -233,7 +233,7 @@ void AUTShowdownGame::ScoreExpiredRoundTime()
 			}
 		}
 	}
-	if (bTied)
+	if (bTied || RoundWinner == NULL)
 	{
 		// both players score a point
 		for (AUTPlayerState* PS : AlivePlayers)
