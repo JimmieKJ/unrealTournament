@@ -158,6 +158,7 @@ void UUTGameUserSettings::SetAAMode(int32 NewAAMode)
 {
 	AAMode = NewAAMode;
 	auto AAModeCVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.PostProcessAAQuality"));
+	AAModeCVar->ClearFlags(EConsoleVariableFlags::ECVF_SetBySystemSettingsIni);
 	AAModeCVar->Set(AAMode, ECVF_SetByGameSetting);
 }
 
