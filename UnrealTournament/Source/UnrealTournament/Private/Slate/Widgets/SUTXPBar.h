@@ -76,7 +76,7 @@ private:
 
 	inline int32 ConvertToLevelXP(int32 XP, int32 Level) const
 	{
-		int32 LevelXPStart = GetXPForLevel(Level - 1);
+		int32 LevelXPStart = GetXPForLevel(Level);
 		return FMath::Max(XP - LevelXPStart, 0);
 	}
 

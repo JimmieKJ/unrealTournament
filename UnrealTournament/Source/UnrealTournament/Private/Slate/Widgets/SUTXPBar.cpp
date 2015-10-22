@@ -231,14 +231,14 @@ FText SUTXPBar::GetGainedXPText() const
 FText SUTXPBar::GetCurrentXPText() const
 {
 	int32 CurrentXP = FMath::Max(GetXP() - GetXPBreakdown().Total(), 0.f) + InterpXP;
-	int32 NextLevelXP = GetXPForLevel(GetLevelForXP(CurrentXP)) - CurrentXP;
+	int32 NextLevelXP = GetXPForLevel(GetLevelForXP(CurrentXP) + 1) - CurrentXP;
 	return FText::Format(NSLOCTEXT("SUTXPBar", "CurrentXP", " {0} XP "), (NextLevelXP > 0) ? FText::AsNumber(CurrentXP) : FText::AsNumber(GetXP()));
 }
 
 FText SUTXPBar::GetRemainingXPText() const
 {
 	int32 CurrentXP = FMath::Max(GetXP() - GetXPBreakdown().Total(), 0.f) + InterpXP;
-	int32 NextLevelXP = GetXPForLevel(GetLevelForXP(CurrentXP)) - CurrentXP;
+	int32 NextLevelXP = GetXPForLevel(GetLevelForXP(CurrentXP) + 1) - CurrentXP;
 	if (NextLevelXP > 0)
 	{
 		return FText::Format(NSLOCTEXT("SUTXPBar", "XPToNextLevel", " {0} XP To Next Level "), FText::AsNumber(NextLevelXP));
@@ -428,8 +428,8 @@ void SUTXPBar::DrawBar(float XP, int32 Level, FLinearColor Color, float& LastXP,
 	const float AllottedHeight = BarGeo.GetLocalSize().Y;
 
 	//Get the xp for this level only
-	int32 LevelXPStart = GetXPForLevel(Level - 1);
-	int32 LevelXPEnd = GetXPForLevel(Level);
+	int32 LevelXPStart = GetXPForLevel(Level);
+	int32 LevelXPEnd = GetXPForLevel(Level + 1);
 	int32 LevelXP = LevelXPEnd - LevelXPStart;
 	int32 CurrentXP = XP - LevelXPStart;
 
