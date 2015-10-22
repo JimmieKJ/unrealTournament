@@ -311,8 +311,8 @@ void AUTBaseGameMode::SendRconMessage(const FString& DestinationId, const FStrin
 	{
 		for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
 		{
-			if (DestinationId == TEXT("") || UTGameState->PlayerArray[i]->UniqueId.ToString() == DestinationId)
-			{
+			if ( DestinationId == TEXT("") || UTGameState->PlayerArray[i]->UniqueId.ToString() == DestinationId || UTGameState->PlayerArray[i]->PlayerName.Equals(DestinationId,ESearchCase::IgnoreCase) )
+			{			
 				AUTPlayerState* UTPlayerState = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
 				if (UTPlayerState)
 				{
