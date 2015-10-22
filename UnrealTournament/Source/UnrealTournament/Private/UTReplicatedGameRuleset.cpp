@@ -159,8 +159,15 @@ FString AUTReplicatedGameRuleset::Fixup(FString OldText)
 void AUTReplicatedGameRuleset::BuildSlateBadge()
 {
 #if !UE_SERVER
-	BadgeTexture = LoadObject<UTexture2D>(nullptr, *DisplayTexture, nullptr, LOAD_None, nullptr);
-	SlateBadge = new FSlateDynamicImageBrush(BadgeTexture, FVector2D(256.0f, 256.0f), NAME_None);
+	SlateBadge = nullptr;
+	if (!DisplayTexture.IsEmpty())
+	{
+		BadgeTexture = LoadObject<UTexture2D>(nullptr, *DisplayTexture, nullptr, LOAD_None, nullptr);
+		if (BadgeTexture)
+		{
+			SlateBadge = new FSlateDynamicImageBrush(BadgeTexture, FVector2D(256.0f, 256.0f), NAME_None);
+		}
+	}
 #endif
 }
 
