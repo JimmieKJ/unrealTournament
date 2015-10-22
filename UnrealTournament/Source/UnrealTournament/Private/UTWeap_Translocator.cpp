@@ -266,7 +266,10 @@ void AUTWeap_Translocator::Tick(float DeltaTime)
 		{
 			// fire disk
 			UTOwner->StartFire(0);
-			UTOwner->StopFire(0);
+			if (UTOwner != nullptr)
+			{
+				UTOwner->StopFire(0);
+			}
 		}
 	}
 }
