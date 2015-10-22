@@ -473,7 +473,7 @@ float UUTGameEngine::GetMaxTickRate(float DeltaTime, bool bAllowFrameRateSmoothi
 			if (LocalPlayer)
 			{
 				float NetRateClamp = float(LocalPlayer->CurrentNetSpeed) / 100.f;
-				MaxTickRate = FMath::Min(MaxTickRate, NetRateClamp);
+				MaxTickRate = MaxTickRate > 0 ? FMath::Min(MaxTickRate, NetRateClamp) : NetRateClamp;
 			}
 		}
 	}
