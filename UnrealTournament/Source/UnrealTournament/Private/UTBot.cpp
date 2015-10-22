@@ -4338,6 +4338,8 @@ bool AUTBot::UTLineOfSightTo(const AActor* Other, FVector ViewPoint, bool bAlter
 	}
 	else
 	{
+		const bool bOtherIsRagdoll = Cast<AUTCharacter>(Other) != NULL && ((AUTCharacter*)Other)->IsRagdoll();
+
 		if (ViewPoint.IsZero())
 		{
 			AActor*	ViewTarg = GetViewTarget();
@@ -4358,12 +4360,18 @@ bool AUTBot::UTLineOfSightTo(const AActor* Other, FVector ViewPoint, bool bAlter
 		CollisionParams.AddIgnoredActor(Other);
 
 		bool bHit = GetWorld()->LineTraceTestByChannel(ViewPoint, TargetLocation, ECC_Visibility, CollisionParams);
+		if (bOtherIsRagdoll)
+		{
+			// actor location will be near/in the ground for ragdolls, push up
+			TargetLocation.Z += Other->GetSimpleCollisionHalfHeight();
+			bHit = GetWorld()->LineTraceTestByChannel(ViewPoint, TargetLocation, ECC_Visibility, CollisionParams);
+		}
 		// TODO: suddenly we switch back to GetActorLocation() instead of TargetLocation? Seems incorrect...
 		if (Other == Enemy)
 		{
 			if (bHit)
 			{
-				bHit = GetWorld()->LineTraceTestByChannel(ViewPoint, Enemy->GetActorLocation() + FVector(0.0f, 0.0f, Enemy->BaseEyeHeight), ECC_Visibility, CollisionParams);
+				bHit = GetWorld()->LineTraceTestByChannel(ViewPoint, Enemy->GetActorLocation() + FVector(0.0f, 0.0f, Enemy->BaseEyeHeight + (bOtherIsRagdoll ? Enemy->GetSimpleCollisionHalfHeight() : 0.0f)), ECC_Visibility, CollisionParams);
 			}
 			if (!bHit)
 			{
@@ -4397,7 +4405,7 @@ bool AUTBot::UTLineOfSightTo(const AActor* Other, FVector ViewPoint, bool bAlter
 				return false;
 			}
 			// try viewpoint to head
-			if ((!bAlternateChecks || !bLOSflag) && !GetWorld()->LineTraceTestByChannel(ViewPoint, TargetLocation + FVector(0.0f, 0.0f, Other->GetSimpleCollisionHalfHeight()), ECC_Visibility, CollisionParams))
+			if ((!bAlternateChecks || !bLOSflag) && !GetWorld()->LineTraceTestByChannel(ViewPoint, TargetLocation + FVector(0.0f, 0.0f, Other->GetSimpleCollisionHalfHeight() * (bOtherIsRagdoll ? 2.0f : 1.0f)), ECC_Visibility, CollisionParams))
 			{
 				return true;
 			}
