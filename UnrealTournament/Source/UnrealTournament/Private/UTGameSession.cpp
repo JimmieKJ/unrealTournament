@@ -527,6 +527,12 @@ void AUTGameSession::InitHostBeacon(FOnlineSessionSettings* SessionSettings)
 		UE_LOG(UT,Log,TEXT("---------------------------------------"));
 
 		int32 DesiredPort = AOnlineBeaconHost::StaticClass()->GetDefaultObject<AOnlineBeaconHost>()->ListenPort;
+		int32 PortOverride;
+		if (FParse::Value(FCommandLine::Get(), TEXT("BeaconPort="), PortOverride) && PortOverride != 0)
+		{
+			DesiredPort = PortOverride;
+		}
+
 		if (UTGameMode && !UTGameMode->IsGameInstanceServer() && BeaconHostListener->GetListenPort() != DesiredPort)
 		{
 			if (CantBindBeaconPortIsNotFatal)
