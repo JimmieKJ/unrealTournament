@@ -100,7 +100,7 @@ float AUTCTFGameMode::GetTravelDelay()
 
 void AUTCTFGameMode::CheatScore()
 {
-	if ((GetNetMode() == NM_Standalone) && !bOfflineChallenge)
+	if ((GetNetMode() == NM_Standalone) && !bOfflineChallenge && !bBasicTrainingGame)
 	{
 		int32 ScoringTeam = (FMath::FRand() < 0.5f) ? 0 : 1;
 		TArray<AController*> Members = Teams[ScoringTeam]->GetTeamMembers();
@@ -951,7 +951,7 @@ void AUTCTFGameMode::UpdateSkillRating()
 
 void AUTCTFGameMode::SetRedScore(int32 NewScore)
 {
-	if (!bOfflineChallenge)
+	if (!bOfflineChallenge && !bBasicTrainingGame)
 	{
 		Teams[0]->Score = NewScore;
 	}
@@ -959,7 +959,7 @@ void AUTCTFGameMode::SetRedScore(int32 NewScore)
 
 void AUTCTFGameMode::SetBlueScore(int32 NewScore)
 {
-	if (!bOfflineChallenge)
+	if (!bOfflineChallenge && !bBasicTrainingGame)
 	{
 		Teams[1]->Score = NewScore;
 	}
@@ -967,7 +967,7 @@ void AUTCTFGameMode::SetBlueScore(int32 NewScore)
 
 void AUTCTFGameMode::SetRemainingTime(int32 RemainingSeconds)
 {
-	if (bOfflineChallenge)
+	if (bOfflineChallenge || bBasicTrainingGame)
 	{
 		return;
 	}

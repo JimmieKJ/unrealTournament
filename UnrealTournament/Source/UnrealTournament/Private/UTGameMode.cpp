@@ -120,6 +120,7 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	bPlayPlayerIntro = true;
 	bShowMatchSummary = true;
 	bOfflineChallenge = false;
+	bBasicTrainingGame = false;
 
 	// note: one based
 	LevelUpRewards.AddZeroed(51);
@@ -176,7 +177,7 @@ void AUTGameMode::BeginPlayMutatorHack(FFrame& Stack, RESULT_DECL)
 
 bool AUTGameMode::AllowCheats(APlayerController* P)
 {
-	return (GetNetMode() == NM_Standalone || GIsEditor) && !bOfflineChallenge; 
+	return (GetNetMode() == NM_Standalone || GIsEditor) && !bOfflineChallenge && !bBasicTrainingGame;
 }
 
 void AUTGameMode::Demigod()

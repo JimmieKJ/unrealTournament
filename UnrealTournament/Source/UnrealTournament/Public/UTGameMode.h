@@ -244,6 +244,10 @@ public:
 	UPROPERTY(BlueprintReadOnly, Category = "Game")
 	bool bOfflineChallenge;
 
+	/** If true, is a training mode with no cheats allowed. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Game")
+	bool bBasicTrainingGame;
+
 	/** Tag of the current challenge */
 	UPROPERTY(BlueprintReadOnly, Category = "Game")
 	FName ChallengeTag;

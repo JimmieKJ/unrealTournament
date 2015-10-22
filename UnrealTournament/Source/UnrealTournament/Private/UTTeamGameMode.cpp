@@ -171,7 +171,7 @@ bool AUTTeamGameMode::ChangeTeam(AController* Player, uint8 NewTeam, bool bBroad
 		}
 		else
 		{
-			if (bOfflineChallenge && PS->Team)
+			if ((bOfflineChallenge || bBasicTrainingGame) && PS->Team)
 			{
 				return false;
 			}
