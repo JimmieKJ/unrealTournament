@@ -102,6 +102,13 @@ void AUTWorldSettings::BeginPlay()
 	}
 }
 
+void AUTWorldSettings::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	Super::EndPlay(EndPlayReason);
+
+	GetWorldTimerManager().ClearAllTimersForObject(this);
+}
+
 void AUTWorldSettings::AddImpactEffect(USceneComponent* NewEffect, float LifeScaling)
 {
 	bool bNeedsTiming = true;
