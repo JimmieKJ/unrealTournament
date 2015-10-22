@@ -160,6 +160,9 @@ public:
 	DECLARE_EVENT_TwoParams(IFriendsAndChatManager, FChatMessageReceivedEvent, EChatMessageType::Type /*Type of message received*/, TSharedPtr<IFriendItem> /*Friend if chat type is whisper*/);
 	virtual FChatMessageReceivedEvent& OnChatMessageRecieved() = 0;
 
+	DECLARE_EVENT(IFriendsAndChatManager, FOnFriendsUpdated)
+	virtual FOnFriendsUpdated& OnFriendsListUpdated() = 0;
+
 	DECLARE_DELEGATE_RetVal(bool, FAllowFriendsJoinGame);
 	virtual FAllowFriendsJoinGame& AllowFriendsJoinGame() = 0;
 
