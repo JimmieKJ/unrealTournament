@@ -114,7 +114,7 @@ public:
 	UPROPERTY()
 	bool bNoJoinInProgress;
 
-	UPROPERTY()
+	UPROPERTY(config)
 	bool CantBindBeaconPortIsNotFatal;
 	
 	void AcknowledgeAdmin(const FString& AdminId, bool bIsAdmin);

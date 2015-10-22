@@ -436,6 +436,7 @@ void AUTLobbyGameMode::RconKick(const FString& NameOrUIDStr, bool bBan, const FS
 			}
 		}
 	}
+	Super::RconKick(NameOrUIDStr, bBan, Reason);
 }
 
 void AUTLobbyGameMode::RconAuth(AUTBasePlayerController* Admin, const FString& Password)

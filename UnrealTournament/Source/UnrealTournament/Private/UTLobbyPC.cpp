@@ -241,6 +241,17 @@ void AUTLobbyPC::ServerSay_Implementation(const FString& Message, bool bTeamMess
 			FString FinalMessage = FString::Printf(TEXT("[%s] %s"), *PlayerState->PlayerName, *TrimmedMessage.Right(Message.Len() - Pos - 1));
 			
 			AUTLobbyGameState* LobbyGameState = GetWorld()->GetGameState<AUTLobbyGameState>();
+
+			if (UTPlayerState != nullptr && UTPlayerState->bIsRconAdmin)
+			{
+				AUTBaseGameMode* GameMode = GetWorld()->GetAuthGameMode<AUTBaseGameMode>();
+				if (GameMode)
+				{
+					GameMode->SendRconMessage(User, Message);
+					return;
+				}
+			}
+
 			if (LobbyGameState && LobbyGameState->SendSayToInstance(User, FinalMessage))
 			{
 				return;
