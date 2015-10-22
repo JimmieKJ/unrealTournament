@@ -1168,8 +1168,9 @@ public:
 	UPROPERTY(BlueprintReadWrite, Category = UnderWater)
 	float LastDrownTime;
 
+	/** returns true if sound was played. (doesn't allow spamming) */
 	UFUNCTION(BlueprintCallable, Category = Pawn)
-	virtual void PlayWaterSound(USoundBase* WaterSound);
+	virtual bool PlayWaterSound(USoundBase* WaterSound);
 
 	/** Called when character enters water volume. */
 	virtual void EnteredWater(class AUTWaterVolume* WaterVolume);

@@ -199,13 +199,15 @@ void AUTCharacter::SetBase(UPrimitiveComponent* NewBaseComponent, const FName Bo
 	}
 }
 
-void AUTCharacter::PlayWaterSound(USoundBase* WaterSound)
+bool AUTCharacter::PlayWaterSound(USoundBase* WaterSound)
 {
 	if (WaterSound && (GetWorld()->GetTimeSeconds() - LastWaterSoundTime > MinWaterSoundInterval))
 	{
 		UUTGameplayStatics::UTPlaySound(GetWorld(), WaterSound, this, SRT_None);
 		LastWaterSoundTime = GetWorld()->GetTimeSeconds();
+		return true;
 	}
+	return false;
 }
 
 
@@ -3141,8 +3143,10 @@ void AUTCharacter::Landed(const FHitResult& Hit)
 		}
 		else if (FeetAreInWater())
 		{
-			PlayWaterSound(CharacterData.GetDefaultObject()->WaterEntrySound);
-			PlayWaterEntryEffect(GetActorLocation() - FVector(0.f, 0.f, GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight()), GetActorLocation());
+			if ( PlayWaterSound(CharacterData.GetDefaultObject()->WaterEntrySound) )
+			{
+				PlayWaterEntryEffect(GetActorLocation() - FVector(0.f, 0.f, GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight()), GetActorLocation());
+			}
 		}
 		else
 		{
@@ -3165,8 +3169,7 @@ void AUTCharacter::Landed(const FHitResult& Hit)
 
 void AUTCharacter::EnteredWater(AUTWaterVolume* WaterVolume)
 {
-	PlayWaterSound(WaterVolume->EntrySound ? WaterVolume->EntrySound : CharacterData.GetDefaultObject()->WaterEntrySound);
-	if (UTCharacterMovement)
+	if ( UTCharacterMovement && PlayWaterSound(WaterVolume->EntrySound ? WaterVolume->EntrySound : CharacterData.GetDefaultObject()->WaterEntrySound) )
 	{
 		if ((FMath::Abs(UTCharacterMovement->Velocity.Z) > UTCharacterMovement->MaxWaterSpeed) && IsLocallyControlled() && Cast<APlayerController>(GetController()))
 		{
@@ -3181,7 +3184,7 @@ void AUTCharacter::EnteredWater(AUTWaterVolume* WaterVolume)
 void AUTCharacter::PlayWaterEntryEffect(const FVector& InWaterLoc, const FVector& OutofWaterLoc)
 {
 	if (GetMesh() && (GetWorld()->GetTimeSeconds() - GetMesh()->LastRenderTime < 0.05f)
-		&& (GetCachedScalabilityCVars().DetailMode != 0))
+		&& (GetCachedScalabilityCVars().DetailMode != 0) )
 	{
 		AUTWorldSettings* WS = Cast<AUTWorldSettings>(GetWorld()->GetWorldSettings());
 		if (WS->EffectIsRelevant(this, GetActorLocation(), true, true, 10000.f, 0.f, false))
