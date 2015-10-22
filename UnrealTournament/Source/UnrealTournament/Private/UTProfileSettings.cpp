@@ -339,6 +339,8 @@ void UUTProfileSettings::ApplyAllSettings(UUTLocalPlayer* ProfilePlayer)
 	ProfilePlayer->SetTaunt2Path(Taunt2Path);
 	ProfilePlayer->SetHatVariant(HatVariant);
 	ProfilePlayer->SetEyewearVariant(EyewearVariant);
+
+	TokensCommit();
 }
 
 bool UUTProfileSettings::HasTokenBeenPickedUpBefore(FName TokenUniqueID)
@@ -375,31 +377,31 @@ void UUTProfileSettings::TokensCommit()
 			Options.MinimumIntegralDigits = 3;
 			for (int32 i = 0; i < 15; i++)
 			{
-				List.Add(FName(*FString::Printf(TEXT("movementtraining_token_%i"), *FText::AsNumber(i, &Options).ToString())));
+				List.Add(FName(*FString::Printf(TEXT("movementtraining_token_%s"), *FText::AsNumber(i, &Options).ToString())));
 			}
 			for (int32 i = 0; i < 15; i++)
 			{
-				List.Add(FName(*FString::Printf(TEXT("weapontraining_token_%i"), *FText::AsNumber(i, &Options).ToString())));
+				List.Add(FName(*FString::Printf(TEXT("weapontraining_token_%s"), *FText::AsNumber(i, &Options).ToString())));
 			}
 			for (int32 i = 0; i < 10; i++)
 			{
-				List.Add(FName(*FString::Printf(TEXT("pickuptraining_token_%i"), *FText::AsNumber(i, &Options).ToString())));
+				List.Add(FName(*FString::Printf(TEXT("pickuptraining_token_%s"), *FText::AsNumber(i, &Options).ToString())));
 			}
 			for (int32 i = 0; i < 5; i++)
 			{
-				List.Add(FName(*FString::Printf(TEXT("tuba_token_%i"), *FText::AsNumber(i, &Options).ToString())));
+				List.Add(FName(*FString::Printf(TEXT("tuba_token_%s"), *FText::AsNumber(i, &Options).ToString())));
 			}
 			for (int32 i = 0; i < 5; i++)
 			{
-				List.Add(FName(*FString::Printf(TEXT("outpost23_token_%i"), *FText::AsNumber(i, &Options).ToString())));
+				List.Add(FName(*FString::Printf(TEXT("outpost23_token_%s"), *FText::AsNumber(i, &Options).ToString())));
 			}
 			for (int32 i = 0; i < 5; i++)
 			{
-				List.Add(FName(*FString::Printf(TEXT("face_token_%i"), *FText::AsNumber(i, &Options).ToString())));
+				List.Add(FName(*FString::Printf(TEXT("face_token_%s"), *FText::AsNumber(i, &Options).ToString())));
 			}
 			for (int32 i = 0; i < 5; i++)
 			{
-				List.Add(FName(*FString::Printf(TEXT("asdf_token_%i"), *FText::AsNumber(i, &Options).ToString())));
+				List.Add(FName(*FString::Printf(TEXT("asdf_token_%s"), *FText::AsNumber(i, &Options).ToString())));
 			}
 			return List;
 		}();
