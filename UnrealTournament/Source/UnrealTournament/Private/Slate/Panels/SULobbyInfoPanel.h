@@ -19,6 +19,9 @@ class UNREALTOURNAMENT_API SULobbyInfoPanel : public SUWPanel
 public:
 	virtual void ConstructPanel(FVector2D ViewportSize);
 
+	// Put focus to the Chat Panel;
+	void FocusChat(const FCharacterEvent& InCharacterEvent);
+
 protected:
 	TSharedPtr<SOverlay> MainOverlay;
 	TSharedPtr<SVerticalBox> LeftPanel;
