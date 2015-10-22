@@ -1777,6 +1777,15 @@ void AUTCharacter::PlayFeignDeath()
 	{
 		DropFlag();
 
+		if (EmoteCount > 0)
+		{
+			UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+			if (AnimInstance != NULL)
+			{
+				AnimInstance->Montage_Stop(0.0f);
+			}
+		}
+
 		if (Weapon != nullptr && Weapon->DroppedPickupClass != nullptr && Weapon->bCanThrowWeapon)
 		{
 			TossInventory(Weapon, FVector(FMath::FRandRange(0.0f, 200.0f), FMath::FRandRange(-400.0f, 400.0f), FMath::FRandRange(0.0f, 200.0f)));
