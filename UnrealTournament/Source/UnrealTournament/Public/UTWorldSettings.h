@@ -156,6 +156,7 @@ public:
 	virtual void NotifyBeginPlay() override;
 
 	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 	
 	/** add an impact effect that will be managed by the timing system */
 	virtual void AddImpactEffect(class USceneComponent* NewEffect, float LifeScaling=1.f);
