@@ -1158,9 +1158,10 @@ bool UUTCharacterMovement::UTVerifyClientTimeStamp(float TimeStamp, FNetworkPred
 	{
 		float ServerDelta = GetWorld()->GetTimeSeconds() - ServerData.ServerTimeStamp;
 		float ClientDelta = FMath::Min(TimeStamp - ServerData.CurrentClientTimeStamp, AGameNetworkManager::StaticClass()->GetDefaultObject<AGameNetworkManager>()->MAXCLIENTUPDATEINTERVAL);
-		float CurrentError = ClientDelta - ServerDelta * (1.f + UTGameMode->TimeMarginSlack);
+		float CurrentError = (ServerData.CurrentClientTimeStamp != 0.f) ? ClientDelta - ServerDelta * (1.f + UTGameMode->TimeMarginSlack) : 0.f;
 		// UE_LOG(UTNet, Warning, TEXT("%s Start as speedhack %d timestamp %f currenterror %f mintimemargin %f timemarginslack %f"), *GetName(), bClearingSpeedHack, TotalTimeStampError, CurrentError, UTGameMode->MinTimeMargin, UTGameMode->TimeMarginSlack);
 		TotalTimeStampError = FMath::Max(TotalTimeStampError + CurrentError, UTGameMode->MinTimeMargin);
+		//UE_LOG(UT, Warning, TEXT("%s servertimestamp %f %f currentclienttimestamp %f %f TotalError %f"), *GetName(), ServerData.ServerTimeStamp, ServerDelta, ServerData.CurrentClientTimeStamp, ClientDelta, TotalTimeStampError);
 		bClearingSpeedHack = bClearingSpeedHack && (TotalTimeStampError > 0.f);
 		if (bClearingSpeedHack)
 		{
