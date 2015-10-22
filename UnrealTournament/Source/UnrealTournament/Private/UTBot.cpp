@@ -1836,6 +1836,10 @@ void AUTBot::PostMovementUpdate(float DeltaTime, FVector OldLocation, FVector Ol
 void AUTBot::NotifyLanded(const FHitResult& Hit)
 {
 	bPlannedWallDodge = false;
+	if (UTChar != NULL)
+	{
+		UTChar->UTCharacterMovement->UpdateWallSlide(false);
+	}
 }
 
 void AUTBot::NotifyJumpApex()

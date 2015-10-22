@@ -47,8 +47,11 @@ public:
 	{
 		// check for wall dodge where the wall is actually on walkable space so we need to jump before going off any ledge
 		AUTCharacter* UTC = Cast<AUTCharacter>(Asker);
-		if (UTC != NULL && UTC->UTCharacterMovement->MovementMode == MOVE_Walking && (MovePos.Get() - Target.GetLocation(Asker)).IsNearlyZero() && (UTC->GetActorLocation() - WallPoint).Size2D() < UTC->GetSimpleCollisionRadius() * 1.5f)
+		if ( UTC != NULL && UTC->UTCharacterMovement->MovementMode == MOVE_Walking &&
+			 ( (MovePos.Get() - Target.GetLocation(Asker)).IsNearlyZero() && (UTC->GetActorLocation() - WallPoint).Size2D() < UTC->GetSimpleCollisionRadius() * 1.5f ||
+			 (MovePos.Get() - WallPoint).Size2D() < UTC->GetSimpleCollisionRadius() * 1.5f ) )
 		{
+			UTC->UTCharacterMovement->Velocity = (WallPoint - UTC->GetActorLocation()).GetSafeNormal2D() * UTC->UTCharacterMovement->MaxWalkSpeed;
 			UTC->UTCharacterMovement->DoJump(false);
 		}
 		return false;
@@ -66,6 +69,7 @@ public:
 				FVector DesiredDir = (MovePos.Get() - UTC->GetActorLocation()).GetSafeNormal();
 				if (UTC->Dodge(DesiredDir, (DesiredDir ^ FVector(0.0f, 0.0f, 1.0f)).GetSafeNormal()))
 				{
+					UTC->UTCharacterMovement->UpdateWallSlide(false);
 					return false;
 				}
 				else
@@ -73,23 +77,33 @@ public:
 					DesiredDir = (DesiredDir + WallNormal).GetSafeNormal();
 					if (UTC->Dodge(DesiredDir, (DesiredDir ^ FVector(0.0f, 0.0f, 1.0f)).GetSafeNormal()) || UTC->Dodge(WallNormal, (WallNormal ^ FVector(0.0f, 0.0f, 1.0f)).GetSafeNormal()))
 					{
+						UTC->UTCharacterMovement->UpdateWallSlide(false);
 						return false;
 					}
 					else
 					{
 						// air control into wall
-						UTC->UTCharacterMovement->AddInputVector((WallPoint - UTC->GetActorLocation()).GetSafeNormal2D());
+						FVector AirControlDir = (WallPoint - UTC->GetActorLocation()).GetSafeNormal2D();
+						if (UTC->UTCharacterMovement->bIsAgainstWall)
+						{
+							// already against wall so slide along it
+							AirControlDir -= FMath::Max<float>(0.f, (AirControlDir | UTC->UTCharacterMovement->WallSlideNormal)) * UTC->UTCharacterMovement->WallSlideNormal;
+						}
+						UTC->UTCharacterMovement->AddInputVector(AirControlDir);
+						UTC->UTCharacterMovement->UpdateWallSlide(true);
 						return true;
 					}
 				}
 			}
 			else
 			{
+				UTC->UTCharacterMovement->UpdateWallSlide(true);
 				return false;
 			}
 		}
 		else
 		{
+			UTC->UTCharacterMovement->UpdateWallSlide(true);
 			return false;
 		}
 	}
@@ -100,8 +114,8 @@ public:
 		if (NavMesh->FindPolyPath(StartLoc, AgentProps, FRouteCacheItem(NavMesh->GetPolySurfaceCenter(OwnerLink.StartEdgePoly), OwnerLink.StartEdgePoly), PolyRoute, false) && PolyRoute.Num() > 0 && NavMesh->DoStringPulling(StartLoc, PolyRoute, AgentProps, MovePoints))
 		{
 			MovePoints.Add(FComponentBasedPosition(JumpStart));
-			MovePoints.Add(FComponentBasedPosition(WallPoint + WallNormal * (Asker->GetSimpleCollisionRadius() + 1.0f)));
-			MovePoints.Add(FComponentBasedPosition(WallPoint + WallNormal));
+			AUTCharacter* UTC = Cast<AUTCharacter>(Asker);
+			MovePoints.Add(FComponentBasedPosition(WallPoint + WallNormal * ((UTC != NULL) ? (UTC->UTCharacterMovement->WallDodgeTraceDist * 0.5f) : (Asker->GetSimpleCollisionRadius() + 1.0f))));
 			MovePoints.Add(FComponentBasedPosition(Target.GetLocation(Asker)));
 			return true;
 		}

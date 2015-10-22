@@ -53,6 +53,8 @@ void AUTWallDodgePoint::AddSpecialPaths(class UUTPathNode* MyNode, class AUTReca
 			// note that the jump sim doesn't slide along walls so we need to be generous here and adjust at the end
 			const FVector WallPoint = WallHit.Location + WallHit.Normal * (ScoutShape.GetCapsuleRadius() + 0.1f);
 
+			const float GravityZ = GetLocationGravityZ(GetWorld(), WallPoint, ScoutShape);
+
 			TArray<NavNodeRef> PolyList;
 			{
 				const TArray<const UUTPathNode*>& NodeList = NavData->GetAllNodes();
@@ -130,7 +132,10 @@ void AUTWallDodgePoint::AddSpecialPaths(class UUTPathNode* MyNode, class AUTReca
 						TestPt = ForwardTestPt;
 					}
 					float MaxFallSpeed = 0.0f;
-					if (NavData->OnlyJumpReachable(UTScout, TestPt, WallPoint, SrcPoly, INVALID_NAVNODEREF, UTScout->GetCharacterMovement()->JumpZVelocity, NULL, &MaxFallSpeed))
+					// OnlyJumpReachable() can fail for some reasons we don't want, such as reaching another poly, but we use it first for its push-to-edge logic
+					// if it fails, try just straight jumping from our start pos
+					if ( NavData->OnlyJumpReachable(UTScout, TestPt, WallPoint, SrcPoly, INVALID_NAVNODEREF, UTScout->GetCharacterMovement()->JumpZVelocity, NULL, &MaxFallSpeed) ||
+						NavData->JumpTraceTest(TestPt, WallPoint, SrcPoly, INVALID_NAVNODEREF, ScoutShape, UTScout->UTCharacterMovement->MaxWalkSpeed, GravityZ, UTScout->GetCharacterMovement()->JumpZVelocity, UTScout->GetCharacterMovement()->JumpZVelocity, NULL, &MaxFallSpeed) )
 					{
 						if (MaxFallSpeed == 0.0f)
 						{
@@ -153,7 +158,6 @@ void AUTWallDodgePoint::AddSpecialPaths(class UUTPathNode* MyNode, class AUTReca
 				// now look for potential destinations
 				const float DodgeSpeed = UTScout->UTCharacterMovement->WallDodgeImpulseHorizontal;
 				const float DodgeZ = UTScout->UTCharacterMovement->WallDodgeImpulseVertical;
-				const float GravityZ = GetLocationGravityZ(GetWorld(), WallPoint, ScoutShape);
 				for (NavNodeRef DestPoly : PolyList)
 				{
 					const FVector PolyCenter = NavData->GetPolyCenter(DestPoly);
