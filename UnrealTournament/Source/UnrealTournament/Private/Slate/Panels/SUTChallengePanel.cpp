@@ -167,30 +167,6 @@ void SUTChallengePanel::ConstructPanel(FVector2D ViewportSize)
 								.Padding(0.0,0.0,0.0,16.0)
 								.AutoHeight()
 								[
-									SNew(SBox).HeightOverride(64)
-									[
-										SNew(SBorder)
-										.BorderImage(SUTStyle::Get().GetBrush("UT.HeaderBackground.SuperDark"))
-										[
-											SNew(SVerticalBox)
-											+SVerticalBox::Slot()
-											.HAlign(HAlign_Right)
-											[
-												SNew(SHorizontalBox)
-												+SHorizontalBox::Slot()
-												[
-													SNew(STextBlock)
-													.Text(this, &SUTChallengePanel::GetYourScoreText)
-													.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Large")
-												]
-											]
-										]
-									]
-								]
-								+SVerticalBox::Slot()
-								.Padding(0.0,0.0,0.0,16.0)
-								.AutoHeight()
-								[
 									SNew(SBox).HeightOverride(438)
 									[
 										SNew(SImage)
