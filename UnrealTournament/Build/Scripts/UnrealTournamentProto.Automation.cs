@@ -229,6 +229,43 @@ class UnrealTournamentProto_ChunkBuild : BuildCommand
                 LatestLabelName = BuildInfoPublisherBase.Get().GetLabelWithPlatform("Production-Latest", MCPPlatform.Windows);
                 BuildInfoPublisherBase.Get().LabelBuild(StagingInfo, LatestLabelName, McpConfigName);
             }
+            /*
+            // Win32 GAME BUILD
+            {
+                // verify the files we need exist first
+                string RawImagePath = CombinePaths(UnrealTournamentBuild.GetArchiveDir(), "Win32", "WindowsNoEditor");
+                string RawImageManifest = CombinePaths(RawImagePath, "Manifest_NonUFSFiles.txt");
+
+                if (!FileExists(RawImageManifest))
+                {
+                    throw new AutomationException("BUILD FAILED: build is missing or did not complete because this file is missing: {0}", RawImageManifest);
+                }
+
+                var StagingInfo = UnrealTournamentBuild.GetUTBuildPatchToolStagingInfo(this, UnrealTargetPlatform.Win32, BranchName);
+
+                // run the patch tool
+                BuildPatchToolBase.Get().Execute(
+                new BuildPatchToolBase.PatchGenerationOptions
+                {
+                    StagingInfo = StagingInfo,
+                    BuildRoot = RawImagePath,
+                    FileIgnoreList = CommandUtils.CombinePaths(RawImagePath, "Manifest_DebugFiles.txt"),
+                    AppLaunchCmd = @".\Engine\Binaries\Win32\UE4-Win32-Test.exe",
+                    AppLaunchCmdArgs = "UnrealTournament",
+                    AppChunkType = BuildPatchToolBase.ChunkType.Chunk,
+                });
+
+                // post the Windows build to build info service on gamedev
+                string McpConfigName = "MainGameDevNet";
+                CommandUtils.Log("Posting UnrealTournament for Windows to MCP.");
+                BuildInfoPublisherBase.Get().PostBuildInfo(StagingInfo);
+                CommandUtils.Log("Labeling new build as Latest in MCP.");
+                string LatestLabelName = BuildInfoPublisherBase.Get().GetLabelWithPlatform("Latest", MCPPlatform.Windows);
+                BuildInfoPublisherBase.Get().LabelBuild(StagingInfo, LatestLabelName, McpConfigName);
+                // For backwards compatibility, also label as Production-Latest
+                LatestLabelName = BuildInfoPublisherBase.Get().GetLabelWithPlatform("Production-Latest", MCPPlatform.Windows);
+                BuildInfoPublisherBase.Get().LabelBuild(StagingInfo, LatestLabelName, McpConfigName);
+            }*/
         }
 
         PrintRunTime();
