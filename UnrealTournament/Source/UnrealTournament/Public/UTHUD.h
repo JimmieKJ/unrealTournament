@@ -355,5 +355,36 @@ public:
 	{
 		return false;
 	}
+
+	/** render target for the minimap */
+	UPROPERTY()
+	UCanvasRenderTarget2D* MinimapTexture;
+	/** transformation matrix from world locations to minimap locations */
+	FMatrix MinimapTransform;
+	/** map transform for rendering on screen (used to convert clicks to map locations) */
+	FMatrix MapToScreen;
+	/** draw the static pre-rendered portions of the minimap to the MinimapTexture */
+	UFUNCTION()
+	virtual void UpdateMinimapTexture(UCanvas* C, int32 Width, int32 Height);
+
+	virtual void CreateMinimapTexture();
+	/** draws minimap; creates and updates the minimap render-to-texture if it hasn't been already
+	 * Sets MapToScreen so subclasses can easily override and use WorldToMapToScreen() to place icons
+	 * @param DrawColor: color to use when drawing the minimap texture
+	 * @param MapSize: on-screen size of the map (square)
+	 * @param DrawPos: draw coordinates
+	 */
+	UFUNCTION(BlueprintCallable, Category = HUD)
+	virtual void DrawMinimap(const FColor& DrawColor, float MapSize, FVector2D DrawPos);
+protected:
+	/** calculates MinimapTransform from the given level bounding box */
+	virtual void CalcMinimapTransform(const FBox& LevelBox, int32 MapWidth, int32 MapHeight);
+	/** transform InPos to cordinates corresponding to the map's position on the screen, i.e. transform world -> map then map -> screen
+	 * note: the transform is updated via DrawMinimap(), so if that isn't be called the values may not be correct
+	 */
+	FVector2D WorldToMapToScreen(const FVector& InPos) const
+	{
+		return FVector2D(MapToScreen.TransformPosition(MinimapTransform.TransformPosition(InPos)));
+	}
 };
 

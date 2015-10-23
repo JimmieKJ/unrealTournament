@@ -12,93 +12,55 @@ AUTHUD_Showdown::AUTHUD_Showdown(const FObjectInitializer& OI)
 	SelectedSpawnTexture = SelectedSpawnTextureObject.Object;
 }
 
-void AUTHUD_Showdown::BeginPlay()
+void AUTHUD_Showdown::DrawMinimap(const FColor& DrawColor, float MapSize, FVector2D DrawPos)
 {
-	Super::BeginPlay();
-	if (GetNetMode() != NM_DedicatedServer) // FIXME: shouldn't have HUD on server
+	Super::DrawMinimap(DrawColor, MapSize, DrawPos);
+
+	AUTShowdownGameState* GS = GetWorld()->GetGameState<AUTShowdownGameState>();
+
+	const float RenderScale = float(Canvas->SizeY) / 1080.0f;
+	// draw PlayerStart icons
+	for (TActorIterator<APlayerStart> It(GetWorld()); It; ++It)
 	{
-		MinimapTexture = UCanvasRenderTarget2D::CreateCanvasRenderTarget2D(GetWorld(), UCanvasRenderTarget2D::StaticClass(), 1024, 1024);
-		MinimapTexture->ClearColor = FLinearColor::Black;//FLinearColor(0.0f, 0.0f, 0.0f, 0.0f);
-		MinimapTexture->OnCanvasRenderTargetUpdate.AddDynamic(this, &AUTHUD_Showdown::UpdateMinimapTexture);
-		MinimapTexture->UpdateResource();
+		FVector2D Pos(WorldToMapToScreen(It->GetActorLocation()));
+		AUTTeamInfo* OwningTeam = NULL;
+		for (APlayerState* PS : GS->PlayerArray)
+		{
+			AUTPlayerState* UTPS = Cast<AUTPlayerState>(PS);
+			if (UTPS != NULL && UTPS->RespawnChoiceA == *It && UTPS->Team != NULL)
+			{
+				OwningTeam = UTPS->Team;
+				break;
+			}
+		}
+
+		if (OwningTeam != NULL || GS->IsAllowedSpawnPoint(GS->SpawnSelector, *It))
+		{
+			Canvas->DrawColor = FColor::White;
+		}
+		else
+		{
+			Canvas->DrawColor = FColor(128, 128, 128, 192);
+		}
+		Canvas->DrawTile(PlayerStartTexture, Pos.X - 16.0f * RenderScale, Pos.Y - 16.0f * RenderScale, 32.0f * RenderScale, 32.0f * RenderScale, 0.0f, 0.0f, PlayerStartTexture->GetSurfaceWidth(), PlayerStartTexture->GetSurfaceHeight());
+		// draw circle on selected spawn points
+		if (OwningTeam != NULL)
+		{
+			Canvas->DrawColor = OwningTeam->TeamColor.ToFColor(false);
+			Canvas->DrawTile(SelectedSpawnTexture, Pos.X - 24.0f * RenderScale, Pos.Y - 24.0f * RenderScale, 48.0f * RenderScale, 48.0f * RenderScale, 0.0f, 0.0f, SelectedSpawnTexture->GetSurfaceWidth(), SelectedSpawnTexture->GetSurfaceHeight());
+		}
+		Canvas->DrawColor = FColor::White;
 	}
-}
-
-void AUTHUD_Showdown::CalcMinimapTransform(const FBox& LevelBox, int32 MapWidth, int32 MapHeight)
-{
-	const bool bLargerXAxis = LevelBox.GetExtent().X > LevelBox.GetExtent().Y;
-	const float LevelRadius = bLargerXAxis ? LevelBox.GetExtent().X : LevelBox.GetExtent().Y;
-	const float ScaleFactor = float(MapWidth) / (LevelRadius * 2.0f);
-	const FVector CenteringAdjust = bLargerXAxis ? FVector(0.0f, (LevelBox.GetExtent().X - LevelBox.GetExtent().Y), 0.0f) : FVector((LevelBox.GetExtent().Y - LevelBox.GetExtent().X), 0.0f, 0.0f);
-	MinimapTransform = FTranslationMatrix(-LevelBox.Min + CenteringAdjust) * FScaleMatrix(FVector(ScaleFactor));
-}
-
-void AUTHUD_Showdown::UpdateMinimapTexture(UCanvas* C, int32 Width, int32 Height)
-{
-	FBox LevelBox(0);
-	AUTRecastNavMesh* NavMesh = GetUTNavData(GetWorld());
-	if (NavMesh != NULL)
+	// draw pickup icons
+	Canvas->DrawColor = FColor::White;
+	for (TActorIterator<AUTPickup> It(GetWorld()); It; ++It)
 	{
-		TMap<const UUTPathNode*, FNavMeshTriangleList> TriangleMap;
-		NavMesh->GetNodeTriangleMap(TriangleMap);
-		// calculate a bounding box for the level
-		for (TMap<const UUTPathNode*, FNavMeshTriangleList>::TConstIterator It(TriangleMap); It; ++It)
+		if (It->HUDIcon.Texture != NULL)
 		{
-			const FNavMeshTriangleList& TriList = It.Value();
-			for (const FVector& Vert : TriList.Verts)
-			{
-				LevelBox += Vert;
-			}
+			FVector2D Pos(WorldToMapToScreen(It->GetActorLocation()));
+			const float Ratio = It->HUDIcon.UL / It->HUDIcon.VL;
+			Canvas->DrawTile(It->HUDIcon.Texture, Pos.X - 16.0f * Ratio * RenderScale, Pos.Y - 16.0f * RenderScale, 32.0f * Ratio * RenderScale, 32.0f * RenderScale, It->HUDIcon.U, It->HUDIcon.V, It->HUDIcon.UL, It->HUDIcon.VL);
 		}
-		if (LevelBox.IsValid)
-		{
-			LevelBox = LevelBox.ExpandBy(LevelBox.GetSize() * 0.01f); // extra so edges aren't right up against the texture
-			CalcMinimapTransform(LevelBox, Width, Height);
-			for (TMap<const UUTPathNode*, FNavMeshTriangleList>::TConstIterator It(TriangleMap); It; ++It)
-			{
-				const FNavMeshTriangleList& TriList = It.Value();
-
-				for (const FNavMeshTriangleList::FTriangle& Tri : TriList.Triangles)
-				{
-					// don't draw triangles in water
-					bool bInWater = false;
-					FVector Verts[3] = { TriList.Verts[Tri.Indices[0]], TriList.Verts[Tri.Indices[1]], TriList.Verts[Tri.Indices[2]] };
-					for (int32 i = 0; i < ARRAY_COUNT(Verts); i++)
-					{
-						UUTPathNode* Node = NavMesh->FindNearestNode(Verts[i], NavMesh->GetHumanPathSize().GetExtent());
-						if (Node != NULL && Node->PhysicsVolume != NULL && Node->PhysicsVolume->bWaterVolume)
-						{
-							bInWater = true;
-							break;
-						}
-						Verts[i] = MinimapTransform.TransformPosition(Verts[i]);
-					}
-					if (!bInWater)
-					{
-						FCanvasTriangleItem Item(FVector2D(Verts[0]), FVector2D(Verts[1]), FVector2D(Verts[2]), C->DefaultTexture->Resource);
-						C->DrawItem(Item);
-					}
-				}
-			}
-		}
-	}
-	if (!LevelBox.IsValid)
-	{
-		// set minimap scale based on colliding geometry so map has some functionality without a working navmesh
-		for (TActorIterator<AActor> It(GetWorld()); It; ++It)
-		{
-			TArray<UPrimitiveComponent*> Components;
-			It->GetComponents(Components);
-			for (UPrimitiveComponent* Prim : Components)
-			{
-				if (Prim->IsCollisionEnabled())
-				{
-					LevelBox += Prim->Bounds.GetBox();
-				}
-			}
-		}
-		LevelBox = LevelBox.ExpandBy(LevelBox.GetSize() * 0.01f); // extra so edges aren't right up against the texture
-		CalcMinimapTransform(LevelBox, Width, Height);
 	}
 }
 
@@ -113,57 +75,12 @@ void AUTHUD_Showdown::DrawHUD()
 			bLockedLookInput = true;
 		}
 
+		if (MinimapTexture == NULL)
+		{
+			CreateMinimapTexture(); // because we're using the size below
+		}
 		const float MapSize = float(Canvas->SizeY) * 0.75f;
-		MapToScreen = FTranslationMatrix(FVector((Canvas->SizeX - MapSize) * 0.5f * (MinimapTexture->GetSurfaceWidth() / MapSize), (Canvas->SizeY - MapSize) * 0.5f, 0.0f)) * FScaleMatrix(FVector(MapSize / MinimapTexture->GetSurfaceWidth(), MapSize / MinimapTexture->GetSurfaceHeight(), 1.0f));
-		if (MinimapTexture != NULL)
-		{
-			Canvas->DrawColor = FColor(192, 192, 192, 255);
-			Canvas->DrawTile(MinimapTexture, MapToScreen.GetOrigin().X, MapToScreen.GetOrigin().Y, MapSize, MapSize, 0.0f, 0.0f, MinimapTexture->GetSurfaceWidth(), MinimapTexture->GetSurfaceHeight());
-		}
-		const float RenderScale = float(Canvas->SizeY) / 1080.0f;
-		// draw PlayerStart icons
-		for (TActorIterator<APlayerStart> It(GetWorld()); It; ++It)
-		{
-			FVector2D Pos(WorldToMapToScreen(It->GetActorLocation()));
-			AUTTeamInfo* OwningTeam = NULL;
-			for (APlayerState* PS : GS->PlayerArray)
-			{
-				AUTPlayerState* UTPS = Cast<AUTPlayerState>(PS);
-				if (UTPS != NULL && UTPS->RespawnChoiceA == *It && UTPS->Team != NULL)
-				{
-					OwningTeam = UTPS->Team;
-					break;
-				}
-			}
-			
-			if (OwningTeam != NULL || GS->IsAllowedSpawnPoint(GS->SpawnSelector, *It))
-			{
-				Canvas->DrawColor = FColor::White;
-			}
-			else
-			{
-				Canvas->DrawColor = FColor(128, 128, 128, 192);
-			}
-			Canvas->DrawTile(PlayerStartTexture, Pos.X - 16.0f * RenderScale, Pos.Y - 16.0f * RenderScale, 32.0f * RenderScale, 32.0f * RenderScale, 0.0f, 0.0f, PlayerStartTexture->GetSurfaceWidth(), PlayerStartTexture->GetSurfaceHeight());
-			// draw circle on selected spawn points
-			if (OwningTeam != NULL)
-			{
-				Canvas->DrawColor = OwningTeam->TeamColor.ToFColor(false);
-				Canvas->DrawTile(SelectedSpawnTexture, Pos.X - 24.0f * RenderScale, Pos.Y - 24.0f * RenderScale, 48.0f * RenderScale, 48.0f * RenderScale, 0.0f, 0.0f, SelectedSpawnTexture->GetSurfaceWidth(), SelectedSpawnTexture->GetSurfaceHeight());
-			}
-			Canvas->DrawColor = FColor::White;
-		}
-		// draw pickup icons
-		Canvas->DrawColor = FColor::White;
-		for (TActorIterator<AUTPickup> It(GetWorld()); It; ++It)
-		{
-			if (It->HUDIcon.Texture != NULL)
-			{
-				FVector2D Pos(WorldToMapToScreen(It->GetActorLocation()));
-				const float Ratio = It->HUDIcon.UL / It->HUDIcon.VL;
-				Canvas->DrawTile(It->HUDIcon.Texture, Pos.X - 16.0f * Ratio * RenderScale, Pos.Y - 16.0f * RenderScale, 32.0f * Ratio * RenderScale, 32.0f * RenderScale, It->HUDIcon.U, It->HUDIcon.V, It->HUDIcon.UL, It->HUDIcon.VL);
-			}
-		}
+		DrawMinimap(FColor(192, 192, 192, 255), MapSize, FVector2D((Canvas->SizeX - MapSize) * 0.5f, (Canvas->SizeY - MapSize) * 0.5f));
 	}
 	else if (bLockedLookInput)
 	{

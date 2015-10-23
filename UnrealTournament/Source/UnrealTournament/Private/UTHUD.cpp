@@ -900,3 +900,105 @@ FCrosshairInfo* AUTHUD::GetCrosshairInfo(AUTWeapon* Weapon)
 		return &CrosshairInfos[CrosshairInfos.Add(NewInfo)];
 	}
 }
+
+void AUTHUD::CreateMinimapTexture()
+{
+	MinimapTexture = UCanvasRenderTarget2D::CreateCanvasRenderTarget2D(GetWorld(), UCanvasRenderTarget2D::StaticClass(), 1024, 1024);
+	MinimapTexture->ClearColor = FLinearColor::Black;
+	MinimapTexture->OnCanvasRenderTargetUpdate.AddDynamic(this, &AUTHUD::UpdateMinimapTexture);
+	MinimapTexture->UpdateResource();
+}
+
+void AUTHUD::CalcMinimapTransform(const FBox& LevelBox, int32 MapWidth, int32 MapHeight)
+{
+	const bool bLargerXAxis = LevelBox.GetExtent().X > LevelBox.GetExtent().Y;
+	const float LevelRadius = bLargerXAxis ? LevelBox.GetExtent().X : LevelBox.GetExtent().Y;
+	const float ScaleFactor = float(MapWidth) / (LevelRadius * 2.0f);
+	const FVector CenteringAdjust = bLargerXAxis ? FVector(0.0f, (LevelBox.GetExtent().X - LevelBox.GetExtent().Y), 0.0f) : FVector((LevelBox.GetExtent().Y - LevelBox.GetExtent().X), 0.0f, 0.0f);
+	MinimapTransform = FTranslationMatrix(-LevelBox.Min + CenteringAdjust) * FScaleMatrix(FVector(ScaleFactor));
+}
+
+void AUTHUD::UpdateMinimapTexture(UCanvas* C, int32 Width, int32 Height)
+{
+	FBox LevelBox(0);
+	AUTRecastNavMesh* NavMesh = GetUTNavData(GetWorld());
+	if (NavMesh != NULL)
+	{
+		TMap<const UUTPathNode*, FNavMeshTriangleList> TriangleMap;
+		NavMesh->GetNodeTriangleMap(TriangleMap);
+		// calculate a bounding box for the level
+		for (TMap<const UUTPathNode*, FNavMeshTriangleList>::TConstIterator It(TriangleMap); It; ++It)
+		{
+			const FNavMeshTriangleList& TriList = It.Value();
+			for (const FVector& Vert : TriList.Verts)
+			{
+				LevelBox += Vert;
+			}
+		}
+		if (LevelBox.IsValid)
+		{
+			LevelBox = LevelBox.ExpandBy(LevelBox.GetSize() * 0.01f); // extra so edges aren't right up against the texture
+			CalcMinimapTransform(LevelBox, Width, Height);
+			for (TMap<const UUTPathNode*, FNavMeshTriangleList>::TConstIterator It(TriangleMap); It; ++It)
+			{
+				const FNavMeshTriangleList& TriList = It.Value();
+
+				for (const FNavMeshTriangleList::FTriangle& Tri : TriList.Triangles)
+				{
+					// don't draw triangles in water
+					bool bInWater = false;
+					FVector Verts[3] = { TriList.Verts[Tri.Indices[0]], TriList.Verts[Tri.Indices[1]], TriList.Verts[Tri.Indices[2]] };
+					for (int32 i = 0; i < ARRAY_COUNT(Verts); i++)
+					{
+						UUTPathNode* Node = NavMesh->FindNearestNode(Verts[i], NavMesh->GetHumanPathSize().GetExtent());
+						if (Node != NULL && Node->PhysicsVolume != NULL && Node->PhysicsVolume->bWaterVolume)
+						{
+							bInWater = true;
+							break;
+						}
+						Verts[i] = MinimapTransform.TransformPosition(Verts[i]);
+					}
+					if (!bInWater)
+					{
+						FCanvasTriangleItem Item(FVector2D(Verts[0]), FVector2D(Verts[1]), FVector2D(Verts[2]), C->DefaultTexture->Resource);
+						C->DrawItem(Item);
+					}
+				}
+			}
+		}
+	}
+	if (!LevelBox.IsValid)
+	{
+		// set minimap scale based on colliding geometry so map has some functionality without a working navmesh
+		for (TActorIterator<AActor> It(GetWorld()); It; ++It)
+		{
+			TArray<UPrimitiveComponent*> Components;
+			It->GetComponents(Components);
+			for (UPrimitiveComponent* Prim : Components)
+			{
+				if (Prim->IsCollisionEnabled())
+				{
+					LevelBox += Prim->Bounds.GetBox();
+				}
+			}
+		}
+		LevelBox = LevelBox.ExpandBy(LevelBox.GetSize() * 0.01f); // extra so edges aren't right up against the texture
+		CalcMinimapTransform(LevelBox, Width, Height);
+	}
+}
+
+void AUTHUD::DrawMinimap(const FColor& DrawColor, float MapSize, FVector2D DrawPos)
+{
+	if (MinimapTexture == NULL)
+	{
+		CreateMinimapTexture();
+	}
+
+	FVector ScaleFactor(MapSize / MinimapTexture->GetSurfaceWidth(), MapSize / MinimapTexture->GetSurfaceHeight(), 1.0f);
+	MapToScreen = FTranslationMatrix(FVector(DrawPos, 0.0f) / ScaleFactor) * FScaleMatrix(ScaleFactor);
+	if (MinimapTexture != NULL)
+	{
+		Canvas->DrawColor = DrawColor;
+		Canvas->DrawTile(MinimapTexture, MapToScreen.GetOrigin().X, MapToScreen.GetOrigin().Y, MapSize, MapSize, 0.0f, 0.0f, MinimapTexture->GetSurfaceWidth(), MinimapTexture->GetSurfaceHeight());
+	}
+}
