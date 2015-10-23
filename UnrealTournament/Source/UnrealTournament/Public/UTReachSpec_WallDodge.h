@@ -47,11 +47,9 @@ public:
 	{
 		// check for wall dodge where the wall is actually on walkable space so we need to jump before going off any ledge
 		AUTCharacter* UTC = Cast<AUTCharacter>(Asker);
-		const bool bMoveToTargetIsNearlyZero = (MovePos.Get() - Target.GetLocation(Asker)).IsNearlyZero();
-		const bool bWallPointInRange = (UTC->GetActorLocation() - WallPoint).Size2D() < UTC->GetSimpleCollisionRadius() * 1.5f;
-		const bool bMoveToWallPointInRange = (MovePos.Get() - WallPoint).Size2D() < UTC->GetSimpleCollisionRadius() * 1.5f;
-		if (UTC != NULL && UTC->UTCharacterMovement->MovementMode == MOVE_Walking && 
-			(bMoveToTargetIsNearlyZero &&  (bWallPointInRange || bMoveToWallPointInRange)))
+		if ( UTC != NULL && UTC->UTCharacterMovement->MovementMode == MOVE_Walking &&
+			 ( ((MovePos.Get() - Target.GetLocation(Asker)).IsNearlyZero() && (UTC->GetActorLocation() - WallPoint).Size2D() < UTC->GetSimpleCollisionRadius() * 1.5f) ||
+			 (MovePos.Get() - WallPoint).Size2D() < UTC->GetSimpleCollisionRadius() * 1.5f ) )
 		{
 			UTC->UTCharacterMovement->Velocity = (WallPoint - UTC->GetActorLocation()).GetSafeNormal2D() * UTC->UTCharacterMovement->MaxWalkSpeed;
 			UTC->UTCharacterMovement->DoJump(false);
