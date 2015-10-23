@@ -284,7 +284,7 @@ void AUTShowdownGame::StartIntermission()
 	if (!HasMatchEnded())
 	{
 		// if there's not enough time for a new round to work, then award victory now
-		uint32 bTied = 0;
+		bool bTied = false;
 		AUTPlayerState* Winner = NULL;
 		Winner = IsThereAWinner(bTied);
 		if (Winner != NULL && !bTied && ((Winner->Team == NULL) ? (Winner->Score >= GoalScore) : (Winner->Team->Score >= GoalScore)))

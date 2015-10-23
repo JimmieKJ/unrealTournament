@@ -1481,19 +1481,6 @@ void AUTGameMode::FindAndMarkHighScorer()
 	}
 }
 
-bool AUTGameMode::CheckScore_Implementation(AUTPlayerState* Scorer)
-{
-	if ( Scorer != NULL )
-	{
-		if ( (GoalScore > 0) && (Scorer->Score >= GoalScore) )
-		{
-			EndGame(Scorer,FName(TEXT("fraglimit")));
-		}
-	}
-	return true;
-}
-
-
 void AUTGameMode::StartMatch()
 {
 	if (HasMatchStarted())
@@ -2779,7 +2766,7 @@ void AUTGameMode::CheckGameTime()
 	{
 		// Game should be over.. look to see if we need to go in to overtime....	
 
-		uint32 bTied = 0;
+		bool bTied = false;
 		AUTPlayerState* Winner = IsThereAWinner(bTied);
 
 		if (!bAllowOvertime || !bTied)
@@ -2805,11 +2792,7 @@ void AUTGameMode::HandleMatchIsWaitingToStart()
 	}
 }
 
-/**
- *	Look though the player states and see if we have a winner.  If there is a tie, we return
- *  NULL so that we can enter overtime.
- **/
-AUTPlayerState* AUTGameMode::IsThereAWinner(uint32& bTied)
+AUTPlayerState* AUTGameMode::IsThereAWinner_Implementation(bool& bTied)
 {
 	AUTPlayerState* BestPlayer = NULL;
 	float BestScore = 0.0;
@@ -2830,8 +2813,19 @@ AUTPlayerState* AUTGameMode::IsThereAWinner(uint32& bTied)
 			}
 		}
 	}
-
 	return BestPlayer;
+}
+
+bool AUTGameMode::CheckScore_Implementation(AUTPlayerState* Scorer)
+{
+	if (Scorer != NULL)
+	{
+		if ((GoalScore > 0) && (Scorer->Score >= GoalScore))
+		{
+			EndGame(Scorer, FName(TEXT("fraglimit")));
+		}
+	}
+	return true;
 }
 
 void AUTGameMode::OverridePlayerState(APlayerController* PC, APlayerState* OldPlayerState)

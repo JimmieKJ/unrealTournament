@@ -451,7 +451,10 @@ public:
 	virtual void RecreateLobbyBeacon();
 	virtual void DefaultTimer() override;
 	virtual void CheckGameTime();
-	virtual AUTPlayerState* IsThereAWinner(uint32& bTied);
+
+	/**  Used to check when time has run out if there is a winner.  If there is a tie, return NULL to enter overtime. **/	
+	UFUNCTION(BlueprintNativeEvent, BlueprintAuthorityOnly)
+	AUTPlayerState* IsThereAWinner(bool& bTied);
 
 	// Allows gametypes to build their rules settings for the mid game menu.
 	virtual FText BuildServerRules(AUTGameState* GameState);
