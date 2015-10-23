@@ -197,6 +197,12 @@ void AUTWeap_Translocator::FireShot()
 						if (UTOwner->TeleportTo(WarpLocation, WarpRotation))
 						{
 							ConsumeAmmo(CurrentFireMode);
+							if (UTOwner && UTOwner->UTCharacterMovement && UTOwner->UTCharacterMovement->bIsFloorSliding)
+							{
+								float VelZ = UTOwner->UTCharacterMovement->Velocity.Z;
+								UTOwner->UTCharacterMovement->Velocity *= 0.9f;
+								UTOwner->UTCharacterMovement->Velocity.Z = VelZ;
+							}
 							// spawn effects
 							FActorSpawnParameters SpawnParams;
 							SpawnParams.Instigator = SavedOwner;
