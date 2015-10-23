@@ -712,7 +712,7 @@ TSharedRef<SWidget> SUTChallengePanel::CreateStars(FName ChallengeTag, FLinearCo
 
 FText SUTChallengePanel::GetYourScoreText() const
 {
-	return FText::Format(NSLOCTEXT("SUTChallengePanel","StarTotalFormat","You have earned {0} total stars"), FText::AsNumber(PlayerOwner->GetTotalChallengeStars()));
+	return FText::Format(NSLOCTEXT("SUTChallengePanel", "StarTotalFormat", "You have earned {0} gold challenge stars"), FText::AsNumber(PlayerOwner->GetChallengeStars(NAME_REWARD_GoldStars)));
 }
 
 FText SUTChallengePanel::GetCurrentScoreText() const
