@@ -243,7 +243,11 @@ void AUTWeap_Translocator::FireShot()
 	FireZOffsetTime = 0.f; 
 }
 
-//Dont drop Weapon when killed
+bool AUTWeap_Translocator::ShouldDropOnDeath()
+{
+	return false;
+}
+
 void AUTWeap_Translocator::DropFrom(const FVector& StartLocation, const FVector& TossVelocity)
 {
 	Destroy();

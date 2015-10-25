@@ -21,6 +21,7 @@
 #include "UTHUD.h"
 #include "UTGameViewportClient.h"
 #include "UTCrosshair.h"
+#include "UTDroppedPickup.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogUTWeapon, Log, All);
 
@@ -281,6 +282,11 @@ void AUTWeapon::ClientGivenTo_Internal(bool bAutoActivate)
 	{
 		UTPC->CheckAutoWeaponSwitch(this);
 	}
+}
+
+bool AUTWeapon::ShouldDropOnDeath()
+{
+	return (DroppedPickupClass != nullptr) && HasAnyAmmo();
 }
 
 void AUTWeapon::DropFrom(const FVector& StartLocation, const FVector& TossVelocity)

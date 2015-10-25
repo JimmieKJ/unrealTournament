@@ -265,6 +265,9 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 
 	virtual void DropFrom(const FVector& StartLocation, const FVector& TossVelocity) override;
 
+	/** Return true if this weapon should be dropped if held on player death. */
+	virtual bool ShouldDropOnDeath();
+
 	/** first person mesh */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon")
 	USkeletalMeshComponent* Mesh;

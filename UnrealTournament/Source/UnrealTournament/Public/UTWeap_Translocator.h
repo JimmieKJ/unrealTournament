@@ -86,7 +86,7 @@ class UNREALTOURNAMENT_API AUTWeap_Translocator : public AUTWeapon
 		return false;
 	}
 
-	/**Don't drop translocator when killed. Kill the disk*/
+	virtual bool ShouldDropOnDeath() override;
 	virtual void DropFrom(const FVector& StartLocation, const FVector& TossVelocity) override;
 
 	virtual void Tick(float DeltaTime) override;

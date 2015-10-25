@@ -1417,7 +1417,19 @@ void AUTGameMode::DiscardInventory(APawn* Other, AController* Killer)
 		// toss weapon
 		if (UTC->GetWeapon() != NULL)
 		{
-			UTC->TossInventory(UTC->GetWeapon());
+			if (UTC->GetWeapon()->ShouldDropOnDeath())
+			{
+				UTC->TossInventory(UTC->GetWeapon());
+			}
+			else
+			{
+				// drop default weapon instead @TODO FIXMESTEVE - this should go through default items array
+				AUTWeapon* Enforcer = UTC->FindInventoryType<AUTWeapon>(AUTWeap_Enforcer::StaticClass());
+				if (Enforcer && !Enforcer->IsPendingKillPending())
+				{
+					UTC->TossInventory(Enforcer);
+				}
+			}
 		}
 		// toss all powerups
 		for (TInventoryIterator<> It(UTC); It; ++It)
