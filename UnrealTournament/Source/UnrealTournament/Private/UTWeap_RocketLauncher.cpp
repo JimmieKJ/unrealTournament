@@ -174,8 +174,9 @@ void AUTWeap_RocketLauncher::OnMultiPress_Implementation(uint8 OtherFireMode)
 		UUTWeaponStateFiringChargedRocket* AltState = Cast<UUTWeaponStateFiringChargedRocket>(FiringState[1]);
 		if (AltState != NULL && AltState->bCharging)
 		{
-			if (GetWorldTimerManager().IsTimerActive(AltState->GraceTimerHandle)
+			if ((GetWorldTimerManager().IsTimerActive(AltState->GraceTimerHandle)
 				&& (GetWorldTimerManager().GetTimerRemaining(AltState->GraceTimerHandle) < 0.05f))
+				|| (GetWorldTimerManager().IsTimerActive(SpawnDelayedFakeProjHandle)))
 			{
 				// too close to timer ending, so don't allow mode change to avoid de-synchronizing client and server
 				return;
