@@ -7,7 +7,7 @@
  * place these to indicate good places to locate game objectives, for example control points in Domination or scoring points in Greed
  */
 UCLASS(Blueprintable)
-class AUTGenericObjectivePoint : public AActor
+class UNREALTOURNAMENT_API AUTGenericObjectivePoint : public AActor
 {
 	GENERATED_BODY()
 public:
