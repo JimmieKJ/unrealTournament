@@ -1251,7 +1251,24 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 
 			// Set the ranks/etc so the player card is right.
 			AUTBasePlayerController* UTBasePlayer = Cast<AUTBasePlayerController>(PlayerController);
-			if (UTBasePlayer) UTBasePlayer->ServerReceiveRank(GetBaseELORank(), GetRankDuel(), GetRankCTF(), GetRankTDM(), GetRankDM(), GetTotalChallengeStars());
+			if (UTBasePlayer != NULL)
+			{
+				UTBasePlayer->ServerReceiveRank(GetBaseELORank(), GetRankDuel(), GetRankCTF(), GetRankTDM(), GetRankDM(), GetTotalChallengeStars());
+				// TODO: should this be in BasePlayerController?
+				AUTPlayerController* UTPC = Cast<AUTPlayerController>(UTBasePlayer);
+				if (UTPC != NULL)
+				{
+					UTPC->ServerReceiveCountryFlag(GetCountryFlag());
+				}
+				else
+				{
+					AUTPlayerState* UTPS = Cast<AUTPlayerState>(UTBasePlayer->PlayerState);
+					if (UTPS != NULL)
+					{
+						UTPS->CountryFlag = GetCountryFlag();
+					}
+				}
+			}
 
 			// Check to make sure the profile settings are valid and that we aren't forcing them
 			// to be cleared.  If all is OK, then apply these settings.
