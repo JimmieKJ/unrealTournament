@@ -24,6 +24,8 @@ AUTWeap_Translocator::AUTWeap_Translocator(const class FObjectInitializer& Objec
 	AfterImageType = AUTWeaponRedirector::StaticClass();
 	TranslocatorMessageClass = UUTTranslocatorMessage::StaticClass();
 	FOVOffset = FVector(1.2f, 1.f, 3.f);
+	ShotPitchUp = 9.f;
+	DiskGravity = 0.9f;
 
 	KillStatsName = NAME_TelefragKills;
 	DeathStatsName = NAME_TelefragDeaths;
@@ -81,6 +83,17 @@ void AUTWeap_Translocator::RecallDisk()
 	}
 }
 
+FRotator AUTWeap_Translocator::GetAdjustedAim_Implementation(FVector StartFireLoc)
+{
+	FRotator BaseAim = Super::GetAdjustedAim_Implementation(StartFireLoc);
+	AUTBot* B = Cast<AUTBot>(UTOwner->Controller);
+	if (B == NULL)
+	{
+		BaseAim.Pitch += (90.f - FMath::Min(1.f, FMath::Abs(BaseAim.Pitch))) * ShotPitchUp/90.f;
+	}
+	return BaseAim;
+}
+
 void AUTWeap_Translocator::FireShot()
 {
 	UTOwner->DeactivateSpawnProtection();
@@ -129,6 +142,10 @@ void AUTWeap_Translocator::FireShot()
 			else
 			{
 				RecallDisk();
+			}
+			if (TransDisk && TransDisk->ProjectileMovement)
+			{
+				TransDisk->ProjectileMovement->ProjectileGravityScale = DiskGravity;
 			}
 		}
 		else if (TransDisk != NULL)
