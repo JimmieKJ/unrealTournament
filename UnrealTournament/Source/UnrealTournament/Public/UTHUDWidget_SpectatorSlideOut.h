@@ -11,10 +11,6 @@ struct FClickElement
 {
 	GENERATED_USTRUCT_BODY()
 
-	//Keypress when the element is clicked
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Scoreboard")
-	FKey Key;
-
 	//Command when the element is clicked
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Scoreboard")
 	FString Command;
@@ -28,10 +24,10 @@ struct FClickElement
 		Bounds = FVector4(0.0f, 0.0f, 0.0f, 0.0f);
 	}
 
-	FClickElement(const FKey InKey, const FVector4& inBounds)
+	FClickElement(const FString InCommand, const FVector4& InBounds)
 	{
-		Key = InKey;
-		Bounds = inBounds;
+		Command = InCommand;
+		Bounds = InBounds;
 	}
 };
 
@@ -45,10 +41,9 @@ public:
 	virtual bool ShouldDraw_Implementation(bool bShowScores);
 	virtual void DrawPlayerHeader(float RenderDelta, float XOffset, float YOffset);
 	virtual void DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float RenderDelta, float XOffset, float YOffset);
-	virtual void DrawFlag(FName KeyName, FString FlagName, AUTCarriedObject* Flag, float RenderDelta, float XOffset, float YOffset);
-	virtual void DrawCamBind(FName KeyName, FString ProjName, float RenderDelta, float XOffset, float YOffset, bool bCamSelected);
+	virtual void DrawFlag(FString FlagCommand, FString FlagName, AUTCarriedObject* Flag, float RenderDelta, float XOffset, float YOffset);
+	virtual void DrawCamBind(FString CamCommand, FString ProjName, float RenderDelta, float XOffset, float YOffset, bool bCamSelected);
 	virtual void DrawPowerup(class AUTPickup* Pickup, float XOffset, float YOffset);
-	virtual void InitializeWidget(AUTHUD* Hud);
 
 	// The total Height of a given cell
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SlideOut")
@@ -102,15 +97,6 @@ public:
 		FCanvasIcon FlagIcon;
 
 	/** Cached spectator bindings. */
-	UPROPERTY()
-	FName RedFlagBind;
-
-	UPROPERTY()
-	FName BlueFlagBind;
-
-	UPROPERTY()
-	FName AutoCamBind;
-
 	UPROPERTY()
 	FName DemoRestartBind;
 	
@@ -175,7 +161,6 @@ private:
 
 	/**Returns the index of the FClickElement the mouse is under. -1 for none*/
 	int32 MouseHitTest(FVector2D Position);
-	FKey NumberToKey(int32 InNumber);
 
 	void UpdateCameraBindOffset(float& DrawOffset, float& XOffset, bool& bOverflow, float StartOffset, float& EndCamOffset);
 };
