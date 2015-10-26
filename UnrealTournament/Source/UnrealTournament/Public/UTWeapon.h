@@ -697,7 +697,7 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	UFUNCTION(BlueprintCallable, Category = Weapon)
 	virtual float GetCrosshairScale(class AUTHUD* HUD);
 
-	UFUNCTION(BlueprintNativeEvent)
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = HUD)
 	void DrawWeaponCrosshair(UUTHUDWidget* WeaponHudWidget, float RenderDelta);
 
 	UFUNCTION()
@@ -771,6 +771,7 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 
 	virtual void GotoEquippingState(float OverflowTime);
 	
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Weapon")
 	virtual bool IsUnEquipping() { return GetCurrentState() == UnequippingState; };
 
 	/** informational function that returns the damage radius that a given fire mode has (used by e.g. bots) */
