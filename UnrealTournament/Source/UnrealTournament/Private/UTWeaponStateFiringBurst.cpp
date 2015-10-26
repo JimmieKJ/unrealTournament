@@ -15,7 +15,10 @@ UUTWeaponStateFiringBurst::UUTWeaponStateFiringBurst(const FObjectInitializer& O
 void UUTWeaponStateFiringBurst::BeginState(const UUTWeaponState* PrevState)
 {
 	CurrentShot = 0;
-	GetOuterAUTWeapon()->Spread[GetOuterAUTWeapon()->GetCurrentFireMode()] = 0.f;
+	if (GetOuterAUTWeapon()->Spread.IsValidIndex(GetOuterAUTWeapon()->GetCurrentFireMode()))
+	{
+		GetOuterAUTWeapon()->Spread[GetOuterAUTWeapon()->GetCurrentFireMode()] = 0.f;
+	}
 	ShotTimeRemaining = -0.001f;
 	RefireCheckTimer();
 	GetOuterAUTWeapon()->OnStartedFiring();
