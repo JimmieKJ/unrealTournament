@@ -195,6 +195,28 @@ float AUTPlayerController::GetProjectileSleepTime()
 	return 0.001f * FMath::Max(0.f, PlayerState->ExactPing - PredictionFudgeFactor - MaxPredictionPing);
 }
 
+void AUTPlayerController::Mutate(FString MutateString)
+{
+	ServerMutate(MutateString);
+}
+
+bool AUTPlayerController::ServerMutate_Validate(const FString& MutateString)
+{
+	return true;
+}
+
+void AUTPlayerController::ServerMutate_Implementation(const FString& MutateString)
+{
+	if (GetWorld() && GetNetMode() != NM_Client)
+	{
+		AUTGameMode* GameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
+		if (GameMode)
+		{
+			GameMode->Mutate(MutateString, this);
+		}
+	}
+}
+
 void AUTPlayerController::NP()
 {
 	ServerNP();

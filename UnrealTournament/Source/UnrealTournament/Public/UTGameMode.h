@@ -502,6 +502,13 @@ public:
 	UFUNCTION(Exec, BlueprintCallable, Category = AI)
 	virtual void KillBots();
 
+	/* Mutate()
+	 * Pass an input string to the mutator list.  Used by PlayerController.Mutate(), intended to allow
+	 * mutators to have input exec functions (by binding mutate xxx to keys)
+	 */
+	UFUNCTION(BlueprintNativeEvent)
+	void Mutate(const FString& MutateString, AUTPlayerController* Sender);
+
 	/** NOTE: return value is a workaround for blueprint bugs involving ref parameters and is not used */
 	UFUNCTION(BlueprintNativeEvent)
 	bool ModifyDamage(UPARAM(ref) int32& Damage, UPARAM(ref) FVector& Momentum, APawn* Injured, AController* InstigatedBy, const FHitResult& HitInfo, AActor* DamageCauser, TSubclassOf<UDamageType> DamageType);

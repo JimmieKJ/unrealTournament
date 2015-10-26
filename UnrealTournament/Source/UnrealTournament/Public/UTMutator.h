@@ -52,6 +52,10 @@ class UNREALTOURNAMENT_API AUTMutator : public AInfo
 	UFUNCTION(BlueprintNativeEvent, BlueprintAuthorityOnly)
 	void Init(const FString& Options);
 
+	/** called when a player calls the mutate command as binding/console command; allows mutators to implement custom keybinds */
+	UFUNCTION(BlueprintNativeEvent, BlueprintAuthorityOnly)
+	void Mutate(const FString& MutateString, APlayerController* Sender);
+
 	/** allows changing or reacting to player login URL options */
 	UFUNCTION(BlueprintNativeEvent, BlueprintAuthorityOnly)
 	void ModifyLogin(FString& Portal, FString& Options);

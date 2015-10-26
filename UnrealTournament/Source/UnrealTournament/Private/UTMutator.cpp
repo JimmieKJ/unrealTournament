@@ -11,6 +11,14 @@ void AUTMutator::Init_Implementation(const FString& Options)
 {
 }
 
+void AUTMutator::Mutate_Implementation(const FString& MutateString, APlayerController* Sender)
+{
+	if (NextMutator != NULL)
+	{
+		NextMutator->Mutate(MutateString, Sender);
+	}
+}
+
 void AUTMutator::ModifyLogin_Implementation(FString& Portal, FString& Options)
 {
 	if (NextMutator != NULL)

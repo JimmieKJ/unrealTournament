@@ -2220,6 +2220,14 @@ void AUTGameMode::GiveDefaultInventory(APawn* PlayerPawn)
 	}
 }
 
+void AUTGameMode::Mutate_Implementation(const FString& MutateString, AUTPlayerController* Sender)
+{
+	if (BaseMutator != NULL)
+	{
+		BaseMutator->Mutate(MutateString, Sender);
+	}
+}
+
 /* 
   Make sure pawn properties are back to default
   Also add default inventory

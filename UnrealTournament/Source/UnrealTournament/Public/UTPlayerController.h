@@ -112,6 +112,12 @@ public:
 	}
 
 	UFUNCTION(exec)
+	virtual void Mutate(FString MutateString);
+
+	UFUNCTION(server, reliable, withvalidation)
+	virtual void ServerMutate(const FString& MutateString);
+
+	UFUNCTION(exec)
 	virtual void SwitchToBestWeapon();
 	/** forces SwitchToBestWeapon() call, should only be used after granting startup inventory */
 	UFUNCTION(Client, Reliable)
