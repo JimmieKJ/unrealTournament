@@ -341,6 +341,9 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	/** time to put down the weapon */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
 	float PutDownTime;
+	/** scales refire put down time for the weapon */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
+	float RefirePutDownTimePercent;
 
 	/** Earliest time can fire again (failsafe for weapon swapping). */
 	UPROPERTY()

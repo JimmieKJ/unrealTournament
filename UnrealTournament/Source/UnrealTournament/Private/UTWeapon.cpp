@@ -43,6 +43,7 @@ AUTWeapon::AUTWeapon(const FObjectInitializer& ObjectInitializer)
 
 	BringUpTime = 0.37f;
 	PutDownTime = 0.3f;
+	RefirePutDownTimePercent = 1.0f;
 	WeaponBobScaling = 1.f;
 	FiringViewKickback = -20.f;
 	bNetDelayedShot = false;
