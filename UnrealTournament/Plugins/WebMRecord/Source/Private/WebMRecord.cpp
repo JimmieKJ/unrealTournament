@@ -105,16 +105,34 @@ void FWebMRecord::OnWorldCreated(UWorld* World, const UWorld::InitializationValu
 		{
 			for (int32 TextureIndex = 0; TextureIndex < 2; ++TextureIndex)
 			{
-				FRHIResourceCreateInfo CreateInfo;
-				ReadbackTextures[TextureIndex] = RHICreateTexture2D(
-					VideoWidth,
-					VideoHeight,
-					PF_B8G8R8A8,
-					1,
-					1,
-					TexCreate_CPUReadback,
-					CreateInfo
-					);
+				ReadbackTextures[TextureIndex] = nullptr;
+			}
+
+			ENQUEUE_UNIQUE_RENDER_COMMAND_THREEPARAMETER(
+				FWebMRecordCreateBufers,
+				int32, InVideoWidth, VideoWidth,
+				int32, InVideoHeight, VideoHeight,
+				FTexture2DRHIRef*, InReadbackTextures, ReadbackTextures,
+			{
+				for (int32 TextureIndex = 0; TextureIndex < 2; ++TextureIndex)
+				{
+					FRHIResourceCreateInfo CreateInfo;
+					InReadbackTextures[TextureIndex] = RHICreateTexture2D(
+						InVideoWidth,
+						InVideoHeight,
+						PF_B8G8R8A8,
+						1,
+						1,
+						TexCreate_CPUReadback,
+						CreateInfo
+						);
+				}
+			});
+			FlushRenderingCommands();
+
+			for (int32 TextureIndex = 0; TextureIndex < 2; ++TextureIndex)
+			{
+				check(ReadbackTextures[TextureIndex].GetReference());
 			}
 
 			ReadbackTextureIndex = 0;
