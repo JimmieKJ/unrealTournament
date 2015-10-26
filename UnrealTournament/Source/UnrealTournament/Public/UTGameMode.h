@@ -506,6 +506,10 @@ public:
 	UFUNCTION(BlueprintNativeEvent)
 	bool ModifyDamage(UPARAM(ref) int32& Damage, UPARAM(ref) FVector& Momentum, APawn* Injured, AController* InstigatedBy, const FHitResult& HitInfo, AActor* DamageCauser, TSubclassOf<UDamageType> DamageType);
 
+	/** return true to prevent the passed in pawn from dying (i.e. from Died()) */
+	UFUNCTION(BlueprintNativeEvent)
+	bool PreventDeath(APawn* KilledPawn, AController* Killer, TSubclassOf<UDamageType> DamageType, const FHitResult& HitInfo);
+
 	/** used to modify, remove, and replace Actors. Return false to destroy the passed in Actor. Default implementation queries mutators.
 	 * note that certain critical Actors such as PlayerControllers can't be destroyed, but we'll still call this code path to allow mutators
 	 * to change properties on them

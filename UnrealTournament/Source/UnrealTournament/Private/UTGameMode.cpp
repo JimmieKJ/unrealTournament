@@ -3004,6 +3004,11 @@ bool AUTGameMode::ModifyDamage_Implementation(int32& Damage, FVector& Momentum, 
 	return true;
 }
 
+bool AUTGameMode::PreventDeath_Implementation(APawn* KilledPawn, AController* Killer, TSubclassOf<UDamageType> DamageType, const FHitResult& HitInfo)
+{
+	return (BaseMutator != NULL && BaseMutator->PreventDeath(KilledPawn, Killer, DamageType, HitInfo));
+}
+
 bool AUTGameMode::CheckRelevance_Implementation(AActor* Other)
 {
 	if (BaseMutator == NULL)

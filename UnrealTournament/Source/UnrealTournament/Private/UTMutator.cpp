@@ -78,6 +78,11 @@ bool AUTMutator::ModifyDamage_Implementation(int32& Damage, FVector& Momentum, A
 	return true;
 }
 
+bool AUTMutator::PreventDeath_Implementation(APawn* KilledPawn, AController* Killer, TSubclassOf<UDamageType> DamageType, const FHitResult& HitInfo)
+{
+	return (NextMutator != NULL && NextMutator->PreventDeath(KilledPawn, Killer, DamageType, HitInfo));
+}
+
 void AUTMutator::ScoreKill_Implementation(AController* Killer, AController* Other, TSubclassOf<UDamageType> DamageType)
 {
 	if (NextMutator != NULL)

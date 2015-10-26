@@ -1254,63 +1254,78 @@ bool AUTCharacter::Died(AController* EventInstigator, const FDamageEvent& Damage
 			EventInstigator = LastHitBy;
 		}
 
-		// TODO: GameInfo::PreventDeath()
-
-		bTearOff = true; // important to set this as early as possible so IsDead() returns true
-		Health = FMath::Min<int32>(Health, 0);
-
-		AUTRemoteRedeemer* Redeemer = Cast<AUTRemoteRedeemer>(DrivenVehicle);
-		if (Redeemer != nullptr)
+		FHitResult HitInfo;
 		{
-			Redeemer->DriverLeave(true);
+			FVector UnusedDir;
+			DamageEvent.GetBestHitInfo(this, NULL, HitInfo, UnusedDir);
 		}
 
-		AController* ControllerKilled = Controller;
-		if (ControllerKilled == nullptr)
+		// gameinfo hook to prevent deaths
+		// WARNING - don't prevent bot suicides - they suicide when really needed
+		AUTGameMode* Game = GetWorld()->GetAuthGameMode<AUTGameMode>();
+		if (Game != NULL && Game->PreventDeath(this, EventInstigator, DamageEvent.DamageTypeClass, HitInfo))
 		{
-			ControllerKilled = Cast<AController>(GetOwner());
+			Health = FMath::Max<int32>(Health, 1);
+			return false;
+		}
+		else
+		{
+			bTearOff = true; // important to set this as early as possible so IsDead() returns true
+			Health = FMath::Min<int32>(Health, 0);
+
+			AUTRemoteRedeemer* Redeemer = Cast<AUTRemoteRedeemer>(DrivenVehicle);
+			if (Redeemer != nullptr)
+			{
+				Redeemer->DriverLeave(true);
+			}
+
+			AController* ControllerKilled = Controller;
 			if (ControllerKilled == nullptr)
 			{
-				if (DrivenVehicle != nullptr)
+				ControllerKilled = Cast<AController>(GetOwner());
+				if (ControllerKilled == nullptr)
 				{
-					ControllerKilled = DrivenVehicle->Controller;
+					if (DrivenVehicle != nullptr)
+					{
+						ControllerKilled = DrivenVehicle->Controller;
+					}
 				}
 			}
+			if ((GetWorld()->GetTimeSeconds() - FlakShredTime < 0.05f) && FlakShredInstigator && (FlakShredInstigator == EventInstigator))
+			{
+				AnnounceShred(Cast<AUTPlayerController>(EventInstigator));
+			}
+
+			GetWorld()->GetAuthGameMode<AUTGameMode>()->Killed(EventInstigator, ControllerKilled, this, DamageEvent.DamageTypeClass);
+
+			// Drop any carried objects when you die.
+			AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
+			if (PS != NULL && PS->CarriedObject != NULL)
+			{
+				PS->CarriedObject->Drop(EventInstigator);
+			}
+
+			if (ControllerKilled != nullptr)
+			{
+				ControllerKilled->PawnPendingDestroy(this);
+			}
+
+			OnDied.Broadcast(EventInstigator, DamageEvent.DamageTypeClass ? DamageEvent.DamageTypeClass.GetDefaultObject() : NULL);
+
+			PlayDying();
+
+			//Stop ghosts on death
+			if (GhostComponent->bGhostRecording)
+			{
+				GhostComponent->GhostStopRecording();
+			}
+			if (GhostComponent->bGhostPlaying)
+			{
+				GhostComponent->GhostStopPlaying();
+			}
+
+			return true;
 		}
-		if ((GetWorld()->GetTimeSeconds() - FlakShredTime < 0.05f) && FlakShredInstigator && (FlakShredInstigator == EventInstigator))
-		{
-			AnnounceShred(Cast<AUTPlayerController>(EventInstigator));
-		}
-
-		GetWorld()->GetAuthGameMode<AUTGameMode>()->Killed(EventInstigator, ControllerKilled, this, DamageEvent.DamageTypeClass);
-
-		// Drop any carried objects when you die.
-		AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
-		if (PS != NULL && PS->CarriedObject != NULL)
-		{
-			PS->CarriedObject->Drop(EventInstigator);
-		}
-
-		if (ControllerKilled != nullptr)
-		{
-			ControllerKilled->PawnPendingDestroy(this);
-		}
-
-		OnDied.Broadcast(EventInstigator, DamageEvent.DamageTypeClass ? DamageEvent.DamageTypeClass.GetDefaultObject() : NULL);
-
-		PlayDying();
-
-		//Stop ghosts on death
-		if (GhostComponent->bGhostRecording)
-		{
-			GhostComponent->GhostStopRecording();
-		}
-		if (GhostComponent->bGhostPlaying)
-		{
-			GhostComponent->GhostStopPlaying();
-		}
-
-		return true;
 	}
 }
 
