@@ -755,7 +755,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = Pawn)
 	virtual void TurnOff() override;
 
-	virtual bool IsFeigningDeath();
+	/** Return true if character is currently feigning death (Note: returns false within the recovery state) */
+	UFUNCTION(BlueprintCallable, Category = "Pawn|Character")
+	virtual bool IsFeigningDeath() const;
 
 	// AI hooks
 	virtual void OnWalkingOffLedge_Implementation(const FVector& PreviousFloorImpactNormal, const FVector& PreviousFloorContactNormal, const FVector& PreviousLocation, float TimeDelta) override;
@@ -778,7 +780,9 @@ protected:
 	int32 UnfeignCount;
 
 public:
-	inline bool IsRagdoll() const
+	/** Return true if character is in a ragdoll state */
+	UFUNCTION(BlueprintCallable, Category = "Pawn|Character")
+	virtual bool IsRagdoll() const
 	{
 		return bFeigningDeath || bInRagdollRecovery || (RootComponent == GetMesh() && GetMesh()->IsSimulatingPhysics());
 	}

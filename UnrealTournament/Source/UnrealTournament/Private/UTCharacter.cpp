@@ -5088,7 +5088,7 @@ void AUTCharacter::FaceRotation(FRotator NewControlRotation, float DeltaTime)
 	Super::FaceRotation(NewControlRotation, DeltaTime);
 }
 
-bool AUTCharacter::IsFeigningDeath()
+bool AUTCharacter::IsFeigningDeath() const
 {
 	return bFeigningDeath;
 }
