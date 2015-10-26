@@ -36,6 +36,7 @@
 #include "UTGameEngine.h"
 #include "UTFlagInfo.h"
 #include "UTProfileItem.h"
+#include "UTMutator.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogUTPlayerController, Log, All);
 
@@ -207,13 +208,10 @@ bool AUTPlayerController::ServerMutate_Validate(const FString& MutateString)
 
 void AUTPlayerController::ServerMutate_Implementation(const FString& MutateString)
 {
-	if (GetWorld() && GetNetMode() != NM_Client)
+	AUTGameMode* GameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
+	if (GameMode != NULL && GameMode->BaseMutator != NULL)
 	{
-		AUTGameMode* GameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
-		if (GameMode)
-		{
-			GameMode->Mutate(MutateString, this);
-		}
+		GameMode->BaseMutator->Mutate(MutateString, this);
 	}
 }
 
