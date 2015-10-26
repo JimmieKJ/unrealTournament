@@ -1163,7 +1163,7 @@ void SUWServerBrowser::OnFindSessionsComplete(bool bWasSuccessful)
 		}
 
 		// If a server exists in either of the lists but not in the PingList, then let's kill it.
-		ExpireDeadServers();
+		ExpireDeadServers(false);
 
 		if ( FParse::Param(FCommandLine::Get(), TEXT("DumpServers")) )
 		{
@@ -1175,7 +1175,6 @@ void SUWServerBrowser::OnFindSessionsComplete(bool bWasSuccessful)
 			UE_LOG(UT,Log, TEXT("----------------------------------------------"));
 		}
 
-
 		AddGameFilters();
 		InternetServerList->RequestListRefresh();
 		HUBServerList->RequestListRefresh();
@@ -1186,15 +1185,12 @@ void SUWServerBrowser::OnFindSessionsComplete(bool bWasSuccessful)
 		UE_LOG(UT,Log,TEXT("Server List Request Failed!!!"));
 	}
 
-	SetBrowserState(EBrowserState::BrowserIdle);
-
-/*
 	// Search for LAN Servers
 
 	LanSearchSettings = MakeShareable(new FUTOnlineGameSearchBase(false));
 	LanSearchSettings->MaxSearchResults = 10000;
 	LanSearchSettings->bIsLanQuery = true;
-	LanSearchSettings->TimeoutInSeconds = 5.0;
+	LanSearchSettings->TimeoutInSeconds = 2.0;
 	LanSearchSettings->QuerySettings.Set(SETTING_GAMEINSTANCE, 1, EOnlineComparisonOp::NotEquals);												// Must not be a Hub server instance
 
 	TSharedRef<FUTOnlineGameSearchBase> LanSearchSettingsRef = LanSearchSettings.ToSharedRef();
@@ -1202,7 +1198,6 @@ void SUWServerBrowser::OnFindSessionsComplete(bool bWasSuccessful)
 	Delegate.BindSP(this, &SUWServerBrowser::OnFindLANSessionsComplete);
 	OnFindLANSessionCompleteDelegate = OnlineSessionInterface->AddOnFindSessionsCompleteDelegate_Handle(Delegate);
 	OnlineSessionInterface->FindSessions(0, LanSearchSettingsRef);
-*/
 }
 
 
@@ -1220,6 +1215,8 @@ void SUWServerBrowser::OnFindLANSessionsComplete(bool bWasSuccessful)
 				FoundServer(LanSearchSettings->SearchResults[ServerIndex]);
 			}
 		}
+
+		ExpireDeadServers(true);
 
 		if ( FParse::Param(FCommandLine::Get(), TEXT("DumpServers")) )
 		{
@@ -1245,29 +1242,41 @@ void SUWServerBrowser::OnFindLANSessionsComplete(bool bWasSuccessful)
 }
 
 
-void SUWServerBrowser::ExpireDeadServers()
+void SUWServerBrowser::ExpireDeadServers(bool bLANServers)
 {
 	int32 i = 0;
 	while (i < AllInternetServers.Num())
 	{
 		bool bFound = false;
-		for (int32 j=0; j < PingList.Num(); j++)
-		{
-			if (AllInternetServers[i]->SearchResult.Session.SessionInfo->GetSessionId() == PingList[j]->SearchResult.Session.SessionInfo->GetSessionId())	
-			{
-				bFound = true;
-				break;
-			}
-		}
 
-		if (bFound)
+		// Make sure the server is of the proper type.....
+		
+		if (bLANServers == AllInternetServers[i]->SearchResult.Session.SessionSettings.bIsLANMatch)
 		{
-			i++;
+			for (int32 j=0; j < PingList.Num(); j++)
+			{
+				if (AllInternetServers[i]->SearchResult.Session.SessionInfo->GetSessionId() == PingList[j]->SearchResult.Session.SessionInfo->GetSessionId())	
+				{
+					bFound = true;
+					break;
+				}
+			}
+		
+			if (bFound)
+			{
+				i++;
+			}
+			else
+			{
+				AllInternetServers.RemoveAt(i);
+			}
 		}
 		else
 		{
-			AllInternetServers.RemoveAt(i);
+			i++;
 		}
+
+
 	
 	} 
 
