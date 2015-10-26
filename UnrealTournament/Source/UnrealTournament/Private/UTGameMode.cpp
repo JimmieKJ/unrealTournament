@@ -1479,7 +1479,10 @@ void AUTGameMode::FindAndMarkHighScorer()
 		else
 		{
 			// Clear previous high scores
-			PS->bHasHighScore = false;
+			if (PS != NULL)
+			{
+				PS->bHasHighScore = false;
+			}
 			if (C != nullptr)
 			{
 				AUTCharacter *UTChar = Cast<AUTCharacter>(C->GetPawn());
