@@ -108,6 +108,7 @@ public:
 	virtual void DrawStatsLeft(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom);
 	virtual void DrawStatsRight(float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float PageBottom);
 
+	virtual FLinearColor GetPlayerColorFor(AUTPlayerState* InPS) const;
 	virtual FString GetPlayerNameFor(AUTPlayerState* InPS) const
 	{
 		return InPS ? InPS->PlayerName : "";

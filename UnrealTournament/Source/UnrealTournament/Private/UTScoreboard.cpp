@@ -345,11 +345,26 @@ void UUTScoreboard::DrawPlayerScores(float RenderDelta, float& YOffset)
 	}
 }
 
+FLinearColor UUTScoreboard::GetPlayerColorFor(AUTPlayerState* InPS) const
+{
+	if (UTHUDOwner->UTPlayerOwner->UTPlayerState == InPS)
+	{
+		return FLinearColor(0.0f, 0.92f, 1.0f, 1.0f);
+	}
+	else if (InPS->bIsFriend)
+	{
+		return FLinearColor(FColor(254, 255, 174, 255));
+	}
+	else
+	{
+		return FLinearColor::White;
+	}
+}
+
 void UUTScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float RenderDelta, float XOffset, float YOffset)
 {
 	if (PlayerState == NULL) return;	// Safeguard
 
-	FLinearColor DrawColor = FLinearColor::White;
 	float BarOpacity = 0.3;
 	float Width = (Size.X * 0.5f) - CenterBuffer;
 	bool bIsUnderCursor = false;
@@ -364,17 +379,13 @@ void UUTScoreboard::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float R
 	}
 
 	FText PlayerName = FText::FromString(GetClampedName(PlayerState, UTHUDOwner->MediumFont, 1.f, 0.475f*Width));
+	FLinearColor DrawColor = GetPlayerColorFor(PlayerState);
 
 	int32 Ping = PlayerState->Ping * 4;
 	if (UTHUDOwner->UTPlayerOwner->UTPlayerState == PlayerState)
 	{
 		Ping = PlayerState->ExactPing;
-		DrawColor = FLinearColor(0.0f,0.92f,1.0f,1.0f);
 		BarOpacity = 0.5;
-	}
-	else if (PlayerState->bIsFriend)
-	{
-		DrawColor = FLinearColor(FColor(254, 255, 174, 255));
 	}
 
 	FText PlayerPing;
