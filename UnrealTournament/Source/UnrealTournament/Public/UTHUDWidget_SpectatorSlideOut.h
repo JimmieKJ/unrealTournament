@@ -15,6 +15,10 @@ struct FClickElement
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Scoreboard")
 	FKey Key;
 
+	//Command when the element is clicked
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Scoreboard")
+	FString Command;
+
 	// Holds the X1/Y1/X2/Y2 bounds of this element.  
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Scoreboard")
 	FVector4 Bounds;
@@ -127,9 +131,6 @@ public:
 
 	UPROPERTY()
 	FString CameraString[10];
-
-	/** Shorter names to use for numpad number binds. */
-	TMap <FName, FString> NumpadString;
 
 	UPROPERTY()
 	int32 NumCameras;

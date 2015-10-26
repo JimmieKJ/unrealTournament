@@ -13,14 +13,14 @@ UUTHUDWidget_SpectatorSlideOut::UUTHUDWidget_SpectatorSlideOut(const class FObje
 {
 	DesignedResolution = 1080;
 	Position = FVector2D(0, 0);
-	Size = FVector2D(360.0f, 108.0f);
+	Size = FVector2D(340.0f, 108.0f);
 	ScreenPosition = FVector2D(0.0f, 0.005f);
 	Origin = FVector2D(0.0f, 0.0f);
 
-	FlagX = 0.09f;
-	ColumnHeaderPlayerX = 0.2f;
-	ColumnHeaderScoreX = 0.8f;
-	ColumnHeaderArmor = 0.94f;
+	FlagX = 0.02f;
+	ColumnHeaderPlayerX = 0.12f;
+	ColumnHeaderScoreX = 0.75f;
+	ColumnHeaderArmor = 0.93f;
 	ColumnY = 0.11f * Size.Y;
 
 	CellHeight = 32;
@@ -67,17 +67,6 @@ UUTHUDWidget_SpectatorSlideOut::UUTHUDWidget_SpectatorSlideOut(const class FObje
 
 	RedFlagBind = NAME_None;
 	BlueFlagBind = NAME_None;
-
-	NumpadString.Add(FName(TEXT("NumPadZero")), TEXT("NumPd 0"));
-	NumpadString.Add(FName(TEXT("NumPadOne")), TEXT("NumPd 1"));
-	NumpadString.Add(FName(TEXT("NumPadTwo")), TEXT("NumPd 2"));
-	NumpadString.Add(FName(TEXT("NumPadThree")), TEXT("NumPd 3"));
-	NumpadString.Add(FName(TEXT("NumPadFour")), TEXT("NumPd 4"));
-	NumpadString.Add(FName(TEXT("NumPadFive")), TEXT("NumPd 5"));
-	NumpadString.Add(FName(TEXT("NumPadSix")), TEXT("NumPd 6"));
-	NumpadString.Add(FName(TEXT("NumPadSeven")), TEXT("NumPd 7"));
-	NumpadString.Add(FName(TEXT("NumPadEight")), TEXT("NumPd 8"));
-	NumpadString.Add(FName(TEXT("NumPadNine")), TEXT("NumPd 9"));
 }
 
 void UUTHUDWidget_SpectatorSlideOut::InitializeWidget(AUTHUD* Hud)
@@ -257,11 +246,7 @@ void UUTHUDWidget_SpectatorSlideOut::Draw_Implementation(float DeltaTime)
 
 		if (UTGameState->bTeamGame)
 		{
-			if (!UTHUDOwner->UTPlayerOwner->bShowCameraBinds)
-			{
-				DrawOffset += CellHeight;
-				DrawOffset += CellHeight;
-			}
+			DrawOffset += CellHeight;
 			BluePlayerList.Sort(SortFunc);
 			for (int32 PlayerBind = 1; PlayerBind <= MaxRedPlaces; PlayerBind++)
 			{
@@ -290,42 +275,46 @@ void UUTHUDWidget_SpectatorSlideOut::Draw_Implementation(float DeltaTime)
 			}
 		}
 
-		if (!UTHUDOwner->UTPlayerOwner->bShowCameraBinds)
+		if (!bPowerupListInitialized)
 		{
-			if (!bPowerupListInitialized)
+			InitPowerupList();
+		}
+		//draw powerup clocks
+		DrawOffset += 0.2f*CellHeight;
+		for (int32 i = 0; i < PowerupList.Num(); i++)
+		{
+			if (PowerupList[i] != NULL)
 			{
-				InitPowerupList();
-			}
-			//draw powerup clocks
-			DrawOffset += 0.2f*CellHeight;
-			for (int32 i = 0; i < PowerupList.Num(); i++)
-			{
-				if (PowerupList[i] != NULL)
-				{
-					DrawPowerup(PowerupList[i], XOffset, DrawOffset);
-					DrawOffset += 1.2f*CellHeight;
-				}
-			}
-
-			AUTPlayerState* OwnerPS = Cast<AUTPlayerState>(UTHUDOwner->UTPlayerOwner->PlayerState);
-			if (!OwnerPS->bCaster)
-			{
-				float StartCamOffset = DrawOffset;
-				float EndCamOffset = 0.0f; //Unknown. will be filled in when cambinds hit the bottom of the screen
-				bool bOverflow = false;
-				DrawCamBind(AutoCamBind, "Auto Camera", DeltaTime, XOffset, DrawOffset, false);
-				UpdateCameraBindOffset(DrawOffset, XOffset, bOverflow, StartCamOffset, EndCamOffset);
-				if (!bOverflow)
-				{
-					DrawCamBind(FName(TEXT("Enter")), "Show Camera Binds", DeltaTime, XOffset, DrawOffset, false);
-					UpdateCameraBindOffset(DrawOffset, XOffset, bOverflow, StartCamOffset, EndCamOffset);
-					if (!bOverflow)
-					{
-						DrawCamBind(FName(TEXT("Numpad Add")), "Toggle SlideOut", DeltaTime, XOffset, DrawOffset, false);
-					}
-				}
+				DrawPowerup(PowerupList[i], XOffset, DrawOffset);
+				DrawOffset += 1.2f*CellHeight;
 			}
 		}
+
+		AUTCTFGameState * CTFGameState = Cast<AUTCTFGameState>(UTGameState);
+		if (CTFGameState && (CTFGameState->FlagBases.Num() > 1))
+		{
+			// show flag binds
+			if ((RedFlagBind != NAME_None) && CTFGameState->FlagBases[0] && CTFGameState->FlagBases[0]->MyFlag)
+			{
+				DrawFlag(RedFlagBind, "Red Flag", CTFGameState->FlagBases[0]->MyFlag, DeltaTime, XOffset, DrawOffset);
+				DrawOffset += 1.2f*CellHeight;
+			}
+			if ((BlueFlagBind != NAME_None) && CTFGameState->FlagBases[1] && CTFGameState->FlagBases[1]->MyFlag)
+			{
+				DrawFlag(BlueFlagBind, "Blue Flag", CTFGameState->FlagBases[1]->MyFlag, DeltaTime, XOffset, DrawOffset);
+				DrawOffset += 1.2f*CellHeight;
+			}
+		}
+
+		float StartCamOffset = DrawOffset;
+		float EndCamOffset = 0.0f; 
+		bool bOverflow = false;
+		DrawCamBind(AutoCamBind, "Auto Camera", DeltaTime, XOffset, DrawOffset, false);
+		UpdateCameraBindOffset(DrawOffset, XOffset, bOverflow, StartCamOffset, EndCamOffset);
+		FString ShowBinds = UTHUDOwner->UTPlayerOwner->bShowCameraBinds ? "Hide Cameras" : "Show Cameras";
+		DrawCamBind(FName(TEXT("Enter")), ShowBinds, DeltaTime, XOffset, DrawOffset, false);
+		UpdateCameraBindOffset(DrawOffset, XOffset, bOverflow, StartCamOffset, EndCamOffset);
+
 		UUTPlayerInput* Input = Cast<UUTPlayerInput>(UTHUDOwner->PlayerOwner->PlayerInput);
 		if (Input && UTHUDOwner->UTPlayerOwner->bShowCameraBinds)
 		{
@@ -352,24 +341,10 @@ void UUTHUDWidget_SpectatorSlideOut::Draw_Implementation(float DeltaTime)
 			bool bOverflow = false;
 			float StartCamOffset = DrawOffset;
 			float EndCamOffset = 0.0f; //Unknown. will be filled in when cambinds hit the bottom of the screen
+
 			DrawCamBind(AutoCamBind, "Auto Camera", DeltaTime, XOffset, DrawOffset, false);
 			UpdateCameraBindOffset(DrawOffset, XOffset, bOverflow, StartCamOffset, EndCamOffset);
 
-			AUTCTFGameState * CTFGameState = Cast<AUTCTFGameState>(UTGameState);
-			if (CTFGameState && (CTFGameState->FlagBases.Num() > 1))
-			{
-				// show flag binds
-				if ((RedFlagBind != NAME_None) && CTFGameState->FlagBases[0] && CTFGameState->FlagBases[0]->MyFlag)
-				{
-					DrawFlag(RedFlagBind, "Red Flag", CTFGameState->FlagBases[0]->MyFlag, DeltaTime, XOffset, DrawOffset);
-					UpdateCameraBindOffset(DrawOffset, XOffset, bOverflow, StartCamOffset, EndCamOffset);
-				}
-				if ((BlueFlagBind != NAME_None) && CTFGameState->FlagBases[1] && CTFGameState->FlagBases[1]->MyFlag)
-				{
-					DrawFlag(BlueFlagBind, "Blue Flag", CTFGameState->FlagBases[1]->MyFlag, DeltaTime, XOffset, DrawOffset);
-					UpdateCameraBindOffset(DrawOffset, XOffset, bOverflow, StartCamOffset, EndCamOffset);
-				}
-			}
 			for (int32 i = 0; i < Input->SpectatorBinds.Num(); i++)
 			{
 				if ((Input->SpectatorBinds[i].FriendlyName != "") && (Input->SpectatorBinds[i].KeyName != NAME_None))
@@ -378,9 +353,7 @@ void UUTHUDWidget_SpectatorSlideOut::Draw_Implementation(float DeltaTime)
 					UpdateCameraBindOffset(DrawOffset, XOffset, bOverflow, StartCamOffset, EndCamOffset);
 				}
 			}
-			static FName NAME_PressFire = FName(TEXT("Fire"));
-			DrawCamBind(NAME_PressFire, "Camera Rotation Control", DeltaTime, XOffset, DrawOffset, false);
-			UpdateCameraBindOffset(DrawOffset, XOffset, bOverflow, StartCamOffset, EndCamOffset);
+
 			static FName NAME_PressAltFire = FName(TEXT("AltFire"));
 			DrawCamBind(NAME_PressAltFire, "Free Cam", DeltaTime, XOffset, DrawOffset, false);
 			UpdateCameraBindOffset(DrawOffset, XOffset, bOverflow, StartCamOffset, EndCamOffset);
@@ -487,19 +460,17 @@ void UUTHUDWidget_SpectatorSlideOut::DrawFlag(FName KeyName, FString FlagName, A
 	}
 
 	// Draw the Text
-	DrawText(FText::FromString("[" + KeyName.ToString() + "]"), XOffset + 4.f, YOffset + ColumnY, UTHUDOwner->TinyFont, 1.f, 1.f, FLinearColor(0.7f, 0.7f, 0.7f, 1.f), ETextHorzPos::Left, ETextVertPos::Center);
-
 	FLinearColor FlagColor = Flag->Team ? Flag->Team->TeamColor : FLinearColor::White;
-	DrawTexture(FlagIcon.Texture, XOffset + (Width * 0.5f), YOffset + ColumnY - 0.025f*Width, 0.09f*Width, 0.09f*Width, FlagIcon.U, FlagIcon.V, FlagIcon.UL, FlagIcon.VL, 1.0, FlagColor, FVector2D(1.0, 0.0));
+	DrawTexture(FlagIcon.Texture, XOffset + (Width * 0.12f), YOffset + ColumnY - 0.025f*Width, 0.09f*Width, 0.09f*Width, FlagIcon.U, FlagIcon.V, FlagIcon.UL, FlagIcon.VL, 1.0, FlagColor, FVector2D(1.0, 0.0));
 
-	DrawText(FText::FromString(FlagName), XOffset + (Width * 0.6f), YOffset + ColumnY, UTHUDOwner->TinyFont, 1.0f, 1.0f, FlagColor, ETextHorzPos::Left, ETextVertPos::Center);
+	DrawText(FText::FromString(FlagName), XOffset + (Width * 0.22f), YOffset + ColumnY, UTHUDOwner->TinyFont, 1.0f, 1.0f, FlagColor, ETextHorzPos::Left, ETextVertPos::Center);
 }
 
 void UUTHUDWidget_SpectatorSlideOut::DrawCamBind(FName KeyName, FString ProjName, float RenderDelta, float XOffset, float YOffset, bool bCamSelected)
 {
 	FLinearColor DrawColor = FLinearColor::White;
 	float BarOpacity = 0.3f;
-	float Width = 0.75f * Size.X;
+	float Width = 0.6f * Size.X;
 
 	// If we are interactive and this element has a keybind, store it so the mouse can click it
 	if (bIsInteractive && KeyName != NAME_None)
@@ -524,16 +495,7 @@ void UUTHUDWidget_SpectatorSlideOut::DrawCamBind(FName KeyName, FString ProjName
 	}
 
 	// Draw the Text
-	if (KeyName != NAME_None)
-	{
-		FString KeyString = NumpadString.FindRef(KeyName);
-		if (KeyString.IsEmpty())
-		{
-			KeyString = KeyName.ToString();
-		}
-		DrawText(FText::FromString("[" + KeyString + "]"), XOffset + 4.f, YOffset + ColumnY, UTHUDOwner->TinyFont, 1.f, 1.f, FLinearColor(0.7f, 0.7f, 0.7f, 1.f), ETextHorzPos::Left, ETextVertPos::Center);
-	}
-	DrawText(FText::FromString(ProjName), XOffset + (Width * 0.98f), YOffset + ColumnY, UTHUDOwner->TinyFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Right, ETextVertPos::Center);
+	DrawText(FText::FromString(ProjName), XOffset + (Width * 0.02f), YOffset + ColumnY, UTHUDOwner->TinyFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Left, ETextVertPos::Center);
 }
 
 void UUTHUDWidget_SpectatorSlideOut::UpdateCameraBindOffset(float& DrawOffset, float& XOffset, bool& bOverflow, float StartOffset, float& EndCamOffset)
@@ -541,7 +503,7 @@ void UUTHUDWidget_SpectatorSlideOut::UpdateCameraBindOffset(float& DrawOffset, f
 	if (!bOverflow)
 	{
 		DrawOffset += CellHeight;
-		if (DrawOffset > (Canvas->ClipY / RenderScale) - (CellHeight * 6))
+		if (DrawOffset > (Canvas->ClipY / RenderScale) - CellHeight)
 		{
 			bOverflow = true;
 			XOffset = XOffset + 0.75f * Size.X + 2.f;
@@ -573,7 +535,6 @@ void UUTHUDWidget_SpectatorSlideOut::DrawPlayerHeader(float RenderDelta, float X
 	DrawTexture(TextureAtlas, XOffset, YOffset, Width, 0.95f*CellHeight, 149, 138, 32, 32, FinalBarOpacity, BarColor);
 
 	// Draw the Text
-	DrawText(FText::FromString("Press number to view player"), XOffset + (Width * 0.01f), YOffset + ColumnY, UTHUDOwner->TinyFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Left, ETextVertPos::Center);
 	DrawTexture(HealthIcon.Texture, XOffset + (Width * (ColumnHeaderScoreX - 0.05f)), YOffset + ColumnY - 0.04f*Width, 0.1f*Width, 0.1f*Width, HealthIcon.U, HealthIcon.V, HealthIcon.UL, HealthIcon.VL, 1.0, FLinearColor::White);
 	DrawTexture(ArmorIcon.Texture, XOffset + (Width * (ColumnHeaderArmor - 0.05f)), YOffset + ColumnY - 0.04f*Width, 0.1f*Width, 0.1f*Width, ArmorIcon.U, ArmorIcon.V, ArmorIcon.UL, ArmorIcon.VL, 1.0, FLinearColor::White);
 }
@@ -625,13 +586,6 @@ void UUTHUDWidget_SpectatorSlideOut::DrawPlayer(int32 Index, AUTPlayerState* Pla
 	UTexture2D* NewFlagAtlas = UTHUDOwner->ResolveFlag(PlayerState, FlagUV);
 	DrawTexture(NewFlagAtlas, XOffset + (Width * FlagX), YOffset + 18, FlagUV.UL, FlagUV.VL, FlagUV.U, FlagUV.V, 36, 26, 1.0, FLinearColor::White, FVector2D(0.0f, 0.5f));
 
-	// Draw the Text
-	if (Index >= 0)
-	{
-		int32 DisplayNum = (Index < 10) ? Index : 0;
-		FText Position = FText::Format(NSLOCTEXT("UTScoreboard", "PositionFormatText", "{0}"), FText::AsNumber(DisplayNum));
-		DrawText(Position, XOffset + 4.f, YOffset + ColumnY, SlideOutFont, 1.f, 1.f, DrawColor, ETextHorzPos::Left, ETextVertPos::Center);
-	}
 	FVector2D NameSize = DrawText(PlayerName, XOffset + (Width * ColumnHeaderPlayerX), YOffset + ColumnY, SlideOutFont, PlayerState->SpectatorNameScale, PlayerState->SpectatorNameScale, DrawColor, ETextHorzPos::Left, ETextVertPos::Center);
 
 	if (UTGameState && UTGameState->HasMatchStarted())
