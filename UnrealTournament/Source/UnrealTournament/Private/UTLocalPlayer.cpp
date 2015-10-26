@@ -3235,6 +3235,12 @@ void UUTLocalPlayer::CloseAllUI(bool bExceptDialogs)
 	CloseMatchSummary();
 	CloseSpectatorWindow();
 
+	if (ToastList.Num() > 0)
+	{
+		GEngine->GameViewport->RemoveViewportWidgetContent(ToastList[0].ToSharedRef());
+		ToastList.Empty();
+	}
+
 #endif
 }
 
