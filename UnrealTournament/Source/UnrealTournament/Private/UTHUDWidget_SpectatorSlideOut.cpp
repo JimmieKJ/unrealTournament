@@ -279,9 +279,9 @@ void UUTHUDWidget_SpectatorSlideOut::Draw_Implementation(float DeltaTime)
 			}
 			DrawOffset += 0.25f*(10.f-float(NumCameras))*CellHeight;
 
-			bool bOverflow = false;
-			float StartCamOffset = DrawOffset;
-			float EndCamOffset = 0.0f; //Unknown. will be filled in when cambinds hit the bottom of the screen
+			bOverflow = false;
+			StartCamOffset = DrawOffset;
+			EndCamOffset = 0.0f; //Unknown. will be filled in when cambinds hit the bottom of the screen
 
 			for (int32 i = 0; i < Input->SpectatorBinds.Num(); i++)
 			{
@@ -492,12 +492,12 @@ void UUTHUDWidget_SpectatorSlideOut::DrawPlayer(int32 Index, AUTPlayerState* Pla
 	{
 		FVector4 Bounds = FVector4(RenderPosition.X + (XOffset * RenderScale), RenderPosition.Y + (YOffset * RenderScale),
 			RenderPosition.X + ((XOffset + Width) * RenderScale), RenderPosition.Y + ((YOffset + CellHeight) * RenderScale));
-		int32 TeamNum = (Index < 6) ? 0 : 1;
+		int32 PickedTeamNum = (Index < 6) ? 0 : 1;
 		if (Index > 5)
 		{
 			Index -= 5;
 		}
-		ClickElementStack.Add(FClickElement("ViewPlayerNum " + FString::Printf(TEXT("%d %d"), Index, TeamNum), Bounds));
+		ClickElementStack.Add(FClickElement("ViewPlayerNum " + FString::Printf(TEXT("%d %d"), Index, PickedTeamNum), Bounds));
 		if (MousePosition.X >= Bounds.X && MousePosition.X <= Bounds.Z && MousePosition.Y >= Bounds.Y && MousePosition.Y <= Bounds.W)
 		{
 			FinalBarOpacity = 1.f;
