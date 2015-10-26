@@ -1461,8 +1461,8 @@ void AUTGameMode::FindAndMarkHighScorer()
 
 	for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
 	{
-		AUTPlayerState *PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
-		AController *C = Cast<AController>(PS->GetOwner());
+		AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
+		AController* C = (PS != NULL) ? Cast<AController>(PS->GetOwner()) : NULL;
 		if (PS != nullptr && PS->Score == BestScore)
 		{
 			PS->bHasHighScore = true;
@@ -2217,14 +2217,6 @@ void AUTGameMode::GiveDefaultInventory(APawn* PlayerPawn)
 			UTCharacter->DefaultCharacterInventory.Empty();
 		}
 		UTCharacter->AddDefaultInventory(DefaultInventory);
-	}
-}
-
-void AUTGameMode::Mutate_Implementation(const FString& MutateString, AUTPlayerController* Sender)
-{
-	if (BaseMutator != NULL)
-	{
-		BaseMutator->Mutate(MutateString, Sender);
 	}
 }
 
