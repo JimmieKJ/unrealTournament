@@ -148,7 +148,7 @@ class UnrealTournamentProto_ChunkBuild : BuildCommand
     {
         Log("************************* UnrealTournamentProto_ChunkBuild");
         
-        var BranchName = "";
+        string BranchName = "";
         if (CommandUtils.P4Enabled)
         {
             BranchName = CommandUtils.P4Env.BuildRootP4;
@@ -166,7 +166,7 @@ class UnrealTournamentProto_ChunkBuild : BuildCommand
                     throw new AutomationException("BUILD FAILED: build is missing or did not complete because this file is missing: {0}", RawImageManifestMac);
                 }
 
-                var StagingInfo = UnrealTournamentBuild.GetUTBuildPatchToolStagingInfo(this, UnrealTargetPlatform.Mac, BranchName);
+                BuildPatchToolStagingInfo StagingInfo = UnrealTournamentBuild.GetUTBuildPatchToolStagingInfo(this, UnrealTargetPlatform.Mac, BranchName);
 
                 // run the patch tool
                 BuildPatchToolBase.Get().Execute(
@@ -204,7 +204,7 @@ class UnrealTournamentProto_ChunkBuild : BuildCommand
                     throw new AutomationException("BUILD FAILED: build is missing or did not complete because this file is missing: {0}", RawImageManifest);
                 }
 
-                var StagingInfo = UnrealTournamentBuild.GetUTBuildPatchToolStagingInfo(this, UnrealTargetPlatform.Win64, BranchName);
+                BuildPatchToolStagingInfo StagingInfo = UnrealTournamentBuild.GetUTBuildPatchToolStagingInfo(this, UnrealTargetPlatform.Win64, BranchName);
 
                 // run the patch tool
                 BuildPatchToolBase.Get().Execute(
@@ -241,7 +241,7 @@ class UnrealTournamentProto_ChunkBuild : BuildCommand
                     throw new AutomationException("BUILD FAILED: build is missing or did not complete because this file is missing: {0}", RawImageManifest);
                 }
 
-                var StagingInfo = UnrealTournamentBuild.GetUTBuildPatchToolStagingInfo(this, UnrealTargetPlatform.Win32, BranchName);
+                BuildPatchToolStagingInfo StagingInfo = UnrealTournamentBuild.GetUTBuildPatchToolStagingInfo(this, UnrealTargetPlatform.Win32, BranchName);
 
                 // run the patch tool
                 BuildPatchToolBase.Get().Execute(
@@ -260,10 +260,10 @@ class UnrealTournamentProto_ChunkBuild : BuildCommand
                 CommandUtils.Log("Posting UnrealTournament for Windows to MCP.");
                 BuildInfoPublisherBase.Get().PostBuildInfo(StagingInfo);
                 CommandUtils.Log("Labeling new build as Latest in MCP.");
-                string LatestLabelName = BuildInfoPublisherBase.Get().GetLabelWithPlatform("Latest", MCPPlatform.Windows);
+                string LatestLabelName = BuildInfoPublisherBase.Get().GetLabelWithPlatform("Latest", MCPPlatform.Win32);
                 BuildInfoPublisherBase.Get().LabelBuild(StagingInfo, LatestLabelName, McpConfigName);
                 // For backwards compatibility, also label as Production-Latest
-                LatestLabelName = BuildInfoPublisherBase.Get().GetLabelWithPlatform("Production-Latest", MCPPlatform.Windows);
+                LatestLabelName = BuildInfoPublisherBase.Get().GetLabelWithPlatform("Production-Latest", MCPPlatform.Win32);
                 BuildInfoPublisherBase.Get().LabelBuild(StagingInfo, LatestLabelName, McpConfigName);
             }*/
         }
@@ -315,8 +315,8 @@ class UnrealTournamentProto_BasicBuild : BuildCommand
             P4Change = P4Env.ChangelistString;
             P4Branch = P4Env.BuildRootEscaped;
         }
-				
-		var Params = new ProjectParams
+
+        ProjectParams Params = new ProjectParams
 		(
 			// Shared
             RawProjectPath: CombinePaths(CmdEnv.LocalRoot, "UnrealTournament", "UnrealTournament.uproject"),
@@ -358,10 +358,10 @@ class UnrealTournamentProto_BasicBuild : BuildCommand
         if (P4Enabled && !String.IsNullOrEmpty(Params.CreateReleaseVersion))
         {
             Log("************************* Copying AssetRegistry.bin files from Saved/Cooked to Releases");
-            var ReleasePath = CombinePaths(CmdEnv.LocalRoot, "UnrealTournament", "Releases", Params.CreateReleaseVersion);
-            var SavedPath = CombinePaths(CmdEnv.LocalRoot, "UnrealTournament", "Saved", "Cooked");
+            string ReleasePath = CombinePaths(CmdEnv.LocalRoot, "UnrealTournament", "Releases", Params.CreateReleaseVersion);
+            string SavedPath = CombinePaths(CmdEnv.LocalRoot, "UnrealTournament", "Saved", "Cooked");
 
-            var Platforms = new string[] { "WindowsNoEditor", "MacNoEditor", "LinuxServer", "WindowsServer", "LinuxNoEditor" };
+            string[] Platforms = new string[] { "WindowsNoEditor", "MacNoEditor", "LinuxServer", "WindowsServer", "LinuxNoEditor" };
 
             foreach (string Platform in Platforms)
             {
@@ -380,9 +380,9 @@ class UnrealTournamentProto_BasicBuild : BuildCommand
             int AssetRegCL = P4.CreateChange(P4Env.Client, String.Format("UnrealTournamentBuild AssetRegistry build built from changelist {0}", P4Env.Changelist));
             if (AssetRegCL > 0)
             {
-                var ReleasePath = CombinePaths(CmdEnv.LocalRoot, "UnrealTournament", "Releases", Params.CreateReleaseVersion);
+                string ReleasePath = CombinePaths(CmdEnv.LocalRoot, "UnrealTournament", "Releases", Params.CreateReleaseVersion);
 
-                var Platforms = new string[] { "WindowsNoEditor", "MacNoEditor", "LinuxServer", "WindowsServer", "LinuxNoEditor" };
+                string[] Platforms = new string[] { "WindowsNoEditor", "MacNoEditor", "LinuxServer", "WindowsServer", "LinuxNoEditor" };
 
                 foreach (string Platform in Platforms)
                 {
@@ -416,7 +416,7 @@ class UnrealTournamentProto_BasicBuild : BuildCommand
 	{
 		Log("************************* UnrealTournamentProto_BasicBuild");
 
-		var Params = GetParams(this);
+		ProjectParams Params = GetParams(this);
 
 		int WorkingCL = -1;
 		if (P4Enabled && AllowSubmit)
@@ -587,7 +587,7 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
             
             const string Iso8601DateTimeFormat = "yyyy'-'MM'-'dd'T'HH':'mm':'ss'.'fffzzz";
 
-            var Lines = new List<string>();
+            List<string> Lines = new List<string>();
             foreach (string RequiredFile in RequiredFiles)
             {
                 if (RequiredFile.EndsWith(".pdb"))
@@ -904,13 +904,13 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
             }
             else
             {
-				var BranchName = "";
+				string BranchName = "";
 				if (CommandUtils.P4Enabled)
 				{
 					BranchName = CommandUtils.P4Env.BuildRootP4;
 				}
 
-				var StagingInfo = UnrealTournamentBuild.GetUTEditorBuildPatchToolStagingInfo(bp, HostPlatform, BranchName);
+				BuildPatchToolStagingInfo StagingInfo = UnrealTournamentBuild.GetUTEditorBuildPatchToolStagingInfo(bp, HostPlatform, BranchName);
 
                 string DebugManifest = CommandUtils.CombinePaths(CommandUtils.CmdEnv.LocalRoot, "Engine", "Saved", "Logs", "Manifest_DebugFiles.txt");
                 if (!CommandUtils.FileExists(DebugManifest))
@@ -1072,7 +1072,7 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
                 int VersionFilesCL = CommandUtils.P4.CreateChange(CommandUtils.P4Env.Client, String.Format("UnrealTournamentBuild Version Files from changelist {0}", CommandUtils.P4Env.Changelist));
                 if (VersionFilesCL > 0)
                 {
-                    var VersionFiles = new string[4];
+                    string[] VersionFiles = new string[4];
                     VersionFiles[0] = CommandUtils.CombinePaths(CommandUtils.CmdEnv.LocalRoot, "Engine", "Build", "build.properties");
                     VersionFiles[1] = CommandUtils.CombinePaths(CommandUtils.CmdEnv.LocalRoot, "Engine", "Source", "Runtime", "Core", "Private", "UObject", "ObjectVersion.cpp");
                     VersionFiles[2] = CommandUtils.CombinePaths(CommandUtils.CmdEnv.LocalRoot, "Engine", "Source", "Runtime", "Launch", "Resources", "Version.h");
@@ -1109,7 +1109,7 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
     {
         //if (!bp.BranchOptions.ExcludeNodes.Contains("UnrealTournament"))
         {            
-            var GameProj = bp.Branch.FindGame("UnrealTournament");
+            BranchInfo.BranchUProject GameProj = bp.Branch.FindGame("UnrealTournament");
             if (GameProj != null)
             {
                 CommandUtils.Log("*** Adding UT-specific nodes to the GUBP");
@@ -1193,8 +1193,8 @@ class UnrealTournament_PromoteBuild : BuildCommand
 		{
 			throw new AutomationException(CreateDebugList(InvalidProducts, "The following product names are invalid:"));
 		}
-		var bShouldPromoteGameClient = Products.Contains("GameClient");
-		var bShouldPromoteEditor = Products.Contains("Editor");
+		bool bShouldPromoteGameClient = Products.Contains("GameClient");
+		bool bShouldPromoteEditor = Products.Contains("Editor");
 
         UnrealTournamentBuild.UnrealTournamentAppName FromApp = UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentDev;
         UnrealTournamentBuild.UnrealTournamentAppName ToApp = UnrealTournamentBuild.UnrealTournamentAppName.UnrealTournamentDev;
@@ -1918,7 +1918,7 @@ public class MakeUTDLC : BuildCommand
             P4Branch = P4Env.BuildRootEscaped;
         }
 
-        var Params = new ProjectParams
+        ProjectParams Params = new ProjectParams
         (
             Command: Cmd,
             // Shared
@@ -2031,7 +2031,7 @@ public class MakeUTDLC : BuildCommand
             List<BuildReceipt> TargetsToStage = new List<BuildReceipt>();
 
             //@todo should pull StageExecutables from somewhere else if not cooked
-            var SC = new DeploymentContext(Params.RawProjectPath, CmdEnv.LocalRoot,
+            DeploymentContext SC = new DeploymentContext(Params.RawProjectPath, CmdEnv.LocalRoot,
                 StageDirectory,
                 ArchiveDirectory,
                 Params.CookFlavor,
@@ -2078,7 +2078,7 @@ public class MakeUTDLC : BuildCommand
         // Right now all platform asset registries seem to be the exact same, this may change in the future
         AssetRegistry = ParseParamValue("ReleaseVersion", "UTVersion0");
 
-        var Params = GetParams(this, DLCName, AssetRegistry);
+        ProjectParams Params = GetParams(this, DLCName, AssetRegistry);
 
         if (ParseParam("build"))
         {
