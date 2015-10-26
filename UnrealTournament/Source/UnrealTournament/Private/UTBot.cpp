@@ -721,14 +721,15 @@ void AUTBot::Tick(float DeltaTime)
 			ExecuteWhatToDoNext();
 			bExecutingWhatToDoNext = false;
 			bPendingWhatToDoNext = false;
-			if (CurrentAction == NULL)
-			{
-				UE_LOG(UT, Warning, TEXT("%s (%s) failed to get an action from ExecuteWhatToDoNext()"), *GetName(), *PlayerState->PlayerName);
-				GoalString = TEXT("BUG - NO ACTION - Setting CampAction");
-				StartNewAction(CampAction);
-			}
 			if (GetPawn() != NULL)
 			{
+				if (CurrentAction == NULL)
+				{
+					UE_LOG(UT, Warning, TEXT("%s (%s) failed to get an action from ExecuteWhatToDoNext()"), *GetName(), *PlayerState->PlayerName);
+					GoalString = TEXT("BUG - NO ACTION - Setting CampAction");
+					StartNewAction(CampAction);
+				}
+			
 				SetDefaultFocus();
 				// switch to best weapon after deciding what we want to do
 				// if we have a new movement destination, init that first before deciding (may want to use translocator, etc)
@@ -2923,6 +2924,10 @@ void AUTBot::DoHunt(APawn* NewHuntTarget)
 		UE_LOG(UT, Warning, TEXT("Bot %s in DoHunt() with no enemy"), *PlayerState->PlayerName);
 		GoalString = TEXT("BUG - HUNT WITH BAD TARGET - Force CampAction");
 		StartNewAction(CampAction);
+	}
+	else if (GetPawn() == NULL)
+	{
+		UE_LOG(UT, Warning, TEXT("Bot %s in DoHunt() with no Pawn"), *PlayerState->PlayerName);
 	}
 	else
 	{
