@@ -38,6 +38,7 @@
 #include "Slate/SUTReplayMenu.h"
 #include "Slate/SUTAdminDialog.h"
 #include "Slate/SUTDownloadAllDialog.h"
+#include "Slate/SUTSpectatorWindow.h"
 #include "UTAnalytics.h"
 #include "FriendsAndChat.h"
 #include "Runtime/Analytics/Analytics/Public/Analytics.h"
@@ -3232,6 +3233,8 @@ void UUTLocalPlayer::CloseAllUI(bool bExceptDialogs)
 	AdminDialogClosed();
 	CloseMapVote();
 	CloseMatchSummary();
+	CloseSpectatorWindow();
+
 #endif
 }
 
@@ -3640,3 +3643,31 @@ bool UUTLocalPlayer::SkipWorldRender()
 #endif
 	return false;
 }
+
+void UUTLocalPlayer::OpenSpectatorWindow()
+{
+#if !UE_SERVER
+	if (!SpectatorWidget.IsValid())
+	{
+		SAssignNew(SpectatorWidget, SUTSpectatorWindow)
+			.PlayerOwner(this);
+
+		if (SpectatorWidget.IsValid())
+		{
+			GEngine->GameViewport->AddViewportWidgetContent( SNew(SWeakWidget).PossiblyNullContent(SpectatorWidget.ToSharedRef()),-1);
+		}
+	}
+#endif
+}
+void UUTLocalPlayer::CloseSpectatorWindow()
+{
+#if !UE_SERVER
+	if (SpectatorWidget.IsValid())
+	{
+		GEngine->GameViewport->RemoveViewportWidgetContent(SpectatorWidget.ToSharedRef());
+		SpectatorWidget.Reset();
+	}
+#endif
+}
+
+

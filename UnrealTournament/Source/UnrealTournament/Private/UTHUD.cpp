@@ -115,6 +115,13 @@ void AUTHUD::AddSpectatorWidgets()
 	{
 		BuildHudWidget(*SpectatorHudWidgetClasses[i]);
 	}
+
+	UUTLocalPlayer* UTLP = UTPlayerOwner ? Cast<UUTLocalPlayer>(UTPlayerOwner->Player) : NULL;
+	if (UTLP)
+	{
+		UTLP->OpenSpectatorWindow();
+	}
+
 }
 
 void AUTHUD::PostInitializeComponents()

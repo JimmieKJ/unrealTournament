@@ -29,6 +29,7 @@ class SUTJoinInstance;
 class FServerData;
 class AUTRconAdminInfo;
 class SUTDownloadAllDialog;
+class SUTSpectatorWindow;
 
 DECLARE_MULTICAST_DELEGATE_ThreeParams(FPlayerOnlineStatusChanged, class UUTLocalPlayer*, ELoginStatus::Type, const FUniqueNetId&);
 
@@ -169,6 +170,7 @@ protected:
 
 #if !UE_SERVER
 	TSharedPtr<class SUWindowsDesktop> DesktopSlateWidget;
+	TSharedPtr<class SUTSpectatorWindow> SpectatorWidget;
 	
 	// Holds a persistent reference to the server browser.
 	TSharedPtr<class SUWServerBrowser> ServerBrowserWidget;
@@ -751,7 +753,13 @@ public:
 protected:
 #if !UE_SERVER
 	TSharedPtr<SUTDownloadAllDialog> DownloadAllDialog;
+
+	
+
 #endif
 
+public:
+	virtual void OpenSpectatorWindow();
+	virtual void CloseSpectatorWindow();
 
 };
