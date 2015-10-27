@@ -3437,6 +3437,10 @@ void AUTCharacter::UpdateCharOverlays()
 				OverlayMesh->PrimaryComponentTick = OverlayMesh->GetClass()->GetDefaultObject<USkeletalMeshComponent>()->PrimaryComponentTick;
 				OverlayMesh->PostPhysicsComponentTick = OverlayMesh->GetClass()->GetDefaultObject<USkeletalMeshComponent>()->PostPhysicsComponentTick;
 			}
+			OverlayMesh->SetCastShadow(false);
+			OverlayMesh->BoundsScale = 15000.f;
+			OverlayMesh->InvalidateCachedBounds();
+			OverlayMesh->UpdateBounds();
 			OverlayMesh->SetMasterPoseComponent(GetMesh());
 		}
 		if (!OverlayMesh->IsRegistered())
@@ -3446,6 +3450,7 @@ void AUTCharacter::UpdateCharOverlays()
 			OverlayMesh->SetRelativeScale3D(FVector(1.0f, 1.0f, 1.0f));
 			OverlayMesh->SetRenderCustomDepth(true);
 		}
+
 		FOverlayEffect FirstOverlay = GS->GetFirstOverlay(CharOverlayFlags, false);
 		// note: MID doesn't have any safe way to change Parent at runtime, so we need to make a new one every time...
 		UMaterialInstanceDynamic* MID = UMaterialInstanceDynamic::Create(FirstOverlay.Material, OverlayMesh);
@@ -3518,9 +3523,9 @@ void AUTCharacter::UpdateTacComMesh(bool bNewTacComEnabled)
 
 	GetMesh()->MeshComponentUpdateFlag = bTacComEnabled ? EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones : EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered;
 	GetMesh()->SetRenderCustomDepth(bTacComEnabled);
-	GetMesh()->BoundsScale = bTacComEnabled ? 15000.f : 1.f;
-	GetMesh()->InvalidateCachedBounds();
-	GetMesh()->UpdateBounds();
+	//GetMesh()->BoundsScale = bTacComEnabled ? 15000.f : 1.f;
+	//GetMesh()->InvalidateCachedBounds();
+	//GetMesh()->UpdateBounds();
 
 	UpdateCharOverlays();
 }

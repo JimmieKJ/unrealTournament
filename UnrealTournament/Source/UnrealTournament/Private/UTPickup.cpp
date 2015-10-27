@@ -41,6 +41,7 @@ AUTPickup::AUTPickup(const FObjectInitializer& ObjectInitializer)
 		TimerEffect->LDMaxDrawDistance = 1024.0f;
 		TimerEffect->RelativeLocation.Z = 40.0f;
 		TimerEffect->Mobility = EComponentMobility::Static;
+		TimerEffect->SetCastShadow(false);
 	}
 	BaseEffect = ObjectInitializer.CreateOptionalDefaultSubobject<UParticleSystemComponent>(this, TEXT("BaseEffect"));
 	if (BaseEffect != NULL)
