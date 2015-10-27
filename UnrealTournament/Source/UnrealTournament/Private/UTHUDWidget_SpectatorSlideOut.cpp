@@ -82,8 +82,7 @@ bool UUTHUDWidget_SpectatorSlideOut::ShouldDraw_Implementation(bool bShowScores)
 			return false;
 		}
 #endif
-
-		return (UTHUDOwner->UTPlayerOwner->bRequestingSlideOut || UTHUDOwner->UTPlayerOwner->bShowCameraBinds || (SlideIn > 0.f));
+		return true;
 	}
 	return false;
 }
@@ -115,12 +114,23 @@ void UUTHUDWidget_SpectatorSlideOut::Draw_Implementation(float DeltaTime)
 					? FMath::Min(Size.X, SlideIn + DeltaTime*Size.X*SlideSpeed) 
 					: FMath::Max(0.f, SlideIn - DeltaTime*Size.X*SlideSpeed);
 
+		float DrawOffset = 0.27f * Canvas->ClipY;
+		if (SlideIn <= 0.f)
+		{
+			DrawSelector("ToggleSlideOut", true, 0.f, DrawOffset);
+			return;
+		}
+
 		int32 MaxRedPlaces = UTGameState->bTeamGame ? 5 : 10; // warning: hardcoded to match default binds, which has 5 red and 5 blue
 		float XOffset = SlideIn - Size.X;
-		float DrawOffset = 0.27f * Canvas->ClipY;
 		SlideOutFont = UTHUDOwner->SmallFont;
 
 		DrawPlayerHeader(DeltaTime, XOffset, DrawOffset);
+		if (SlideIn > 0.95f)
+		{
+			DrawSelector("ToggleSlideOut", false, 0.f, DrawOffset);
+
+		}
 		DrawOffset += CellHeight;
 
 		TArray<AUTPlayerState*> RedPlayerList, BluePlayerList;
@@ -466,17 +476,25 @@ void UUTHUDWidget_SpectatorSlideOut::DrawPlayerHeader(float RenderDelta, float X
 	float FinalBarOpacity = BarOpacity;
 	DrawTexture(TextureAtlas, XOffset, YOffset, Width, 0.95f*CellHeight, 149, 138, 32, 32, FinalBarOpacity, BarColor);
 
-	/*
-	bRequestingSlideOut
-	if (Flag == UTHUDOwner->UTPlayerOwner->GetViewTarget())
-	{
-	DrawTexture(TextureAtlas, XOffset + Width, YOffset, 0.95f*CellHeight, 36, 36, 188, -36, 65, FinalBarOpacity, BarColor);
-	}
-	*/
-
 	// Draw the Text
 	DrawTexture(HealthIcon.Texture, XOffset + (Width * (ColumnHeaderScoreX - 0.05f)), YOffset + ColumnY - 0.04f*Width, 0.1f*Width, 0.1f*Width, HealthIcon.U, HealthIcon.V, HealthIcon.UL, HealthIcon.VL, 1.0, FLinearColor::White);
 	DrawTexture(ArmorIcon.Texture, XOffset + (Width * (ColumnHeaderArmor - 0.05f)), YOffset + ColumnY - 0.04f*Width, 0.1f*Width, 0.1f*Width, ArmorIcon.U, ArmorIcon.V, ArmorIcon.UL, ArmorIcon.VL, 1.0, FLinearColor::White);
+}
+
+void UUTHUDWidget_SpectatorSlideOut::DrawSelector(FString Command, bool bPointRight, float XOffset, float YOffset)
+{
+	if (bIsInteractive)
+	{
+		FLinearColor DrawColor = FLinearColor::White;
+		float U = bPointRight ? 36.f : 0.f;
+		float UL = bPointRight ? -36.f : 36.f;
+		FVector4 Bounds = FVector4(RenderPosition.X + (XOffset * RenderScale), RenderPosition.Y + (YOffset * RenderScale),
+			RenderPosition.X + ((XOffset + 36.f) * RenderScale), RenderPosition.Y + ((YOffset + 36.f) * RenderScale));
+		ClickElementStack.Add(FClickElement(Command, Bounds));
+		float FinalBarOpacity = (MousePosition.X >= Bounds.X && MousePosition.X <= Bounds.Z && MousePosition.Y >= Bounds.Y && MousePosition.Y <= Bounds.W)
+				? 1.f : 0.7f;
+		DrawTexture(TextureAtlas, XOffset, YOffset+0.5f*CellHeight - 9.f, 18.f, 18.f, U, 188.f, UL, 65.f, 0.8f, DrawColor);
+	}
 }
 
 void UUTHUDWidget_SpectatorSlideOut::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float RenderDelta, float XOffset, float YOffset)

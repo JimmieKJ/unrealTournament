@@ -44,6 +44,7 @@ public:
 	virtual void DrawFlag(FString FlagCommand, FString FlagName, AUTCarriedObject* Flag, float RenderDelta, float XOffset, float YOffset);
 	virtual void DrawCamBind(FString CamCommand, FString ProjName, float RenderDelta, float XOffset, float YOffset, bool bCamSelected);
 	virtual void DrawPowerup(class AUTPickup* Pickup, float XOffset, float YOffset);
+	virtual void DrawSelector(FString Command, bool bPointRight, float XOffset, float YOffset);
 
 	// The total Height of a given cell
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SlideOut")
