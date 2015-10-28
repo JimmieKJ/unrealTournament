@@ -49,12 +49,18 @@ public class UnrealTournament : ModuleRules
 
         if (UEBuildConfiguration.bCompileMcpOSS == true)
         {
+            Definitions.Add("WITH_PROFILE=1");
+
             PublicDependencyModuleNames.AddRange(
                 new string[]
                 {
                     "OnlineSubsystemMcp",
                 }
             );
+        }
+        else
+        {
+            Definitions.Add("WITH_PROFILE=0");
         }
     }
 }

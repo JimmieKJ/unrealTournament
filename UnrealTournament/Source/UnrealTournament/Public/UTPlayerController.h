@@ -3,6 +3,11 @@
 
 #include "UTBasePlayerController.h"
 #include "UTPickupWeapon.h"
+
+#if WITH_PROFILE
+#include "McpProfile.h"
+#endif
+
 #include "UTPlayerController.generated.h"
 
 // range user is allowed to configure FOV angle
@@ -928,6 +933,18 @@ public:
 	 */
 	UPROPERTY()
 	TArray<const class UUTProfileItem*> LevelRewards;
+
+#if WITH_PROFILE
+	void InitializeMcpProfile();
+
+	void SynchronizeProfileWithMcp(const FMcpQueryComplete& OnComplete = FMcpQueryComplete());
+
+	UFUNCTION()
+	void SynchronizeProfileWithMcp_Complete(const FMcpQueryResult& Result, FMcpQueryComplete Callback);
+
+	UPROPERTY(Transient)
+	UMcpProfile* McpProfile;
+#endif
 };
 
 

@@ -2880,6 +2880,13 @@ void AUTPlayerController::ReceivedPlayer()
 {
 	Super::ReceivedPlayer();
 
+#if WITH_PROFILE
+	if (GetNetMode() != NM_DedicatedServer)
+	{
+		InitializeMcpProfile();
+	}
+#endif
+
 	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
 	if (LP != NULL)
 	{
@@ -3816,3 +3823,26 @@ void AUTPlayerController::UTClientSetRotation_Implementation(FRotator NewRotatio
 		GetPawn()->FaceRotation(NewRotation, 0.f);
 	}
 }
+
+#if WITH_PROFILE
+
+void AUTPlayerController::InitializeMcpProfile()
+{
+	McpProfile = NewObject<UMcpProfile>(this);
+	SynchronizeProfileWithMcp();
+}
+
+void AUTPlayerController::SynchronizeProfileWithMcp(const FMcpQueryComplete& OnComplete)
+{
+	if (McpProfile)
+	{
+		// NOTE: this should be the ONLY code in this class that calls ForceQueryProfile. Everything else should go through this function so we can track.
+		McpProfile->ForceQueryProfile(FMcpQueryComplete::CreateUObject(this, &ThisClass::SynchronizeProfileWithMcp_Complete, OnComplete));
+	}
+}
+
+void AUTPlayerController::SynchronizeProfileWithMcp_Complete(const FMcpQueryResult& Result, FMcpQueryComplete Callback)
+{
+}
+
+#endif
