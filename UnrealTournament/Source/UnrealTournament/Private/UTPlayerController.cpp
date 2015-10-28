@@ -1027,7 +1027,7 @@ bool AUTPlayerController::ServerViewFlagHolder_Validate(uint8 TeamIndex)
 }
 void AUTPlayerController::ServerViewFlagHolder_Implementation(uint8 TeamIndex)
 {
-	if (PlayerState && PlayerState->bOnlySpectator)
+	if (IsInState(NAME_Spectating) && (PlayerState == NULL || PlayerState->bOnlySpectator || GetTeamNum() == TeamIndex))
 	{
 		AUTCTFGameState* CTFGameState = GetWorld()->GetGameState<AUTCTFGameState>();
 		if (CTFGameState && (CTFGameState->FlagBases.Num() > TeamIndex) && CTFGameState->FlagBases[TeamIndex] && CTFGameState->FlagBases[TeamIndex]->MyFlag && CTFGameState->FlagBases[TeamIndex]->MyFlag->Holder)
@@ -1073,7 +1073,7 @@ bool AUTPlayerController::ServerViewPlayerState_Validate(APlayerState* PS)
 
 void AUTPlayerController::ServerViewPlayerState_Implementation(APlayerState* PS)
 {
-	if (PlayerState && PlayerState->bOnlySpectator && PS)
+	if (IsInState(NAME_Spectating) && PS != NULL && (PlayerState == NULL || PlayerState->bOnlySpectator || GetTeamNum() == 255 || GetWorld()->GetGameState<AUTGameState>()->OnSameTeam(PS, this)))
 	{
 		SetViewTarget(PS);
 	}
@@ -1092,7 +1092,7 @@ bool AUTPlayerController::ServerViewFlag_Validate(uint8 Index)
 
 void AUTPlayerController::ServerViewFlag_Implementation(uint8 Index)
 {
-	if (PlayerState && PlayerState->bOnlySpectator)
+	if (IsInState(NAME_Spectating))
 	{
 		AUTCTFGameState* CTFGameState = GetWorld()->GetGameState<AUTCTFGameState>();
 		if (CTFGameState && (CTFGameState->FlagBases.Num() > Index) && CTFGameState->FlagBases[Index] && CTFGameState->FlagBases[Index]->MyFlag )
@@ -1104,7 +1104,7 @@ void AUTPlayerController::ServerViewFlag_Implementation(uint8 Index)
 
 void AUTPlayerController::ViewCamera(int32 Index)
 {
-	if (PlayerState && PlayerState->bOnlySpectator)
+	if (IsInState(NAME_Spectating))
 	{
 		int32 CamCount = 0;
 		for (FActorIterator It(GetWorld()); It; ++It)
@@ -2224,7 +2224,7 @@ void AUTPlayerController::SetViewTarget(class AActor* NewViewTarget, FViewTarget
 
 FRotator AUTPlayerController::GetSpectatingRotation(const FVector& ViewLoc, float DeltaTime)
 {
-	if (PlayerState && PlayerState->bOnlySpectator)
+	if (IsInState(NAME_Spectating))
 	{
 		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 		if (GS && (!GS->IsMatchInProgress() || GS->IsMatchAtHalftime()))
@@ -2549,7 +2549,7 @@ void AUTPlayerController::PlayerTick( float DeltaTime )
 	}
 	APawn* ViewTargetPawn = PlayerCameraManager->GetViewTargetPawn();
 	AUTCharacter* ViewTargetCharacter = Cast<AUTCharacter>(ViewTargetPawn);
-	if (PlayerState && PlayerState->bOnlySpectator && bAutoCam && (!ViewTargetCharacter || !ViewTargetCharacter->IsRecentlyDead()))
+	if (IsInState(NAME_Spectating) && bAutoCam && (!ViewTargetCharacter || !ViewTargetCharacter->IsRecentlyDead()))
 	{
 		// possibly switch cameras
 		ChooseBestCamera();

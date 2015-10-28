@@ -73,6 +73,37 @@ bool AUTTeamShowdownGame::CheckRelevance_Implementation(AActor* Other)
 	return Super::CheckRelevance_Implementation(Other);
 }
 
+void AUTTeamShowdownGame::RestartPlayer(AController* aPlayer)
+{
+	if (bAllowPlayerRespawns)
+	{
+		Super::RestartPlayer(aPlayer);
+	}
+	// go to spectating if dead and can't respawn
+	else if (IsMatchInProgress() && aPlayer->GetPawn() == NULL)
+	{
+		AUTPlayerController* PC = Cast<AUTPlayerController>(aPlayer);
+		if (PC != NULL)
+		{
+			PC->ChangeState(NAME_Spectating);
+			PC->ClientGotoState(NAME_Spectating);
+
+			AUTPlayerState* PS = Cast<AUTPlayerState>(PC->PlayerState);
+			if (PS != NULL && PS->Team != NULL)
+			{
+				for (AController* Member : PS->Team->GetTeamMembers())
+				{
+					if (Member->GetPawn() != NULL)
+					{
+						PC->ServerViewPlayerState(Member->PlayerState);
+						break;
+					}
+				}
+			}
+		}
+	}
+}
+
 void AUTTeamShowdownGame::DiscardInventory(APawn* Other, AController* Killer)
 {
 	AUTCharacter* UTC = Cast<AUTCharacter>(Other);

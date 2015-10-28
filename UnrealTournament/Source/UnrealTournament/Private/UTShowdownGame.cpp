@@ -299,6 +299,14 @@ void AUTShowdownGame::StartIntermission()
 	}
 }
 
+void AUTShowdownGame::RestartPlayer(AController* aPlayer)
+{
+	if (bAllowPlayerRespawns)
+	{
+		Super::RestartPlayer(aPlayer);
+	}
+}
+
 AActor* AUTShowdownGame::ChoosePlayerStart_Implementation(AController* Player)
 {
 	// if they pre-selected, apply it
@@ -422,6 +430,13 @@ void AUTShowdownGame::HandleMatchIntermission()
 				PS->RespawnChoiceA = NULL;
 				PS->RespawnChoiceB = NULL;
 				UnsortedPicks.Add(PS);
+				// make sure players that were spectating while dead go back to dead state
+				AUTPlayerController* PC = Cast<AUTPlayerController>(C);
+				if (PC != NULL && PC->IsInState(NAME_Spectating))
+				{
+					PC->ChangeState(NAME_Inactive);
+					PC->ClientGotoState(NAME_Inactive);
+				}
 			}
 		}
 	}

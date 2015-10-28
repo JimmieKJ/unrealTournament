@@ -69,13 +69,7 @@ public:
 	virtual bool CheckRelevance_Implementation(AActor* Other) override;
 	virtual void SetPlayerDefaults(APawn* PlayerPawn) override;
 	virtual void ScoreKill_Implementation(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType) override;
-	virtual void RestartPlayer(AController* aPlayer) override
-	{
-		if (bAllowPlayerRespawns)
-		{
-			Super::RestartPlayer(aPlayer);
-		}
-	}
+	virtual void RestartPlayer(AController* aPlayer) override;
 	virtual AActor* ChoosePlayerStart_Implementation(AController* Player) override;
 	virtual float RatePlayerStart(APlayerStart* P, AController* Player) override;
 
