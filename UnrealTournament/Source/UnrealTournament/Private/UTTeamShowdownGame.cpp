@@ -14,7 +14,7 @@
 AUTTeamShowdownGame::AUTTeamShowdownGame(const FObjectInitializer& OI)
 	: Super(OI)
 {
-	TimeLimit = 2.0f; // per round
+	TimeLimit = 3.0f; // per round
 	GoalScore = 5;
 	DisplayName = NSLOCTEXT("UTGameMode", "TeamShowdown", "Team Showdown");
 }
