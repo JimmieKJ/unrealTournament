@@ -379,6 +379,7 @@ void AUTShowdownGame::HandleMatchIntermission()
 
 	GS->bActivateXRayVision = false;
 	GS->IntermissionStageTime = 3;
+	GS->bStartedSpawnSelection = false;
 	GS->bFinalIntermissionDelay = false;
 	RemainingPicks.Empty();
 	GS->SpawnSelector = NULL;
@@ -468,6 +469,10 @@ void AUTShowdownGame::HandleMatchIntermission()
 			UnsortedPicks.RemoveAt(0);
 		}
 	}
+	for (int32 i = 0; i < RemainingPicks.Num(); i++)
+	{
+		RemainingPicks[i]->SelectionOrder = uint8(i);
+	}
 }
 
 void AUTShowdownGame::CallMatchStateChangeNotify()
@@ -519,38 +524,46 @@ void AUTShowdownGame::DefaultTimer()
 		}
 		if (GS->IntermissionStageTime == 0)
 		{
-			if (GS->SpawnSelector != NULL)
+			if (!GS->bStartedSpawnSelection)
 			{
-				if (GS->SpawnSelector->RespawnChoiceA == NULL)
-				{
-					GS->SpawnSelector->RespawnChoiceA = Cast<APlayerStart>(FindPlayerStart(Cast<AController>(GS->SpawnSelector->GetOwner())));
-					GS->SpawnSelector->ForceNetUpdate();
-				}
-				RemainingPicks.Remove(GS->SpawnSelector);
-				GS->SpawnSelector = NULL;
-			}
-			// make sure we don't have any stale entries from quitters
-			for (int32 i = RemainingPicks.Num() - 1; i >= 0; i--)
-			{
-				if (RemainingPicks[i] == NULL || RemainingPicks[i]->bPendingKillPending)
-				{
-					RemainingPicks.RemoveAt(i);
-				}
-			}
-			if (RemainingPicks.Num() > 0)
-			{
-				GS->SpawnSelector = RemainingPicks[0];
-				GS->IntermissionStageTime = FMath::Max<uint8>(1, SpawnSelectionTime);
-			}
-			else if (!GS->bFinalIntermissionDelay)
-			{
-				GS->bFinalIntermissionDelay = true;
+				GS->bStartedSpawnSelection = true;
 				GS->IntermissionStageTime = 3;
 			}
 			else
 			{
-				GS->bFinalIntermissionDelay = false;
-				SetMatchState(MatchState::InProgress);
+				if (GS->SpawnSelector != NULL)
+				{
+					if (GS->SpawnSelector->RespawnChoiceA == NULL)
+					{
+						GS->SpawnSelector->RespawnChoiceA = Cast<APlayerStart>(FindPlayerStart(Cast<AController>(GS->SpawnSelector->GetOwner())));
+						GS->SpawnSelector->ForceNetUpdate();
+					}
+					RemainingPicks.Remove(GS->SpawnSelector);
+					GS->SpawnSelector = NULL;
+				}
+				// make sure we don't have any stale entries from quitters
+				for (int32 i = RemainingPicks.Num() - 1; i >= 0; i--)
+				{
+					if (RemainingPicks[i] == NULL || RemainingPicks[i]->bPendingKillPending)
+					{
+						RemainingPicks.RemoveAt(i);
+					}
+				}
+				if (RemainingPicks.Num() > 0)
+				{
+					GS->SpawnSelector = RemainingPicks[0];
+					GS->IntermissionStageTime = FMath::Max<uint8>(1, SpawnSelectionTime);
+				}
+				else if (!GS->bFinalIntermissionDelay)
+				{
+					GS->bFinalIntermissionDelay = true;
+					GS->IntermissionStageTime = 3;
+				}
+				else
+				{
+					GS->bFinalIntermissionDelay = false;
+					SetMatchState(MatchState::InProgress);
+				}
 			}
 		}
 		if (GS->bFinalIntermissionDelay)

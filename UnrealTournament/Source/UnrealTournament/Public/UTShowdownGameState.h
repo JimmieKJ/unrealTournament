@@ -20,6 +20,9 @@ class UNREALTOURNAMENT_API AUTShowdownGameState : public AUTGameState
 	/** Time remaining in current intermission stage (post-round delay or spawn choice timer) */
 	UPROPERTY(BlueprintReadOnly, Replicated)
 	uint8 IntermissionStageTime;
+	/** set during intermission after spawn selection is started */
+	UPROPERTY(BlueprintReadOnly, Replicated)
+	bool bStartedSpawnSelection;
 	/** set during final countdown before next round begins */
 	UPROPERTY(BlueprintReadOnly, Replicated)
 	bool bFinalIntermissionDelay;

@@ -67,7 +67,7 @@ void AUTHUD_Showdown::DrawMinimap(const FColor& DrawColor, float MapSize, FVecto
 void AUTHUD_Showdown::DrawHUD()
 {
 	AUTShowdownGameState* GS = GetWorld()->GetGameState<AUTShowdownGameState>();
-	if (GS != NULL && GS->GetMatchState() == MatchState::MatchIntermission && (GS->SpawnSelector != NULL || GS->bFinalIntermissionDelay))
+	if (GS != NULL && GS->GetMatchState() == MatchState::MatchIntermission && GS->bStartedSpawnSelection)
 	{
 		if (!bLockedLookInput)
 		{
@@ -81,6 +81,40 @@ void AUTHUD_Showdown::DrawHUD()
 		}
 		const float MapSize = float(Canvas->SizeY) * 0.75f;
 		DrawMinimap(FColor(192, 192, 192, 255), MapSize, FVector2D((Canvas->SizeX - MapSize) * 0.5f, (Canvas->SizeY - MapSize) * 0.5f));
+
+		// draw spawn selection order
+
+		TArray<AUTPlayerState*> LivePlayers;
+		for (APlayerState* PS : GS->PlayerArray)
+		{
+			AUTPlayerState* UTPS = Cast<AUTPlayerState>(PS);
+			if (UTPS != NULL && UTPS->Team != NULL && !UTPS->bOnlySpectator)
+			{
+				LivePlayers.Add(UTPS);
+			}
+		}
+
+		if (LivePlayers.Num() > 2)
+		{
+			LivePlayers.Sort([](AUTPlayerState& A, AUTPlayerState& B){ return A.SelectionOrder < B.SelectionOrder; });
+
+			float YPos = Canvas->ClipY * 0.1f;
+			YPos += Canvas->DrawText(MediumFont, NSLOCTEXT("UnrealTournament", "SelectionOrder", "PICK ORDER"), 1.0f, YPos) * 1.2f;
+			
+			for (AUTPlayerState* UTPS : LivePlayers)
+			{
+				Canvas->DrawColor = UTPS->Team->TeamColor;
+				float XL, YL;
+				Canvas->TextSize(MediumFont, UTPS->PlayerName, XL, YL);
+				Canvas->DrawText(MediumFont, UTPS->PlayerName, 1.0f, YPos);
+				if (UTPS == GS->SpawnSelector)
+				{
+					Canvas->DrawColor = FColorList::Gold;
+					Canvas->DrawText(MediumFont, TEXT("<---"), XL + 30.0f, YPos);
+				}
+				YPos += YL * 1.1f;
+			}
+		}
 	}
 	else if (bLockedLookInput)
 	{
@@ -89,7 +123,7 @@ void AUTHUD_Showdown::DrawHUD()
 	}
 
 	if ( GS != NULL && !bShowScores && PlayerOwner->PlayerState != NULL && !PlayerOwner->PlayerState->bOnlySpectator &&
-		((GS->bBroadcastPlayerHealth && GS->IsMatchInProgress()) || (GS->GetMatchState() == MatchState::MatchIntermission && !GS->bFinalIntermissionDelay)) )
+		((GS->bBroadcastPlayerHealth && GS->IsMatchInProgress()) || (GS->GetMatchState() == MatchState::MatchIntermission && !GS->bStartedSpawnSelection)) )
 	{
 		// don't bother displaying if there are no live characters (e.g. match start)
 		bool bAnyPawns = false;

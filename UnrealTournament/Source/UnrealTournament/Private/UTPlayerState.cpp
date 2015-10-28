@@ -107,6 +107,7 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	DOREPLIFETIME(AUTPlayerState, StatsID);
 	DOREPLIFETIME(AUTPlayerState, FavoriteWeapon);
 	DOREPLIFETIME(AUTPlayerState, bIsRconAdmin);
+	DOREPLIFETIME(AUTPlayerState, SelectionOrder);
 
 	DOREPLIFETIME_CONDITION(AUTPlayerState, RespawnChoiceA, COND_None); // also used when replicating spawn choice to other players
 	DOREPLIFETIME_CONDITION(AUTPlayerState, RespawnChoiceB, COND_OwnerOnly);

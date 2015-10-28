@@ -318,6 +318,10 @@ public:
 	UPROPERTY(replicated)
 	class APlayerStart* RespawnChoiceB;
 
+	/** used for gametypes where players make a choice in order (e.g. Showdown spawn selection) to indicate selection sequence */
+	UPROPERTY(Replicated, BlueprintReadOnly)
+	uint8 SelectionOrder;
+
 	/** The currently held object */
 	UPROPERTY(BlueprintReadOnly, replicated, ReplicatedUsing = OnCarriedObjectChanged, Category = PlayerState)
 	class AUTCarriedObject* CarriedObject;
