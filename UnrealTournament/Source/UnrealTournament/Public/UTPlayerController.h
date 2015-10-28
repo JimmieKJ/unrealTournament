@@ -88,10 +88,13 @@ public:
 	virtual void CheckAutoWeaponSwitch(class AUTWeapon* TestWeapon);
 
 	UPROPERTY(GlobalConfig)
-		bool bHearsTaunts;
+	bool bHearsTaunts;
 
 	UPROPERTY()
-		float LastSameTeamTime;
+	float LastSameTeamTime;
+
+	UFUNCTION(reliable, client, BlueprintCallable, Category = PlayerController)
+	void UTClientSetRotation(FRotator NewRotation);
 
 	/** check if sound is audible to this player and call ClientHearSound() if so to actually play it
 	 * SoundPlayer may be NULL

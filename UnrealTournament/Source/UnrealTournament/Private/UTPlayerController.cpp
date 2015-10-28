@@ -3807,3 +3807,12 @@ void AUTPlayerController::OpenMatchSummary()
 		LocalPlayer->OpenMatchSummary(UTGS);
 	}
 }
+
+void AUTPlayerController::UTClientSetRotation_Implementation(FRotator NewRotation)
+{
+	SetControlRotation(NewRotation);
+	if (GetPawn() != NULL)
+	{
+		GetPawn()->FaceRotation(NewRotation, 0.f);
+	}
+}
