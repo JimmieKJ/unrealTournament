@@ -3146,190 +3146,201 @@ void AUTGameMode::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, 
 	TSharedPtr< TAttributeProperty<int32> > CombatantsAttr = StaticCastSharedPtr<TAttributeProperty<int32>>(FindGameURLOption(ConfigProps, TEXT("BotFill")));
 
 	// FIXME: temp 'ReadOnly' handling by creating new widgets; ideally there would just be a 'disabled' or 'read only' state in Slate...
-	MenuSpace->AddSlot()
-	.AutoHeight()
-	.VAlign(VAlign_Top)
-	.Padding(0.0f,0.0f,0.0f,5.0f)
-	[
-		SNew(SHorizontalBox)
-		+ SHorizontalBox::Slot()
-		.AutoWidth()
-		.Padding(0.0f, 5.0f, 0.0f, 0.0f)
+	if (CombatantsAttr.IsValid())
+	{
+		MenuSpace->AddSlot()
+		.AutoHeight()
+		.VAlign(VAlign_Top)
+		.Padding(0.0f,0.0f,0.0f,5.0f)
 		[
-			SNew(SBox)
-			.WidthOverride(350)
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot()
+			.AutoWidth()
+			.Padding(0.0f, 5.0f, 0.0f, 0.0f)
 			[
-				SNew(STextBlock)
-				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-				.Text(NSLOCTEXT("UTGameMode", "NumCombatants", "Number of Combatants"))
+				SNew(SBox)
+				.WidthOverride(350)
+				[
+					SNew(STextBlock)
+					.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+					.Text(NSLOCTEXT("UTGameMode", "NumCombatants", "Number of Combatants"))
+				]
 			]
-		]
-		+ SHorizontalBox::Slot()
-		.AutoWidth()
-		.Padding(20.0f,0.0f,0.0f,0.0f)
-		[
-			SNew(SBox)
-			.WidthOverride(300)
+			+ SHorizontalBox::Slot()
+			.AutoWidth()
+			.Padding(20.0f,0.0f,0.0f,0.0f)
 			[
-				bCreateReadOnly ?
-				StaticCastSharedRef<SWidget>(
+				SNew(SBox)
+				.WidthOverride(300)
+				[
+					bCreateReadOnly ?
+					StaticCastSharedRef<SWidget>(
+						SNew(STextBlock)
+						.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
+						.Text(CombatantsAttr.ToSharedRef(), &TAttributeProperty<int32>::GetAsText)
+					) :
+					StaticCastSharedRef<SWidget>(
+						SNew(SNumericEntryBox<int32>)
+						.Value(CombatantsAttr.ToSharedRef(), &TAttributeProperty<int32>::GetOptional)
+						.OnValueChanged(CombatantsAttr.ToSharedRef(), &TAttributeProperty<int32>::Set)
+						.AllowSpin(true)
+						.Delta(1)
+						.MinValue(1)
+						.MaxValue(32)
+						.MinSliderValue(1)
+						.MaxSliderValue(32)
+						.EditableTextBoxStyle(SUWindowsStyle::Get(), "UT.Common.NumEditbox.White")
+
+					)
+				]
+			]
+		];
+	}
+	if (GoalScoreAttr.IsValid())
+	{
+		MenuSpace->AddSlot()
+		.AutoHeight()
+		.VAlign(VAlign_Top)
+		.Padding(0.0f,0.0f,0.0f,5.0f)
+		[
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot()
+			.AutoWidth()
+			.VAlign(VAlign_Center)
+			[
+				SNew(SBox)
+				.WidthOverride(350)
+				[
+					SNew(STextBlock)
+					.TextStyle(SUWindowsStyle::Get(),"UT.Common.NormalText")
+					.Text(NSLOCTEXT("UTGameMode", "GoalScore", "Goal Score"))
+				]
+			]
+			+ SHorizontalBox::Slot()
+			.Padding(20.0f,0.0f,0.0f,0.0f)
+			.AutoWidth()
+			[
+				SNew(SBox)
+				.WidthOverride(300)
+				[
+					bCreateReadOnly ?
+					StaticCastSharedRef<SWidget>(
+						SNew(STextBlock)
+						.TextStyle(SUWindowsStyle::Get(),"UT.Common.ButtonText.White")
+						.Text(GoalScoreAttr.ToSharedRef(), &TAttributeProperty<int32>::GetAsText)
+					) :
+					StaticCastSharedRef<SWidget>(
+						SNew(SNumericEntryBox<int32>)
+						.Value(GoalScoreAttr.ToSharedRef(), &TAttributeProperty<int32>::GetOptional)
+						.OnValueChanged(GoalScoreAttr.ToSharedRef(), &TAttributeProperty<int32>::Set)
+						.AllowSpin(true)
+						.Delta(1)
+						.MinValue(0)
+						.MaxValue(999)
+						.MinSliderValue(0)
+						.MaxSliderValue(99)
+						.EditableTextBoxStyle(SUWindowsStyle::Get(), "UT.Common.NumEditbox.White")
+					)
+				]
+			]
+		];
+	}
+	if (TimeLimitAttr.IsValid())
+	{
+		MenuSpace->AddSlot()
+		.AutoHeight()
+		.VAlign(VAlign_Top)
+		.Padding(0.0f,0.0f,0.0f,5.0f)
+		[
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot()
+			.AutoWidth()
+			.VAlign(VAlign_Center)
+			[
+				SNew(SBox)
+				.WidthOverride(350)
+				[
+					SNew(STextBlock)
+					.TextStyle(SUWindowsStyle::Get(),"UT.Common.NormalText")
+					.Text(NSLOCTEXT("UTGameMode", "TimeLimit", "Time Limit"))
+				]
+			]
+			+ SHorizontalBox::Slot()
+			.Padding(20.0f,0.0f,0.0f,0.0f)
+			.AutoWidth()
+			[
+				SNew(SBox)
+				.WidthOverride(300)
+				[
+					bCreateReadOnly ?
+					StaticCastSharedRef<SWidget>(
 					SNew(STextBlock)
 					.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
-					.Text(CombatantsAttr.ToSharedRef(), &TAttributeProperty<int32>::GetAsText)
-				) :
-				StaticCastSharedRef<SWidget>(
+					.Text(TimeLimitAttr.ToSharedRef(), &TAttributeProperty<int32>::GetAsText)
+					) :
+					StaticCastSharedRef<SWidget>(
 					SNew(SNumericEntryBox<int32>)
-					.Value(CombatantsAttr.ToSharedRef(), &TAttributeProperty<int32>::GetOptional)
-					.OnValueChanged(CombatantsAttr.ToSharedRef(), &TAttributeProperty<int32>::Set)
-					.AllowSpin(true)
-					.Delta(1)
-					.MinValue(1)
-					.MaxValue(32)
-					.MinSliderValue(1)
-					.MaxSliderValue(32)
-					.EditableTextBoxStyle(SUWindowsStyle::Get(), "UT.Common.NumEditbox.White")
-
-				)
-			]
-		]
-	];
-	MenuSpace->AddSlot()
-	.AutoHeight()
-	.VAlign(VAlign_Top)
-	.Padding(0.0f,0.0f,0.0f,5.0f)
-	[
-		SNew(SHorizontalBox)
-		+ SHorizontalBox::Slot()
-		.AutoWidth()
-		.VAlign(VAlign_Center)
-		[
-			SNew(SBox)
-			.WidthOverride(350)
-			[
-				SNew(STextBlock)
-				.TextStyle(SUWindowsStyle::Get(),"UT.Common.NormalText")
-				.Text(NSLOCTEXT("UTGameMode", "GoalScore", "Goal Score"))
-			]
-		]
-		+ SHorizontalBox::Slot()
-		.Padding(20.0f,0.0f,0.0f,0.0f)
-		.AutoWidth()
-		[
-			SNew(SBox)
-			.WidthOverride(300)
-			[
-				bCreateReadOnly ?
-				StaticCastSharedRef<SWidget>(
-					SNew(STextBlock)
-					.TextStyle(SUWindowsStyle::Get(),"UT.Common.ButtonText.White")
-					.Text(GoalScoreAttr.ToSharedRef(), &TAttributeProperty<int32>::GetAsText)
-				) :
-				StaticCastSharedRef<SWidget>(
-					SNew(SNumericEntryBox<int32>)
-					.Value(GoalScoreAttr.ToSharedRef(), &TAttributeProperty<int32>::GetOptional)
-					.OnValueChanged(GoalScoreAttr.ToSharedRef(), &TAttributeProperty<int32>::Set)
+					.Value(TimeLimitAttr.ToSharedRef(), &TAttributeProperty<int32>::GetOptional)
+					.OnValueChanged(TimeLimitAttr.ToSharedRef(), &TAttributeProperty<int32>::Set)
 					.AllowSpin(true)
 					.Delta(1)
 					.MinValue(0)
 					.MaxValue(999)
 					.MinSliderValue(0)
-					.MaxSliderValue(99)
+					.MaxSliderValue(60)
 					.EditableTextBoxStyle(SUWindowsStyle::Get(), "UT.Common.NumEditbox.White")
-				)
+					)
+				]
 			]
-		]
-	];
-	MenuSpace->AddSlot()
-	.AutoHeight()
-	.VAlign(VAlign_Top)
-	.Padding(0.0f,0.0f,0.0f,5.0f)
-	[
-		SNew(SHorizontalBox)
-		+ SHorizontalBox::Slot()
-		.AutoWidth()
-		.VAlign(VAlign_Center)
+		];
+	}
+	if (ForceRespawnAttr.IsValid())
+	{
+		MenuSpace->AddSlot()
+		.AutoHeight()
+		.VAlign(VAlign_Top)
+		.Padding(0.0f,0.0f,0.0f,5.0f)
 		[
-			SNew(SBox)
-			.WidthOverride(350)
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot()
+			.AutoWidth()
+			.VAlign(VAlign_Center)
 			[
-				SNew(STextBlock)
-				.TextStyle(SUWindowsStyle::Get(),"UT.Common.NormalText")
-				.Text(NSLOCTEXT("UTGameMode", "TimeLimit", "Time Limit"))
+				SNew(SBox)
+				.WidthOverride(350)
+				[
+					SNew(STextBlock)
+					.TextStyle(SUWindowsStyle::Get(),"UT.Common.NormalText")
+					.Text(NSLOCTEXT("UTGameMode", "ForceRespawn", "Force Respawn"))
+				]
 			]
-		]
-		+ SHorizontalBox::Slot()
-		.Padding(20.0f,0.0f,0.0f,0.0f)
-		.AutoWidth()
-		[
-			SNew(SBox)
-			.WidthOverride(300)
+			+ SHorizontalBox::Slot()
+			.Padding(20.0f, 0.0f, 0.0f, 10.0f)
+			.AutoWidth()
 			[
-				bCreateReadOnly ?
-				StaticCastSharedRef<SWidget>(
-				SNew(STextBlock)
-				.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
-				.Text(TimeLimitAttr.ToSharedRef(), &TAttributeProperty<int32>::GetAsText)
-				) :
-				StaticCastSharedRef<SWidget>(
-				SNew(SNumericEntryBox<int32>)
-				.Value(TimeLimitAttr.ToSharedRef(), &TAttributeProperty<int32>::GetOptional)
-				.OnValueChanged(TimeLimitAttr.ToSharedRef(), &TAttributeProperty<int32>::Set)
-				.AllowSpin(true)
-				.Delta(1)
-				.MinValue(0)
-				.MaxValue(999)
-				.MinSliderValue(0)
-				.MaxSliderValue(60)
-				.EditableTextBoxStyle(SUWindowsStyle::Get(), "UT.Common.NumEditbox.White")
-				)
+				SNew(SBox)
+				.WidthOverride(300)
+				[
+					bCreateReadOnly ?
+					StaticCastSharedRef<SWidget>(
+						SNew(SCheckBox)
+						.IsChecked(ForceRespawnAttr.ToSharedRef(), &TAttributePropertyBool::GetAsCheckBox)
+						.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
+						.ForegroundColor(FLinearColor::White)
+						.Type(ESlateCheckBoxType::CheckBox)
+					) :
+					StaticCastSharedRef<SWidget>(
+						SNew(SCheckBox)
+						.IsChecked(ForceRespawnAttr.ToSharedRef(), &TAttributePropertyBool::GetAsCheckBox)
+						.OnCheckStateChanged(ForceRespawnAttr.ToSharedRef(), &TAttributePropertyBool::SetFromCheckBox)
+						.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
+						.ForegroundColor(FLinearColor::White)
+						.Type(ESlateCheckBoxType::CheckBox)
+					)
+				]
 			]
-		]
-	];
-	MenuSpace->AddSlot()
-	.AutoHeight()
-	.VAlign(VAlign_Top)
-	.Padding(0.0f,0.0f,0.0f,5.0f)
-	[
-		SNew(SHorizontalBox)
-		+ SHorizontalBox::Slot()
-		.AutoWidth()
-		.VAlign(VAlign_Center)
-		[
-			SNew(SBox)
-			.WidthOverride(350)
-			[
-				SNew(STextBlock)
-				.TextStyle(SUWindowsStyle::Get(),"UT.Common.NormalText")
-				.Text(NSLOCTEXT("UTGameMode", "ForceRespawn", "Force Respawn"))
-			]
-		]
-		+ SHorizontalBox::Slot()
-		.Padding(20.0f, 0.0f, 0.0f, 10.0f)
-		.AutoWidth()
-		[
-			SNew(SBox)
-			.WidthOverride(300)
-			[
-				bCreateReadOnly ?
-				StaticCastSharedRef<SWidget>(
-					SNew(SCheckBox)
-					.IsChecked(ForceRespawnAttr.ToSharedRef(), &TAttributePropertyBool::GetAsCheckBox)
-					.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
-					.ForegroundColor(FLinearColor::White)
-					.Type(ESlateCheckBoxType::CheckBox)
-				) :
-				StaticCastSharedRef<SWidget>(
-					SNew(SCheckBox)
-					.IsChecked(ForceRespawnAttr.ToSharedRef(), &TAttributePropertyBool::GetAsCheckBox)
-					.OnCheckStateChanged(ForceRespawnAttr.ToSharedRef(), &TAttributePropertyBool::SetFromCheckBox)
-					.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
-					.ForegroundColor(FLinearColor::White)
-					.Type(ESlateCheckBoxType::CheckBox)
-				)
-			]
-		]
-	];
-
+		];
+	}
 }
 
 
