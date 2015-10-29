@@ -1789,29 +1789,32 @@ void AUTBot::NotifyMoveBlocked(const FHitResult& Impact)
 				else if ( (Skill + Personality.Jumpiness > 4.0f && UTChar->UTCharacterMovement->bIsDodging) ||
 						(!UTChar->UTCharacterMovement->bIsDodging && Enemy != NULL && Skill >= 3.0f && GetWorld()->TimeSeconds - UTChar->LastTakeHitTime > 2.0f - Skill * 0.2f - Personality.ReactionTime * 0.5f) )
 				{
-					FVector Start = GetPawn()->GetActorLocation();
-					// reject if on special path, unless above dest already and dodge is in its direction, or in direct combat and prefer evasiveness
-					if ((!CurrentPath.Spec.IsValid() && CurrentPath.ReachFlags == 0) || (Start.Z > GetMovePoint().Z && (WallNormal2D | (GetMovePoint() - Start).GetSafeNormal2D()) > 0.7f) || (Enemy != NULL && IsEnemyVisible(Enemy) && FMath::FRand() < Personality.Jumpiness))
+					if (FMath::FRand() < 0.5f + 0.5f * Personality.Jumpiness && (Enemy == NULL || Impact.Actor != Enemy))
 					{
-						Start.Z += 50.0f;
-						FVector DuckDir = WallNormal2D * 700.0f; // technically not reliable since we're in air, but every once in a while a bot wall dodging off a cliff is pretty realistic
-						FCollisionShape PawnShape = GetCharacter()->GetCapsuleComponent()->GetCollisionShape();
-						FCollisionQueryParams Params(FName(TEXT("WallDodge")), false, GetPawn());
-						float MinDist = (Personality.Jumpiness > 0.0f) ? 150.0f : 350.0f;
-
-						FHitResult Hit;
-						bool bHit = GetWorld()->SweepSingleByChannel(Hit, Start, Start + DuckDir, FQuat::Identity, ECC_Pawn, PawnShape, Params);
-						if (!bHit || (Hit.Location - Start).Size() > MinDist)
+						FVector Start = GetPawn()->GetActorLocation();
+						// reject if on special path, unless above dest already and dodge is in its direction, or in direct combat and prefer evasiveness
+						if ((!CurrentPath.Spec.IsValid() && CurrentPath.ReachFlags == 0) || (Start.Z > GetMovePoint().Z && (WallNormal2D | (GetMovePoint() - Start).GetSafeNormal2D()) > 0.7f) || (Enemy != NULL && IsEnemyVisible(Enemy) && FMath::FRand() < Personality.Jumpiness))
 						{
-							if (!bHit)
+							Start.Z += 50.0f;
+							FVector DuckDir = WallNormal2D * 1000.0f; // technically not reliable since we're in air, but every once in a while a bot wall dodging off a cliff is pretty realistic
+							FCollisionShape PawnShape = GetCharacter()->GetCapsuleComponent()->GetCollisionShape();
+							FCollisionQueryParams Params(FName(TEXT("WallDodge")), false, GetPawn());
+							float MinDist = (Personality.Jumpiness > 0.0f) ? 150.0f : 350.0f;
+
+							FHitResult Hit;
+							bool bHit = GetWorld()->SweepSingleByChannel(Hit, Start, Start + DuckDir, FQuat::Identity, ECC_Pawn, PawnShape, Params);
+							if (!bHit || (Hit.Location - Start).Size() > MinDist)
 							{
-								Hit.Location = Start + DuckDir;
-							}
-							// now check for floor
-							if (GetWorld()->SweepTestByChannel(Hit.Location, Hit.Location - FVector(0.0f, 0.0f, 2.5f * GetCharacter()->GetCharacterMovement()->MaxStepHeight + GetCharacter()->GetCharacterMovement()->GetGravityZ() * -0.25f), FQuat::Identity, ECC_Pawn, PawnShape, Params))
-							{
-								// found one, so try the wall dodge!
-								PendingWallDodgeDir = WallNormal2D;
+								if (!bHit)
+								{
+									Hit.Location = Start + DuckDir;
+								}
+								// now check for floor
+								if (GetWorld()->SweepTestByChannel(Hit.Location, Hit.Location - FVector(0.0f, 0.0f, 2.5f * GetCharacter()->GetCharacterMovement()->MaxStepHeight + GetCharacter()->GetCharacterMovement()->GetGravityZ() * -0.25f), FQuat::Identity, ECC_Pawn, PawnShape, Params))
+								{
+									// found one, so try the wall dodge!
+									PendingWallDodgeDir = WallNormal2D;
+								}
 							}
 						}
 					}
