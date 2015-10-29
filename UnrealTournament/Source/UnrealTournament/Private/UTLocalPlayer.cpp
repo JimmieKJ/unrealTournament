@@ -1249,27 +1249,6 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 			FString CmdLineSwitch = TEXT("");
 			bool bClearProfile = FParse::Param(FCommandLine::Get(), TEXT("ClearProfile"));
 
-			// Set the ranks/etc so the player card is right.
-			AUTBasePlayerController* UTBasePlayer = Cast<AUTBasePlayerController>(PlayerController);
-			if (UTBasePlayer != NULL)
-			{
-				UTBasePlayer->ServerReceiveRank(GetBaseELORank(), GetRankDuel(), GetRankCTF(), GetRankTDM(), GetRankDM(), GetTotalChallengeStars());
-				// TODO: should this be in BasePlayerController?
-				AUTPlayerController* UTPC = Cast<AUTPlayerController>(UTBasePlayer);
-				if (UTPC != NULL)
-				{
-					UTPC->ServerReceiveCountryFlag(GetCountryFlag());
-				}
-				else
-				{
-					AUTPlayerState* UTPS = Cast<AUTPlayerState>(UTBasePlayer->PlayerState);
-					if (UTPS != NULL)
-					{
-						UTPS->CountryFlag = GetCountryFlag();
-					}
-				}
-			}
-
 			// Check to make sure the profile settings are valid and that we aren't forcing them
 			// to be cleared.  If all is OK, then apply these settings.
 			if (CurrentProfileSettings->SettingsRevisionNum >= VALID_PROFILESETTINGS_VERSION && !bClearProfile)
@@ -1290,6 +1269,27 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 			// Set some profile defaults, should be a function call if this gets any larger
 			CurrentProfileSettings->TauntPath = GetDefaultURLOption(TEXT("Taunt"));
 			CurrentProfileSettings->Taunt2Path = GetDefaultURLOption(TEXT("Taunt2"));
+		}
+
+		// Set the ranks/etc so the player card is right.
+		AUTBasePlayerController* UTBasePlayer = Cast<AUTBasePlayerController>(PlayerController);
+		if (UTBasePlayer != NULL)
+		{
+			UTBasePlayer->ServerReceiveRank(GetBaseELORank(), GetRankDuel(), GetRankCTF(), GetRankTDM(), GetRankDM(), GetTotalChallengeStars());
+			// TODO: should this be in BasePlayerController?
+			AUTPlayerController* UTPC = Cast<AUTPlayerController>(UTBasePlayer);
+			if (UTPC != NULL)
+			{
+				UTPC->ServerReceiveCountryFlag(GetCountryFlag());
+			}
+			else
+			{
+				AUTPlayerState* UTPS = Cast<AUTPlayerState>(UTBasePlayer->PlayerState);
+				if (UTPS != NULL)
+				{
+					UTPS->CountryFlag = GetCountryFlag();
+				}
+			}
 		}
 
 		PlayerNickname = GetAccountDisplayName().ToString();
