@@ -35,6 +35,7 @@ public class UnrealTournament : ModuleRules
                                                     "EngineSettings", 
 			                                        "Landscape",
                                                     "Foliage",
+													"PerfCounters",
                                                     "PakFile", });
 
         PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore", "FriendsAndChat", "Sockets" });
