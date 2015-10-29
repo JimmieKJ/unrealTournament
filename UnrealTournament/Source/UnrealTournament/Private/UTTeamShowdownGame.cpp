@@ -51,14 +51,14 @@ bool AUTTeamShowdownGame::CheckRelevance_Implementation(AActor* Other)
 	AUTWeapon* W = Cast<AUTWeapon>(Other);
 	if (W != NULL)
 	{
-		W->Ammo = FMath::Min<int32>(W->MaxAmmo, W->Ammo * 2);
+		W->Ammo = FMath::Min<int32>(W->MaxAmmo, W->Ammo * 1.5);
 	}
 	else
 	{
 		AUTPickupAmmo* AmmoPickup = Cast<AUTPickupAmmo>(Other);
 		if (AmmoPickup != NULL)
 		{
-			AmmoPickup->Ammo.Amount *= 2;
+			AmmoPickup->Ammo.Amount *= 1.5;
 		}
 		else
 		{
