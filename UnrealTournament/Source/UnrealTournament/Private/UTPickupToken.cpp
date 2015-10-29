@@ -59,7 +59,7 @@ void AUTPickupToken::CheckForErrors()
 			Arguments.Add(TEXT("OtherActorName"), FText::FromString(It->GetName()));
 			FMessageLog("MapCheck").Warning()
 				->AddToken(FUObjectToken::Create(this))
-				->AddToken(FTextToken::Create(FText::Format(NSLOCTEXT("UTPickupToken", "TerminalVelocityWarning", "{ActorName} : Has same ID {UniqueId} as {OtherActorName}!"), Arguments)))
+				->AddToken(FTextToken::Create(FText::Format(NSLOCTEXT("UTPickupToken", "DuplicateTokenWarning", "{ActorName} : Has same ID {UniqueId} as {OtherActorName}!"), Arguments)))
 				->AddToken(FMapErrorToken::Create(FName(TEXT("PickupTokenNotUnique"))));
 		}
 	}
