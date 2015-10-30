@@ -728,7 +728,9 @@ public:
 		const static FString MCPStorageFilename = "UnrealTournmentMCPStorage.json";
 		return MCPStorageFilename;
 	}
-
+	
+	/** Get the MCP account ID for this player */
+	FUniqueNetIdRepl GetGameAccountId() const;
 
 	// Holds data pulled from the MCP upon login.
 	FMCPPulledData MCPPulledData;

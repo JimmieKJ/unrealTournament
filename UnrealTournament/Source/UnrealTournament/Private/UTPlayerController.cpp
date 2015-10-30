@@ -2879,14 +2879,7 @@ void AUTPlayerController::ServerEmote_Implementation(int32 EmoteIndex)
 void AUTPlayerController::ReceivedPlayer()
 {
 	Super::ReceivedPlayer();
-
-#if WITH_PROFILE
-	if (GetNetMode() != NM_DedicatedServer)
-	{
-		InitializeMcpProfile();
-	}
-#endif
-
+	
 	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
 	if (LP != NULL)
 	{
@@ -2904,12 +2897,26 @@ void AUTPlayerController::ReceivedPlayer()
 		if (OnlineSub != nullptr)
 		{
 			IOnlineIdentityPtr OnlineIdentityInterface = OnlineSub->GetIdentityInterface();
-			if (OnlineIdentityInterface.IsValid() && OnlineIdentityInterface->GetLoginStatus(LP->GetControllerId()))
+			if (OnlineIdentityInterface.IsValid())
 			{
-				TSharedPtr<FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(LP->GetControllerId());
-				if (UserId.IsValid())
+				if (OnlineIdentityInterface->GetLoginStatus(LP->GetControllerId()))
 				{
-					ServerReceiveStatsID(UserId->ToString());
+					TSharedPtr<FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(LP->GetControllerId());
+					if (UserId.IsValid())
+					{
+						ServerReceiveStatsID(UserId->ToString());
+					}
+
+#if WITH_PROFILE
+					if (GetNetMode() != NM_DedicatedServer)
+					{
+						InitializeMcpProfile();
+					}
+#endif
+				}
+				else
+				{
+					OnLoginStatusChangedDelegate = OnlineIdentityInterface->AddOnLoginStatusChangedDelegate_Handle(LP->GetControllerId(), FOnLoginStatusChangedDelegate::CreateUObject(this, &AUTPlayerController::OnLoginStatusChanged));
 				}
 			}
 		}
@@ -3828,7 +3835,24 @@ void AUTPlayerController::UTClientSetRotation_Implementation(FRotator NewRotatio
 
 void AUTPlayerController::InitializeMcpProfile()
 {
+	if (McpProfile)
+	{
+		delete McpProfile;
+		McpProfile = nullptr;
+	}
+
 	McpProfile = NewObject<UMcpProfile>(this);
+	if (McpProfile)
+	{
+		FString McpPlayerName;
+		UUTLocalPlayer *LocalPlayer = Cast<UUTLocalPlayer>(Player);
+		if (LocalPlayer)
+		{
+			McpPlayerName = LocalPlayer->GetOnlinePlayerNickname();
+		}
+
+		McpProfile->Initialize((FOnlineSubsystemMcp*)IOnlineSubsystem::Get(), McpPlayerName, GetGameAccountId().GetUniqueNetId(), LocalPlayer != nullptr);
+	}
 	SynchronizeProfileWithMcp();
 }
 
@@ -3843,6 +3867,30 @@ void AUTPlayerController::SynchronizeProfileWithMcp(const FMcpQueryComplete& OnC
 
 void AUTPlayerController::SynchronizeProfileWithMcp_Complete(const FMcpQueryResult& Result, FMcpQueryComplete Callback)
 {
+	UE_LOG(LogUTPlayerController, Display, TEXT("Profile sync complete"));
+}
+
+FUniqueNetIdRepl AUTPlayerController::GetGameAccountId() const
+{
+	UUTLocalPlayer *LocalPlayer = Cast<UUTLocalPlayer>(Player);
+	if (LocalPlayer)
+	{
+		// if we're local, get the ID from the local player as it's guaranteed to be there
+		return LocalPlayer->GetGameAccountId();
+	}
+
+	// otherwise we're either remote or on the server. In the server case, this is guaranteed. In the remote case, there may be a replication delay.
+	return PlayerState ? PlayerState->UniqueId : FUniqueNetIdRepl();
 }
 
 #endif
+
+void AUTPlayerController::OnLoginStatusChanged(int32 LocalUserNum, ELoginStatus::Type PreviousLoginStatus, ELoginStatus::Type LoginStatus, const FUniqueNetId& UniqueID)
+{
+#if WITH_PROFILE
+	if (LoginStatus == ELoginStatus::LoggedIn)
+	{
+		InitializeMcpProfile();
+	}
+#endif
+}

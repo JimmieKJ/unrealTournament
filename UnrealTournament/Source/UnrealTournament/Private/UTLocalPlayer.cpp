@@ -3744,3 +3744,17 @@ void UUTLocalPlayer::UpdateFragCenter()
 		SaveConfig();
 	}
 }
+
+FUniqueNetIdRepl UUTLocalPlayer::GetGameAccountId() const
+{
+	if (OnlineIdentityInterface.IsValid())
+	{
+		// Not multi-screen compatible
+		return FUniqueNetIdRepl(OnlineIdentityInterface->GetUniquePlayerId(0));
+	}
+	else
+	{
+		check(0);
+		return FUniqueNetIdRepl();
+	}
+}

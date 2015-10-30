@@ -833,6 +833,10 @@ protected:
 
 	void TurnOffPawns();
 
+	FUniqueNetIdRepl GetGameAccountId() const;
+	virtual void OnLoginStatusChanged(int32 LocalUserNum, ELoginStatus::Type PreviousLoginStatus, ELoginStatus::Type LoginStatus, const FUniqueNetId& UniqueID);
+	FDelegateHandle OnLoginStatusChangedDelegate;
+
 public:
 	TMap<int32,FString> WeaponGroupKeys;
 	virtual void UpdateWeaponGroupKeys();
