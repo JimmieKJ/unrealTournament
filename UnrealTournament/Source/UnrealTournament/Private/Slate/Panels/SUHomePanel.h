@@ -41,6 +41,8 @@ protected:
 
 	EVisibility ShowNewChallengeImage() const;
 
+	FSlateColor GetFragCenterWatchNowColorAndOpacity() const;
+
 };
 
 #endif

@@ -1095,9 +1095,13 @@ struct FMCPPulledData
 	UPROPERTY()
 	TArray<FStoredUTChallengeInfo> Challenges;
 
+	UPROPERTY()
+	int32 FragCenterCounter;
+
 	FMCPPulledData()
 	{
 		Challenges.Empty();
+		FragCenterCounter=0;
 	}
 };
 

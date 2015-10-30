@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+	// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "SlateBasics.h"
@@ -761,5 +761,13 @@ protected:
 public:
 	virtual void OpenSpectatorWindow();
 	virtual void CloseSpectatorWindow();
+
+	bool IsFragCenterNew();
+	void UpdateFragCenter();
+
+protected:
+	UPROPERTY(Config)
+	int32 FragCenterCounter;
+	
 
 };

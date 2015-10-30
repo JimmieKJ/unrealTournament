@@ -3693,4 +3693,21 @@ void UUTLocalPlayer::CloseSpectatorWindow()
 #endif
 }
 
+bool UUTLocalPlayer::IsFragCenterNew()
+{
+	if (MCPPulledData.bValid)
+	{
+		return FragCenterCounter != MCPPulledData.FragCenterCounter;
+	}
 
+	return false;
+}
+
+void UUTLocalPlayer::UpdateFragCenter()
+{
+	if (IsFragCenterNew())
+	{
+		FragCenterCounter = MCPPulledData.FragCenterCounter;
+		SaveConfig();
+	}
+}
