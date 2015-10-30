@@ -1709,6 +1709,14 @@ void UUTLocalPlayer::SetHatPath(const FString& NewHatPath)
 		AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerController->PlayerState);
 		if (PS != NULL)
 		{
+			if (FUTAnalytics::IsAvailable())
+			{
+				TArray<FAnalyticsEventAttribute> ParamArray;
+				ParamArray.Add(FAnalyticsEventAttribute(TEXT("PlayerID"), PS->UniqueId.ToString()));
+				ParamArray.Add(FAnalyticsEventAttribute(TEXT("HatPath"), NewHatPath));
+				FUTAnalytics::GetProvider().RecordEvent( TEXT("HatChanged"), ParamArray );
+			}
+
 			PS->ServerReceiveHatClass(NewHatPath);
 		}
 	}
@@ -1730,6 +1738,14 @@ void UUTLocalPlayer::SetLeaderHatPath(const FString& NewLeaderHatPath)
 		AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerController->PlayerState);
 		if (PS != NULL)
 		{
+			if (FUTAnalytics::IsAvailable())
+			{
+				TArray<FAnalyticsEventAttribute> ParamArray;
+				ParamArray.Add(FAnalyticsEventAttribute(TEXT("PlayerID"), PS->UniqueId.ToString()));
+				ParamArray.Add(FAnalyticsEventAttribute(TEXT("LeaderHatPath"), NewLeaderHatPath));
+				FUTAnalytics::GetProvider().RecordEvent( TEXT("LeaderHatChanged"), ParamArray );
+			}
+
 			PS->ServerReceiveLeaderHatClass(NewLeaderHatPath);
 		}
 	}
@@ -1751,6 +1767,14 @@ void UUTLocalPlayer::SetEyewearPath(const FString& NewEyewearPath)
 		AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerController->PlayerState);
 		if (PS != NULL)
 		{
+			if (FUTAnalytics::IsAvailable())
+			{
+				TArray<FAnalyticsEventAttribute> ParamArray;
+				ParamArray.Add(FAnalyticsEventAttribute(TEXT("PlayerID"), PS->UniqueId.ToString()));
+				ParamArray.Add(FAnalyticsEventAttribute(TEXT("EyewearPath"), NewEyewearPath));
+				FUTAnalytics::GetProvider().RecordEvent( TEXT("CharacterChanged"), ParamArray );
+			}
+
 			PS->ServerReceiveEyewearClass(NewEyewearPath);
 		}
 	}
@@ -1761,6 +1785,15 @@ FString UUTLocalPlayer::GetCharacterPath() const
 }
 void UUTLocalPlayer::SetCharacterPath(const FString& NewCharacterPath)
 {
+	AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerController->PlayerState);
+	if (PS != NULL && FUTAnalytics::IsAvailable())
+	{
+		TArray<FAnalyticsEventAttribute> ParamArray;
+		ParamArray.Add(FAnalyticsEventAttribute(TEXT("PlayerID"), PS->UniqueId.ToString()));
+		ParamArray.Add(FAnalyticsEventAttribute(TEXT("CharacterPath"), NewCharacterPath));
+		FUTAnalytics::GetProvider().RecordEvent( TEXT("CharacterChanged"), ParamArray );
+	}
+
 	if (CurrentProfileSettings != NULL)
 	{
 		CurrentProfileSettings->CharacterPath = NewCharacterPath;
