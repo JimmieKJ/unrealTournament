@@ -3835,25 +3835,29 @@ void AUTPlayerController::UTClientSetRotation_Implementation(FRotator NewRotatio
 
 void AUTPlayerController::InitializeMcpProfile()
 {
-	if (McpProfile)
+	// asserts in the editor...
+	if (!GIsEditor)
 	{
-		delete McpProfile;
-		McpProfile = nullptr;
-	}
-
-	McpProfile = NewObject<UMcpProfile>(this);
-	if (McpProfile)
-	{
-		FString McpPlayerName;
-		UUTLocalPlayer *LocalPlayer = Cast<UUTLocalPlayer>(Player);
-		if (LocalPlayer)
+		if (McpProfile)
 		{
-			McpPlayerName = LocalPlayer->GetOnlinePlayerNickname();
+			delete McpProfile;
+			McpProfile = nullptr;
 		}
 
-		McpProfile->Initialize((FOnlineSubsystemMcp*)IOnlineSubsystem::Get(), McpPlayerName, GetGameAccountId().GetUniqueNetId(), LocalPlayer != nullptr);
+		McpProfile = NewObject<UMcpProfile>(this);
+		if (McpProfile)
+		{
+			FString McpPlayerName;
+			UUTLocalPlayer *LocalPlayer = Cast<UUTLocalPlayer>(Player);
+			if (LocalPlayer)
+			{
+				McpPlayerName = LocalPlayer->GetOnlinePlayerNickname();
+			}
+
+			McpProfile->Initialize((FOnlineSubsystemMcp*)IOnlineSubsystem::Get(), McpPlayerName, GetGameAccountId().GetUniqueNetId(), LocalPlayer != nullptr);
+		}
+		SynchronizeProfileWithMcp();
 	}
-	SynchronizeProfileWithMcp();
 }
 
 void AUTPlayerController::SynchronizeProfileWithMcp(const FMcpQueryComplete& OnComplete)
