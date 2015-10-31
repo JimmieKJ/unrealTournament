@@ -1785,7 +1785,7 @@ FString UUTLocalPlayer::GetCharacterPath() const
 }
 void UUTLocalPlayer::SetCharacterPath(const FString& NewCharacterPath)
 {
-	AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerController->PlayerState);
+	AUTPlayerState* PS = Cast<AUTPlayerState>((PlayerController != NULL) ? PlayerController->PlayerState : NULL);
 	if (PS != NULL && FUTAnalytics::IsAvailable())
 	{
 		TArray<FAnalyticsEventAttribute> ParamArray;
@@ -1799,13 +1799,9 @@ void UUTLocalPlayer::SetCharacterPath(const FString& NewCharacterPath)
 		CurrentProfileSettings->CharacterPath = NewCharacterPath;
 	}
 	SetDefaultURLOption(TEXT("Character"), NewCharacterPath);
-	if (PlayerController != NULL)
+	if (PS != NULL)
 	{
-		AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerController->PlayerState);
-		if (PS != NULL)
-		{
-			PS->ServerSetCharacter(NewCharacterPath);
-		}
+		PS->ServerSetCharacter(NewCharacterPath);
 	}
 }
 FString UUTLocalPlayer::GetTauntPath() const
