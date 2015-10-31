@@ -176,14 +176,18 @@ bool AUTSquadAI::HasBetterPickupClaim(AUTBot* B, const FPickupClaim& Claim)
 	{
 		return false;
 	}
-	// if I'm signficantly closer, let me take it
-	else if ((Claim.Pickup->GetActorLocation() - B->GetPawn()->GetActorLocation()).Size() * 0.9f < (Claim.Pickup->GetActorLocation() - Claim.ClaimedBy->GetActorLocation()).Size())
-	{
-		return true;
-	}
 	else
 	{
-		return false;
+		// if I'm signficantly closer, let me take it
+		float ClaimDist = (Claim.Pickup->GetActorLocation() - Claim.ClaimedBy->GetActorLocation()).Size();
+		if ((Claim.Pickup->GetActorLocation() - B->GetPawn()->GetActorLocation()).Size() * 0.9f < ClaimDist && ClaimDist > 512.0f)
+		{
+			return true;
+		}
+		else
+		{
+			return false;
+		}
 	}
 }
 
@@ -201,21 +205,68 @@ bool AUTSquadAI::CheckSuperPickups(AUTBot* B, int32 MaxDist)
 				ClaimedPickups.Add(Claim.Pickup);
 			}
 		}
+		// check for human teammates hovering near pickups and assume they have "claimed" it
+		for (AController* C : Team->GetTeamMembers())
+		{
+			APlayerController* PC = Cast<APlayerController>(C);
+			if (PC != NULL && PC->GetPawn() != NULL)
+			{
+				UUTPathNode* Node = NavData->FindNearestNode(PC->GetPawn()->GetNavAgentLocation(), PC->GetPawn()->GetSimpleCollisionCylinderExtent());
+				if (Node != NULL)
+				{
+					for (TWeakObjectPtr<AActor> POI : Node->POIs)
+					{
+						AUTPickup* Item = Cast<AUTPickup>(POI.Get());
+						if (Item != NULL && (Item->GetActorLocation() - PC->GetPawn()->GetActorLocation()).Size() < 512.0f && !HasBetterPickupClaim(B, FPickupClaim(PC->GetPawn(), POI.Get(), false)))
+						{
+							ClaimedPickups.Add(POI.Get());
+						}
+					}
+				}
+			}
+		}
 	}
 
-	FSuperPickupEval NodeEval(B->RespawnPredictionTime, (B->GetCharacter() != NULL) ? B->GetCharacter()->GetCharacterMovement()->MaxWalkSpeed : GetDefault<AUTCharacter>()->GetCharacterMovement()->MaxWalkSpeed, MaxDist, 1.0f, ClaimedPickups);
+	AActor* PrevGoal = (B->RouteCache.Num() > 0) ? B->RouteCache.Last().Actor.Get() : NULL;
+	FSuperPickupEval NodeEval(B->RespawnPredictionTime, (B->GetCharacter() != NULL) ? B->GetCharacter()->GetCharacterMovement()->MaxWalkSpeed : GetDefault<AUTCharacter>()->GetCharacterMovement()->MaxWalkSpeed, MaxDist, 1.0f, ClaimedPickups, PrevGoal);
 	float Weight = 0.0f;
 	TArray<FRouteCacheItem> PotentialRoute;
 	if (NavData->FindBestPath(B->GetPawn(), B->GetPawn()->GetNavAgentPropertiesRef(), NodeEval, B->GetPawn()->GetNavAgentLocation(), Weight, true, PotentialRoute))
 	{
-		if (Team != NULL && PotentialRoute.Last().Actor != NULL)
+		AActor* NewGoal = PotentialRoute.Last().Actor.Get();
+		if (Team != NULL && NewGoal != NULL)
 		{
-			Team->SetPickupClaim(B->GetPawn(), PotentialRoute.Last().Actor.Get());
+			Team->SetPickupClaim(B->GetPawn(), NewGoal);
 		}
-		B->GoalString = FString::Printf(TEXT("Get super pickup %s"), *GetNameSafe(PotentialRoute.Last().Actor.Get()));
 		B->RouteCache = PotentialRoute;
-		B->SetMoveTarget(PotentialRoute[0]);
-		B->StartWaitForMove();
+		if (PotentialRoute.Num() == 1 && NavData->HasReachedTarget(B->GetPawn(), B->GetPawn()->GetNavAgentPropertiesRef(), PotentialRoute[0]))
+		{
+			B->GoalString = FString::Printf(TEXT("Camp here for super pickup %s"), *GetNameSafe(NewGoal));
+			B->DoCamp();
+		}
+		else
+		{
+			// announce to team
+			if (NewGoal != NULL && NewGoal != PrevGoal && B->Skill >= 3.0f)
+			{
+				AUTPickup* Item = Cast<AUTPickup>(NewGoal);
+				if (Item != NULL && !Item->State.bActive && Item->BaseDesireability >= 1.0f)
+				{
+					if (B->Skill + B->Personality.MapAwareness >= 6.0f)
+					{
+						// give exact time remaining
+						B->Say(FText::Format(NSLOCTEXT("UTBot", "PickupTimingExact", "{0} up in {1}. On my way there."), Item->GetDisplayName(), FText::AsNumber(FMath::CeilToInt(Item->GetRespawnTimeOffset(B->GetPawn())))).ToString(), true);
+					}
+					else
+					{
+						B->Say(FText::Format(NSLOCTEXT("UTBot", "PickupTimingSoon", "{0} respawning soon. On my way there."), Item->GetDisplayName()).ToString(), true);
+					}
+				}
+			}
+			B->GoalString = FString::Printf(TEXT("Get super pickup %s"), *GetNameSafe(NewGoal));
+			B->SetMoveTarget(PotentialRoute[0]);
+			B->StartWaitForMove();
+		}
 		return true;
 	}
 	else

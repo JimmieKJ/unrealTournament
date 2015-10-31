@@ -75,6 +75,11 @@ public:
 	virtual void Reset_Implementation() override;
 	virtual void PlayTakenEffects(bool bReplicate) override;
 
+	virtual FText GetDisplayName() const
+	{
+		return (InventoryType != NULL) ? InventoryType.GetDefaultObject()->DisplayName : PickupMessageString;
+	}
+
 	/** Announce pickup to recipient */
 	virtual void AnnouncePickup(AUTCharacter* P);
 

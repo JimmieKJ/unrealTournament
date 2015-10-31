@@ -175,7 +175,27 @@ float FBestInventoryEval::Eval(APawn* Asker, const FNavAgentProperties& AgentPro
 				const float PickupDist = FMath::Max<float>(1.0f, float(TotalDistance) + (TestPickup->GetActorLocation() - EntryLoc).Size());
 				const float RespawnOffset = TestPickup->GetRespawnTimeOffset(Asker);
 				// if short distance and active, allow regardless of prediction time to make sure bots don't look excessively stupid walking by a pickup right in front of them
-				if ((TestPickup->State.bActive && (TotalDistance == 0 || PickupDist < 2048.0f)) || ((RespawnOffset <= 0.0f) ? (RespawnPredictionTime > RespawnOffset) : (FMath::Min<float>(PickupDist / MoveSpeed + 1.0f, RespawnPredictionTime) > RespawnOffset)))
+				bool bConsiderActive = (TestPickup->State.bActive && (TotalDistance == 0 || PickupDist < 2048.0f));
+				if (!bConsiderActive)
+				{
+					// check respawn awareness versus time remaining
+					if (RespawnOffset <= 0.0f)
+					{
+						bConsiderActive = (RespawnPredictionTime > RespawnOffset);
+					}
+					// if previously picked this powerup, keep on it unless it respawned and got taken already
+					// this accounts for the bot reaching the powerup faster than expected (advanced movement, etc) resulting in the movement speed check below becoming false
+					// which otherwise would result in the bot getting confused and backing away from the powerup before heading back to it
+					else if (PrevGoal == TestPickup)
+					{
+						bConsiderActive = (RespawnPredictionTime > RespawnOffset && RespawnOffset < TestPickup->RespawnTime * 0.75f);
+					}
+					else
+					{
+						bConsiderActive = (FMath::Min<float>(PickupDist / MoveSpeed + 1.0f, RespawnPredictionTime) > RespawnOffset);
+					}
+				}
+				if (bConsiderActive)
 				{
 					float NewWeight = TestPickup->BotDesireability(Asker, PickupDist);
 					if (AllowPickup(Asker, TestPickup, NewWeight, PickupDist))
@@ -2562,6 +2582,25 @@ void AUTBot::SendVoiceMessage(FName MessageName)
 	}
 }
 
+void AUTBot::Say(const FString& Msg, bool bTeam)
+{
+	for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
+	{
+		AUTBasePlayerController* UTPC = Cast<AUTBasePlayerController>(*Iterator);
+		if (UTPC != NULL)
+		{
+			if (!bTeam || UTPC->GetTeamNum() == GetTeamNum())
+			{
+				// Dont send spectator chat to players
+				if (UTPC->PlayerState != NULL)
+				{
+					UTPC->ClientSay(Cast<AUTPlayerState>(PlayerState), Msg, (bTeam ? ChatDestinations::Team : ChatDestinations::Local));
+				}
+			}
+		}
+	}
+}
+
 bool AUTBot::IsSniping() const
 {
 	return ( DefensePoint != NULL && DefensePoint->bSniperSpot && GetUTChar() != NULL && GetUTChar()->GetWeapon() != NULL && GetUTChar()->GetWeapon()->bSniping &&
@@ -3595,12 +3634,32 @@ void AUTBot::NotifyPickup(APawn* PickedUpBy, AActor* Pickup, float AudibleRadius
 				bCanUpdateEnemyInfo = InventoryType.GetDefaultObject()->bCallDamageEvents;
 			}
 		}
-		if (bCanUpdateEnemyInfo)
+		if ((Pickup->GetActorLocation() - GetPawn()->GetActorLocation()).Size() < AudibleRadius * HearingRadiusMult * 0.5f || IsEnemyVisible(PickedUpBy) || LineOfSightTo(Pickup))
 		{
-			if ((Pickup->GetActorLocation() - GetPawn()->GetActorLocation()).Size() < AudibleRadius * HearingRadiusMult * 0.5f || IsEnemyVisible(PickedUpBy) || LineOfSightTo(Pickup))
+			if (bCanUpdateEnemyInfo)
 			{
 				UpdateEnemyInfo(PickedUpBy, EUT_HealthUpdate);
 			}
+			// maybe send team message
+			AUTPickup* Item = Cast<AUTPickup>(Pickup);
+			if (Item != NULL && Item->BaseDesireability >= 1.0f && PickedUpBy->PlayerState != NULL)
+			{
+				static float PickupMessageTime = -1.0f;
+				if (PickupMessageTime != GetWorld()->TimeSeconds)
+				{
+					PickupMessageTime = GetWorld()->TimeSeconds;
+					Say(FText::Format(NSLOCTEXT("UTBot", "EnemyPickup", "Enemy {0} got {1}."), FText::FromString(PickedUpBy->PlayerState->PlayerName), Item->GetDisplayName()).ToString(), true);
+				}
+			}
+		}
+	}
+	else if (GetPawn() == PickedUpBy)
+	{
+		// maybe send team message
+		AUTPickup* Item = Cast<AUTPickup>(Pickup);
+		if (Item != NULL && Item->BaseDesireability >= 1.0f)
+		{
+			Say(FText::Format(NSLOCTEXT("UTBot", "GotPickup", "I got the {0}!"), Item->GetDisplayName()).ToString(), true);
 		}
 	}
 	// clear any claims on this pickup since it's likely no longer available

@@ -140,6 +140,12 @@ class UNREALTOURNAMENT_API AUTPickup : public AActor, public IUTResetInterface, 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Pickup)
 	FText PickupMessageString;
 
+	/** returns name of item for HUD displays, etc */
+	virtual FText GetDisplayName() const
+	{
+		return PickupMessageString;
+	}
+
 	virtual void Reset_Implementation() override;
 
 	virtual void PreReplication(IRepChangedPropertyTracker & ChangedPropertyTracker);

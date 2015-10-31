@@ -18,9 +18,11 @@ struct UNREALTOURNAMENT_API FSuperPickupEval : public FBestInventoryEval
 
 	virtual bool AllowPickup(APawn* Asker, AActor* Pickup, float Desireability, float PickupDist);
 
-	FSuperPickupEval(float InPredictionTime, float InMoveSpeed, int32 InMaxDist = 0, float InMinDesireability = 1.0f, const TArray<AActor*>& InClaimedPickups = TArray<AActor*>())
+	FSuperPickupEval(float InPredictionTime, float InMoveSpeed, int32 InMaxDist = 0, float InMinDesireability = 1.0f, const TArray<AActor*>& InClaimedPickups = TArray<AActor*>(), AActor* InPrevGoal = NULL)
 		: FBestInventoryEval(InPredictionTime, InMoveSpeed, InMaxDist), MinDesireability(InMinDesireability), ClaimedPickups(InClaimedPickups)
-	{}
+	{
+		PrevGoal = InPrevGoal;
+	}
 };
 
 USTRUCT()

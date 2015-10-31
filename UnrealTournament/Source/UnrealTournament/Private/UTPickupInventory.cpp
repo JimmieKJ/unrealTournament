@@ -92,6 +92,7 @@ void AUTPickupInventory::SetInventoryType(TSubclassOf<AUTInventory> NewType)
 	{
 		RespawnTime = InventoryType.GetDefaultObject()->RespawnTime;
 		bDelayedSpawn = InventoryType.GetDefaultObject()->bDelayedSpawn;
+		BaseDesireability = InventoryType.GetDefaultObject()->BasePickupDesireability;
 	}
 	else
 	{
