@@ -193,7 +193,7 @@ void AUTHUD_Showdown::DrawHUD()
 EInputMode::Type AUTHUD_Showdown::GetInputMode_Implementation()
 {
 	AUTShowdownGameState* GS = GetWorld()->GetGameState<AUTShowdownGameState>();
-	if (GS != NULL && GS->GetMatchState() == MatchState::MatchIntermission && GS->SpawnSelector == PlayerOwner->PlayerState)
+	if (GS != NULL && GS->GetMatchState() == MatchState::MatchIntermission && GS->bStartedSpawnSelection && !GS->bFinalIntermissionDelay)
 	{
 		return EInputMode::EIM_GameAndUI;
 	}
