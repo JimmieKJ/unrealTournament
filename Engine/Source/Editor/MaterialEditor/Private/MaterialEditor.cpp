@@ -3312,7 +3312,11 @@ void FMaterialEditor::PasteNodesHere(const FVector2D& Location)
 			UMaterialExpressionMaterialFunctionCall* FunctionCall = Cast<UMaterialExpressionMaterialFunctionCall>( NewExpression );
 			if( FunctionCall )
 			{
-				FunctionCall->UpdateFromFunctionResource();
+				// When pasting new nodes, we don't want to break all node links as this information is used by UpdateMaterialAfterGraphChange() below,
+				// to recreate all the connections in the pasted group.
+				// Just update the function input/outputs here.
+				const bool bRecreateAndLinkNode = false;
+				FunctionCall->UpdateFromFunctionResource(bRecreateAndLinkNode);
 			}
 		}
 		else if (UMaterialGraphNode_Comment* CommentNode = Cast<UMaterialGraphNode_Comment>(Node))
