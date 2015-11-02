@@ -952,13 +952,8 @@ void AUTPlayerController::ViewPlayerNum(int32 Index, uint8 TeamNum)
 	if (GS != NULL)
 	{
 		APlayerState** PlayerToView = NULL;
-		if (TeamNum == 255 || GS->Teams.Num() == 0)
+		if (TeamNum == 255)
 		{
-			// hack for default binds
-			if (TeamNum == 1)
-			{
-				Index += TeamNum * 5;
-			}
 			int32 MaxSpectatingId = GS->GetMaxSpectatingId();
 			while ((Index <= MaxSpectatingId) && (PlayerToView == NULL))
 			{

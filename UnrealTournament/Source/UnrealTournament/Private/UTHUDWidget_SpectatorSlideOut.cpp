@@ -121,7 +121,6 @@ void UUTHUDWidget_SpectatorSlideOut::Draw_Implementation(float DeltaTime)
 			return;
 		}
 
-		int32 MaxRedPlaces = UTGameState->bTeamGame ? 5 : 10; // warning: hardcoded to match default binds, which has 5 red and 5 blue
 		float XOffset = SlideIn - Size.X;
 		SlideOutFont = UTHUDOwner->SmallFont;
 
@@ -169,60 +168,20 @@ void UUTHUDWidget_SpectatorSlideOut::Draw_Implementation(float DeltaTime)
 			};
 		}
 		RedPlayerList.Sort(SortFunc);
-		for (int32 PlayerBind = 1; PlayerBind <= MaxRedPlaces; PlayerBind++)
-		{
-			for (int32 i = 0; i < RedPlayerList.Num(); i++)
-			{
-				AUTPlayerState* PlayerState = RedPlayerList[i];
-				uint8 Place = UTGameState->bTeamGame ? PlayerState->SpectatingIDTeam : PlayerState->SpectatingID;
-				if ((Place % MaxRedPlaces) == (PlayerBind % MaxRedPlaces))
-				{
-					DrawPlayer(PlayerBind, PlayerState, DeltaTime, XOffset, DrawOffset);
-					DrawOffset += CellHeight;
-					PlayerState->bNeedsAssistAnnouncement = true; // hack - use this transient property
-					break;
-				}
-			}
-		}
 		for (int32 i = 0; i < RedPlayerList.Num(); i++)
 		{
-			AUTPlayerState* PlayerState = RedPlayerList[i];
-			if (!PlayerState->bNeedsAssistAnnouncement)
-			{
-				DrawPlayer(-1, PlayerState, DeltaTime, XOffset, DrawOffset);
-				DrawOffset += CellHeight;
-			}
-			PlayerState->bNeedsAssistAnnouncement = false;
+			DrawPlayer(i, RedPlayerList[i], DeltaTime, XOffset, DrawOffset);
+			DrawOffset += CellHeight;
 		}
 
 		if (UTGameState->bTeamGame)
 		{
 			DrawOffset += CellHeight;
 			BluePlayerList.Sort(SortFunc);
-			for (int32 PlayerBind = 1; PlayerBind <= MaxRedPlaces; PlayerBind++)
-			{
-				for (int32 i = 0; i < BluePlayerList.Num(); i++)
-				{
-					AUTPlayerState* PlayerState = BluePlayerList[i];
-					uint8 Place = PlayerState->SpectatingIDTeam;
-					if ((Place % MaxRedPlaces) == (PlayerBind % MaxRedPlaces))
-					{
-						DrawPlayer(MaxRedPlaces + PlayerBind, PlayerState, DeltaTime, XOffset, DrawOffset);
-						DrawOffset += CellHeight;
-						PlayerState->bNeedsAssistAnnouncement = true;
-						break;
-					}
-				}
-			}
 			for (int32 i = 0; i < BluePlayerList.Num(); i++)
 			{
-				AUTPlayerState* PlayerState = BluePlayerList[i];
-				if (!PlayerState->bNeedsAssistAnnouncement)
-				{
-					DrawPlayer(-1, PlayerState, DeltaTime, XOffset, DrawOffset);
-					DrawOffset += CellHeight;
-				}
-				PlayerState->bNeedsAssistAnnouncement = false;
+				DrawPlayer(i, BluePlayerList[i], DeltaTime, XOffset, DrawOffset);
+				DrawOffset += CellHeight;
 			}
 		}
 
@@ -506,16 +465,13 @@ void UUTHUDWidget_SpectatorSlideOut::DrawPlayer(int32 Index, AUTPlayerState* Pla
 	float Width = Size.X;
 
 	// If we are interactive and this element has a keybind, store it so the mouse can click it
-	if (bIsInteractive)
+	if (bIsInteractive && UTGameState)
 	{
 		FVector4 Bounds = FVector4(RenderPosition.X + (XOffset * RenderScale), RenderPosition.Y + (YOffset * RenderScale),
 			RenderPosition.X + ((XOffset + Width) * RenderScale), RenderPosition.Y + ((YOffset + CellHeight) * RenderScale));
-		int32 PickedTeamNum = (Index < 6) ? 0 : 1;
-		if (Index > 5)
-		{
-			Index -= 5;
-		}
-		ClickElementStack.Add(FClickElement("ViewPlayerNum " + FString::Printf(TEXT("%d %d"), Index, PickedTeamNum), Bounds));
+		int32 PickedTeamNum = (PlayerState && PlayerState->Team) ? PlayerState->Team->TeamIndex : 0;
+		int32 SpectatingID = UTGameState->bTeamGame ? PlayerState->SpectatingIDTeam : PlayerState->SpectatingID;
+		ClickElementStack.Add(FClickElement("ViewPlayerNum " + FString::Printf(TEXT("%d %d"), SpectatingID, PickedTeamNum), Bounds));
 		if (MousePosition.X >= Bounds.X && MousePosition.X <= Bounds.Z && MousePosition.Y >= Bounds.Y && MousePosition.Y <= Bounds.W)
 		{
 			FinalBarOpacity = 1.f;
