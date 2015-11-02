@@ -51,7 +51,6 @@ AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer
 	CTFSkillRatingThisMatch = 0;
 	ReadyColor = FLinearColor::White;
 	ReadyScale = 1.f;
-	SpectatorNameScale = 1.f;
 	bIsDemoRecording = false;
 	EngineMessageClass = UUTEngineMessage::StaticClass();
 	LastTauntTime = -1000.f;

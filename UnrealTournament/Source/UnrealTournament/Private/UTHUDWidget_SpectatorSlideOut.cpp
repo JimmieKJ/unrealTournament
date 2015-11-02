@@ -16,6 +16,7 @@ UUTHUDWidget_SpectatorSlideOut::UUTHUDWidget_SpectatorSlideOut(const class FObje
 	Size = FVector2D(340.0f, 108.0f);
 	ScreenPosition = FVector2D(0.0f, 0.005f);
 	Origin = FVector2D(0.0f, 0.0f);
+	ArrowSize = 36.f / Size.X;
 
 	FlagX = 0.02f;
 	ColumnHeaderPlayerX = 0.12f;
@@ -64,6 +65,9 @@ UUTHUDWidget_SpectatorSlideOut::UUTHUDWidget_SpectatorSlideOut(const class FObje
 	FlagIcon.V = 87.f;
 	FlagIcon.UL = 43.f;
 	FlagIcon.VL = 41.f;
+
+	CamTypeButtonStart = ArrowSize + 0.03f;
+	CamTypeButtonWidth = 0.135f;
 }
 
 bool UUTHUDWidget_SpectatorSlideOut::ShouldDraw_Implementation(bool bShowScores)
@@ -429,11 +433,25 @@ void UUTHUDWidget_SpectatorSlideOut::DrawPlayerHeader(float RenderDelta, float X
 	FLinearColor DrawColor = FLinearColor::White;
 	float BarOpacity = 0.3f;
 	float Width = Size.X;
-
-	// Draw the background border.
 	FLinearColor BarColor = FLinearColor::White;
 	float FinalBarOpacity = BarOpacity;
-	DrawTexture(TextureAtlas, XOffset, YOffset, Width, 0.95f*CellHeight, 149, 138, 32, 32, FinalBarOpacity, BarColor);
+
+	if (bIsInteractive && UTHUDOwner->UTPlayerOwner)
+	{
+		FVector4 Bounds = FVector4(RenderPosition.X + ((XOffset + CamTypeButtonStart*Width) * RenderScale), RenderPosition.Y + (YOffset * RenderScale),
+			RenderPosition.X + ((XOffset + (CamTypeButtonStart + CamTypeButtonWidth)*Width) * RenderScale), RenderPosition.Y + ((YOffset + CellHeight) * RenderScale));
+		ClickElementStack.Add(FClickElement("ToggleBehindView", Bounds));
+		float FinalBarOpacity = (MousePosition.X >= Bounds.X && MousePosition.X <= Bounds.Z && MousePosition.Y >= Bounds.Y && MousePosition.Y <= Bounds.W)
+			? 0.7f : 0.3f;
+		DrawTexture(TextureAtlas, XOffset + CamTypeButtonStart*Width, YOffset, CamTypeButtonWidth*Width, 0.95f*CellHeight, 149, 138, 32, 32, FinalBarOpacity, BarColor);
+
+		FText CamString = UTHUDOwner->UTPlayerOwner->bSpectateBehindView ? NSLOCTEXT("UTSlideout", "CamType3P", "3P") : NSLOCTEXT("UTSlideout", "CamType1P", "1P");
+		DrawText(CamString, XOffset + (Width * (CamTypeButtonStart + 0.02f)), YOffset + ColumnY, SlideOutFont, 1.f, 1.f, DrawColor, ETextHorzPos::Left, ETextVertPos::Center);
+	}
+	
+	// Draw the background border.
+	float BorderWidth = Width * (1.f - (ColumnHeaderScoreX - 0.1f));
+	DrawTexture(TextureAtlas, XOffset + Width - BorderWidth, YOffset, BorderWidth, 0.95f*CellHeight, 149, 138, 32, 32, FinalBarOpacity, BarColor);
 
 	// Draw the Text
 	DrawTexture(HealthIcon.Texture, XOffset + (Width * (ColumnHeaderScoreX - 0.05f)), YOffset + ColumnY - 0.04f*Width, 0.1f*Width, 0.1f*Width, HealthIcon.U, HealthIcon.V, HealthIcon.UL, HealthIcon.VL, 1.0, FLinearColor::White);
@@ -448,7 +466,7 @@ void UUTHUDWidget_SpectatorSlideOut::DrawSelector(FString Command, bool bPointRi
 		float U = bPointRight ? 36.f : 0.f;
 		float UL = bPointRight ? -36.f : 36.f;
 		FVector4 Bounds = FVector4(RenderPosition.X + (XOffset * RenderScale), RenderPosition.Y + (YOffset * RenderScale),
-			RenderPosition.X + ((XOffset + 36.f) * RenderScale), RenderPosition.Y + ((YOffset + 36.f) * RenderScale));
+			RenderPosition.X + ((XOffset + ArrowSize*Size.X) * RenderScale), RenderPosition.Y + ((YOffset + ArrowSize*Size.X) * RenderScale));
 		ClickElementStack.Add(FClickElement(Command, Bounds));
 		float FinalBarOpacity = (MousePosition.X >= Bounds.X && MousePosition.X <= Bounds.Z && MousePosition.Y >= Bounds.Y && MousePosition.Y <= Bounds.W)
 				? 1.f : 0.7f;
@@ -492,7 +510,6 @@ void UUTHUDWidget_SpectatorSlideOut::DrawPlayer(int32 Index, AUTPlayerState* Pla
 	}
 
 	AUTCharacter* Character = PlayerState->GetUTCharacter();
-	PlayerState->SpectatorNameScale = 1.f; 
 	DrawTexture(TextureAtlas, XOffset, YOffset, Width, 0.95f*CellHeight, 149, 138, 32, 32, FinalBarOpacity, BarColor);
 
 	if ((PlayerState == UTHUDOwner->UTPlayerOwner->LastSpectatedPlayerState) || (PlayerState->CarriedObject && (PlayerState->CarriedObject == UTHUDOwner->UTPlayerOwner->GetViewTarget())))
@@ -505,7 +522,7 @@ void UUTHUDWidget_SpectatorSlideOut::DrawPlayer(int32 Index, AUTPlayerState* Pla
 	UTexture2D* NewFlagAtlas = UTHUDOwner->ResolveFlag(PlayerState, FlagUV);
 	DrawTexture(NewFlagAtlas, XOffset + (Width * FlagX), YOffset + 18, FlagUV.UL, FlagUV.VL, FlagUV.U, FlagUV.V, 36, 26, 1.0, FLinearColor::White, FVector2D(0.0f, 0.5f));
 
-	FVector2D NameSize = DrawText(PlayerName, XOffset + (Width * ColumnHeaderPlayerX), YOffset + ColumnY, SlideOutFont, PlayerState->SpectatorNameScale, PlayerState->SpectatorNameScale, DrawColor, ETextHorzPos::Left, ETextVertPos::Center);
+	FVector2D NameSize = DrawText(PlayerName, XOffset + (Width * ColumnHeaderPlayerX), YOffset + ColumnY, SlideOutFont, 1.f, 1.f, DrawColor, ETextHorzPos::Left, ETextVertPos::Center);
 
 	if (UTGameState && UTGameState->HasMatchStarted())
 	{

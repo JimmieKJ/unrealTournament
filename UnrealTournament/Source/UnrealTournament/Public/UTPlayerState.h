@@ -547,10 +547,6 @@ public:
 	
 	bool HasWrittenStatsToCloud() { return bWroteStatsToCloud; }
 
-	/** Current name scaling on spectator slide out. */
-	UPROPERTY(BlueprintReadWrite, Category = Spectator)
-	float SpectatorNameScale;
-
 	void ReadStatsFromCloud();
 
 private:

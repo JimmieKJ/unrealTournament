@@ -64,6 +64,15 @@ public:
 	UPROPERTY()
 		float SlideSpeed;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SlideOut")
+		float ArrowSize;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SlideOut")
+		float CamTypeButtonStart;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SlideOut")
+		float CamTypeButtonWidth;
+
 	// Where to draw the flags
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SlideOut")
 		float FlagX;
