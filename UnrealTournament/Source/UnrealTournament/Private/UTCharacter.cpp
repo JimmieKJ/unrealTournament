@@ -4737,6 +4737,11 @@ bool AUTCharacter::IsWearingAnyCosmetic()
 		return true;
 	}
 
+	if (LeaderHat != nullptr)
+	{
+		return true;
+	}
+
 	if (Eyewear != nullptr)
 	{
 		return true;
