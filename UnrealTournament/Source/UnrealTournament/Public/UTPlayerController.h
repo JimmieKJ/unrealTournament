@@ -399,11 +399,17 @@ public:
 	UPROPERTY()
 		bool bShowCameraBinds;
 
+	UPROPERTY()
+		bool bShowPowerupTimers;
+
 	UFUNCTION(exec)
 		virtual void ToggleSlideOut();
 
 	UFUNCTION(exec)
 		virtual void ToggleShowBinds();
+
+	UFUNCTION(exec)
+		virtual void ToggleShowTimers();
 
 	UFUNCTION(exec)
 	virtual void TogglePlayerInfo();

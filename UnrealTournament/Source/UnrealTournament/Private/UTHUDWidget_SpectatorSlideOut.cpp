@@ -13,14 +13,14 @@ UUTHUDWidget_SpectatorSlideOut::UUTHUDWidget_SpectatorSlideOut(const class FObje
 {
 	DesignedResolution = 1080;
 	Position = FVector2D(0, 0);
-	Size = FVector2D(340.0f, 108.0f);
+	Size = FVector2D(320.0f, 108.0f);
 	ScreenPosition = FVector2D(0.0f, 0.005f);
 	Origin = FVector2D(0.0f, 0.0f);
 	ArrowSize = 36.f / Size.X;
 
 	FlagX = 0.02f;
 	ColumnHeaderPlayerX = 0.12f;
-	ColumnHeaderScoreX = 0.75f;
+	ColumnHeaderScoreX = 0.78f;
 	ColumnHeaderArmor = 0.93f;
 	ColumnY = 0.11f * Size.Y;
 
@@ -188,21 +188,7 @@ void UUTHUDWidget_SpectatorSlideOut::Draw_Implementation(float DeltaTime)
 				DrawOffset += CellHeight;
 			}
 		}
-
-		if (!bPowerupListInitialized)
-		{
-			InitPowerupList();
-		}
-		//draw powerup clocks
 		DrawOffset += 0.2f*CellHeight;
-		for (int32 i = 0; i < PowerupList.Num(); i++)
-		{
-			if (PowerupList[i] != NULL)
-			{
-				DrawPowerup(PowerupList[i], XOffset, DrawOffset);
-				DrawOffset += 1.2f*CellHeight;
-			}
-		}
 
 		AUTCTFGameState * CTFGameState = Cast<AUTCTFGameState>(UTGameState);
 		if (CTFGameState && (CTFGameState->FlagBases.Num() > 1))
@@ -210,14 +196,42 @@ void UUTHUDWidget_SpectatorSlideOut::Draw_Implementation(float DeltaTime)
 			// show flag binds
 			if (CTFGameState->FlagBases[0] && CTFGameState->FlagBases[0]->MyFlag)
 			{
-				DrawFlag("ViewFlag 0", "Red Flag", CTFGameState->FlagBases[0]->MyFlag, DeltaTime, XOffset, DrawOffset);
+				DrawFlag("ViewFlag 0", "Red Flag", CTFGameState->FlagBases[0]->MyFlag, DeltaTime, XOffset + 0.01f*Size.X, DrawOffset);
 			}
 			if (CTFGameState->FlagBases[1] && CTFGameState->FlagBases[1]->MyFlag)
 			{
-				DrawFlag("ViewFlag 1", "Blue Flag", CTFGameState->FlagBases[1]->MyFlag, DeltaTime, XOffset + 0.65f*Size.X, DrawOffset);
+				DrawFlag("ViewFlag 1", "Blue Flag", CTFGameState->FlagBases[1]->MyFlag, DeltaTime, XOffset + 0.52f*Size.X, DrawOffset);
 			}
 			DrawOffset += 1.2f*CellHeight;
 		}
+
+		//draw powerup clocks
+		DrawSelector("ToggleShowTimers", !UTHUDOwner->UTPlayerOwner->bShowPowerupTimers, XOffset, DrawOffset);
+		if (UTHUDOwner->UTPlayerOwner->bShowPowerupTimers)
+		{
+			if (!bPowerupListInitialized)
+			{
+				InitPowerupList();
+			}
+			int32 TimerOffset = XOffset + ArrowSize*Size.X;
+			for (int32 i = 0; i < PowerupList.Num(); i++)
+			{
+				if (PowerupList[i] != NULL)
+				{
+					DrawPowerup(PowerupList[i], TimerOffset, DrawOffset);
+					if (i % 2 == 0)
+					{
+						TimerOffset = XOffset + ArrowSize*Size.X + 0.37f * Size.X;
+					}
+					else
+					{
+						TimerOffset = XOffset + ArrowSize*Size.X;
+						DrawOffset += 1.2f*CellHeight;
+					}
+				}
+			}
+		}
+		DrawOffset += 1.2f*CellHeight;
 
 		float StartCamOffset = DrawOffset;
 		float EndCamOffset = 0.0f; 
@@ -300,8 +314,8 @@ void UUTHUDWidget_SpectatorSlideOut::DrawPowerup(AUTPickup* Pickup, float XOffse
 	// @TODO FIXMESTEVE get rid of armor hacks when they have icons
 	FLinearColor BarColor = FLinearColor::White;
 	float RemainingTime = GetWorld()->GetTimerManager().GetTimerRemaining(Pickup->WakeUpTimerHandle);
-	float FinalBarOpacity = (RemainingTime > 0.f) ? FMath::Clamp(1.f - 0.4f*(Pickup->RespawnTime - RemainingTime), 0.3f, 1.f) : 1.f;
-	DrawTexture(TextureAtlas, XOffset, YOffset, 0.4f*Size.X, 0.95f*CellHeight, 149, 138, 32, 32, FinalBarOpacity, FLinearColor::White);
+	float FinalBarOpacity = (RemainingTime > 0.f) ? 0.3f : 0.6f;
+	DrawTexture(TextureAtlas, XOffset, YOffset, 0.35f*Size.X, 0.95f*CellHeight, 149, 138, 32, 32, FinalBarOpacity, FLinearColor::White);
 
 	if (Pickup->TeamSide < 2)
 	{
@@ -330,7 +344,7 @@ void UUTHUDWidget_SpectatorSlideOut::DrawPowerup(AUTPickup* Pickup, float XOffse
 		DrawColor.R *= 0.5f;
 		DrawColor.G *= 0.5f;
 		DrawColor.B *= 0.5f;
-		DrawText(FText::Format(NSLOCTEXT("UTCharacter", "PowerupTimeDisplay", "{TimeRemaining}"), Args), XOffset + 0.28f*Size.X, YOffset + ColumnY, SlideOutFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
+		DrawText(FText::Format(NSLOCTEXT("UTCharacter", "PowerupTimeDisplay", "{TimeRemaining}"), Args), XOffset + 0.27f*Size.X, YOffset + ColumnY, SlideOutFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
 	}
 	else
 	{
@@ -342,7 +356,7 @@ void UUTHUDWidget_SpectatorSlideOut::DrawFlag(FString FlagCommand, FString FlagN
 {
 	FLinearColor DrawColor = FLinearColor::White;
 	float BarOpacity = 0.3f;
-	float Width = 0.5f * Size.X;
+	float Width = 0.47f * Size.X;
 
 	// If we are interactive and this element has a keybind, store it so the mouse can click it
 	if (bIsInteractive)
@@ -482,12 +496,12 @@ void UUTHUDWidget_SpectatorSlideOut::DrawPlayer(int32 Index, AUTPlayerState* Pla
 		ClickElementStack.Add(FClickElement("ViewPlayerNum " + FString::Printf(TEXT("%d %d"), SpectatingID, PickedTeamNum), Bounds));
 		if (MousePosition.X >= Bounds.X && MousePosition.X <= Bounds.Z && MousePosition.Y >= Bounds.Y && MousePosition.Y <= Bounds.W)
 		{
-			FinalBarOpacity = 1.f;
+			FinalBarOpacity = 0.6f;
 		}
 	}
 	if (Cast<AUTPlayerController>(UTHUDOwner->PlayerOwner) && (Cast<AUTPlayerController>(UTHUDOwner->PlayerOwner)->LastSpectatedPlayerId == PlayerState->SpectatingID))
 	{
-		FinalBarOpacity = 1.f;
+		FinalBarOpacity = 0.9f;
 	}
 
 	FText PlayerName = FText::FromString(GetClampedName(PlayerState, SlideOutFont, 1.f, 0.475f*Width));

@@ -1009,6 +1009,10 @@ void AUTPlayerController::ToggleShowBinds()
 	bShowCameraBinds = !bShowCameraBinds;
 }
 
+void AUTPlayerController::ToggleShowTimers()
+{
+	bShowPowerupTimers = !bShowPowerupTimers;
+}
 void AUTPlayerController::ViewNextPlayer()
 {
 	bAutoCam = false;
