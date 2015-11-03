@@ -3839,7 +3839,6 @@ void AUTPlayerController::InitializeMcpProfile()
 	{
 		if (McpProfile)
 		{
-			delete McpProfile;
 			McpProfile = nullptr;
 		}
 
