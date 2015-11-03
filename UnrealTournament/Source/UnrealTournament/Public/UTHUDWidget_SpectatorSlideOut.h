@@ -42,7 +42,7 @@ public:
 	virtual void DrawPlayerHeader(float RenderDelta, float XOffset, float YOffset);
 	virtual void DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float RenderDelta, float XOffset, float YOffset);
 	virtual void DrawFlag(FString FlagCommand, FString FlagName, AUTCarriedObject* Flag, float RenderDelta, float XOffset, float YOffset);
-	virtual void DrawCamBind(FString CamCommand, FString ProjName, float RenderDelta, float XOffset, float YOffset, bool bCamSelected);
+	virtual void DrawCamBind(FString CamCommand, FString ProjName, float RenderDelta, float XOffset, float YOffset, float Width, bool bCamSelected);
 	virtual void DrawPowerup(class AUTPickup* Pickup, float XOffset, float YOffset);
 	virtual void DrawSelector(FString Command, bool bPointRight, float XOffset, float YOffset);
 
