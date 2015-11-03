@@ -68,6 +68,8 @@ UUTHUDWidget_SpectatorSlideOut::UUTHUDWidget_SpectatorSlideOut(const class FObje
 
 	CamTypeButtonStart = ArrowSize + 0.01f;
 	CamTypeButtonWidth = 0.12f;
+	MouseOverOpacity = 0.5f;
+	SelectedOpacity = 0.7f;
 }
 
 bool UUTHUDWidget_SpectatorSlideOut::ShouldDraw_Implementation(bool bShowScores)
@@ -344,7 +346,7 @@ void UUTHUDWidget_SpectatorSlideOut::DrawPowerup(AUTPickup* Pickup, float XOffse
 		DrawColor.R *= 0.5f;
 		DrawColor.G *= 0.5f;
 		DrawColor.B *= 0.5f;
-		DrawText(FText::Format(NSLOCTEXT("UTCharacter", "PowerupTimeDisplay", "{TimeRemaining}"), Args), XOffset + 0.27f*Size.X, YOffset + ColumnY, SlideOutFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
+		DrawText(FText::Format(NSLOCTEXT("UTCharacter", "PowerupTimeDisplay", "{TimeRemaining}"), Args), XOffset + 0.29f*Size.X, YOffset + ColumnY, SlideOutFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
 	}
 	else
 	{
@@ -366,11 +368,11 @@ void UUTHUDWidget_SpectatorSlideOut::DrawFlag(FString FlagCommand, FString FlagN
 		ClickElementStack.Add(FClickElement(FlagCommand, Bounds));
 		if (MousePosition.X >= Bounds.X && MousePosition.X <= Bounds.Z && MousePosition.Y >= Bounds.Y && MousePosition.Y <= Bounds.W)
 		{
-			BarOpacity = 0.6f;
+			BarOpacity = MouseOverOpacity;
 		}
 		if (UTHUDOwner->PlayerOwner && (UTHUDOwner->PlayerOwner->GetViewTarget() == Flag))
 		{
-			BarOpacity = 0.6f;
+			BarOpacity = SelectedOpacity;
 		}
 	}
 
@@ -389,7 +391,7 @@ void UUTHUDWidget_SpectatorSlideOut::DrawFlag(FString FlagCommand, FString FlagN
 void UUTHUDWidget_SpectatorSlideOut::DrawCamBind(FString CamCommand, FString ProjName, float RenderDelta, float XOffset, float YOffset, float Width, bool bCamSelected)
 {
 	FLinearColor DrawColor = FLinearColor::White;
-	float BarOpacity = bCamSelected? 0.5f : 0.3f;
+	float BarOpacity = 0.3f;
 
 	// If we are interactive and this element has a keybind, store it so the mouse can click it
 	if (bIsInteractive)
@@ -399,8 +401,12 @@ void UUTHUDWidget_SpectatorSlideOut::DrawCamBind(FString CamCommand, FString Pro
 		ClickElementStack.Add(FClickElement(CamCommand, Bounds));
 		if ((MousePosition.X >= Bounds.X && MousePosition.X <= Bounds.Z && MousePosition.Y >= Bounds.Y && MousePosition.Y <= Bounds.W))
 		{
-			BarOpacity = 0.5f;
+			BarOpacity = MouseOverOpacity;
 		}
+	}
+	if (bCamSelected)
+	{
+		BarOpacity = SelectedOpacity;
 	}
 
 	// Draw the background border.
@@ -496,12 +502,12 @@ void UUTHUDWidget_SpectatorSlideOut::DrawPlayer(int32 Index, AUTPlayerState* Pla
 		ClickElementStack.Add(FClickElement("ViewPlayerNum " + FString::Printf(TEXT("%d %d"), SpectatingID, PickedTeamNum), Bounds));
 		if (MousePosition.X >= Bounds.X && MousePosition.X <= Bounds.Z && MousePosition.Y >= Bounds.Y && MousePosition.Y <= Bounds.W)
 		{
-			FinalBarOpacity = 0.6f;
+			FinalBarOpacity = MouseOverOpacity;
 		}
 	}
 	if (Cast<AUTPlayerController>(UTHUDOwner->PlayerOwner) && (Cast<AUTPlayerController>(UTHUDOwner->PlayerOwner)->LastSpectatedPlayerId == PlayerState->SpectatingID))
 	{
-		FinalBarOpacity = 0.9f;
+		FinalBarOpacity = SelectedOpacity;
 	}
 
 	FText PlayerName = FText::FromString(GetClampedName(PlayerState, SlideOutFont, 1.f, 0.475f*Width));

@@ -134,6 +134,12 @@ public:
 	UPROPERTY()
 	bool bCamerasInitialized;
 
+	UPROPERTY()
+		float MouseOverOpacity;
+
+	UPROPERTY()
+		float SelectedOpacity;
+
 	/**Called from Slate to set the mouse position*/
 	virtual void TrackMouseMovement(FVector2D InMousePosition) { MousePosition = InMousePosition; }
 	/**Called from Slate when the mouse has clicked*/
