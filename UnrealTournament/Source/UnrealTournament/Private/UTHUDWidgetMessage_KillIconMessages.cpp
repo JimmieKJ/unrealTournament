@@ -180,7 +180,9 @@ void UUTHUDWidgetMessage_KillIconMessages::DrawMessage(int32 QueueIndex, float X
 		if (bHasWeaponReward)
 		{
 			MsgIndex -= 10000 * (MsgIndex / 10000);
-			FText RewardMessage = DmgType->SpecialRewardText;
+			FFormatNamedArguments Args;
+			Args.Add("Reward", DmgType->SpecialRewardText);
+			FText RewardMessage = FText::Format(NSLOCTEXT("KillIconMessages", "Rewardmessage", "{Reward} "), Args);
 			DrawText(RewardMessage, X, VictimSize.Y, MessageQueue[QueueIndex].DisplayFont, bShadowedText, ShadowDirection, ShadowColor, bOutlinedText, OutlineColor, CurrentScale, Alpha * UTHUDOwner->HUDWidgetOpacity, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
 			Canvas->TextSize(MessageQueue[QueueIndex].DisplayFont, RewardMessage.ToString(), XL, YL, CurrentScale);
 			X += XL;
