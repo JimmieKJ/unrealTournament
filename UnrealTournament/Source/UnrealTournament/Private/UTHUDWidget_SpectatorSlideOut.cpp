@@ -66,8 +66,8 @@ UUTHUDWidget_SpectatorSlideOut::UUTHUDWidget_SpectatorSlideOut(const class FObje
 	FlagIcon.UL = 43.f;
 	FlagIcon.VL = 41.f;
 
-	CamTypeButtonStart = ArrowSize + 0.01f;
-	CamTypeButtonWidth = 0.12f;
+	CamTypeButtonStart = 0.75f * ArrowSize;
+	CamTypeButtonWidth = 0.1f;
 	MouseOverOpacity = 0.5f;
 	SelectedOpacity = 0.7f;
 }
@@ -198,11 +198,11 @@ void UUTHUDWidget_SpectatorSlideOut::Draw_Implementation(float DeltaTime)
 			// show flag binds
 			if (CTFGameState->FlagBases[0] && CTFGameState->FlagBases[0]->MyFlag)
 			{
-				DrawFlag("ViewFlag 0", "Red Flag", CTFGameState->FlagBases[0]->MyFlag, DeltaTime, XOffset + 0.01f*Size.X, DrawOffset);
+				DrawFlag("ViewFlag 0", "Red", CTFGameState->FlagBases[0]->MyFlag, DeltaTime, XOffset + CamTypeButtonStart*Size.X, DrawOffset);
 			}
 			if (CTFGameState->FlagBases[1] && CTFGameState->FlagBases[1]->MyFlag)
 			{
-				DrawFlag("ViewFlag 1", "Blue Flag", CTFGameState->FlagBases[1]->MyFlag, DeltaTime, XOffset + 0.52f*Size.X, DrawOffset);
+				DrawFlag("ViewFlag 1", "Blue", CTFGameState->FlagBases[1]->MyFlag, DeltaTime, XOffset + CamTypeButtonStart*Size.X + 0.37f * Size.X, DrawOffset);
 			}
 			DrawOffset += 1.2f*CellHeight;
 		}
@@ -215,7 +215,7 @@ void UUTHUDWidget_SpectatorSlideOut::Draw_Implementation(float DeltaTime)
 			{
 				InitPowerupList();
 			}
-			int32 TimerOffset = XOffset + ArrowSize*Size.X;
+			int32 TimerOffset = XOffset + CamTypeButtonStart*Size.X;
 			for (int32 i = 0; i < PowerupList.Num(); i++)
 			{
 				if (PowerupList[i] != NULL)
@@ -223,11 +223,11 @@ void UUTHUDWidget_SpectatorSlideOut::Draw_Implementation(float DeltaTime)
 					DrawPowerup(PowerupList[i], TimerOffset, DrawOffset);
 					if (i % 2 == 0)
 					{
-						TimerOffset = XOffset + ArrowSize*Size.X + 0.37f * Size.X;
+						TimerOffset = XOffset + CamTypeButtonStart*Size.X + 0.37f * Size.X;
 					}
 					else
 					{
-						TimerOffset = XOffset + ArrowSize*Size.X;
+						TimerOffset = XOffset + CamTypeButtonStart*Size.X;
 						DrawOffset += 1.2f*CellHeight;
 					}
 				}
@@ -358,7 +358,7 @@ void UUTHUDWidget_SpectatorSlideOut::DrawFlag(FString FlagCommand, FString FlagN
 {
 	FLinearColor DrawColor = FLinearColor::White;
 	float BarOpacity = 0.3f;
-	float Width = 0.47f * Size.X;
+	float Width = 0.35f * Size.X;
 
 	// If we are interactive and this element has a keybind, store it so the mouse can click it
 	if (bIsInteractive)
@@ -383,9 +383,9 @@ void UUTHUDWidget_SpectatorSlideOut::DrawFlag(FString FlagCommand, FString FlagN
 
 	// Draw the Text
 	FLinearColor FlagColor = Flag->Team ? Flag->Team->TeamColor : FLinearColor::White;
-	DrawTexture(FlagIcon.Texture, XOffset + (Width * 0.12f), YOffset + ColumnY - 0.025f*Width, 0.09f*Width, 0.09f*Width, FlagIcon.U, FlagIcon.V, FlagIcon.UL, FlagIcon.VL, 1.0, FlagColor, FVector2D(1.0, 0.0));
+	DrawTexture(FlagIcon.Texture, XOffset + (Width * 0.25f), YOffset + ColumnY - 0.1f*Width, 0.25f*Width, 0.25f*Width, FlagIcon.U, FlagIcon.V, FlagIcon.UL, FlagIcon.VL, 1.0, FlagColor, FVector2D(1.0, 0.0));
 
-	DrawText(FText::FromString(FlagName), XOffset + (Width * 0.22f), YOffset + ColumnY, SlideOutFont, 1.0f, 1.0f, FlagColor, ETextHorzPos::Left, ETextVertPos::Center);
+	DrawText(FText::FromString(FlagName), XOffset + (Width * 0.28f), YOffset + ColumnY, SlideOutFont, 1.0f, 1.0f, FlagColor, ETextHorzPos::Left, ETextVertPos::Center);
 }
 
 void UUTHUDWidget_SpectatorSlideOut::DrawCamBind(FString CamCommand, FString ProjName, float RenderDelta, float XOffset, float YOffset, float Width, bool bCamSelected)
@@ -455,12 +455,14 @@ void UUTHUDWidget_SpectatorSlideOut::DrawPlayerHeader(float RenderDelta, float X
 	if (bIsInteractive && UTHUDOwner->UTPlayerOwner)
 	{
 		FText CamString = UTHUDOwner->UTPlayerOwner->bSpectateBehindView ? NSLOCTEXT("UTSlideout", "CamType3P", "3P") : NSLOCTEXT("UTSlideout", "CamType1P", "1P");
+		float Spacing = 0.333f * (ColumnHeaderScoreX - 0.05f - CamTypeButtonStart - 2.7f * CamTypeButtonWidth - 0.3f);
 		DrawCamBind("ToggleBehindView", CamString.ToString(), RenderDelta, XOffset + CamTypeButtonStart*Width, YOffset, CamTypeButtonWidth * Size.X, false);
-		DrawCamBind("EnableAutoCam", "Auto Cam", RenderDelta, XOffset + (CamTypeButtonStart + CamTypeButtonWidth + 0.03f) * Size.X, YOffset, 0.35f * Size.X, Cast<AUTPlayerController>(UTHUDOwner->UTPlayerOwner) && Cast<AUTPlayerController>(UTHUDOwner->UTPlayerOwner)->bAutoCam);
+		DrawCamBind("ToggleTacCom", "X-Ray", RenderDelta, XOffset + (CamTypeButtonStart + CamTypeButtonWidth + Spacing)*Width, YOffset, 1.7f* CamTypeButtonWidth * Size.X, Cast<AUTPlayerController>(UTHUDOwner->UTPlayerOwner) && Cast<AUTPlayerController>(UTHUDOwner->UTPlayerOwner)->bTacComView);
+		DrawCamBind("EnableAutoCam", "Auto Cam", RenderDelta, XOffset + (CamTypeButtonStart + 2.7f * CamTypeButtonWidth + 2.f*Spacing) * Size.X, YOffset, 0.3f * Size.X, Cast<AUTPlayerController>(UTHUDOwner->UTPlayerOwner) && Cast<AUTPlayerController>(UTHUDOwner->UTPlayerOwner)->bAutoCam);
 	}
 	
 	// Draw the background border.
-	float BorderWidth = Width * (1.f - (ColumnHeaderScoreX - 0.1f));
+	float BorderWidth = Width * (1.f - ColumnHeaderScoreX + 0.05f);
 	DrawTexture(TextureAtlas, XOffset + Width - BorderWidth, YOffset, BorderWidth, 0.95f*CellHeight, 149, 138, 32, 32, FinalBarOpacity, BarColor);
 
 	// Draw the Text
@@ -476,7 +478,7 @@ void UUTHUDWidget_SpectatorSlideOut::DrawSelector(FString Command, bool bPointRi
 		float U = bPointRight ? 36.f : 0.f;
 		float UL = bPointRight ? -36.f : 36.f;
 		FVector4 Bounds = FVector4(RenderPosition.X + (XOffset * RenderScale), RenderPosition.Y + (YOffset * RenderScale),
-			RenderPosition.X + ((XOffset + ArrowSize*Size.X) * RenderScale), RenderPosition.Y + ((YOffset + ArrowSize*Size.X) * RenderScale));
+			RenderPosition.X + ((XOffset + CamTypeButtonStart*Size.X) * RenderScale), RenderPosition.Y + ((YOffset + ArrowSize*Size.X) * RenderScale));
 		ClickElementStack.Add(FClickElement(Command, Bounds));
 		float Opacity = (MousePosition.X >= Bounds.X && MousePosition.X <= Bounds.Z && MousePosition.Y >= Bounds.Y && MousePosition.Y <= Bounds.W)
 				? 1.f : 0.3f;
