@@ -56,6 +56,7 @@ public class UnrealTournament : ModuleRules
                 new string[]
                 {
                     "OnlineSubsystemMcp",
+                    "UTMcpProfile",
                 }
             );
         }

@@ -5,7 +5,7 @@
 #include "UTPickupWeapon.h"
 
 #if WITH_PROFILE
-#include "McpProfile.h"
+#include "UTMcpProfile.h"
 #endif
 
 #include "UTPlayerController.generated.h"
@@ -947,7 +947,7 @@ public:
 	void SynchronizeProfileWithMcp_Complete(const FMcpQueryResult& Result, FMcpQueryComplete Callback);
 
 	UPROPERTY(Transient)
-	UMcpProfile* McpProfile;
+	UUTMcpProfile* McpProfile;
 #endif
 };
 

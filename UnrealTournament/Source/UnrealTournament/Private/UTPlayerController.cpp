@@ -3839,7 +3839,7 @@ void AUTPlayerController::InitializeMcpProfile()
 			McpProfile = nullptr;
 		}
 
-		McpProfile = NewObject<UMcpProfile>(this);
+		McpProfile = NewObject<UUTMcpProfile>(this);
 		if (McpProfile)
 		{
 			FString McpPlayerName;
