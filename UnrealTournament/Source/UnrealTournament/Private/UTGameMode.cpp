@@ -1055,7 +1055,7 @@ void AUTGameMode::DefaultTimer()
 		{
 			if (!HasMatchStarted())
 			{
-				if (GetWorld()->GetRealTimeSeconds() > LobbyInitialTimeoutTime && NumPlayers <= 0)
+				if (GetWorld()->GetRealTimeSeconds() > LobbyInitialTimeoutTime && NumPlayers <= 0 && (GetNetDriver() == NULL || GetNetDriver()->ClientConnections.Num() == 0))
 				{
 					// Catch all...
 					SendEveryoneBackToLobby();
