@@ -3,6 +3,12 @@
 #pragma once
 #include "UTCheatManager.generated.h"
 
+#if WITH_PROFILE
+
+#include "McpQueryResult.h"
+
+#endif
+
 UCLASS(Within=UTPlayerController)
 class UNREALTOURNAMENT_API UUTCheatManager : public UCheatManager
 {
@@ -15,7 +21,7 @@ class UNREALTOURNAMENT_API UUTCheatManager : public UCheatManager
 	virtual void AllAmmo();
 
 	UFUNCTION(exec)
-		virtual void Gibs();
+	virtual void Gibs();
 
 	UFUNCTION(exec)
 	virtual void UnlimitedAmmo();
@@ -51,4 +57,14 @@ class UNREALTOURNAMENT_API UUTCheatManager : public UCheatManager
 	virtual void BugItWorker(FVector TheLocation, FRotator TheRotation) override;
 
 	virtual void God() override;
+
+#if WITH_PROFILE
+	UFUNCTION(exec)
+	void McpGrantItem(const FString& ItemId);
+
+	UFUNCTION(exec)
+	void McpDestroyItem(const FString& ItemId);
+
+	void LogWebResponse(const FMcpQueryResult& Response);
+#endif
 };

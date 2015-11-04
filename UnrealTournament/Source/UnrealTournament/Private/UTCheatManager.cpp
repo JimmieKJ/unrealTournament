@@ -315,3 +315,40 @@ void UUTCheatManager::Teleport()
 		UTChar->TeleportTo(Hit.Location, SpawnRotation);
 	}
 }
+
+#if WITH_PROFILE
+
+void UUTCheatManager::McpGrantItem(const FString& ItemId)
+{
+	if (GetOuterAUTPlayerController()->McpProfile)
+	{
+		TArray<FString> ItemList;
+		ItemList.Push(ItemId);
+		FDevCheatUrlContext Context(FMcpQueryComplete::CreateUObject(this, &UUTCheatManager::LogWebResponse));
+		GetOuterAUTPlayerController()->McpProfile->GrantItems(ItemList, 1, Context);
+	}
+}
+
+void UUTCheatManager::McpDestroyItem(const FString& ItemId)
+{
+	if (GetOuterAUTPlayerController()->McpProfile)
+	{
+		FDevCheatUrlContext Context(FMcpQueryComplete::CreateUObject(this, &UUTCheatManager::LogWebResponse));
+		GetOuterAUTPlayerController()->McpProfile->DestroyItems(ItemId, 1, Context);
+	}
+}
+
+void UUTCheatManager::LogWebResponse(const FMcpQueryResult& Response)
+{
+	if (!Response.bSucceeded)
+	{
+		GetOuterAPlayerController()->ClientMessage(TEXT("Cheat failed"));
+		UE_LOG(UT, Warning, TEXT("%s"), *Response.ErrorMessage.ToString());
+	}
+	else
+	{
+		GetOuterAPlayerController()->ClientMessage(TEXT("Cheat succeeded"));
+	}
+}
+
+#endif

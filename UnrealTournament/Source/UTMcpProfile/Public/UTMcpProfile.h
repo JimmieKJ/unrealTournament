@@ -20,4 +20,10 @@ class UTMCPPROFILE_API UUTMcpProfile : public UMcpProfile
 public:
 	UFUNCTION(ServiceRequest(MCP))
 	void OpenCase(const FString& CaseItemId, UPARAM(NotReplicated) FClientUrlContext& Context = FClientUrlContext::Default);
+
+	UFUNCTION(ServiceRequest(MCP))
+	void GrantItems(const TArray<FString>& ItemTemplateIds, int32 Quantity, UPARAM(NotReplicated) FDevCheatUrlContext& Context);
+	
+	UFUNCTION(ServiceRequest(MCP))
+	void DestroyItems(const FString& ItemTemplateId, int32 Quantity, UPARAM(NotReplicated) FDevCheatUrlContext& Context);
 };
