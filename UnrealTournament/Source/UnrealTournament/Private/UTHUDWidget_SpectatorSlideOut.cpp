@@ -70,6 +70,7 @@ UUTHUDWidget_SpectatorSlideOut::UUTHUDWidget_SpectatorSlideOut(const class FObje
 	CamTypeButtonWidth = 0.1f;
 	MouseOverOpacity = 0.5f;
 	SelectedOpacity = 0.7f;
+	CameraBindWidth = 0.48f;
 }
 
 bool UUTHUDWidget_SpectatorSlideOut::ShouldDraw_Implementation(bool bShowScores)
@@ -240,7 +241,7 @@ void UUTHUDWidget_SpectatorSlideOut::Draw_Implementation(float DeltaTime)
 		bool bOverflow = false;
 
 		DrawSelector("ToggleShowBinds", !UTHUDOwner->UTPlayerOwner->bShowCameraBinds, XOffset, DrawOffset);
-		UpdateCameraBindOffset(DrawOffset, XOffset, bOverflow, StartCamOffset, EndCamOffset);
+		float CamOffset = XOffset + CamTypeButtonStart*Size.X;
 
 		UUTPlayerInput* Input = Cast<UUTPlayerInput>(UTHUDOwner->PlayerOwner->PlayerInput);
 		if (Input && UTHUDOwner->UTPlayerOwner->bShowCameraBinds)
@@ -268,44 +269,41 @@ void UUTHUDWidget_SpectatorSlideOut::Draw_Implementation(float DeltaTime)
 			bOverflow = false;
 			StartCamOffset = DrawOffset;
 			EndCamOffset = 0.0f; //Unknown. will be filled in when cambinds hit the bottom of the screen
-
+			NumCamBinds = NumCameras + ((Cast<AUTDemoRecSpectator>(UTHUDOwner->PlayerOwner) != nullptr) ? 5 : 0);
+			DrawnCamBinds = 0;
 			for (int32 i = 0; i < Input->SpectatorBinds.Num(); i++)
 			{
 				if ((Input->SpectatorBinds[i].FriendlyName != "") && (Input->SpectatorBinds[i].Command != ""))
 				{
-					DrawCamBind(Input->SpectatorBinds[i].Command, Input->SpectatorBinds[i].FriendlyName, DeltaTime, XOffset, DrawOffset, 0.6f * Size.X, (Cast<AUTProjectile>(UTHUDOwner->UTPlayerOwner->GetViewTarget()) != NULL));
-					UpdateCameraBindOffset(DrawOffset, XOffset, bOverflow, StartCamOffset, EndCamOffset);
+					DrawCamBind(Input->SpectatorBinds[i].Command, Input->SpectatorBinds[i].FriendlyName, DeltaTime, CamOffset, DrawOffset, CameraBindWidth * Size.X, (Cast<AUTProjectile>(UTHUDOwner->UTPlayerOwner->GetViewTarget()) != NULL));
+					UpdateCameraBindOffset(DrawOffset, CamOffset, bOverflow, StartCamOffset, EndCamOffset);
+					NumCamBinds++;
 				}
 			}
-
-			DrawCamBind("StartAltFire", "Free Cam", DeltaTime, XOffset, DrawOffset, 0.6f * Size.X, false);
-			UpdateCameraBindOffset(DrawOffset, XOffset, bOverflow, StartCamOffset, EndCamOffset);
+			bBalanceCamBinds = (StartCamOffset + float(NumCamBinds)*CellHeight > Canvas->ClipY / RenderScale);
 
 			if (Cast<AUTDemoRecSpectator>(UTHUDOwner->PlayerOwner) != nullptr)
 			{
-				DrawCamBind("DemoRestart", "Restart Demo", DeltaTime, XOffset, DrawOffset, 0.6f * Size.X, false);
-				UpdateCameraBindOffset(DrawOffset, XOffset, bOverflow, StartCamOffset, EndCamOffset);
+				DrawCamBind("DemoRestart", "Restart Demo", DeltaTime, CamOffset, DrawOffset, CameraBindWidth * Size.X, false);
+				UpdateCameraBindOffset(DrawOffset, CamOffset, bOverflow, StartCamOffset, EndCamOffset);
 
-				DrawCamBind("DemoSeek -5", "Rewind Demo", DeltaTime, XOffset, DrawOffset, 0.6f * Size.X, false);
-				UpdateCameraBindOffset(DrawOffset, XOffset, bOverflow, StartCamOffset, EndCamOffset);
+				DrawCamBind("DemoSeek -5", "Rewind Demo", DeltaTime, CamOffset, DrawOffset, CameraBindWidth * Size.X, false);
+				UpdateCameraBindOffset(DrawOffset, CamOffset, bOverflow, StartCamOffset, EndCamOffset);
 
-				DrawCamBind("DemoSeek 10", "Fast Forward", DeltaTime, XOffset, DrawOffset, 0.6f * Size.X, false);
-				UpdateCameraBindOffset(DrawOffset, XOffset, bOverflow, StartCamOffset, EndCamOffset);
+				DrawCamBind("DemoSeek 10", "Fast Forward", DeltaTime, CamOffset, DrawOffset, CameraBindWidth * Size.X, false);
+				UpdateCameraBindOffset(DrawOffset, CamOffset, bOverflow, StartCamOffset, EndCamOffset);
 
-				DrawCamBind("DemoGoToLive", "Jump to Real Time", DeltaTime, XOffset, DrawOffset, 0.6f * Size.X, false);
-				UpdateCameraBindOffset(DrawOffset, XOffset, bOverflow, StartCamOffset, EndCamOffset);
+				DrawCamBind("DemoGoToLive", "Jump to Real Time", DeltaTime, CamOffset, DrawOffset, CameraBindWidth * Size.X, false);
+				UpdateCameraBindOffset(DrawOffset, CamOffset, bOverflow, StartCamOffset, EndCamOffset);
 
-				DrawCamBind("DemoPause", "Pause Demo", DeltaTime, XOffset, DrawOffset, 0.6f * Size.X, false);
-				UpdateCameraBindOffset(DrawOffset, XOffset, bOverflow, StartCamOffset, EndCamOffset);
+				DrawCamBind("DemoPause", "Pause Demo", DeltaTime, CamOffset, DrawOffset, CameraBindWidth * Size.X, false);
+				UpdateCameraBindOffset(DrawOffset, CamOffset, bOverflow, StartCamOffset, EndCamOffset);
 			}
 
 			for (int32 i = 0; i < NumCameras; i++)
 			{
-				if (CameraBind[i] != NAME_None)
-				{
-					DrawCamBind("ViewCamera " + FString::Printf(TEXT("%d"), i), CameraString[i], DeltaTime, XOffset, DrawOffset, 0.6f * Size.X, false);
-					UpdateCameraBindOffset(DrawOffset, XOffset, bOverflow, StartCamOffset, EndCamOffset);
-				}
+				DrawCamBind("ViewCamera " + FString::Printf(TEXT("%d"), i), CameraString[i], DeltaTime, CamOffset, DrawOffset, CameraBindWidth * Size.X, false);
+				UpdateCameraBindOffset(DrawOffset, CamOffset, bOverflow, StartCamOffset, EndCamOffset);
 			}
 		}
 	}
@@ -437,15 +435,17 @@ void UUTHUDWidget_SpectatorSlideOut::DrawCamBind(FString CamCommand, FString Pro
 
 void UUTHUDWidget_SpectatorSlideOut::UpdateCameraBindOffset(float& DrawOffset, float& XOffset, bool& bOverflow, float StartOffset, float& EndCamOffset)
 {
+	DrawnCamBinds++;
 	if (!bOverflow)
 	{
 		DrawOffset += CellHeight;
-		if (DrawOffset > (Canvas->ClipY / RenderScale) - CellHeight)
+		if ((DrawOffset > (Canvas->ClipY / RenderScale) - CellHeight) || (bBalanceCamBinds && (NumCamBinds <= 2 * DrawnCamBinds)))
 		{
 			bOverflow = true;
-			XOffset = XOffset + 0.75f * Size.X + 2.f;
+			XOffset = XOffset + 0.51f * Size.X;
 			DrawOffset -= CellHeight;
 			EndCamOffset = DrawOffset;
+			DrawnCamBinds = 0;
 		}
 	}
 	else
@@ -454,7 +454,7 @@ void UUTHUDWidget_SpectatorSlideOut::UpdateCameraBindOffset(float& DrawOffset, f
 		DrawOffset -= CellHeight;
 		if (DrawOffset < StartOffset)
 		{
-			XOffset = XOffset + 0.75f * Size.X + 2.f;
+			XOffset = XOffset + 0.51f * Size.X;
 			DrawOffset = EndCamOffset;
 		}
 	}
@@ -517,7 +517,7 @@ void UUTHUDWidget_SpectatorSlideOut::DrawPlayer(int32 Index, AUTPlayerState* Pla
 			RenderPosition.X + ((XOffset + Width) * RenderScale), RenderPosition.Y + ((YOffset + CellHeight) * RenderScale));
 		int32 PickedTeamNum = (PlayerState && PlayerState->Team) ? PlayerState->Team->TeamIndex : 0;
 		int32 SpectatingID = UTGameState->bTeamGame ? PlayerState->SpectatingIDTeam : PlayerState->SpectatingID;
-		ClickElementStack.Add(FClickElement("ViewPlayerNum " + FString::Printf(TEXT("%d %d"), SpectatingID, PickedTeamNum), Bounds));
+		ClickElementStack.Add(FClickElement("ViewPlayerNum " + FString::Printf(TEXT("%d %d"), SpectatingID, PickedTeamNum), Bounds, PlayerState));
 		if (MousePosition.X >= Bounds.X && MousePosition.X <= Bounds.Z && MousePosition.Y >= Bounds.Y && MousePosition.Y <= Bounds.W)
 		{
 			FinalBarOpacity = MouseOverOpacity;
@@ -623,8 +623,17 @@ int32 UUTHUDWidget_SpectatorSlideOut::MouseHitTest(FVector2D Position)
 bool UUTHUDWidget_SpectatorSlideOut::MouseClick(FVector2D InMousePosition)
 { 
 	int32 ElementIndex = MouseHitTest(InMousePosition);
-	if (ClickElementStack.IsValidIndex(ElementIndex) && UTHUDOwner && UTHUDOwner->PlayerOwner && Cast<UUTPlayerInput>(UTHUDOwner->PlayerOwner->PlayerInput))
+	if (ClickElementStack.IsValidIndex(ElementIndex) && UTHUDOwner && Cast<AUTPlayerController>(UTHUDOwner->PlayerOwner) && Cast<UUTPlayerInput>(UTHUDOwner->PlayerOwner->PlayerInput))
 	{
+		if (ClickElementStack[ElementIndex].SelectedPlayer && (Cast<AUTPlayerController>(UTHUDOwner->PlayerOwner)->LastSpectatedPlayerId == ClickElementStack[ElementIndex].SelectedPlayer->SpectatingID))
+		{
+			UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(UTHUDOwner->UTPlayerOwner->Player);
+			if (LP)
+			{
+				LP->ShowPlayerInfo(ClickElementStack[ElementIndex].SelectedPlayer);
+			}
+			return true;
+		}
 		FStringOutputDevice DummyOut;
 		UTHUDOwner->PlayerOwner->Player->Exec(UTHUDOwner->PlayerOwner->GetWorld(), *ClickElementStack[ElementIndex].Command, DummyOut);
 		return true;

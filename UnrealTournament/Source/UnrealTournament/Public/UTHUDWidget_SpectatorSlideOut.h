@@ -19,15 +19,20 @@ struct FClickElement
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Scoreboard")
 	FVector4 Bounds;
 
+	// optionally holds selected playerstate
+	UPROPERTY()
+		AUTPlayerState* SelectedPlayer;
+
 	FClickElement()
 	{
 		Bounds = FVector4(0.0f, 0.0f, 0.0f, 0.0f);
 	}
 
-	FClickElement(const FString InCommand, const FVector4& InBounds)
+	FClickElement(const FString InCommand, const FVector4& InBounds, AUTPlayerState* InPlayer=NULL)
 	{
 		Command = InCommand;
 		Bounds = InBounds;
+		SelectedPlayer = InPlayer;
 	}
 };
 
@@ -123,13 +128,19 @@ public:
 	FName DemoPauseBind;
 
 	UPROPERTY()
-	FName CameraBind[10];
-
-	UPROPERTY()
 	FString CameraString[10];
 
 	UPROPERTY()
 	int32 NumCameras;
+
+	UPROPERTY()
+		int32 NumCamBinds;
+
+	UPROPERTY()
+		int32 DrawnCamBinds;
+
+	UPROPERTY()
+		bool bBalanceCamBinds;
 
 	UPROPERTY()
 	bool bCamerasInitialized;
@@ -139,6 +150,12 @@ public:
 
 	UPROPERTY()
 		float SelectedOpacity;
+
+	UPROPERTY()
+		float CameraBindWidth;
+
+	UPROPERTY()
+		AUTPlayerState* SelectedPlayer;
 
 	/**Called from Slate to set the mouse position*/
 	virtual void TrackMouseMovement(FVector2D InMousePosition) { MousePosition = InMousePosition; }
