@@ -195,6 +195,11 @@ bool AUTSquadAI::CheckSuperPickups(AUTBot* B, int32 MaxDist)
 {
 	// TODO: check vehicle driver
 
+	if (B->GetUTChar() == NULL || !B->GetUTChar()->bCanPickupItems)
+	{
+		return false;
+	}
+
 	TArray<AActor*> ClaimedPickups;
 	if (Team != NULL)
 	{

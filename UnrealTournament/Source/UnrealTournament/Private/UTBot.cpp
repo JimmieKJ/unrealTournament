@@ -2192,11 +2192,10 @@ bool AUTBot::FindInventoryGoal(float MinWeight)
 	{
 		return false;
 	}
-	/*else if (GameHasNoInventory() || PawnCantPickUpInventory())
+	else if (/*GameHasNoInventory() || */UTChar == NULL || !UTChar->bCanPickupItems)
 	{
 		return false;
 	}
-	*/
 	else
 	{
 		LastFindInventoryTime = GetWorld()->TimeSeconds;
@@ -2221,6 +2220,10 @@ bool AUTBot::TryPathToward(AActor* Goal, bool bAllowDetours, const FString& Succ
 	}
 	else
 	{
+		if (UTChar == NULL || !UTChar->bCanPickupItems)
+		{
+			bAllowDetours = false;
+		}
 		FSingleEndpointEval NodeEval(Goal);
 		float Weight = 0.0f;
 		if (NavData->FindBestPath(GetPawn(), GetPawn()->GetNavAgentPropertiesRef(), NodeEval, GetPawn()->GetNavAgentLocation(), Weight, bAllowDetours, RouteCache))
