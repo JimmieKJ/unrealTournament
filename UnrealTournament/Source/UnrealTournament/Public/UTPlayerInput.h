@@ -36,6 +36,9 @@ public:
 	UPROPERTY(Config)
 	TArray<FCustomKeyBinding> CustomBinds;
 
+	UPROPERTY(Config)
+	TArray<FCustomKeyBinding> LocalBinds;
+
 	/** Binds only valid for spectators */
 	UPROPERTY(Config)
 	TArray<FCustomKeyBinding> SpectatorBinds;
