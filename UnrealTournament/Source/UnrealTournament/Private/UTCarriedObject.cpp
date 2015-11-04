@@ -29,6 +29,13 @@ AUTCarriedObject::AUTCarriedObject(const FObjectInitializer& ObjectInitializer)
 	LastGameMessageTime = 0.f;
 	AutoReturnTime = 30.0f;
 	bMovementEnabled = true;
+	LastTeleportedTime = -1000.f;
+}
+
+void AUTCarriedObject::GetActorEyesViewPoint(FVector& OutLocation, FRotator& OutRotation) const
+{
+	OutLocation = (GetWorld()->GetTimeSeconds() < LastTeleportedTime + 5.f) ? LastTeleportedLoc : GetActorLocation();
+	OutRotation = GetActorRotation();
 }
 
 void AUTCarriedObject::OnConstruction(const FTransform& Transform)
@@ -475,6 +482,9 @@ void AUTCarriedObject::SendHomeWithNotify()
 
 void AUTCarriedObject::SendHome()
 {
+	LastTeleportedTime = GetWorld()->GetTimeSeconds();
+	LastTeleportedLoc = GetActorLocation();
+
 	DetachRootComponentFromParent(true);
 	if (ObjectState == CarriedObjectState::Home) return;	// Don't both if we are already home
 

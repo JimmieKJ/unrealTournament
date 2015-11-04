@@ -566,7 +566,7 @@ void UUTHUDWidget_SpectatorSlideOut::DrawPlayer(int32 Index, AUTPlayerState* Pla
 	}
 	if (UTGameState && UTGameState->HasMatchStarted())
 	{
-		if (Character)
+		if (Character && (Character->Health > 0))
 		{
 			float FlagOffset = -0.05f;
 			if (Character->GetWeaponOverlayFlags() != 0)
