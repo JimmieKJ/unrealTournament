@@ -127,6 +127,7 @@ public:
 
 	UFUNCTION(exec)
 	virtual void SwitchToBestWeapon();
+
 	/** forces SwitchToBestWeapon() call, should only be used after granting startup inventory */
 	UFUNCTION(Client, Reliable)
 	virtual void ClientSwitchToBestWeapon();
@@ -234,6 +235,9 @@ public:
 
 	UFUNCTION(exec)
 	virtual void ViewNextPlayer();
+
+	UFUNCTION(exec)
+		virtual void ViewPowerup(FString PowerupName);
 
 	/** View Player holding flag specified by TeamIndex. */
 	UFUNCTION(unreliable, server, WithValidation)

@@ -1020,10 +1020,25 @@ void AUTPlayerController::ViewNextPlayer()
 	ServerViewNextPlayer();
 }
 
+void AUTPlayerController::ViewPowerup(FString PowerupName)
+{
+	for (FActorIterator It(GetWorld()); It; ++It)
+	{
+		AUTPickup* Pickup = Cast<AUTPickup>(*It);
+		if (Pickup && (Pickup->GetName() == PowerupName))
+		{
+			bAutoCam = false;
+			SetViewTarget(Pickup);
+			break;
+		}
+	}
+}
+
 bool AUTPlayerController::ServerViewFlagHolder_Validate(uint8 TeamIndex)
 {
 	return true;
 }
+
 void AUTPlayerController::ServerViewFlagHolder_Implementation(uint8 TeamIndex)
 {
 	if (IsInState(NAME_Spectating) && (PlayerState == NULL || PlayerState->bOnlySpectator || GetTeamNum() == TeamIndex))

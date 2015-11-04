@@ -316,8 +316,24 @@ void UUTHUDWidget_SpectatorSlideOut::DrawPowerup(AUTPickup* Pickup, float XOffse
 	// @TODO FIXMESTEVE get rid of armor hacks when they have icons
 	FLinearColor BarColor = FLinearColor::White;
 	float RemainingTime = GetWorld()->GetTimerManager().GetTimerRemaining(Pickup->WakeUpTimerHandle);
-	float FinalBarOpacity = (RemainingTime > 0.f) ? 0.3f : 0.6f;
-	DrawTexture(TextureAtlas, XOffset, YOffset, 0.35f*Size.X, 0.95f*CellHeight, 149, 138, 32, 32, FinalBarOpacity, FLinearColor::White);
+	float BarOpacity = (RemainingTime > 0.f) ? 0.3f : 0.6f;
+
+	// If we are interactive and this element has a keybind, store it so the mouse can click it
+	if (bIsInteractive)
+	{
+		FVector4 Bounds = FVector4(RenderPosition.X + (XOffset * RenderScale), RenderPosition.Y + (YOffset * RenderScale),
+			RenderPosition.X + ((XOffset + 0.35f*Size.X) * RenderScale), RenderPosition.Y + ((YOffset + CellHeight) * RenderScale));
+		ClickElementStack.Add(FClickElement("ViewPowerup " + FString::Printf(TEXT("%s"), *Pickup->GetName()), Bounds));
+		if ((MousePosition.X >= Bounds.X && MousePosition.X <= Bounds.Z && MousePosition.Y >= Bounds.Y && MousePosition.Y <= Bounds.W))
+		{
+			BarOpacity = MouseOverOpacity;
+		}
+	}
+	if (UTHUDOwner->UTPlayerOwner && (UTHUDOwner->UTPlayerOwner->GetViewTarget() == Pickup))
+	{
+		BarOpacity = SelectedOpacity;
+	}
+	DrawTexture(TextureAtlas, XOffset, YOffset, 0.35f*Size.X, 0.95f*CellHeight, 149, 138, 32, 32, BarOpacity, FLinearColor::White);
 
 	if (Pickup->TeamSide < 2)
 	{
