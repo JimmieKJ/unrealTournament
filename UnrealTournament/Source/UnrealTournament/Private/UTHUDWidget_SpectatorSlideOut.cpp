@@ -8,6 +8,9 @@
 #include "UTPickupInventory.h"
 #include "UTArmor.h"
 #include "UTDemoRecSpectator.h"
+#include "UTWeap_ImpactHammer.h"
+#include "UTWeap_Enforcer.h"
+#include "UTWeap_Translocator.h"
 
 UUTHUDWidget_SpectatorSlideOut::UUTHUDWidget_SpectatorSlideOut(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
@@ -71,6 +74,11 @@ UUTHUDWidget_SpectatorSlideOut::UUTHUDWidget_SpectatorSlideOut(const class FObje
 	MouseOverOpacity = 0.5f;
 	SelectedOpacity = 0.7f;
 	CameraBindWidth = 0.48f;
+	bShowingStats = false;
+	KillsColumn = 0.32f;
+	DeathsColumn = 0.49f;
+	ShotsColumn = 0.66f;
+	AccuracyColumn = 0.83f;
 }
 
 bool UUTHUDWidget_SpectatorSlideOut::ShouldDraw_Implementation(bool bShowScores)
@@ -523,9 +531,11 @@ void UUTHUDWidget_SpectatorSlideOut::DrawPlayer(int32 Index, AUTPlayerState* Pla
 			FinalBarOpacity = MouseOverOpacity;
 		}
 	}
+	bool bIsSelectedPlayer = false;
 	if (Cast<AUTPlayerController>(UTHUDOwner->PlayerOwner) && (Cast<AUTPlayerController>(UTHUDOwner->PlayerOwner)->LastSpectatedPlayerId == PlayerState->SpectatingID))
 	{
 		FinalBarOpacity = SelectedOpacity;
+		bIsSelectedPlayer = true;
 	}
 
 	FText PlayerName = FText::FromString(GetClampedName(PlayerState, SlideOutFont, 1.f, 0.475f*Width));
@@ -544,18 +554,16 @@ void UUTHUDWidget_SpectatorSlideOut::DrawPlayer(int32 Index, AUTPlayerState* Pla
 	AUTCharacter* Character = PlayerState->GetUTCharacter();
 	DrawTexture(TextureAtlas, XOffset, YOffset, Width, 0.95f*CellHeight, 149, 138, 32, 32, FinalBarOpacity, BarColor);
 
-	if ((PlayerState == UTHUDOwner->UTPlayerOwner->LastSpectatedPlayerState) || (PlayerState->CarriedObject && (PlayerState->CarriedObject == UTHUDOwner->UTPlayerOwner->GetViewTarget())))
-	{
-		DrawTexture(TextureAtlas, XOffset + Width, YOffset, 35, 0.95f*CellHeight, 36, 188, -36, 65, FinalBarOpacity, BarColor);
-	}
-
 	FTextureUVs FlagUV;
-
 	UTexture2D* NewFlagAtlas = UTHUDOwner->ResolveFlag(PlayerState, FlagUV);
 	DrawTexture(NewFlagAtlas, XOffset + (Width * FlagX), YOffset + 18, FlagUV.UL, FlagUV.VL, FlagUV.U, FlagUV.V, 36, 26, 1.0, FLinearColor::White, FVector2D(0.0f, 0.5f));
 
 	FVector2D NameSize = DrawText(PlayerName, XOffset + (Width * ColumnHeaderPlayerX), YOffset + ColumnY, SlideOutFont, 1.f, 1.f, DrawColor, ETextHorzPos::Left, ETextVertPos::Center);
 
+	if (bShowingStats && bIsSelectedPlayer)
+	{
+		ShowSelectedPlayerStats(PlayerState, RenderDelta, XOffset + 1.2f * Width, YOffset);
+	}
 	if (UTGameState && UTGameState->HasMatchStarted())
 	{
 		if (Character)
@@ -627,11 +635,7 @@ bool UUTHUDWidget_SpectatorSlideOut::MouseClick(FVector2D InMousePosition)
 	{
 		if (ClickElementStack[ElementIndex].SelectedPlayer && (Cast<AUTPlayerController>(UTHUDOwner->PlayerOwner)->LastSpectatedPlayerId == ClickElementStack[ElementIndex].SelectedPlayer->SpectatingID))
 		{
-			UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(UTHUDOwner->UTPlayerOwner->Player);
-			if (LP)
-			{
-				LP->ShowPlayerInfo(ClickElementStack[ElementIndex].SelectedPlayer);
-			}
+			ToggleStats();
 			return true;
 		}
 		FStringOutputDevice DummyOut;
@@ -643,5 +647,103 @@ bool UUTHUDWidget_SpectatorSlideOut::MouseClick(FVector2D InMousePosition)
 
 float UUTHUDWidget_SpectatorSlideOut::GetDrawScaleOverride()
 {
-	return 1.0;
+	return 1.f;
+}
+
+void UUTHUDWidget_SpectatorSlideOut::ToggleStats()
+{
+	bShowingStats = !bShowingStats;
+}
+
+void UUTHUDWidget_SpectatorSlideOut::ShowSelectedPlayerStats(AUTPlayerState* PlayerState, float RenderDelta, float XOffset, float YOffset)
+{
+	FStatsFontInfo StatsFontInfo;
+	StatsFontInfo.TextRenderInfo.bEnableShadow = true;
+	StatsFontInfo.TextRenderInfo.bClipText = true;
+	StatsFontInfo.TextFont = UTHUDOwner->TinyFont;
+	float XL, SmallYL;
+	Canvas->TextSize(UTHUDOwner->TinyFont, "TEST", XL, SmallYL, 1.f, 1.f);
+	StatsFontInfo.TextHeight = SmallYL;
+
+	float ScoreWidth = 0.4f * Canvas->ClipX;
+	float MaxHeight = 0.5f*Canvas->ClipY;
+	float ScoreYOffset = FMath::Min(YOffset, Canvas->ClipY - MaxHeight);
+	DrawTexture(TextureAtlas, XOffset, ScoreYOffset, ScoreWidth, MaxHeight, 149, 138, 32, 32, 0.3f, FLinearColor::Black);
+	DrawWeaponStats(PlayerState, RenderDelta, ScoreYOffset, XOffset, ScoreWidth, MaxHeight, StatsFontInfo);
+}
+
+void UUTHUDWidget_SpectatorSlideOut::DrawWeaponStatsLine(FText StatsName, int32 StatValue, int32 ScoreValue, int32 Shots, float Accuracy, float DeltaTime, float XOffset, float& YPos, const FStatsFontInfo& StatsFontInfo, float ScoreWidth, bool bIsBestWeapon)
+{
+	FLinearColor DrawColor = bIsBestWeapon ? FLinearColor::Yellow : FLinearColor::White;
+	DrawText(StatsName, XOffset, YPos, UTHUDOwner->TinyFont, 1.f, 1.f, DrawColor, ETextHorzPos::Left, ETextVertPos::Top);
+
+	if (StatValue >= 0)
+	{
+		DrawColor = (StatValue >= 15) ? FLinearColor::Yellow : FLinearColor::White;
+		FFormatNamedArguments StatArgs;
+		StatArgs.Add("Stat", FText::AsNumber(StatValue));
+		DrawText(FText::Format(NSLOCTEXT("UTCharacter", "StatDisplay", "{Stat}"), StatArgs), XOffset + KillsColumn*ScoreWidth, YPos, UTHUDOwner->TinyFont, 1.f, 1.f, DrawColor, ETextHorzPos::Center, ETextVertPos::Top);
+	}
+	DrawColor = FLinearColor::White;
+	if (ScoreValue >= 0)
+	{
+		FFormatNamedArguments StatArgs;
+		StatArgs.Add("Stat", FText::AsNumber(ScoreValue));
+		DrawText(FText::Format(NSLOCTEXT("UTCharacter", "StatDisplay", "{Stat}"), StatArgs), XOffset + DeathsColumn*ScoreWidth, YPos, UTHUDOwner->TinyFont, 1.f, 1.f, DrawColor, ETextHorzPos::Center, ETextVertPos::Top);
+	}
+	if (Shots >= 0)
+	{
+		FFormatNamedArguments StatArgs;
+		StatArgs.Add("Stat", FText::AsNumber(Shots));
+		DrawText(FText::Format(NSLOCTEXT("UTCharacter", "StatDisplay", "{Stat}"), StatArgs), XOffset + ShotsColumn*ScoreWidth, YPos, UTHUDOwner->TinyFont, 1.f, 1.f, DrawColor, ETextHorzPos::Center, ETextVertPos::Top);
+
+		FNumberFormattingOptions NumberFormattingOptions;
+		NumberFormattingOptions.MaximumFractionalDigits = 1;
+		FFormatNamedArguments AccArgs;
+		AccArgs.Add("Stat", FText::AsNumber(Accuracy, &NumberFormattingOptions));
+		DrawText(FText::Format(NSLOCTEXT("UTCharacter", "StatDisplay", "{Stat}"), AccArgs), XOffset + AccuracyColumn*ScoreWidth, YPos, UTHUDOwner->TinyFont, 1.f, 1.f, DrawColor, ETextHorzPos::Center, ETextVertPos::Top);
+	}
+	YPos += StatsFontInfo.TextHeight;
+}
+
+void UUTHUDWidget_SpectatorSlideOut::DrawWeaponStats(AUTPlayerState* PS, float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float MaxHeight, const FStatsFontInfo& StatsFontInfo)
+{
+	DrawText(NSLOCTEXT("SlideOut", "KillsW", "Kills w /"), XOffset + (KillsColumn - 0.05f)*ScoreWidth, YPos, UTHUDOwner->TinyFont, 1.f, 1.f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Top);
+	DrawText(NSLOCTEXT("SlideOut", "DeathsBy", "Deaths by"), XOffset + (DeathsColumn - 0.05f)*ScoreWidth, YPos, UTHUDOwner->TinyFont, 1.f, 1.f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Top);
+	DrawText(NSLOCTEXT("SlideOut", "Shots", "Shots"), XOffset + (ShotsColumn - 0.02f)*ScoreWidth, YPos, UTHUDOwner->TinyFont, 1.f, 1.f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Top);
+	DrawText(NSLOCTEXT("SlideOut", "Accuracy", "Accuracy"), XOffset + (AccuracyColumn - 0.03f)*ScoreWidth, YPos, UTHUDOwner->TinyFont, 1.f, 1.f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Top);
+	YPos += StatsFontInfo.TextHeight;
+
+	/** List of weapons to display stats for. */
+	if (StatsWeapons.Num() == 0)
+	{
+		// add default weapons - needs to be automated
+		StatsWeapons.AddUnique(AUTWeap_ImpactHammer::StaticClass()->GetDefaultObject<AUTWeapon>());
+		StatsWeapons.AddUnique(AUTWeap_Enforcer::StaticClass()->GetDefaultObject<AUTWeapon>());
+
+		for (FActorIterator It(GetWorld()); It; ++It)
+		{
+			AUTPickupWeapon* Pickup = Cast<AUTPickupWeapon>(*It);
+			if (Pickup && Pickup->GetInventoryType())
+			{
+				StatsWeapons.AddUnique(Pickup->GetInventoryType()->GetDefaultObject<AUTWeapon>());
+			}
+		}
+
+		StatsWeapons.AddUnique(AUTWeap_Translocator::StaticClass()->GetDefaultObject<AUTWeapon>());
+	}
+
+	float BestWeaponKills = (BestWeaponIndex == FMath::Clamp(BestWeaponIndex, 0, StatsWeapons.Num() - 1)) ? StatsWeapons[BestWeaponIndex]->GetWeaponKillStats(PS) : 0;
+	for (int32 i = 0; i < StatsWeapons.Num(); i++)
+	{
+		int32 Kills = StatsWeapons[i]->GetWeaponKillStats(PS);
+		float Shots = StatsWeapons[i]->GetWeaponShotsStats(PS);
+		float Accuracy = (Shots > 0) ? 100.f * StatsWeapons[i]->GetWeaponHitsStats(PS) / Shots : 0.f;
+		DrawWeaponStatsLine(StatsWeapons[i]->DisplayName, Kills, StatsWeapons[i]->GetWeaponDeathStats(PS), Shots, Accuracy, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth, (i == BestWeaponIndex));
+		if (Kills > BestWeaponKills)
+		{
+			BestWeaponKills = Kills;
+			BestWeaponIndex = i;
+		}
+	}
 }

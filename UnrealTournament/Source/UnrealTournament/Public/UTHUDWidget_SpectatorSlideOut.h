@@ -183,6 +183,37 @@ protected:
 	virtual void InitPowerupList();
 	virtual float GetDrawScaleOverride();
 
+	UPROPERTY()
+		bool bShowingStats;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
+		float KillsColumn;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
+		float DeathsColumn;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
+		float ShotsColumn;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Scoreboard")
+		float AccuracyColumn;
+
+	/** List of default weapons to display stats for. */
+	UPROPERTY()
+		TArray<AUTWeapon *> StatsWeapons;
+
+	/** Index of current top weapon (in kills). */
+	UPROPERTY()
+		int32 BestWeaponIndex;
+
+	virtual void ToggleStats();
+
+	virtual void ShowSelectedPlayerStats(AUTPlayerState* PlayerState, float RenderDelta, float XOffset, float YOffset);
+
+	virtual void DrawWeaponStatsLine(FText StatsName, int32 StatValue, int32 ScoreValue, int32 Shots, float Accuracy, float DeltaTime, float XOffset, float& YPos, const FStatsFontInfo& StatsFontInfo, float ScoreWidth, bool bIsBestWeapon);
+
+	virtual void DrawWeaponStats(AUTPlayerState* PS, float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float MaxHeight, const FStatsFontInfo& StatsFontInfo);
+
 private:
 	FVector2D MousePosition;
 
