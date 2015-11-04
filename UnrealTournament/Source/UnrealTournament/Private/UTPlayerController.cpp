@@ -3306,7 +3306,7 @@ void AUTPlayerController::OnRep_CastingGuide()
 			{
 				// partial copy from UGameInstance::CreateLocalPlayer() and ULocalPlayer::SendSplitJoin() as we want to do special join handling
 				ULocalPlayer* NewPlayer = NewObject<ULocalPlayer>(GEngine, GEngine->LocalPlayerClass);
-				int32 InsertIndex = LP->GetGameInstance()->AddLocalPlayer(NewPlayer, 255);
+				int32 InsertIndex = LP->GetGameInstance()->AddLocalPlayer(NewPlayer, 7);
 				if (InsertIndex == INDEX_NONE)
 				{
 					// something went wrong
