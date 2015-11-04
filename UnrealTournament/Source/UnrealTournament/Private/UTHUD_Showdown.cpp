@@ -6,7 +6,9 @@
 AUTHUD_Showdown::AUTHUD_Showdown(const FObjectInitializer& OI)
 : Super(OI)
 {
-	ConstructorHelpers::FObjectFinder<UTexture2D> PlayerStartTextureObject(TEXT("/Engine/EditorResources/S_Player"));
+	ConstructorHelpers::FObjectFinder<UTexture2D> PlayerStartBGTextureObject(TEXT("/Game/RestrictedAssets/UI/MiniMap/Minimap_PS_BG.Minimap_PS_BG"));
+	PlayerStartBGTexture = PlayerStartBGTextureObject.Object;
+	ConstructorHelpers::FObjectFinder<UTexture2D> PlayerStartTextureObject(TEXT("/Game/RestrictedAssets/UI/MiniMap/Minimap_PS_Icon.Minimap_PS_Icon"));
 	PlayerStartTexture = PlayerStartTextureObject.Object;
 	ConstructorHelpers::FObjectFinder<UTexture2D> SelectedSpawnTextureObject(TEXT("/Game/RestrictedAssets/Weapons/Sniper/Assets/TargetCircle.TargetCircle"));
 	SelectedSpawnTexture = SelectedSpawnTextureObject.Object;
@@ -63,7 +65,8 @@ void AUTHUD_Showdown::DrawMinimap(const FColor& DrawColor, float MapSize, FVecto
 		{
 			Canvas->DrawColor = FColor(128, 128, 128, 192);
 		}
-		Canvas->DrawTile(PlayerStartTexture, Pos.X - 16.0f * RenderScale, Pos.Y - 16.0f * RenderScale, 32.0f * RenderScale, 32.0f * RenderScale, 0.0f, 0.0f, PlayerStartTexture->GetSurfaceWidth(), PlayerStartTexture->GetSurfaceHeight());
+		Canvas->K2_DrawTexture(PlayerStartBGTexture, Pos - FVector2D(20.0f * RenderScale, 20.0f * RenderScale), FVector2D(40.0f, 40.0f) * RenderScale, FVector2D(0.0f, 0.0f), FVector2D(1.0f, 1.0f), Canvas->DrawColor, BLEND_Translucent, It->GetActorRotation().Yaw + 90.0f);
+		Canvas->DrawTile(PlayerStartTexture, Pos.X - 10.0f * RenderScale, Pos.Y - 10.0f * RenderScale, 20.0f * RenderScale, 20.0f * RenderScale, 0.0f, 0.0f, PlayerStartTexture->GetSurfaceWidth(), PlayerStartTexture->GetSurfaceHeight());
 		// draw circle on selected spawn points
 		if (OwningTeam != NULL)
 		{

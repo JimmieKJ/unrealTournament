@@ -10,7 +10,10 @@ class UNREALTOURNAMENT_API AUTHUD_Showdown : public AUTHUD_TeamDM
 {
 	GENERATED_UCLASS_BODY()
 
-	/** icon for player starts on the minimap */
+	/** icon for player starts on the minimap (rotated BG that indicates direction) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, NoClear)
+	UTexture2D* PlayerStartBGTexture;
+	/** icon for player starts on the minimap (foreground) */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, NoClear)
 	UTexture2D* PlayerStartTexture;
 	/** drawn over selected player starts on the minimap */
