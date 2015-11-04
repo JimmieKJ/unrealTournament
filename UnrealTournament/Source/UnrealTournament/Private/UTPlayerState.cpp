@@ -554,12 +554,12 @@ AUTCharacter* AUTPlayerState::GetUTCharacter()
 	
 	// iterate through all pawns and find matching playerstate ref
 	// note: this is set up to use the old character as long as possible after death, until the player respawns
-	if (CachedCharacter == NULL || CachedCharacter->bPendingKillPending || CachedCharacter->IsDead() || CachedCharacter->PlayerState != this)
+	if (CachedCharacter == NULL || CachedCharacter->IsDead() || CachedCharacter->PlayerState != this)
 	{
 		for (FConstPawnIterator Iterator = GetWorld()->GetPawnIterator(); Iterator; ++Iterator)
 		{
 			AUTCharacter* UTChar = Cast<AUTCharacter>(*Iterator);
-			if (UTChar != NULL && UTChar->PlayerState == this && !UTChar->IsPendingKillPending() && !UTChar->IsDead())
+			if (UTChar != NULL && UTChar->PlayerState == this && !UTChar->IsDead())
 			{
 				CachedCharacter = UTChar;
 				return UTChar;
