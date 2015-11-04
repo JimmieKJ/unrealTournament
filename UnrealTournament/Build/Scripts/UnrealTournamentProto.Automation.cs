@@ -702,6 +702,7 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
             UnusedPluginFilter.Exclude("/Engine/Plugins/.../OculusAudio/...");
             UnusedPluginFilter.Exclude("/Engine/Plugins/.../AnalyticsBlueprintLibrary/...");
             UnusedPluginFilter.Exclude("/Engine/Plugins/.../UdpMessaging/...");
+            UnusedPluginFilter.Exclude("/Engine/Plugins/.../Developer/...");
 
 			RequiredFiles.RemoveWhere(FileName => UnusedPluginFilter.Matches(FileName));
 		}
