@@ -170,7 +170,7 @@ static bool ComponentIsVisibleFrom(UPrimitiveComponent* VictimComp, FVector cons
 		// check alt visibility locations
 		for (const FVector& TestLoc : *AltVisibilityOrigins)
 		{
-			bool bHadBlockingHit = World->LineTraceSingleByChannel(OutHitResult, TestLoc, TraceEnd, COLLISION_TRACE_WEAPON, LineParams, ResponseParams);
+			bHadBlockingHit = World->LineTraceSingleByChannel(OutHitResult, TestLoc, TraceEnd, COLLISION_TRACE_WEAPON, LineParams, ResponseParams);
 			if (OutHitResult.Component == VictimComp)
 			{
 				// always pass bHadBlockingHit = false out of here so we generate HitLocation using the original Origin
