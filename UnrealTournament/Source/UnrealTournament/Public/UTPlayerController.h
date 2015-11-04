@@ -243,6 +243,10 @@ public:
 	UFUNCTION(unreliable, server, WithValidation)
 	void ServerViewFlagHolder(uint8 TeamIndex);
 
+	/** Set when request view projectile if no projectile find, keep looking. */
+	UPROPERTY()
+		float ViewProjectileTime;
+
 	/** View last projectile fired by currently viewed player. */
 	UFUNCTION(unreliable, server, WithValidation)
 	void ServerViewProjectile();

@@ -555,6 +555,10 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 
 	bool IsInInventory(const AUTInventory* TestInv) const;
 
+	/** Used for spectating fired projectiles. */
+	UPROPERTY(BlueprintReadOnly, Category = "Weapon")
+	class AUTProjectile* LastFiredProjectile;
+
 	/** called by weapon being put down when it has finished being unequipped. Transition PendingWeapon to Weapon and bring it up 
 	 * @param OverflowTime - amount of time past end of timer that previous weapon PutDown() used (due to frame delta) - pass onto BringUp() to keep things in sync
 	 */

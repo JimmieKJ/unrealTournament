@@ -1491,6 +1491,10 @@ AUTProjectile* AUTWeapon::SpawnNetPredictedProjectile(TSubclassOf<AUTProjectile>
 		: NULL;
 	if (NewProjectile)
 	{
+		if (UTOwner)
+		{
+			UTOwner->LastFiredProjectile = NewProjectile;
+		}
 		if (Role == ROLE_Authority)
 		{
 			NewProjectile->HitsStatsName = HitsStatsName;

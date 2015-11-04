@@ -1212,22 +1212,19 @@ void AUTPlayerController::ServerViewProjectile_Implementation()
 			AUTCarriedObject* Flag = Cast<AUTCarriedObject>(GetViewTarget());
 			ViewedCharacter = Flag ? Flag->HoldingPawn : NULL;
 		}
-		// @TODO FIXMESTEVE save last fired projectile as optimization
-		AUTProjectile* BestProj = NULL;
-		if (ViewedCharacter)
+		UE_LOG(UT, Warning, TEXT("ServerViewProjectile %f"), ViewProjectileTime);
+		if (!ViewedCharacter)
 		{
-			for (FActorIterator It(GetWorld()); It; ++It)
-			{
-				AUTProjectile* Proj = Cast<AUTProjectile>(*It);
-				if (Proj && !Proj->bExploded && !Proj->GetVelocity().IsNearlyZero() && (Proj->Instigator == ViewedCharacter) && (!BestProj || (BestProj->CreationTime < Proj->CreationTime)))
-				{
-					BestProj = Proj;
-				}
-			}
+			ViewProjectileTime = 0.f;
 		}
-		if (BestProj)
+		else if (ViewedCharacter->LastFiredProjectile && !ViewedCharacter->LastFiredProjectile->IsPendingKillPending())
 		{
-			SetViewTarget(BestProj);
+			SetViewTarget(ViewedCharacter->LastFiredProjectile);
+			ViewProjectileTime = 0.f;
+		}
+		else if (ViewProjectileTime == 0.f)
+		{
+			ViewProjectileTime = GetWorld()->GetTimeSeconds() + 8.f;
 		}
 	}
 }
@@ -2214,6 +2211,7 @@ void AUTPlayerController::SetViewTarget(class AActor* NewViewTarget, FViewTarget
 		AUTCharacter* Char = Cast<AUTCharacter>(UpdatedViewTarget);
 		if (Char)
 		{
+			ViewProjectileTime = 0.f;
 			LastSpectatedPlayerState = Cast<AUTPlayerState>(Char->PlayerState);
 			if (LastSpectatedPlayerState)
 			{
@@ -2713,6 +2711,11 @@ void AUTPlayerController::Tick(float DeltaTime)
 				}
 			}
 		}
+	}
+
+	if (GetWorld()->GetTimeSeconds() < ViewProjectileTime)
+	{
+		ServerViewProjectile_Implementation();
 	}
 }
 
