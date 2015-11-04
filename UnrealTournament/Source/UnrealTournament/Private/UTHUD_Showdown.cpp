@@ -10,13 +10,34 @@ AUTHUD_Showdown::AUTHUD_Showdown(const FObjectInitializer& OI)
 	PlayerStartTexture = PlayerStartTextureObject.Object;
 	ConstructorHelpers::FObjectFinder<UTexture2D> SelectedSpawnTextureObject(TEXT("/Game/RestrictedAssets/Weapons/Sniper/Assets/TargetCircle.TargetCircle"));
 	SelectedSpawnTexture = SelectedSpawnTextureObject.Object;
+
+	SpawnPreviewCapture = OI.CreateDefaultSubobject<USceneCaptureComponent2D>(this, TEXT("SpawnPreviewCapture"));
+	SpawnPreviewCapture->bCaptureEveryFrame = false;
+	SpawnPreviewCapture->SetHiddenInGame(false);
+}
+
+void AUTHUD_Showdown::BeginPlay()
+{
+	Super::BeginPlay();
+
+	SpawnPreviewCapture->TextureTarget = NewObject<UTextureRenderTarget2D>(this, UTextureRenderTarget2D::StaticClass());
+	SpawnPreviewCapture->TextureTarget->InitCustomFormat(1280, 720, PF_B8G8R8A8, false);
+	SpawnPreviewCapture->TextureTarget->ClearColor = FLinearColor::Black;
+	SpawnPreviewCapture->RegisterComponent();
 }
 
 void AUTHUD_Showdown::DrawMinimap(const FColor& DrawColor, float MapSize, FVector2D DrawPos)
 {
-	Super::DrawMinimap(DrawColor, MapSize, DrawPos);
-
 	AUTShowdownGameState* GS = GetWorld()->GetGameState<AUTShowdownGameState>();
+
+	// draw a border around the map if it's this player's turn
+	if (GS->SpawnSelector == PlayerOwner->PlayerState)
+	{
+		Canvas->DrawColor = WhiteColor;
+		Canvas->DrawTile(Canvas->DefaultTexture, DrawPos.X - 4.0f, DrawPos.Y - 4.0f, MapSize + 8.0f, MapSize + 8.0f, 0.0f, 0.0f, 1.0f, 1.0f, BLEND_Opaque);
+	}
+
+	Super::DrawMinimap(DrawColor, MapSize, DrawPos);
 
 	const float RenderScale = float(Canvas->SizeY) / 1080.0f;
 	// draw PlayerStart icons
@@ -81,6 +102,38 @@ void AUTHUD_Showdown::DrawHUD()
 		}
 		const float MapSize = float(Canvas->SizeY) * 0.75f;
 		DrawMinimap(FColor(192, 192, 192, 255), MapSize, FVector2D((Canvas->SizeX - MapSize) * 0.5f, (Canvas->SizeY - MapSize) * 0.5f));
+
+		// draw preview for hovered spawn point
+		if (!GS->bFinalIntermissionDelay)
+		{
+			APlayerStart* HoveredStart = GetHoveredPlayerStart();
+			if (HoveredStart == PreviewPlayerStart)
+			{
+				if (HoveredStart != NULL)
+				{
+					if (bPendingSpawnPreview)
+					{
+						bPendingSpawnPreview = false;
+					}
+					else
+					{
+						// draw it
+						const float Ratio = float(SpawnPreviewCapture->TextureTarget->SizeX) / float(SpawnPreviewCapture->TextureTarget->SizeY);
+						Canvas->DrawColor = WhiteColor;
+						Canvas->DrawTile(SpawnPreviewCapture->TextureTarget, (Canvas->SizeX + MapSize) * 0.5f, Canvas->SizeY * 0.25f, (Canvas->SizeX - MapSize) * 0.5f, (Canvas->SizeX - MapSize) * 0.5f / Ratio, 0.0f, 0.0f, SpawnPreviewCapture->TextureTarget->SizeX, SpawnPreviewCapture->TextureTarget->SizeY, BLEND_Opaque);
+					}
+				}
+			}
+			else
+			{
+				if (HoveredStart != NULL)
+				{
+					SpawnPreviewCapture->SetWorldLocationAndRotation(HoveredStart->GetActorLocation(), HoveredStart->GetActorRotation());
+					bPendingSpawnPreview = true;
+				}
+				PreviewPlayerStart = HoveredStart;
+			}
+		}
 
 		// draw spawn selection order
 
@@ -203,22 +256,27 @@ EInputMode::Type AUTHUD_Showdown::GetInputMode_Implementation()
 	}
 }
 
+APlayerStart* AUTHUD_Showdown::GetHoveredPlayerStart() const
+{
+	FVector2D ClickPos;
+	UTPlayerOwner->GetMousePosition(ClickPos.X, ClickPos.Y);
+	APlayerStart* ClickedStart = NULL;
+	for (TActorIterator<APlayerStart> It(GetWorld()); It; ++It)
+	{
+		FVector2D Pos(WorldToMapToScreen(It->GetActorLocation()));
+		if ((ClickPos - Pos).Size() < 32.0f)
+		{
+			return *It;
+		}
+	}
+	return NULL;
+}
+
 bool AUTHUD_Showdown::OverrideMouseClick(FKey Key, EInputEvent EventType)
 {
 	if (Key.GetFName() == EKeys::LeftMouseButton && EventType == IE_Pressed)
 	{
-		FVector2D ClickPos;
-		UTPlayerOwner->GetMousePosition(ClickPos.X, ClickPos.Y);
-		APlayerStart* ClickedStart = NULL;
-		for (TActorIterator<APlayerStart> It(GetWorld()); It; ++It)
-		{
-			FVector2D Pos(WorldToMapToScreen(It->GetActorLocation()));
-			if ((ClickPos - Pos).Size() < 32.0f)
-			{
-				ClickedStart = *It;
-				break;
-			}
-		}
+		APlayerStart* ClickedStart = GetHoveredPlayerStart();
 		if (ClickedStart != NULL)
 		{
 			UTPlayerOwner->ServerSelectSpawnPoint(ClickedStart);

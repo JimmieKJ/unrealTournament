@@ -19,7 +19,7 @@ AUTShowdownGame::AUTShowdownGame(const FObjectInitializer& OI)
 	DisplayName = NSLOCTEXT("UTGameMode", "Showdown", "Showdown");
 	TimeLimit = 2.0f; // per round
 	GoalScore = 5;
-	SpawnSelectionTime = 5;
+	SpawnSelectionTime = 9;
 	PowerupDuration = 15.0f;
 	XPMultiplier = 15.0f;
 	bHasRespawnChoices = false; // unique system
