@@ -832,9 +832,15 @@ void AUTProjectile::Explode_Implementation(const FVector& HitLocation, const FVe
 				{
 					IgnoreActors.Add(ImpactedActor);
 				}
+				TArray<FVector> AltOrigins;
+				AltOrigins.Add(HitLocation + HitNormal * GetDefault<AUTCharacter>()->UTCharacterMovement->MaxStepHeight);
+				if (!ProjectileMovement->Velocity.IsZero())
+				{
+					AltOrigins.Add(HitLocation - ProjectileMovement->Velocity.GetSafeNormal() * GetDefault<AUTCharacter>()->UTCharacterMovement->MaxStepHeight);
+				}
 				StatsHitCredit = 0.f;
 				UUTGameplayStatics::UTHurtRadius(this, AdjustedDamageParams.BaseDamage, AdjustedDamageParams.MinimumDamage, AdjustedMomentum, HitLocation + HitNormal, AdjustedDamageParams.InnerRadius, AdjustedDamageParams.OuterRadius, AdjustedDamageParams.DamageFalloff,
-					MyDamageType, IgnoreActors, this, InstigatorController, FFInstigatorController, FFDamageType);
+					MyDamageType, IgnoreActors, this, InstigatorController, FFInstigatorController, FFDamageType, 0.0f, &AltOrigins);
 				if ((Role == ROLE_Authority) && (HitsStatsName != NAME_None))
 				{
 					AUTPlayerState* PS = InstigatorController ? Cast<AUTPlayerState>(InstigatorController->PlayerState) : NULL;
