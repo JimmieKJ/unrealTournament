@@ -1976,13 +1976,11 @@ void UUTLocalPlayer::ReturnToMainMenu()
 	}
 }
 
-bool UUTLocalPlayer::JoinSession(const FOnlineSessionSearchResult& SearchResult, bool bSpectate, FName QuickMatchType, bool bFindMatch, int32 DesiredTeam,  FString MatchId)
+bool UUTLocalPlayer::JoinSession(const FOnlineSessionSearchResult& SearchResult, bool bSpectate, bool bFindMatch, int32 DesiredTeam,  FString MatchId)
 {
 	UE_LOG(UT,Log, TEXT("##########################"));
 	UE_LOG(UT,Log, TEXT("Joining a New Session"));
 	UE_LOG(UT,Log, TEXT("##########################"));
-
-	QuickMatchJoinType = QuickMatchType;
 
 	bWantsToConnectAsSpectator = bSpectate;
 	bWantsToFindMatch = bFindMatch;
@@ -2048,19 +2046,6 @@ void UUTLocalPlayer::OnJoinSessionComplete(FName SessionName, EOnJoinSessionComp
 		FString ConnectionString;
 		if ( OnlineSessionInterface->GetResolvedConnectString(SessionName, ConnectionString) )
 		{
-			if (QuickMatchJoinType != NAME_None)
-			{
-				if (QuickMatchJoinType == QuickMatchTypes::Deathmatch)
-				{
-					ConnectionString += TEXT("?QuickStart=DM");
-				}
-				else if (QuickMatchJoinType == QuickMatchTypes::CaptureTheFlag)
-				{
-					ConnectionString += TEXT("?QuickStart=CTF");
-				}
-			}
-			QuickMatchJoinType = NAME_None;
-
 			if (PendingFriendInviteFriendId != TEXT(""))
 			{
 				ConnectionString += FString::Printf(TEXT("?Friend=%s"), *PendingFriendInviteFriendId);
@@ -2101,7 +2086,6 @@ void UUTLocalPlayer::OnJoinSessionComplete(FName SessionName, EOnJoinSessionComp
 	// Any failures, return to the main menu.
 	bWantsToConnectAsSpectator = false;
 	bWantsToFindMatch = false;
-	QuickMatchJoinType = NAME_None;
 
 	if (Result == EOnJoinSessionCompleteResult::AlreadyInSession)
 	{

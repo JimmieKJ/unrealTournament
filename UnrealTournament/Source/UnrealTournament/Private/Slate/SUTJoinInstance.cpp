@@ -225,7 +225,7 @@ void SUTJoinInstance::OnRequestJoinResult(EInstanceJoinResult::Type Result, cons
 	}
 	else if (Result == EInstanceJoinResult::JoinViaLobby)
 	{
-		PlayerOwner->JoinSession(ServerData->SearchResult, bSpectator, NAME_None, false, -1, Params);			
+		PlayerOwner->JoinSession(ServerData->SearchResult, bSpectator, false, -1, Params);			
 	}
 	else if (Result == EInstanceJoinResult::JoinDirectly)
 	{

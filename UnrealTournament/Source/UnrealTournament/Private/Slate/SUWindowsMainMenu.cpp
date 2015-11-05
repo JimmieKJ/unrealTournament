@@ -195,8 +195,8 @@ TSharedRef<SWidget> SUWindowsMainMenu::AddPlayNow()
 		.ContentHAlign(HAlign_Left)
 	];
 
-	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUWindowsDesktop", "MenuBar_QuickMatch_PlayDM", "QuickPlay Deathmatch"), FOnClicked::CreateSP(this, &SUWindowsMainMenu::OnPlayQuickMatch, FQuickMatchTypeRulesetTag::DM));
-	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUWindowsDesktop", "MenuBar_QuickMatch_PlayCTF", "QuickPlay Capture the Flag"), FOnClicked::CreateSP(this, &SUWindowsMainMenu::OnPlayQuickMatch, FQuickMatchTypeRulesetTag::CTF));
+	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUWindowsDesktop", "MenuBar_QuickMatch_PlayDM", "QuickPlay Deathmatch"), FOnClicked::CreateSP(this, &SUWindowsMainMenu::OnPlayQuickMatch,	EEpicDefaultRuleTags::Deathmatch));
+	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUWindowsDesktop", "MenuBar_QuickMatch_PlayCTF", "QuickPlay Capture the Flag"), FOnClicked::CreateSP(this, &SUWindowsMainMenu::OnPlayQuickMatch, EEpicDefaultRuleTags::CTF));
 	DropDownButton->AddSpacer();
 	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUWindowsDesktop", "MenuBar_CreateGame", "Create a Game"), FOnClicked::CreateSP(this, &SUWindowsMainMenu::OnShowGamePanel));
 	DropDownButton->AddSpacer();

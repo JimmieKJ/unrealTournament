@@ -431,7 +431,7 @@ public:
 	static void GetBadgeFromELO(int32 EloRating, int32& BadgeLevel, int32& SubLevel);
 
 	// Connect to a server via the session id.  Returns TRUE if the join continued, or FALSE if it failed to start
-	virtual bool JoinSession(const FOnlineSessionSearchResult& SearchResult, bool bSpectate, FName QuickMatch = NAME_None, bool bFindMatch = false, int32 DesiredTeam = -1, FString MatchId=TEXT(""));
+	virtual bool JoinSession(const FOnlineSessionSearchResult& SearchResult, bool bSpectate, bool bFindMatch = false, int32 DesiredTeam = -1, FString MatchId=TEXT(""));
 	virtual void LeaveSession();
 	virtual void ReturnToMainMenu();
 
@@ -480,9 +480,6 @@ protected:
 	// If the player is not logged in, then this string will hold the last attempted presence update
 	FString LastPresenceUpdate;
 	bool bLastAllowInvites;
-
-	FName QuickMatchJoinType;
-
 
 public:
 	virtual FName GetCountryFlag();

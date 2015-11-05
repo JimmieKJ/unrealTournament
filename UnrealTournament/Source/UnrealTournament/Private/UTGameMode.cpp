@@ -1862,6 +1862,9 @@ void AUTGameMode::EndGame(AUTPlayerState* Winner, FName Reason )
 		MatchUpdate.GameTime = UTGameState->ElapsedTime;
 		MatchUpdate.NumPlayers = NumPlayers;
 		MatchUpdate.NumSpectators = NumSpectators;
+		MatchUpdate.MatchState = MatchState;
+		MatchUpdate.bMatchHasBegun = HasMatchStarted();
+		MatchUpdate.bMatchHasEnded = HasMatchEnded();
 
 		UpdateLobbyScore(MatchUpdate);
 		LobbyBeacon->EndGame(MatchUpdate);
@@ -3481,6 +3484,9 @@ void AUTGameMode::UpdateLobbyMatchStats()
 		MatchUpdate.GameTime = TimeLimit > 0 ? UTGameState->RemainingTime : UTGameState->ElapsedTime;
 		MatchUpdate.NumPlayers = NumPlayers;
 		MatchUpdate.NumSpectators = NumSpectators;
+		MatchUpdate.MatchState = MatchState;
+		MatchUpdate.bMatchHasBegun = HasMatchStarted();
+		MatchUpdate.bMatchHasEnded = HasMatchEnded();
 
 		UpdateLobbyScore(MatchUpdate);
 		LobbyBeacon->UpdateMatch(MatchUpdate);

@@ -776,14 +776,14 @@ FReply SUHomePanel::BasicTraining_Click()
 FReply SUHomePanel::QuickMatch_DM_Click()
 {
 	TSharedPtr<SUWindowsMainMenu> MainMenu = StaticCastSharedPtr<SUWindowsMainMenu>(GetParentWindow());
-	if (MainMenu.IsValid()) MainMenu->QuickPlay(FQuickMatchTypeRulesetTag::DM);
+	if (MainMenu.IsValid()) MainMenu->QuickPlay(EEpicDefaultRuleTags::Deathmatch);
 	return FReply::Handled();
 }
 
 FReply SUHomePanel::QuickMatch_CTF_Click()
 {
 	TSharedPtr<SUWindowsMainMenu> MainMenu = StaticCastSharedPtr<SUWindowsMainMenu>(GetParentWindow());
-	if (MainMenu.IsValid()) MainMenu->QuickPlay(FQuickMatchTypeRulesetTag::CTF);
+	if (MainMenu.IsValid()) MainMenu->QuickPlay(EEpicDefaultRuleTags::CTF);
 	return FReply::Handled();
 }
 

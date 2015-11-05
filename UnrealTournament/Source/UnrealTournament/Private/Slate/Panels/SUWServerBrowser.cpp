@@ -746,7 +746,7 @@ TSharedRef<SWidget> SUWServerBrowser::BuildLobbyBrowser()
 						[
 							SNew(SBox).HeightOverride(648)
 							[
-								SAssignNew(LobbyMatchPanel, SUMatchPanel).PlayerOwner(PlayerOwner).bExpectServerData(true)
+								SAssignNew(LobbyMatchPanel, SUMatchPanel).PlayerOwner(PlayerOwner)
 								.OnJoinMatchDelegate(this, &SUWServerBrowser::JoinQuickInstance)
 							]
 						]
@@ -1283,7 +1283,7 @@ void SUWServerBrowser::ExpireDeadServers(bool bLANServers)
 	i = 0;
 	while (i < AllHubServers.Num())
 	{
-		if (!AllHubServers[i]->bFakeHUB)
+		if (!AllHubServers[i]->bFakeHUB && bLANServers == AllHubServers[i]->SearchResult.Session.SessionSettings.bIsLANMatch)
 		{
 			bool bFound = false;
 			for (int32 j=0; j < PingList.Num(); j++)
@@ -1436,6 +1436,7 @@ void SUWServerBrowser::AddHub(TSharedPtr<FServerData> Hub)
 		}
 	}
 
+	UE_LOG(UT,Log,TEXT("ADDing HUB"));
 	AllHubServers.Add(Hub);
 	FilterHUB(Hub);
 }
