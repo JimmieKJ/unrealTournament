@@ -179,6 +179,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, NoClear)
 		UTexture2D* PlayerMinimapTexture;
 
+	/** drawn over selected player on the minimap */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, NoClear)
+		UTexture2D* SelectedPlayerTexture;
+
 	UPROPERTY(BlueprintReadWrite, Category ="HUD")
 	uint32 bForceScores:1;
 
