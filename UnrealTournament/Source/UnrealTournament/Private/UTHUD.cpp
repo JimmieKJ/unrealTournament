@@ -511,7 +511,7 @@ void AUTHUD::DrawHUD()
 				if (bDrawMinimap && UTPlayerOwner->PlayerState && UTPlayerOwner->PlayerState->bOnlySpectator)
 				{
 					const float MapSize = float(Canvas->SizeY) * 0.75f;
-					DrawMinimap(FColor(192, 192, 192, 210), MapSize, FVector2D(Canvas->SizeX - MapSize, 0.f));
+					DrawMinimap(FColor(192, 192, 192, 210), MapSize, FVector2D(Canvas->SizeX - MapSize + MapSize*MinimapOffset.X, MapSize*MinimapOffset.Y));
 				}
 			}
 		}
@@ -934,6 +934,15 @@ void AUTHUD::CalcMinimapTransform(const FBox& LevelBox, int32 MapWidth, int32 Ma
 	const float LevelRadius = bLargerXAxis ? LevelBox.GetExtent().X : LevelBox.GetExtent().Y;
 	const float ScaleFactor = float(MapWidth) / (LevelRadius * 2.0f);
 	const FVector CenteringAdjust = bLargerXAxis ? FVector(0.0f, (LevelBox.GetExtent().X - LevelBox.GetExtent().Y), 0.0f) : FVector((LevelBox.GetExtent().Y - LevelBox.GetExtent().X), 0.0f, 0.0f);
+	MinimapOffset = FVector2D(0.f, 0.f);
+	if (bLargerXAxis)
+	{
+		MinimapOffset.Y = 0.5f*(LevelBox.GetExtent().X - LevelBox.GetExtent().Y) / LevelBox.GetExtent().X;
+	}
+	else
+	{
+		MinimapOffset.X = 0.5f*(LevelBox.GetExtent().Y - LevelBox.GetExtent().X) / LevelBox.GetExtent().Y;
+	}
 	MinimapTransform = FTranslationMatrix(-LevelBox.Min + CenteringAdjust) * FScaleMatrix(FVector(ScaleFactor));
 }
 

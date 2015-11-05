@@ -370,10 +370,16 @@ public:
 	/** render target for the minimap */
 	UPROPERTY()
 	UCanvasRenderTarget2D* MinimapTexture;
+	
 	/** transformation matrix from world locations to minimap locations */
 	FMatrix MinimapTransform;
+
+	/** Offset when displaying minimap snug to an edge. */
+	FVector2D MinimapOffset;
+	
 	/** map transform for rendering on screen (used to convert clicks to map locations) */
 	FMatrix MapToScreen;
+	
 	/** draw the static pre-rendered portions of the minimap to the MinimapTexture */
 	UFUNCTION()
 	virtual void UpdateMinimapTexture(UCanvas* C, int32 Width, int32 Height);
