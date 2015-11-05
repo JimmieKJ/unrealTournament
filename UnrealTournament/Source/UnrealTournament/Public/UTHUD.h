@@ -172,6 +172,9 @@ public:
 	UPROPERTY(BlueprintReadOnly, Category="HUD")
 	uint32 bShowScores:1;
 
+	UPROPERTY(BlueprintReadOnly, Category = "HUD")
+		uint32 bDrawMinimap : 1;
+
 	UPROPERTY(BlueprintReadWrite, Category ="HUD")
 	uint32 bForceScores:1;
 

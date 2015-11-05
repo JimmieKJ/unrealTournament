@@ -414,6 +414,9 @@ public:
 		virtual void ToggleSlideOut();
 
 	UFUNCTION(exec)
+		virtual void ToggleMinimap();
+
+	UFUNCTION(exec)
 		virtual void ToggleShowBinds();
 
 	UFUNCTION(exec)

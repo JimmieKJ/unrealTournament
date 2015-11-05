@@ -1004,6 +1004,14 @@ void AUTPlayerController::ToggleSlideOut()
 	bRequestingSlideOut = !bRequestingSlideOut;
 }
 
+void AUTPlayerController::ToggleMinimap()
+{
+	if (MyUTHUD)
+	{
+		MyUTHUD->bDrawMinimap = !MyUTHUD->bDrawMinimap;
+	}
+}
+
 void AUTPlayerController::ToggleShowBinds()
 {
 	bShowCameraBinds = !bShowCameraBinds;
@@ -1013,6 +1021,7 @@ void AUTPlayerController::ToggleShowTimers()
 {
 	bShowPowerupTimers = !bShowPowerupTimers;
 }
+
 void AUTPlayerController::ViewNextPlayer()
 {
 	bAutoCam = false;
@@ -1847,9 +1856,9 @@ void AUTPlayerController::UpdateHiddenComponents(const FVector& ViewLocation, TS
 
 void AUTPlayerController::ToggleScoreboard(bool bShow)
 {
-	if (MyHUD != NULL && Cast<AUTHUD>(MyHUD) != NULL)
+	if (MyUTHUD)
 	{
-		Cast<AUTHUD>(MyHUD)->ToggleScoreboard(bShow);
+		MyUTHUD->ToggleScoreboard(bShow);
 	}
 }
 

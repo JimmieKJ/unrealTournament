@@ -502,6 +502,11 @@ void AUTHUD::DrawHUD()
 			{
 				DrawDamageIndicators();
 				UTPlayerOwner->SetViewedScorePS(NULL, 0);
+				if (bDrawMinimap && UTPlayerOwner->PlayerState && UTPlayerOwner->PlayerState->bOnlySpectator)
+				{
+					const float MapSize = float(Canvas->SizeY) * 0.75f;
+					DrawMinimap(FColor(192, 192, 192, 128), MapSize, FVector2D((Canvas->SizeX - MapSize) * 0.5f, (Canvas->SizeY - MapSize) * 0.5f));
+				}
 			}
 		}
 	}
@@ -912,6 +917,7 @@ void AUTHUD::CreateMinimapTexture()
 {
 	MinimapTexture = UCanvasRenderTarget2D::CreateCanvasRenderTarget2D(GetWorld(), UCanvasRenderTarget2D::StaticClass(), 1024, 1024);
 	MinimapTexture->ClearColor = FLinearColor::Black;
+	MinimapTexture->ClearColor.A = 0.f;
 	MinimapTexture->OnCanvasRenderTargetUpdate.AddDynamic(this, &AUTHUD::UpdateMinimapTexture);
 	MinimapTexture->UpdateResource();
 }
