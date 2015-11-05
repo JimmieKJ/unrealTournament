@@ -2741,9 +2741,6 @@ void UUTLocalPlayer::OpenMatchSummary(AUTGameState* GameState)
 void UUTLocalPlayer::CloseMatchSummary()
 {
 #if !UE_SERVER
-	PlayerController->FlushPressedKeys();
-	PlayerController->EnableInput(PlayerController);
-
 	UUTGameViewportClient* UTGVC = Cast<UUTGameViewportClient>(GEngine->GameViewport);
 	if (MatchSummaryWindow.IsValid() && UTGVC != nullptr)
 	{
@@ -2756,6 +2753,9 @@ void UUTLocalPlayer::CloseMatchSummary()
 		{
 			PC->MyUTHUD->bForceScores = false;
 		}
+
+		PlayerController->FlushPressedKeys();
+		PlayerController->EnableInput(PlayerController);
 	}
 #endif
 }
