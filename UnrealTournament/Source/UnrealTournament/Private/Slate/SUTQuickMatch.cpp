@@ -367,20 +367,20 @@ void SUTQuickMatch::OnServerBeaconResult(AUTServerBeaconClient* Sender, FServerB
 	PingNextBatch();
 }
 
-bool SUTQuickMatch::HasFriendsInInstances(const TArray<TSharedPtr<FServerInstanceData>>& Instances, TWeakObjectPtr<UUTLocalPlayer> LocalPlayer)
+bool SUTQuickMatch::HasFriendsInInstances(const TArray<TSharedPtr<FServerInstanceData>>& InstancesToCheck, TWeakObjectPtr<UUTLocalPlayer> LocalPlayer)
 {
 	if (PlayerOwner.IsValid())
 	{
 		TArray<FUTFriend> FriendsList;
 		PlayerOwner->GetFriendsList(FriendsList);
 		{
-			for (int32 i = 0; i < Instances.Num(); i++)
+			for (int32 i = 0; i < InstancesToCheck.Num(); i++)
 			{
-				for (int32 p = 0; p < Instances[i]->Players.Num(); p++)
+				for (int32 p = 0; p < InstancesToCheck[i]->Players.Num(); p++)
 				{
 					for (int32 j = 0; j < FriendsList.Num(); j++)
 					{
-						if (Instances[i]->Players[p].PlayerId == FriendsList[j].UserId)
+						if (InstancesToCheck[i]->Players[p].PlayerId == FriendsList[j].UserId)
 						{
 							return true;
 						}
