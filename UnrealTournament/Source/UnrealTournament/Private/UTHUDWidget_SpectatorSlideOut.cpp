@@ -376,10 +376,12 @@ void UUTHUDWidget_SpectatorSlideOut::DrawPowerup(AUTPickup* Pickup, float XOffse
 		DrawColor.R *= 0.5f;
 		DrawColor.G *= 0.5f;
 		DrawColor.B *= 0.5f;
+		DrawText(FText::Format(NSLOCTEXT("UTCharacter", "PowerupTimeDisplay", "{TimeRemaining}"), Args), XOffset + 0.29f*Size.X - 1.f, YOffset + ColumnY - 1.f, SlideOutFont, 1.0f, 0.7f, FLinearColor::Black, ETextHorzPos::Center, ETextVertPos::Center);
 		DrawText(FText::Format(NSLOCTEXT("UTCharacter", "PowerupTimeDisplay", "{TimeRemaining}"), Args), XOffset + 0.29f*Size.X, YOffset + ColumnY, SlideOutFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
 	}
 	else
 	{
+		DrawText(NSLOCTEXT("UTCharacter", "PowerupUp", "UP"), XOffset + 0.28f*Size.X - 1.f, YOffset + ColumnY - 1.f, SlideOutFont, 1.0f, 0.7f, FLinearColor::Black, ETextHorzPos::Center, ETextVertPos::Center);
 		DrawText(NSLOCTEXT("UTCharacter", "PowerupUp", "UP"), XOffset + 0.28f*Size.X, YOffset + ColumnY, SlideOutFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
 	}
 }
