@@ -175,6 +175,10 @@ public:
 	UPROPERTY(BlueprintReadOnly, Category = "HUD")
 		uint32 bDrawMinimap : 1;
 
+	/** icon for player on the minimap (rotated BG that indicates direction) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, NoClear)
+		UTexture2D* PlayerMinimapTexture;
+
 	UPROPERTY(BlueprintReadWrite, Category ="HUD")
 	uint32 bForceScores:1;
 

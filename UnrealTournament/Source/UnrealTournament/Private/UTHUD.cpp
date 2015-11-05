@@ -62,6 +62,9 @@ AUTHUD::AUTHUD(const class FObjectInitializer& ObjectInitializer) : Super(Object
 	static ConstructorHelpers::FObjectFinder<UTexture2D> HUDTex(TEXT("Texture'/Game/RestrictedAssets/UI/HUDAtlas01.HUDAtlas01'"));
 	HUDAtlas = HUDTex.Object;
 
+	static ConstructorHelpers::FObjectFinder<UTexture2D> PlayerDirectionTextureObject(TEXT("/Game/RestrictedAssets/UI/MiniMap/Minimap_PS_BG.Minimap_PS_BG"));
+	PlayerMinimapTexture = PlayerDirectionTextureObject.Object;
+
 	LastConfirmedHitTime = -100.0f;
 	LastPickupTime = -100.f;
 	bFontsCached = false;
@@ -505,7 +508,7 @@ void AUTHUD::DrawHUD()
 				if (bDrawMinimap && UTPlayerOwner->PlayerState && UTPlayerOwner->PlayerState->bOnlySpectator)
 				{
 					const float MapSize = float(Canvas->SizeY) * 0.75f;
-					DrawMinimap(FColor(192, 192, 192, 128), MapSize, FVector2D((Canvas->SizeX - MapSize) * 0.5f, (Canvas->SizeY - MapSize) * 0.5f));
+					DrawMinimap(FColor(192, 192, 192, 210), MapSize, FVector2D((Canvas->SizeX - MapSize) * 0.5f, (Canvas->SizeY - MapSize) * 0.5f));
 				}
 			}
 		}
@@ -1013,5 +1016,47 @@ void AUTHUD::DrawMinimap(const FColor& DrawColor, float MapSize, FVector2D DrawP
 	{
 		Canvas->DrawColor = DrawColor;
 		Canvas->DrawTile(MinimapTexture, MapToScreen.GetOrigin().X, MapToScreen.GetOrigin().Y, MapSize, MapSize, 0.0f, 0.0f, MinimapTexture->GetSurfaceWidth(), MinimapTexture->GetSurfaceHeight());
+	}
+
+	if (PlayerOwner && PlayerOwner->PlayerState && PlayerOwner->PlayerState->bOnlySpectator)
+	{
+		const float RenderScale = float(Canvas->SizeY) / 1080.0f;
+		for (FConstPawnIterator Iterator = GetWorld()->GetPawnIterator(); Iterator; ++Iterator)
+		{
+			AUTCharacter* UTChar = Cast<AUTCharacter>(*Iterator);
+			if (UTChar)
+			{
+				FVector2D Pos(WorldToMapToScreen(UTChar->GetActorLocation()));
+				if (UTChar->bTearOff)
+				{
+					// Draw skull at location
+					float Height = 20.f * RenderScale;
+					float Width = 20.f * RenderScale;
+					FVector2D RenderPos = FVector2D(Pos.X - (Width * 0.5f), Pos.Y - (Height * 0.5f));
+					float U = 725.f / HUDAtlas->Resource->GetSizeX();
+					float V = 0.f;
+					float UL = U + (28.f / HUDAtlas->Resource->GetSizeX());
+					float VL = V + (36.f / HUDAtlas->Resource->GetSizeY());
+					FCanvasTileItem ImageItemShadow(FVector2D(RenderPos.X -1.f, RenderPos.Y - 1.f), HUDAtlas->Resource, FVector2D(Width, Height), FVector2D(U, V), FVector2D(UL, VL), FLinearColor::Black);
+					FCanvasTileItem ImageItem(RenderPos, HUDAtlas->Resource, FVector2D(Width, Height), FVector2D(U, V), FVector2D(UL, VL), FLinearColor::White);
+					ImageItem.Rotation = FRotator(0.f, 0.f, 0.f);
+					ImageItem.PivotPoint = FVector2D(0.f, 0.f);
+					ImageItem.BlendMode = ESimpleElementBlendMode::SE_BLEND_Translucent;
+					ImageItemShadow.Rotation = FRotator(0.f, 0.f, 0.f);
+					ImageItemShadow.PivotPoint = FVector2D(0.f, 0.f);
+					ImageItemShadow.BlendMode = ESimpleElementBlendMode::SE_BLEND_Translucent;
+					Canvas->DrawItem(ImageItemShadow);
+					Canvas->DrawItem(ImageItem);
+				}
+				else
+				{
+					// draw team colored dot at location
+					AUTPlayerState* PS = Cast<AUTPlayerState>(UTChar->PlayerState);
+					FLinearColor PlayerColor = (PS && PS->Team) ? PS->Team->TeamColor : FLinearColor::Green;
+					PlayerColor.A = 0.5f;
+					Canvas->K2_DrawTexture(PlayerMinimapTexture, Pos - FVector2D(10.0f * RenderScale, 10.0f * RenderScale), FVector2D(20.0f, 20.0f) * RenderScale, FVector2D(0.0f, 0.0f), FVector2D(1.0f, 1.0f), PlayerColor, BLEND_Translucent, UTChar->GetActorRotation().Yaw + 90.0f);
+				}
+			}
+		}
 	}
 }
