@@ -266,7 +266,7 @@ bool FAnalyticsProviderET::StartSession(const TArray<FAnalyticsEventAttribute>& 
 	AppendedAttributes.Emplace(TEXT("Platform"), FString(FPlatformProperties::IniPlatformName()));
 
 	RecordEvent(TEXT("SessionStart"), AppendedAttributes);
-	bSessionInProgress = !UserID.IsEmpty();
+	bSessionInProgress = true;
 	return bSessionInProgress;
 }
 
@@ -278,9 +278,10 @@ void FAnalyticsProviderET::EndSession()
 	if (bSessionInProgress)
 	{
 		RecordEvent(TEXT("SessionEnd"), TArray<FAnalyticsEventAttribute>());
-		FlushEvents();
-		SessionID.Empty();
 	}
+	FlushEvents();
+	SessionID.Empty();
+
 	bSessionInProgress = false;
 }
 
