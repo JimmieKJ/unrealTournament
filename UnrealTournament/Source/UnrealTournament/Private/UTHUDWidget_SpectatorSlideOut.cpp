@@ -524,7 +524,7 @@ void UUTHUDWidget_SpectatorSlideOut::DrawPlayer(int32 Index, AUTPlayerState* Pla
 	{
 		FVector4 Bounds = FVector4(RenderPosition.X + (XOffset * RenderScale), RenderPosition.Y + (YOffset * RenderScale),
 			RenderPosition.X + ((XOffset + Width) * RenderScale), RenderPosition.Y + ((YOffset + CellHeight) * RenderScale));
-		int32 PickedTeamNum = (PlayerState && PlayerState->Team) ? PlayerState->Team->TeamIndex : 0;
+		int32 PickedTeamNum = (PlayerState && PlayerState->Team) ? PlayerState->Team->TeamIndex : 255;
 		int32 SpectatingID = UTGameState->bTeamGame ? PlayerState->SpectatingIDTeam : PlayerState->SpectatingID;
 		ClickElementStack.Add(FClickElement("ViewPlayerNum " + FString::Printf(TEXT("%d %d"), SpectatingID, PickedTeamNum), Bounds, PlayerState));
 		if (MousePosition.X >= Bounds.X && MousePosition.X <= Bounds.Z && MousePosition.Y >= Bounds.Y && MousePosition.Y <= Bounds.W)
