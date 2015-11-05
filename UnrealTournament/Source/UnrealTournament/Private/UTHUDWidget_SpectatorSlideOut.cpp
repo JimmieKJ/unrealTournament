@@ -646,11 +646,11 @@ bool UUTHUDWidget_SpectatorSlideOut::MouseClick(FVector2D InMousePosition)
 		if (ClickElementStack[ElementIndex].SelectedPlayer && (Cast<AUTPlayerController>(UTHUDOwner->PlayerOwner)->LastSpectatedPlayerId == ClickElementStack[ElementIndex].SelectedPlayer->SpectatingID))
 		{
 			ToggleStats();
-			return true;
+			return false;
 		}
 		FStringOutputDevice DummyOut;
 		UTHUDOwner->PlayerOwner->Player->Exec(UTHUDOwner->PlayerOwner->GetWorld(), *ClickElementStack[ElementIndex].Command, DummyOut);
-		return true;
+		return false;
 	}
 	return false; 
 }
