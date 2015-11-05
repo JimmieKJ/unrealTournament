@@ -448,7 +448,7 @@ void UUTHUDWidget_SpectatorSlideOut::DrawCamBind(FString CamCommand, FString Pro
 	// Draw the Text
 	float XL, YL;
 	Canvas->TextSize(UTHUDOwner->TinyFont, ProjName, XL, YL, 1.f, 1.f);
-	DrawText(FText::FromString(ProjName), XOffset + 0.5f*(Width-XL), YOffset + ColumnY, UTHUDOwner->TinyFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Left, ETextVertPos::Center);
+	DrawText(FText::FromString(ProjName), XOffset + 0.5f*Width, YOffset + ColumnY, UTHUDOwner->TinyFont, FMath::Min(1.f, Width/XL), 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
 }
 
 void UUTHUDWidget_SpectatorSlideOut::UpdateCameraBindOffset(float& DrawOffset, float& XOffset, bool& bOverflow, float StartOffset, float& EndCamOffset)
