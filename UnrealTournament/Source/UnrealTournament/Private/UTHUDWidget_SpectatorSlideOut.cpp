@@ -184,7 +184,8 @@ void UUTHUDWidget_SpectatorSlideOut::Draw_Implementation(float DeltaTime)
 			};
 		}
 		RedPlayerList.Sort(SortFunc);
-		for (int32 i = 0; i < RedPlayerList.Num(); i++)
+		int32 NumRed = UTGameState->bTeamGame ? FMath::Min(RedPlayerList.Num(), 12) : FMath::Min(RedPlayerList.Num(), 24);
+		for (int32 i = 0; i < NumRed; i++)
 		{
 			DrawPlayer(i, RedPlayerList[i], DeltaTime, XOffset, DrawOffset);
 			DrawOffset += CellHeight;
@@ -194,7 +195,8 @@ void UUTHUDWidget_SpectatorSlideOut::Draw_Implementation(float DeltaTime)
 		{
 			DrawOffset += CellHeight;
 			BluePlayerList.Sort(SortFunc);
-			for (int32 i = 0; i < BluePlayerList.Num(); i++)
+			int32 NumBlue = FMath::Min(BluePlayerList.Num(), 12);
+			for (int32 i = 0; i < NumBlue; i++)
 			{
 				DrawPlayer(i, BluePlayerList[i], DeltaTime, XOffset, DrawOffset);
 				DrawOffset += CellHeight;
