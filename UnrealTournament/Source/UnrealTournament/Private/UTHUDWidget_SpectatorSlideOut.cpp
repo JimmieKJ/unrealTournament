@@ -129,14 +129,14 @@ void UUTHUDWidget_SpectatorSlideOut::Draw_Implementation(float DeltaTime)
 					? FMath::Min(Size.X, SlideIn + DeltaTime*Size.X*SlideSpeed) 
 					: FMath::Max(0.f, SlideIn - DeltaTime*Size.X*SlideSpeed);
 
-		float DrawOffset = 0.27f * Canvas->ClipY;
+		float DrawOffset = 0.2f * Canvas->ClipY/RenderScale;
 		if (SlideIn <= 0.f)
 		{
 			DrawSelector("ToggleSlideOut", true, 0.f, DrawOffset);
 			return;
 		}
 
-		DrawSelector("ToggleMinimap", !UTHUDOwner->bDrawMinimap, 0.f, DrawOffset - CellHeight);
+		DrawSelector("ToggleMinimap", UTHUDOwner->bDrawMinimap, 0.f, DrawOffset - CellHeight);
 
 		float XOffset = SlideIn - Size.X;
 		SlideOutFont = UTHUDOwner->SmallFont;
@@ -506,7 +506,7 @@ void UUTHUDWidget_SpectatorSlideOut::DrawSelector(FString Command, bool bPointRi
 			RenderPosition.X + ((XOffset + CamTypeButtonStart*Size.X) * RenderScale), RenderPosition.Y + ((YOffset + ArrowSize*Size.X) * RenderScale));
 		ClickElementStack.Add(FClickElement(Command, Bounds));
 		float Opacity = (MousePosition.X >= Bounds.X && MousePosition.X <= Bounds.Z && MousePosition.Y >= Bounds.Y && MousePosition.Y <= Bounds.W)
-				? 1.f : 0.3f;
+				? 1.f : 0.5f;
 		DrawTexture(TextureAtlas, XOffset, YOffset + 0.5f*CellHeight - 9.f, 18.f, 18.f, U, 188.f, UL, 65.f, Opacity, DrawColor);
 	}
 }

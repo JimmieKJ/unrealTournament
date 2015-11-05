@@ -508,7 +508,7 @@ void AUTHUD::DrawHUD()
 				if (bDrawMinimap && UTPlayerOwner->PlayerState && UTPlayerOwner->PlayerState->bOnlySpectator)
 				{
 					const float MapSize = float(Canvas->SizeY) * 0.75f;
-					DrawMinimap(FColor(192, 192, 192, 210), MapSize, FVector2D((Canvas->SizeX - MapSize) * 0.5f, (Canvas->SizeY - MapSize) * 0.5f));
+					DrawMinimap(FColor(192, 192, 192, 210), MapSize, FVector2D(Canvas->SizeX - MapSize, 0.f));
 				}
 			}
 		}
@@ -1030,23 +1030,7 @@ void AUTHUD::DrawMinimap(const FColor& DrawColor, float MapSize, FVector2D DrawP
 				if (UTChar->bTearOff)
 				{
 					// Draw skull at location
-					float Height = 20.f * RenderScale;
-					float Width = 20.f * RenderScale;
-					FVector2D RenderPos = FVector2D(Pos.X - (Width * 0.5f), Pos.Y - (Height * 0.5f));
-					float U = 725.f / HUDAtlas->Resource->GetSizeX();
-					float V = 0.f;
-					float UL = U + (28.f / HUDAtlas->Resource->GetSizeX());
-					float VL = V + (36.f / HUDAtlas->Resource->GetSizeY());
-					FCanvasTileItem ImageItemShadow(FVector2D(RenderPos.X -1.f, RenderPos.Y - 1.f), HUDAtlas->Resource, FVector2D(Width, Height), FVector2D(U, V), FVector2D(UL, VL), FLinearColor::Black);
-					FCanvasTileItem ImageItem(RenderPos, HUDAtlas->Resource, FVector2D(Width, Height), FVector2D(U, V), FVector2D(UL, VL), FLinearColor::White);
-					ImageItem.Rotation = FRotator(0.f, 0.f, 0.f);
-					ImageItem.PivotPoint = FVector2D(0.f, 0.f);
-					ImageItem.BlendMode = ESimpleElementBlendMode::SE_BLEND_Translucent;
-					ImageItemShadow.Rotation = FRotator(0.f, 0.f, 0.f);
-					ImageItemShadow.PivotPoint = FVector2D(0.f, 0.f);
-					ImageItemShadow.BlendMode = ESimpleElementBlendMode::SE_BLEND_Translucent;
-					Canvas->DrawItem(ImageItemShadow);
-					Canvas->DrawItem(ImageItem);
+					DrawMinimapIcon(HUDAtlas, Pos, FVector2D(20.f, 20.f), FVector2D(725.f, 0.f), FVector2D(28.f, 36.f), FLinearColor::White, true);
 				}
 				else
 				{
@@ -1059,4 +1043,29 @@ void AUTHUD::DrawMinimap(const FColor& DrawColor, float MapSize, FVector2D DrawP
 			}
 		}
 	}
+}
+
+void AUTHUD::DrawMinimapIcon(UTexture2D* Texture, FVector2D Pos, FVector2D DrawSize, FVector2D UV, FVector2D UVL, FLinearColor DrawColor, bool bDropShadow)
+{
+	const float RenderScale = float(Canvas->SizeY) / 1080.0f;
+	float Height = DrawSize.X * RenderScale;
+	float Width = DrawSize.Y * RenderScale;
+	FVector2D RenderPos = FVector2D(Pos.X - (Width * 0.5f), Pos.Y - (Height * 0.5f));
+	float U = UV.X / Texture->Resource->GetSizeX();
+	float V = UV.Y;
+	float UL = U + (UVL.X / Texture->Resource->GetSizeX());
+	float VL = V + (UVL.Y / Texture->Resource->GetSizeY());
+	if (bDropShadow)
+	{
+		FCanvasTileItem ImageItemShadow(FVector2D(RenderPos.X - 1.f, RenderPos.Y - 1.f), Texture->Resource, FVector2D(Width, Height), FVector2D(U, V), FVector2D(UL, VL), FLinearColor::Black);
+		ImageItemShadow.Rotation = FRotator(0.f, 0.f, 0.f);
+		ImageItemShadow.PivotPoint = FVector2D(0.f, 0.f);
+		ImageItemShadow.BlendMode = ESimpleElementBlendMode::SE_BLEND_Translucent;
+		Canvas->DrawItem(ImageItemShadow);
+	}
+	FCanvasTileItem ImageItem(RenderPos, Texture->Resource, FVector2D(Width, Height), FVector2D(U, V), FVector2D(UL, VL), FLinearColor::White);
+	ImageItem.Rotation = FRotator(0.f, 0.f, 0.f);
+	ImageItem.PivotPoint = FVector2D(0.f, 0.f);
+	ImageItem.BlendMode = ESimpleElementBlendMode::SE_BLEND_Translucent;
+	Canvas->DrawItem(ImageItem);
 }

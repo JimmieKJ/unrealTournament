@@ -383,6 +383,11 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category = HUD)
 	virtual void DrawMinimap(const FColor& DrawColor, float MapSize, FVector2D DrawPos);
+
+	/** Draw a minimap icon that is a included in a large texture. */
+	UFUNCTION(BlueprintCallable, Category = HUD)
+		virtual void DrawMinimapIcon(UTexture2D* Texture, FVector2D Pos, FVector2D DrawSize, FVector2D UV, FVector2D UVL, FLinearColor DrawColor, bool bDropShadow);
+
 protected:
 	/** calculates MinimapTransform from the given level bounding box */
 	virtual void CalcMinimapTransform(const FBox& LevelBox, int32 MapWidth, int32 MapHeight);
