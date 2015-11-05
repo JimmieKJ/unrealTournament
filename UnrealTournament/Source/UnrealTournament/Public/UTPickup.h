@@ -87,6 +87,9 @@ class UNREALTOURNAMENT_API AUTPickup : public AActor, public IUTResetInterface, 
 	UPROPERTY(BlueprintReadOnly, Category = Game)
 	AUTPlayerState* LastPickedUpBy;
 
+	/** Spectator camera associated with this pickup. */
+	class AUTSpectatorCamera* Camera;
+
 	/** icon for drawing time remaining on the HUD. AUTPickupInventory use their InventoryClasses HUDIcon*/
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Pickup)
 	FCanvasIcon HUDIcon;

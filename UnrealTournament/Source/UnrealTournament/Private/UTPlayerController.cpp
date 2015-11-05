@@ -1028,7 +1028,19 @@ void AUTPlayerController::ViewPowerup(FString PowerupName)
 		if (Pickup && (Pickup->GetName() == PowerupName))
 		{
 			bAutoCam = false;
-			SetViewTarget(Pickup);
+			if (Pickup->Camera)
+			{
+				AActor* NewViewTarget = (GetSpectatorPawn() != NULL) ? GetSpectatorPawn() : SpawnSpectatorPawn();
+				NewViewTarget->SetActorLocationAndRotation(Pickup->Camera->GetActorLocation(), Pickup->Camera->GetActorRotation());
+				ResetCameraMode();
+				SetViewTarget(NewViewTarget);
+				SetControlRotation(Pickup->Camera->GetActorRotation());
+				ServerViewSelf();
+			}
+			else
+			{
+				SetViewTarget(Pickup);
+			}
 			break;
 		}
 	}
