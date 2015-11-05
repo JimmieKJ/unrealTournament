@@ -3429,10 +3429,10 @@ void UUTLocalPlayer::SkullPickedUp()
 
 void UUTLocalPlayer::ChallengeCompleted(FName ChallengeTag, int32 Stars)
 {
+	EarnedStars = 0;
 	if (CurrentProfileSettings && Stars > 0)
 	{
 		bool bFound = false;
-		EarnedStars = 0;
 		for (int32 i = 0 ; i < CurrentProfileSettings->ChallengeResults.Num(); i++)
 		{
 			if (CurrentProfileSettings->ChallengeResults[i].Tag == ChallengeTag)
