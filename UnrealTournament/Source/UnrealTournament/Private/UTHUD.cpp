@@ -1023,32 +1023,36 @@ void AUTHUD::DrawMinimap(const FColor& DrawColor, float MapSize, FVector2D DrawP
 
 	if (PlayerOwner && PlayerOwner->PlayerState && PlayerOwner->PlayerState->bOnlySpectator)
 	{
-		const float RenderScale = float(Canvas->SizeY) / 1080.0f;
-		for (FConstPawnIterator Iterator = GetWorld()->GetPawnIterator(); Iterator; ++Iterator)
+		DrawMinimapSpectatorIcons();
+	}
+}
+
+void AUTHUD::DrawMinimapSpectatorIcons()
+{
+	const float RenderScale = float(Canvas->SizeY) / 1080.0f;
+	for (FConstPawnIterator Iterator = GetWorld()->GetPawnIterator(); Iterator; ++Iterator)
+	{
+		AUTCharacter* UTChar = Cast<AUTCharacter>(*Iterator);
+		if (UTChar)
 		{
-			AUTCharacter* UTChar = Cast<AUTCharacter>(*Iterator);
-			if (UTChar)
+			FVector2D Pos(WorldToMapToScreen(UTChar->GetActorLocation()));
+			if (UTChar->bTearOff)
 			{
-				FVector2D Pos(WorldToMapToScreen(UTChar->GetActorLocation()));
-				if (UTChar->bTearOff)
-				{
-					// Draw skull at location
-					DrawMinimapIcon(HUDAtlas, Pos, FVector2D(20.f, 20.f), FVector2D(725.f, 0.f), FVector2D(28.f, 36.f), FLinearColor::White, true);
-				}
-				else
-				{
-					// draw team colored dot at location
-					AUTPlayerState* PS = Cast<AUTPlayerState>(UTChar->PlayerState);
-					FLinearColor PlayerColor = (PS && PS->Team) ? PS->Team->TeamColor : FLinearColor::Green;
-					PlayerColor.A = 0.5f;
-					Canvas->K2_DrawTexture(PlayerMinimapTexture, Pos - FVector2D(10.0f * RenderScale, 10.0f * RenderScale), FVector2D(20.0f, 20.0f) * RenderScale, FVector2D(0.0f, 0.0f), FVector2D(1.0f, 1.0f), PlayerColor, BLEND_Translucent, UTChar->GetActorRotation().Yaw + 90.0f);
+				// Draw skull at location
+				DrawMinimapIcon(HUDAtlas, Pos, FVector2D(20.f, 20.f), FVector2D(725.f, 0.f), FVector2D(28.f, 36.f), FLinearColor::White, true);
+			}
+			else
+			{
+				// draw team colored dot at location
+				AUTPlayerState* PS = Cast<AUTPlayerState>(UTChar->PlayerState);
+				FLinearColor PlayerColor = (PS && PS->Team) ? PS->Team->TeamColor : FLinearColor::Green;
+				PlayerColor.A = 0.5f;
+				Canvas->K2_DrawTexture(PlayerMinimapTexture, Pos - FVector2D(10.0f * RenderScale, 10.0f * RenderScale), FVector2D(20.0f, 20.0f) * RenderScale, FVector2D(0.0f, 0.0f), FVector2D(1.0f, 1.0f), PlayerColor, BLEND_Translucent, UTChar->GetActorRotation().Yaw + 90.0f);
 
-					if (Cast<AUTPlayerController>(PlayerOwner) && (Cast<AUTPlayerController>(PlayerOwner)->LastSpectatedPlayerId == PS->SpectatingID))
-					{
-						Canvas->DrawColor = FColor(255, 255, 0, 255);
-						Canvas->DrawTile(SelectedPlayerTexture, Pos.X - 12.0f * RenderScale, Pos.Y - 12.0f * RenderScale, 24.0f * RenderScale, 24.0f * RenderScale, 0.0f, 0.0f, SelectedPlayerTexture->GetSurfaceWidth(), SelectedPlayerTexture->GetSurfaceHeight());
-
-					}
+				if (Cast<AUTPlayerController>(PlayerOwner) && (Cast<AUTPlayerController>(PlayerOwner)->LastSpectatedPlayerId == PS->SpectatingID))
+				{
+					Canvas->DrawColor = FColor(255, 255, 0, 255);
+					Canvas->DrawTile(SelectedPlayerTexture, Pos.X - 12.0f * RenderScale, Pos.Y - 12.0f * RenderScale, 24.0f * RenderScale, 24.0f * RenderScale, 0.0f, 0.0f, SelectedPlayerTexture->GetSurfaceWidth(), SelectedPlayerTexture->GetSurfaceHeight());
 				}
 			}
 		}
@@ -1062,7 +1066,7 @@ void AUTHUD::DrawMinimapIcon(UTexture2D* Texture, FVector2D Pos, FVector2D DrawS
 	float Width = DrawSize.Y * RenderScale;
 	FVector2D RenderPos = FVector2D(Pos.X - (Width * 0.5f), Pos.Y - (Height * 0.5f));
 	float U = UV.X / Texture->Resource->GetSizeX();
-	float V = UV.Y;
+	float V = UV.Y / Texture->Resource->GetSizeY();;
 	float UL = U + (UVL.X / Texture->Resource->GetSizeX());
 	float VL = V + (UVL.Y / Texture->Resource->GetSizeY());
 	if (bDropShadow)
@@ -1073,7 +1077,7 @@ void AUTHUD::DrawMinimapIcon(UTexture2D* Texture, FVector2D Pos, FVector2D DrawS
 		ImageItemShadow.BlendMode = ESimpleElementBlendMode::SE_BLEND_Translucent;
 		Canvas->DrawItem(ImageItemShadow);
 	}
-	FCanvasTileItem ImageItem(RenderPos, Texture->Resource, FVector2D(Width, Height), FVector2D(U, V), FVector2D(UL, VL), FLinearColor::White);
+	FCanvasTileItem ImageItem(RenderPos, Texture->Resource, FVector2D(Width, Height), FVector2D(U, V), FVector2D(UL, VL), DrawColor);
 	ImageItem.Rotation = FRotator(0.f, 0.f, 0.f);
 	ImageItem.PivotPoint = FVector2D(0.f, 0.f);
 	ImageItem.BlendMode = ESimpleElementBlendMode::SE_BLEND_Translucent;

@@ -43,4 +43,28 @@ void AUTHUD_CTF::NotifyMatchStateChange()
 	}
 }
 
+void AUTHUD_CTF::DrawMinimapSpectatorIcons()
+{
+	AUTCTFGameState* GS = Cast<AUTCTFGameState>(GetWorld()->GetGameState());
+	if (GS == NULL) return;
+
+	const float RenderScale = float(Canvas->SizeY) / 1080.0f;
+
+	for (int32 Team = 0; Team < 2; Team++)
+	{
+		AUTCTFFlagBase* Base = GS->GetFlagBase(Team);
+		if (Base && Base->MyFlag && Base->MyFlag->Team)
+		{
+			FVector2D Pos = WorldToMapToScreen(Base->GetActorLocation());
+			Canvas->DrawColor = (Team == 0) ? FColor(255, 0, 0, 255) : FColor(0, 0, 255, 255);
+			Canvas->DrawTile(SelectedPlayerTexture, Pos.X - 12.0f * RenderScale, Pos.Y - 12.0f * RenderScale, 24.0f * RenderScale, 24.0f * RenderScale, 0.0f, 0.0f, SelectedPlayerTexture->GetSurfaceWidth(), SelectedPlayerTexture->GetSurfaceHeight());
+
+			Pos = WorldToMapToScreen(Base->MyFlag->GetActorLocation());
+			DrawMinimapIcon(OldHudTexture, Pos, FVector2D(30.f, 30.f), FVector2D(843.f, 87.f), FVector2D(43.f, 41.f), Base->MyFlag->Team->TeamColor, true);
+		}
+	}
+
+	Super::DrawMinimapSpectatorIcons();
+}
+
 

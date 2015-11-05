@@ -392,6 +392,8 @@ public:
 	UFUNCTION(BlueprintCallable, Category = HUD)
 		virtual void DrawMinimapIcon(UTexture2D* Texture, FVector2D Pos, FVector2D DrawSize, FVector2D UV, FVector2D UVL, FLinearColor DrawColor, bool bDropShadow);
 
+	virtual void DrawMinimapSpectatorIcons();
+
 protected:
 	/** calculates MinimapTransform from the given level bounding box */
 	virtual void CalcMinimapTransform(const FBox& LevelBox, int32 MapWidth, int32 MapHeight);

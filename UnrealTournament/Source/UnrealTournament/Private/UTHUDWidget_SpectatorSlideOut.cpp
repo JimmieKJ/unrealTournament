@@ -136,7 +136,7 @@ void UUTHUDWidget_SpectatorSlideOut::Draw_Implementation(float DeltaTime)
 			return;
 		}
 
-		DrawSelector("ToggleMinimap", UTHUDOwner->bDrawMinimap, 0.f, DrawOffset - CellHeight);
+		DrawSelector("ToggleMinimap", !UTHUDOwner->bDrawMinimap, 0.f, DrawOffset - CellHeight);
 
 		float XOffset = SlideIn - Size.X;
 		SlideOutFont = UTHUDOwner->SmallFont;
