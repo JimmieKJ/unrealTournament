@@ -504,9 +504,12 @@ void AUTHUD::DrawHUD()
 					UTPlayerOwner->SetViewedScorePS(GetScorerPlayerState(), UTPlayerOwner->CurrentlyViewedStatsTab);
 				}
 			}
-			else
+			else 
 			{
-				DrawDamageIndicators();
+				if (!UTPlayerOwner->bCurrentlyBehindView || !UTPlayerOwner->UTPlayerState || !UTPlayerOwner->UTPlayerState->bOnlySpectator)
+				{
+					DrawDamageIndicators();
+				}
 				UTPlayerOwner->SetViewedScorePS(NULL, 0);
 				if (bDrawMinimap && UTPlayerOwner->PlayerState && UTPlayerOwner->PlayerState->bOnlySpectator)
 				{
