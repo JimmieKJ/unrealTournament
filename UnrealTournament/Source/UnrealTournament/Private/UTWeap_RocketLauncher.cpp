@@ -560,11 +560,14 @@ void AUTWeap_RocketLauncher::UpdateLock()
 		return;
 	}
 
+	const FVector FireLoc = GetFireStartLoc();
+	AActor* NewTarget = UUTGameplayStatics::PickBestAimTarget(UTOwner->Controller, FireLoc, GetAdjustedAim(FireLoc).Vector(), LockAim, LockRange, AUTCharacter::StaticClass());
+
 	//Have a target. Update the target lock
 	if (LockedTarget != NULL)
 	{
 		//Still Valid LockTarget
-		if (WithinLockAim(LockedTarget))
+		if (LockedTarget == NewTarget)
 		{
 			LastLockedOnTime = GetWorld()->TimeSeconds;
 		}
@@ -575,31 +578,20 @@ void AUTWeap_RocketLauncher::UpdateLock()
 		}
 	}
 	//Have a pending target
-	else if (PendingLockedTarget != NULL)
+	if (PendingLockedTarget != NULL && PendingLockedTarget == NewTarget)
 	{
-		bool bAimingAt = WithinLockAim(PendingLockedTarget);
 		//If we are looking at the target and its time to lock on
-		if (bAimingAt && (PendingLockedTargetTime + LockAcquireTime) < GetWorld()->TimeSeconds)
+		if ((PendingLockedTargetTime + LockAcquireTime) < GetWorld()->TimeSeconds)
 		{
 			SetLockTarget(PendingLockedTarget);
-			PendingLockedTarget = NULL;
-		}
-		//Lost the pending target
-		else if (!bAimingAt)
-		{
 			PendingLockedTarget = NULL;
 		}
 	}
 	//Trace to see if we are looking at a new target
 	else
 	{
-		const FVector FireLoc = GetFireStartLoc();
-		AActor* NewTarget = UUTGameplayStatics::PickBestAimTarget(UTOwner->Controller, FireLoc, GetAdjustedAim(FireLoc).Vector(), LockAim, LockRange, AUTCharacter::StaticClass());
-		if (NewTarget != NULL)
-		{
-			PendingLockedTarget = NewTarget;
-			PendingLockedTargetTime = GetWorld()->TimeSeconds;
-		}
+		PendingLockedTarget = NewTarget;
+		PendingLockedTargetTime = (NewTarget != NULL) ? GetWorld()->TimeSeconds : 0.0f;
 	}
 }
 
