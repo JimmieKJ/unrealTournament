@@ -295,10 +295,6 @@ void UUTHUDWidget_SpectatorSlideOut::Draw_Implementation(float DeltaTime)
 					{
 						CameraString[NumCameras] = Cam->CamLocationName;
 						NumCameras++;
-						if (NumCameras == 10)
-						{
-							break;
-						}
 					}
 				}
 			}

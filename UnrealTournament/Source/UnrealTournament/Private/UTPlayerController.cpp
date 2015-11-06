@@ -1147,7 +1147,6 @@ void AUTPlayerController::ViewCamera(int32 Index)
 			AUTSpectatorCamera* Cam = Cast<AUTSpectatorCamera>(*It);
 			if (Cam)
 			{
-				CamCount++;
 				if (CamCount == Index)
 				{
 					bAutoCam = false;
@@ -1158,6 +1157,7 @@ void AUTPlayerController::ViewCamera(int32 Index)
 					SetControlRotation(Cam->GetActorRotation());
 					ServerViewSelf();
 				}
+				CamCount++;
 			}
 		}
 	}
