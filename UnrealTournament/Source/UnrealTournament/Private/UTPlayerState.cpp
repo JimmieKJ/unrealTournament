@@ -25,6 +25,12 @@
 #include "UTDemoRecSpectator.h"
 #include "Slate/SUTStyle.h"
 
+/** disables load warnings for dedicated server where invalid client input can cause unpreventable logspam, but enables on clients so developers can make sure their stuff is working */
+static inline ELoadFlags GetCosmeticLoadFlags()
+{
+	return IsRunningDedicatedServer() ? LOAD_NoWarn : LOAD_None;
+}
+
 AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
@@ -632,7 +638,7 @@ void AUTPlayerState::ServerReceiveHatClass_Implementation(const FString& NewHatC
 {
 	if (!bOnlySpectator && (GetWorld()->IsPlayInEditor() || GetNetMode() == NM_Standalone || HatClass == NULL || !GetWorld()->GetGameState()->HasMatchStarted()))
 	{
-		HatClass = LoadClass<AUTHat>(NULL, *NewHatClass, NULL, LOAD_NoWarn, NULL);
+		HatClass = LoadClass<AUTHat>(NULL, *NewHatClass, NULL, GetCosmeticLoadFlags(), NULL);
 
 		// Allow the game mode to validate the hat.
 		AUTGameMode* GameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
@@ -664,7 +670,7 @@ void AUTPlayerState::ServerReceiveLeaderHatClass_Implementation(const FString& N
 {
 	if (!bOnlySpectator && (GetNetMode() == NM_Standalone || LeaderHatClass == NULL || !GetWorld()->GetGameState()->HasMatchStarted()))
 	{
-		LeaderHatClass = LoadClass<AUTHatLeader>(NULL, *NewLeaderHatClass, NULL, LOAD_NoWarn, NULL);
+		LeaderHatClass = LoadClass<AUTHatLeader>(NULL, *NewLeaderHatClass, NULL, GetCosmeticLoadFlags(), NULL);
 
 		if (LeaderHatClass != nullptr)
 		{
@@ -682,7 +688,7 @@ void AUTPlayerState::ServerReceiveEyewearClass_Implementation(const FString& New
 {
 	if (!bOnlySpectator && (GetNetMode() == NM_Standalone || EyewearClass == NULL || !GetWorld()->GetGameState()->HasMatchStarted()))
 	{
-		EyewearClass = LoadClass<AUTEyewear>(NULL, *NewEyewearClass, NULL, LOAD_NoWarn, NULL);
+		EyewearClass = LoadClass<AUTEyewear>(NULL, *NewEyewearClass, NULL, GetCosmeticLoadFlags(), NULL);
 		OnRepEyewear();
 		if (EyewearClass != NULL)
 		{
@@ -700,7 +706,7 @@ void AUTPlayerState::ServerReceiveTauntClass_Implementation(const FString& NewTa
 {
 	if (!bOnlySpectator)
 	{
-		TauntClass = LoadClass<AUTTaunt>(NULL, *NewTauntClass, NULL, LOAD_NoWarn, NULL);
+		TauntClass = LoadClass<AUTTaunt>(NULL, *NewTauntClass, NULL, GetCosmeticLoadFlags(), NULL);
 		if (TauntClass != NULL)
 		{
 			ValidateEntitlements();
@@ -717,7 +723,7 @@ void AUTPlayerState::ServerReceiveTaunt2Class_Implementation(const FString& NewT
 {
 	if (!bOnlySpectator)
 	{
-		Taunt2Class = LoadClass<AUTTaunt>(NULL, *NewTauntClass, NULL, LOAD_NoWarn, NULL);
+		Taunt2Class = LoadClass<AUTTaunt>(NULL, *NewTauntClass, NULL, GetCosmeticLoadFlags(), NULL);
 		if (Taunt2Class != NULL)
 		{
 			ValidateEntitlements();
@@ -892,12 +898,12 @@ void AUTPlayerState::SetCharacterVoice(const FString& CharacterVoicePath)
 {
 	if (Role == ROLE_Authority)
 	{
-		CharacterVoice = (CharacterVoicePath.Len() > 0) ? LoadClass<UUTCharacterVoice>(NULL, *CharacterVoicePath, NULL, LOAD_None, NULL) : NULL;
+		CharacterVoice = (CharacterVoicePath.Len() > 0) ? LoadClass<UUTCharacterVoice>(NULL, *CharacterVoicePath, NULL, GetCosmeticLoadFlags(), NULL) : NULL;
 		// redirect from blueprint, for easier testing in the editor via C/P
 #if WITH_EDITORONLY_DATA
 		if (CharacterVoice == NULL)
 		{
-			UBlueprint* BP = LoadObject<UBlueprint>(NULL, *CharacterVoicePath, NULL, LOAD_None, NULL);
+			UBlueprint* BP = LoadObject<UBlueprint>(NULL, *CharacterVoicePath, NULL, GetCosmeticLoadFlags(), NULL);
 			if (BP != NULL)
 			{
 				CharacterVoice = *BP->GeneratedClass;
@@ -911,12 +917,12 @@ void AUTPlayerState::SetCharacter(const FString& CharacterPath)
 {
 	if (Role == ROLE_Authority)
 	{
-		SelectedCharacter = (CharacterPath.Len() > 0) ? LoadClass<AUTCharacterContent>(NULL, *CharacterPath, NULL, LOAD_None, NULL) : NULL;
+		SelectedCharacter = (CharacterPath.Len() > 0) ? LoadClass<AUTCharacterContent>(NULL, *CharacterPath, NULL, GetCosmeticLoadFlags(), NULL) : NULL;
 // redirect from blueprint, for easier testing in the editor via C/P
 #if WITH_EDITORONLY_DATA
 		if (SelectedCharacter == NULL)
 		{
-			UBlueprint* BP = LoadObject<UBlueprint>(NULL, *CharacterPath, NULL, LOAD_None, NULL);
+			UBlueprint* BP = LoadObject<UBlueprint>(NULL, *CharacterPath, NULL, GetCosmeticLoadFlags(), NULL);
 			if (BP != NULL)
 			{
 				SelectedCharacter = *BP->GeneratedClass;
@@ -2198,7 +2204,7 @@ void AUTPlayerState::OnRep_PlayerName()
 
 void AUTPlayerState::SetOverrideHatClass(const FString& NewOverrideHatClass)
 {
-	OverrideHatClass = NewOverrideHatClass == TEXT("") ? nullptr : LoadClass<AUTHat>(NULL, *NewOverrideHatClass, NULL, LOAD_NoWarn, NULL);
+	OverrideHatClass = NewOverrideHatClass == TEXT("") ? nullptr : LoadClass<AUTHat>(NULL, *NewOverrideHatClass, NULL, GetCosmeticLoadFlags(), NULL);
 	OnRepOverrideHat();
 }
 
