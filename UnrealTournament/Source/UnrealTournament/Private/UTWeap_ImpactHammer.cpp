@@ -164,6 +164,13 @@ void AUTWeap_ImpactHammer::FireInstantHit(bool bDealDamage, FHitResult* OutHit)
 						JumpDir = FVector(0.f, 0.f, 1.f);
 					}
 
+					if (UTOwner->LandEffect != NULL)
+					{
+						FRotator EffectRot = Hit.Normal.Rotation();
+						EffectRot.Pitch -= 90.f;
+						UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), UTOwner->LandEffect, Hit.Location, EffectRot, true);
+					}
+
 					// Moving the hit location to player location seems to fix blood decal collision checks
 					Hit.Location = UTOwner->GetActorLocation();
 

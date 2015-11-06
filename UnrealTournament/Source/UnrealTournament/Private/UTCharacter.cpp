@@ -3168,7 +3168,9 @@ void AUTCharacter::Landed(const FHitResult& Hit)
 			UUTGameplayStatics::UTPlaySound(GetWorld(), CharacterData.GetDefaultObject()->LandingSound, this, SRT_None);
 			if ((LandEffect != NULL) && (FMath::Abs(GetCharacterMovement()->Velocity.Z) > LandEffectSpeed))
 			{
-				UParticleSystemComponent* LandedPSC = UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), LandEffect, GetActorLocation() - FVector(0.f,0.f, GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight()), Hit.Normal.Rotation(), true);
+				FRotator EffectRot = Hit.Normal.Rotation();
+				EffectRot.Pitch -= 90.f;
+				UParticleSystemComponent* LandedPSC = UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), LandEffect, GetActorLocation() - FVector(0.f, 0.f, GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight()), EffectRot, true);
 				float EffectScale = FMath::Clamp(FMath::Square(GetCharacterMovement()->Velocity.Z)/(2.f*LandEffectSpeed*LandEffectSpeed), 0.5f, 1.f);
 				LandedPSC->SetRelativeScale3D(FVector(EffectScale, EffectScale, 1.f));
 			}
