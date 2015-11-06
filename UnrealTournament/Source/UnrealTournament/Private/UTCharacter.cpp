@@ -4534,10 +4534,10 @@ void AUTCharacter::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector
 	AUTPlayerState* UTPS = Cast<AUTPlayerState>(PlayerState);
 	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 	AUTPlayerController* UTPC = Cast<AUTPlayerController>(PC);
-	bool bSpectating = PC && PC->PlayerState && PC->PlayerState->bOnlySpectator;
-	bool bTacCom = bSpectating && UTPC && UTPC->bTacComView;
-	bool bOnSameTeam = GS->OnSameTeam(PC->GetPawn(), this);
-	bool bRecentlyRendered = (GetWorld()->TimeSeconds - GetLastRenderTime() < 0.5f);
+	const bool bSpectating = PC && PC->PlayerState && PC->PlayerState->bOnlySpectator;
+	const bool bTacCom = bSpectating && UTPC && UTPC->bTacComView;
+	const bool bOnSameTeam = GS != NULL && GS->OnSameTeam(PC->GetPawn(), this);
+	const bool bRecentlyRendered = (GetWorld()->TimeSeconds - GetLastRenderTime() < 0.5f);
 	if (UTPS != NULL && UTPC != NULL && (bSpectating || (PC->GetViewTarget() != this)) && (bRecentlyRendered || bOnSameTeam) &&
 		FVector::DotProduct(CameraDir, (GetActorLocation() - CameraPosition)) > 0.0f && GS != NULL)
 	{
