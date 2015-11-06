@@ -74,6 +74,7 @@ UUTHUDWidget_SpectatorSlideOut::UUTHUDWidget_SpectatorSlideOut(const class FObje
 	MouseOverOpacity = 0.5f;
 	SelectedOpacity = 0.7f;
 	CameraBindWidth = 0.48f;
+	PowerupWidth = 0.35f;
 	bShowingStats = false;
 	KillsColumn = 0.32f;
 	DeathsColumn = 0.49f;
@@ -228,24 +229,50 @@ void UUTHUDWidget_SpectatorSlideOut::Draw_Implementation(float DeltaTime)
 				InitPowerupList();
 			}
 			int32 TimerOffset = XOffset + CamTypeButtonStart*Size.X;
+			float DrawOffsetRed = DrawOffset;
+			float DrawOffsetBlue = DrawOffset;
 			for (int32 i = 0; i < PowerupList.Num(); i++)
 			{
 				if (PowerupList[i] != NULL)
 				{
-					DrawPowerup(PowerupList[i], TimerOffset, DrawOffset);
-					if (i % 2 == 0)
-					{
-						TimerOffset = XOffset + CamTypeButtonStart*Size.X + 0.37f * Size.X;
-					}
-					else
+					if (PowerupList[i]->TeamSide == 0)
 					{
 						TimerOffset = XOffset + CamTypeButtonStart*Size.X;
-						DrawOffset += 1.2f*CellHeight;
+						DrawPowerup(PowerupList[i], TimerOffset, DrawOffsetRed);
+						DrawOffsetRed += 1.2f*CellHeight;
+					}
+					else if (PowerupList[i]->TeamSide == 1)
+					{
+						TimerOffset = XOffset + CamTypeButtonStart*Size.X + (PowerupWidth + 0.02f) * Size.X;
+						DrawPowerup(PowerupList[i], TimerOffset, DrawOffsetBlue);
+						DrawOffsetBlue += 1.2f*CellHeight;
 					}
 				}
 			}
+			for (int32 i = 0; i < PowerupList.Num(); i++)
+			{
+				if (PowerupList[i] && (PowerupList[i]->TeamSide > 1))
+				{
+					if (DrawOffsetRed <= DrawOffsetBlue)
+					{
+						TimerOffset = XOffset + CamTypeButtonStart*Size.X;
+						DrawPowerup(PowerupList[i], TimerOffset, DrawOffsetRed);
+						DrawOffsetRed += 1.2f*CellHeight;
+					}
+					else
+					{
+						TimerOffset = XOffset + CamTypeButtonStart*Size.X + (PowerupWidth + 0.02f) * Size.X;
+						DrawPowerup(PowerupList[i], TimerOffset, DrawOffsetBlue);
+						DrawOffsetBlue += 1.2f*CellHeight;
+					}
+				}
+			}
+			DrawOffset = FMath::Max(DrawOffsetRed, DrawOffsetBlue);
 		}
-		DrawOffset += 1.2f*CellHeight;
+		else
+		{
+			DrawOffset += 1.2f*CellHeight;
+		}
 
 		float StartCamOffset = DrawOffset;
 		float EndCamOffset = 0.0f; 
@@ -331,7 +358,7 @@ void UUTHUDWidget_SpectatorSlideOut::DrawPowerup(AUTPickup* Pickup, float XOffse
 	if (bIsInteractive)
 	{
 		FVector4 Bounds = FVector4(RenderPosition.X + (XOffset * RenderScale), RenderPosition.Y + (YOffset * RenderScale),
-			RenderPosition.X + ((XOffset + 0.35f*Size.X) * RenderScale), RenderPosition.Y + ((YOffset + CellHeight) * RenderScale));
+			RenderPosition.X + ((XOffset + PowerupWidth*Size.X) * RenderScale), RenderPosition.Y + ((YOffset + CellHeight) * RenderScale));
 		ClickElementStack.Add(FClickElement("ViewPowerup " + FString::Printf(TEXT("%s"), *Pickup->GetName()), Bounds));
 		if ((MousePosition.X >= Bounds.X && MousePosition.X <= Bounds.Z && MousePosition.Y >= Bounds.Y && MousePosition.Y <= Bounds.W))
 		{
@@ -342,7 +369,7 @@ void UUTHUDWidget_SpectatorSlideOut::DrawPowerup(AUTPickup* Pickup, float XOffse
 	{
 		BarOpacity = SelectedOpacity;
 	}
-	DrawTexture(TextureAtlas, XOffset, YOffset, 0.35f*Size.X, 0.95f*CellHeight, 149, 138, 32, 32, BarOpacity, FLinearColor::White);
+	DrawTexture(TextureAtlas, XOffset, YOffset, PowerupWidth*Size.X, 0.95f*CellHeight, 149, 138, 32, 32, BarOpacity, FLinearColor::White);
 
 	if (Pickup->TeamSide < 2)
 	{
@@ -390,7 +417,7 @@ void UUTHUDWidget_SpectatorSlideOut::DrawFlag(FString FlagCommand, FString FlagN
 {
 	FLinearColor DrawColor = FLinearColor::White;
 	float BarOpacity = 0.3f;
-	float Width = 0.35f * Size.X;
+	float Width = PowerupWidth * Size.X;
 
 	// If we are interactive and this element has a keybind, store it so the mouse can click it
 	if (bIsInteractive)

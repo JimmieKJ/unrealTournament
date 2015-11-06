@@ -155,6 +155,9 @@ public:
 		float CameraBindWidth;
 
 	UPROPERTY()
+		float PowerupWidth;
+
+	UPROPERTY()
 		AUTPlayerState* SelectedPlayer;
 
 	/**Called from Slate to set the mouse position*/
