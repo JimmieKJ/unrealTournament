@@ -2587,17 +2587,20 @@ void AUTBot::SendVoiceMessage(FName MessageName)
 
 void AUTBot::Say(const FString& Msg, bool bTeam)
 {
-	for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
+	if (!bTeam || GetWorld()->GetAuthGameMode<AUTTeamGameMode>() != NULL)
 	{
-		AUTBasePlayerController* UTPC = Cast<AUTBasePlayerController>(*Iterator);
-		if (UTPC != NULL)
+		for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
 		{
-			if (!bTeam || UTPC->GetTeamNum() == GetTeamNum())
+			AUTBasePlayerController* UTPC = Cast<AUTBasePlayerController>(*Iterator);
+			if (UTPC != NULL)
 			{
-				// Dont send spectator chat to players
-				if (UTPC->PlayerState != NULL)
+				if (!bTeam || UTPC->GetTeamNum() == GetTeamNum())
 				{
-					UTPC->ClientSay(Cast<AUTPlayerState>(PlayerState), Msg, (bTeam ? ChatDestinations::Team : ChatDestinations::Local));
+					// Dont send spectator chat to players
+					if (UTPC->PlayerState != NULL)
+					{
+						UTPC->ClientSay(Cast<AUTPlayerState>(PlayerState), Msg, (bTeam ? ChatDestinations::Team : ChatDestinations::Local));
+					}
 				}
 			}
 		}
