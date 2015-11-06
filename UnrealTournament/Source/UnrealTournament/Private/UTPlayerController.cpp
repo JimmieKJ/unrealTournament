@@ -78,9 +78,9 @@ AUTPlayerController::AUTPlayerController(const class FObjectInitializer& ObjectI
 	bSpectateBehindView = true;
 	StylizedPPIndex = INDEX_NONE;
 
-	PredictionFudgeFactor = 15.f;
+	PredictionFudgeFactor = 20.f;
 	MaxPredictionPing = 0.f; 
-	DesiredPredictionPing = 0.f;
+	DesiredPredictionPing = 120.f;
 
 	bIsDebuggingProjectiles = false;
 	bUseClassicGroups = true;
