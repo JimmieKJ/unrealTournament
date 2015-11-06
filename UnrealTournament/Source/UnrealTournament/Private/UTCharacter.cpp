@@ -4035,6 +4035,13 @@ void AUTCharacter::TakeDrowningDamage()
 
 uint8 AUTCharacter::GetTeamNum() const
 {
+	static FName NAME_ScriptGetTeamNum(TEXT("ScriptGetTeamNum"));
+	UFunction* GetTeamNumFunc = GetClass()->FindFunctionByName(NAME_ScriptGetTeamNum);
+	if (GetTeamNumFunc != NULL && GetTeamNumFunc->Script.Num() > 0)
+	{
+		return IUTTeamInterface::Execute_ScriptGetTeamNum(const_cast<AUTCharacter*>(this));
+	}
+
 	const IUTTeamInterface* TeamInterface = Cast<IUTTeamInterface>(Controller);
 	if (TeamInterface != NULL)
 	{
