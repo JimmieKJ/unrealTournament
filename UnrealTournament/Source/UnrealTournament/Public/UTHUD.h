@@ -340,7 +340,7 @@ public:
 
 	/**Returns the necessary input mode for the hud this tick*/
 	UFUNCTION(BlueprintNativeEvent)
-	EInputMode::Type GetInputMode();
+	EInputMode::Type GetInputMode() const;
 
 	/**The list of crosshair information for each weapon*/
 	UPROPERTY(globalconfig)

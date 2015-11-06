@@ -29,16 +29,13 @@ AUTInventory::AUTInventory(const FObjectInitializer& ObjectInitializer)
 	bShowPowerupTimer = true;
 
 	MenuDescription = NSLOCTEXT("UTWeapon","DefaultDescription","This space let intentionally blank");
-
-
+	IconColor = FLinearColor::White;
 }
 
 void AUTInventory::PostInitProperties()
 {
 	Super::PostInitProperties();
 
-	// MATTFIXME
-	/*
 	// attempt to set defaults for event early outs based on whether the class has implemented them
 	// note that this only works for blueprints, C++ classes need to manually set
 	if (Cast<UBlueprintGeneratedClass>(GetClass()) != NULL)
@@ -62,7 +59,6 @@ void AUTInventory::PostInitProperties()
 			bCallOwnerEvent = (Func != NULL && Func->Script.Num() > 0);
 		}
 	}
-	*/
 }
 
 void AUTInventory::PreInitializeComponents()

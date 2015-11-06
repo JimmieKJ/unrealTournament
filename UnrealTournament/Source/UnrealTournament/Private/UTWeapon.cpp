@@ -96,7 +96,6 @@ AUTWeapon::AUTWeapon(const FObjectInitializer& ObjectInitializer)
 
 	BaseAISelectRating = 0.55f;
 	DisplayName = NSLOCTEXT("PickupMessage", "WeaponPickedUp", "Weapon");
-	IconColor = FLinearColor::White;
 	bShowPowerupTimer = false;
 
 }

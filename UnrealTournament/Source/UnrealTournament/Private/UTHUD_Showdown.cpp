@@ -6,16 +6,26 @@
 AUTHUD_Showdown::AUTHUD_Showdown(const FObjectInitializer& OI)
 : Super(OI)
 {
-	ConstructorHelpers::FObjectFinder<UTexture2D> PlayerStartBGTextureObject(TEXT("/Game/RestrictedAssets/UI/MiniMap/Minimap_PS_BG.Minimap_PS_BG"));
-	PlayerStartBGTexture = PlayerStartBGTextureObject.Object;
-	ConstructorHelpers::FObjectFinder<UTexture2D> PlayerStartTextureObject(TEXT("/Game/RestrictedAssets/UI/MiniMap/Minimap_PS_Icon.Minimap_PS_Icon"));
-	PlayerStartTexture = PlayerStartTextureObject.Object;
+	ConstructorHelpers::FObjectFinder<UTexture2D> PlayerStartBGTextureObject(TEXT("/Game/RestrictedAssets/UI/MiniMap/minimap_atlas.minimap_atlas"));
+	PlayerStartBGIcon.U = 64;
+	PlayerStartBGIcon.V = 192;
+	PlayerStartBGIcon.UL = 64;
+	PlayerStartBGIcon.VL = 64;
+	PlayerStartBGIcon.Texture = PlayerStartBGTextureObject.Object;
+	ConstructorHelpers::FObjectFinder<UTexture2D> PlayerStartTextureObject(TEXT("/Game/RestrictedAssets/UI/MiniMap/minimap_atlas.minimap_atlas"));
+	PlayerStartIcon.U = 128;
+	PlayerStartIcon.V = 192;
+	PlayerStartIcon.UL = 64;
+	PlayerStartIcon.VL = 64;
+	PlayerStartIcon.Texture = PlayerStartTextureObject.Object;
 	ConstructorHelpers::FObjectFinder<UTexture2D> SelectedSpawnTextureObject(TEXT("/Game/RestrictedAssets/Weapons/Sniper/Assets/TargetCircle.TargetCircle"));
 	SelectedSpawnTexture = SelectedSpawnTextureObject.Object;
 
 	SpawnPreviewCapture = OI.CreateDefaultSubobject<USceneCaptureComponent2D>(this, TEXT("SpawnPreviewCapture"));
 	SpawnPreviewCapture->bCaptureEveryFrame = false;
 	SpawnPreviewCapture->SetHiddenInGame(false);
+
+	LastHoveredActorChangeTime = -1000.0f;
 }
 
 void AUTHUD_Showdown::BeginPlay()
@@ -36,7 +46,7 @@ void AUTHUD_Showdown::DrawMinimap(const FColor& DrawColor, float MapSize, FVecto
 	if (GS->SpawnSelector == PlayerOwner->PlayerState)
 	{
 		Canvas->DrawColor = WhiteColor;
-		Canvas->DrawTile(Canvas->DefaultTexture, DrawPos.X - 4.0f, DrawPos.Y - 4.0f, MapSize + 8.0f, MapSize + 8.0f, 0.0f, 0.0f, 1.0f, 1.0f, BLEND_Opaque);
+		Canvas->K2_DrawBox(FVector2D(DrawPos.X - 4.0f, DrawPos.Y - 4.0f), FVector2D(MapSize + 8.0f, MapSize + 8.0f), 4.0f);
 	}
 
 	Super::DrawMinimap(DrawColor, MapSize, DrawPos);
@@ -46,18 +56,18 @@ void AUTHUD_Showdown::DrawMinimap(const FColor& DrawColor, float MapSize, FVecto
 	for (TActorIterator<APlayerStart> It(GetWorld()); It; ++It)
 	{
 		FVector2D Pos(WorldToMapToScreen(It->GetActorLocation()));
-		AUTTeamInfo* OwningTeam = NULL;
+		AUTPlayerState* OwningPS = NULL;
 		for (APlayerState* PS : GS->PlayerArray)
 		{
 			AUTPlayerState* UTPS = Cast<AUTPlayerState>(PS);
 			if (UTPS != NULL && UTPS->RespawnChoiceA == *It && UTPS->Team != NULL)
 			{
-				OwningTeam = UTPS->Team;
+				OwningPS = UTPS;
 				break;
 			}
 		}
 
-		if (OwningTeam != NULL || GS->IsAllowedSpawnPoint(GS->SpawnSelector, *It))
+		if (OwningPS != NULL || GS->IsAllowedSpawnPoint(GS->SpawnSelector, *It))
 		{
 			Canvas->DrawColor = FColor::White;
 		}
@@ -65,27 +75,51 @@ void AUTHUD_Showdown::DrawMinimap(const FColor& DrawColor, float MapSize, FVecto
 		{
 			Canvas->DrawColor = FColor(128, 128, 128, 192);
 		}
-		Canvas->K2_DrawTexture(PlayerStartBGTexture, Pos - FVector2D(20.0f * RenderScale, 20.0f * RenderScale), FVector2D(40.0f, 40.0f) * RenderScale, FVector2D(0.0f, 0.0f), FVector2D(1.0f, 1.0f), Canvas->DrawColor, BLEND_Translucent, It->GetActorRotation().Yaw + 90.0f);
-		Canvas->DrawTile(PlayerStartTexture, Pos.X - 10.0f * RenderScale, Pos.Y - 10.0f * RenderScale, 20.0f * RenderScale, 20.0f * RenderScale, 0.0f, 0.0f, PlayerStartTexture->GetSurfaceWidth(), PlayerStartTexture->GetSurfaceHeight());
-		// draw circle on selected spawn points
-		if (OwningTeam != NULL)
+		const float IconSize = (LastHoveredActor == *It) ? (40.0f * RenderScale * FMath::InterpEaseOut<float>(1.0f, 1.5f, FMath::Min<float>(0.25f, GetWorld()->RealTimeSeconds - LastHoveredActorChangeTime) * 4.0f, 2.0f)) : (40.0f * RenderScale);
+		const FVector2D NormalizedUV(PlayerStartBGIcon.U / PlayerStartBGIcon.Texture->GetSurfaceWidth(), PlayerStartBGIcon.V / PlayerStartBGIcon.Texture->GetSurfaceHeight());
+		const FVector2D NormalizedULVL(PlayerStartBGIcon.UL / PlayerStartBGIcon.Texture->GetSurfaceWidth(), PlayerStartBGIcon.VL / PlayerStartBGIcon.Texture->GetSurfaceHeight());
+		Canvas->K2_DrawTexture(PlayerStartBGIcon.Texture, Pos - FVector2D(IconSize * 0.5f, IconSize * 0.5f), FVector2D(IconSize, IconSize), NormalizedUV, NormalizedULVL, Canvas->DrawColor, BLEND_Translucent, It->GetActorRotation().Yaw + 90.0f);
+		if (OwningPS != NULL && OwningPS->Team != NULL)
 		{
-			Canvas->DrawColor = OwningTeam->TeamColor.ToFColor(false);
-			Canvas->DrawTile(SelectedSpawnTexture, Pos.X - 24.0f * RenderScale, Pos.Y - 24.0f * RenderScale, 48.0f * RenderScale, 48.0f * RenderScale, 0.0f, 0.0f, SelectedSpawnTexture->GetSurfaceWidth(), SelectedSpawnTexture->GetSurfaceHeight());
+			Canvas->DrawColor = OwningPS->Team->TeamColor;
+		}
+		Canvas->DrawTile(PlayerStartIcon.Texture, Pos.X - IconSize * 0.25f, Pos.Y - IconSize * 0.25f, IconSize * 0.5f, IconSize * 0.5f, PlayerStartIcon.U, PlayerStartIcon.V, PlayerStartIcon.UL, PlayerStartIcon.VL);
+		if (OwningPS != NULL)
+		{
+			float XL, YL;
+			Canvas->TextSize(TinyFont, OwningPS->PlayerName, XL, YL);
+			Canvas->DrawText(TinyFont, OwningPS->PlayerName, Pos.X - XL * 0.5f, Pos.Y - IconSize * 0.5f - 2.0f - YL);
 		}
 		Canvas->DrawColor = FColor::White;
 	}
 	// draw pickup icons
-	Canvas->DrawColor = FColor::White;
+	AUTPickup* NamedPickup = NULL;
+	FVector2D NamedPickupPos = FVector2D::ZeroVector;
 	for (TActorIterator<AUTPickup> It(GetWorld()); It; ++It)
 	{
-		if (It->HUDIcon.Texture != NULL)
+		FCanvasIcon Icon = It->GetMinimapIcon();
+		if (Icon.Texture != NULL)
 		{
 			FVector2D Pos(WorldToMapToScreen(It->GetActorLocation()));
-			const float Ratio = It->HUDIcon.UL / It->HUDIcon.VL;
-			Canvas->DrawTile(It->HUDIcon.Texture, Pos.X - 16.0f * Ratio * RenderScale, Pos.Y - 16.0f * RenderScale, 32.0f * Ratio * RenderScale, 32.0f * RenderScale, It->HUDIcon.U, It->HUDIcon.V, It->HUDIcon.UL, It->HUDIcon.VL);
+			const float Ratio = Icon.UL / Icon.VL;
+			Canvas->DrawColor = It->IconColor;
+			Canvas->DrawTile(Icon.Texture, Pos.X - 24.0f * Ratio * RenderScale, Pos.Y - 24.0f * RenderScale, 48.0f * Ratio * RenderScale, 48.0f * RenderScale, Icon.U, Icon.V, Icon.UL, Icon.VL);
+			if (LastHoveredActor == *It)
+			{
+				NamedPickup = *It;
+				NamedPickupPos = Pos;
+			}
 		}
 	}
+	// draw name last so it is on top of any conflicting icons
+	if (NamedPickup != NULL)
+	{
+		float XL, YL;
+		Canvas->DrawColor = NamedPickup->IconColor;
+		Canvas->TextSize(TinyFont, NamedPickup->GetDisplayName().ToString(), XL, YL);
+		Canvas->DrawText(TinyFont, NamedPickup->GetDisplayName(), NamedPickupPos.X - XL * 0.5f, NamedPickupPos.Y - 26.0f * RenderScale - YL);
+	}
+	Canvas->DrawColor = FColor::White;
 }
 
 void AUTHUD_Showdown::DrawHUD()
@@ -99,17 +133,24 @@ void AUTHUD_Showdown::DrawHUD()
 			bLockedLookInput = true;
 		}
 
+		AActor* NewHoveredActor = FindHoveredIconActor();
+		if (NewHoveredActor != LastHoveredActor)
+		{
+			LastHoveredActorChangeTime = GetWorld()->RealTimeSeconds;
+			LastHoveredActor = NewHoveredActor;
+		}
+
 		if (MinimapTexture == NULL)
 		{
 			CreateMinimapTexture(); // because we're using the size below
 		}
 		const float MapSize = float(Canvas->SizeY) * 0.75f;
-		DrawMinimap(FColor(192, 192, 192, 255), MapSize, FVector2D((Canvas->SizeX - MapSize) * 0.5f, (Canvas->SizeY - MapSize) * 0.5f));
+		DrawMinimap(FColor(164, 164, 164, 255), MapSize, FVector2D((Canvas->SizeX - MapSize) * 0.5f, (Canvas->SizeY - MapSize) * 0.5f));
 
 		// draw preview for hovered spawn point
 		if (!GS->bFinalIntermissionDelay)
 		{
-			APlayerStart* HoveredStart = GetHoveredPlayerStart();
+			APlayerStart* HoveredStart = Cast<APlayerStart>(LastHoveredActor);
 			if (HoveredStart == PreviewPlayerStart)
 			{
 				if (HoveredStart != NULL)
@@ -246,7 +287,7 @@ void AUTHUD_Showdown::DrawHUD()
 	Super::DrawHUD();
 }
 
-EInputMode::Type AUTHUD_Showdown::GetInputMode_Implementation()
+EInputMode::Type AUTHUD_Showdown::GetInputMode_Implementation() const
 {
 	AUTShowdownGameState* GS = GetWorld()->GetGameState<AUTShowdownGameState>();
 	if (GS != NULL && GS->GetMatchState() == MatchState::MatchIntermission && GS->bStartedSpawnSelection && !GS->bFinalIntermissionDelay)
@@ -259,17 +300,32 @@ EInputMode::Type AUTHUD_Showdown::GetInputMode_Implementation()
 	}
 }
 
-APlayerStart* AUTHUD_Showdown::GetHoveredPlayerStart() const
+AActor* AUTHUD_Showdown::FindHoveredIconActor() const
 {
-	FVector2D ClickPos;
-	UTPlayerOwner->GetMousePosition(ClickPos.X, ClickPos.Y);
-	APlayerStart* ClickedStart = NULL;
-	for (TActorIterator<APlayerStart> It(GetWorld()); It; ++It)
+	if (GetInputMode() == EInputMode::EIM_GameAndUI)
 	{
-		FVector2D Pos(WorldToMapToScreen(It->GetActorLocation()));
-		if ((ClickPos - Pos).Size() < 32.0f)
+		FVector2D ClickPos;
+		UTPlayerOwner->GetMousePosition(ClickPos.X, ClickPos.Y);
+		APlayerStart* ClickedStart = NULL;
+		for (TActorIterator<APlayerStart> It(GetWorld()); It; ++It)
 		{
-			return *It;
+			FVector2D Pos(WorldToMapToScreen(It->GetActorLocation()));
+			if ((ClickPos - Pos).Size() < 40.0f)
+			{
+				return *It;
+			}
+		}
+		for (TActorIterator<AUTPickup> It(GetWorld()); It; ++It)
+		{
+			FCanvasIcon Icon = It->GetMinimapIcon();
+			if (Icon.Texture != NULL)
+			{
+				FVector2D Pos(WorldToMapToScreen(It->GetActorLocation()));
+				if ((ClickPos - Pos).Size() < 40.0f)
+				{
+					return *It;
+				}
+			}
 		}
 	}
 	return NULL;
@@ -279,7 +335,7 @@ bool AUTHUD_Showdown::OverrideMouseClick(FKey Key, EInputEvent EventType)
 {
 	if (Key.GetFName() == EKeys::LeftMouseButton && EventType == IE_Pressed)
 	{
-		APlayerStart* ClickedStart = GetHoveredPlayerStart();
+		APlayerStart* ClickedStart = Cast<APlayerStart>(FindHoveredIconActor());
 		if (ClickedStart != NULL)
 		{
 			UTPlayerOwner->ServerSelectSpawnPoint(ClickedStart);

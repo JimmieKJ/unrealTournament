@@ -873,9 +873,6 @@ protected:
 public:
 	float WeaponBarScale;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Weapon)
-	FLinearColor IconColor;
-
 	// The UV coords for this weapon when displaying it on the weapon bar
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "HUD")
 	FTextureUVs WeaponBarSelectedUVs;

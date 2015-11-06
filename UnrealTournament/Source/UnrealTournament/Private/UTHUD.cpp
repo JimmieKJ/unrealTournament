@@ -864,7 +864,7 @@ UTexture2D* AUTHUD::ResolveFlag(AUTPlayerState* PS, FTextureUVs& UV)
 	return nullptr;
 }
 
-EInputMode::Type AUTHUD::GetInputMode_Implementation() 
+EInputMode::Type AUTHUD::GetInputMode_Implementation() const
 {
 	return EInputMode::EIM_None;
 }

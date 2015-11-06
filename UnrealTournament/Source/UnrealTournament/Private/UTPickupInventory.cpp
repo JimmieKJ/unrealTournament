@@ -302,7 +302,9 @@ void AUTPickupInventory::InventoryTypeUpdated_Implementation()
 		OnRep_RespawnTimeRemaining();
 	}
 
+	IconColor = (InventoryType != NULL) ? InventoryType.GetDefaultObject()->IconColor : FLinearColor::White;
 	HUDIcon = (InventoryType != NULL) ? InventoryType.GetDefaultObject()->HUDIcon : FCanvasIcon();
+	MinimapIcon = (InventoryType != NULL) ? InventoryType.GetDefaultObject()->MinimapIcon : FCanvasIcon();
 	TakenSound = (InventoryType != NULL) ? TakenSound = InventoryType.GetDefaultObject()->PickupSound : GetClass()->GetDefaultObject<AUTPickupInventory>()->TakenSound;
 }
 

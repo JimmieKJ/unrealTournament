@@ -64,6 +64,7 @@ AUTPickup::AUTPickup(const FObjectInitializer& ObjectInitializer)
 	bHasTacComView = false;
 	TeamSide = 255;
 	bOverride_TeamSide = false;
+	IconColor = FLinearColor::White;
 }
 
 void AUTPickup::SetTacCom(bool bTacComEnabled)
@@ -102,6 +103,11 @@ void AUTPickup::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	{
 		NavData->RemoveFromNavigation(this);
 	}
+}
+
+FCanvasIcon AUTPickup::GetMinimapIcon() const
+{
+	return (MinimapIcon.Texture != NULL) ? MinimapIcon : HUDIcon;
 }
 
 void AUTPickup::Reset_Implementation()
