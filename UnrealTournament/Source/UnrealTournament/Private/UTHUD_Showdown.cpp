@@ -24,6 +24,7 @@ AUTHUD_Showdown::AUTHUD_Showdown(const FObjectInitializer& OI)
 	SpawnPreviewCapture = OI.CreateDefaultSubobject<USceneCaptureComponent2D>(this, TEXT("SpawnPreviewCapture"));
 	SpawnPreviewCapture->bCaptureEveryFrame = false;
 	SpawnPreviewCapture->SetHiddenInGame(false);
+	RootComponent = SpawnPreviewCapture; // just to quiet warning, has no relevance
 
 	LastHoveredActorChangeTime = -1000.0f;
 }

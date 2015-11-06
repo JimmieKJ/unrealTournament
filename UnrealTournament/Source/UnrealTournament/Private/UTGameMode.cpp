@@ -2542,7 +2542,10 @@ void AUTGameMode::StartNewPlayer(APlayerController* NewPlayer)
 	{
 		// tell client what hud class to use
 		UTNewPlayer->HUDClass = HUDClass;
-		UTNewPlayer->OnRep_HUDClass();
+		if (Cast<UNetConnection>(UTNewPlayer->Player) == NULL)
+		{
+			UTNewPlayer->OnRep_HUDClass();
+		}
 
 		// start match, or let player enter, immediately
 		if (UTGameState->HasMatchStarted())
