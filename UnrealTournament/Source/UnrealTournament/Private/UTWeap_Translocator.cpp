@@ -24,8 +24,8 @@ AUTWeap_Translocator::AUTWeap_Translocator(const class FObjectInitializer& Objec
 	AfterImageType = AUTWeaponRedirector::StaticClass();
 	TranslocatorMessageClass = UUTTranslocatorMessage::StaticClass();
 	FOVOffset = FVector(1.2f, 1.f, 3.f);
-	ShotPitchUp = 9.f;
-	DiskGravity = 0.9f;
+	ShotPitchUp = 0.f;
+	DiskGravity = 1.f;
 
 	KillStatsName = NAME_TelefragKills;
 	DeathStatsName = NAME_TelefragDeaths;
