@@ -40,6 +40,7 @@
 #include "UTChallengeManager.h"
 #include "DataChannel.h"
 #include "UTGameInstance.h"
+#include "UTDemoRecSpectator.h"
 
 UUTResetInterface::UUTResetInterface(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -2974,7 +2975,11 @@ void AUTGameMode::Logout(AController* Exiting)
 		NumBots--;
 	}
 
-	Super::Logout(Exiting);
+	// the demorec spectator doesn't count as a real player or spectator and we need to avoid the Super call that will incorrectly decrement the spectator count
+	if (Cast<AUTDemoRecSpectator>(Exiting) == NULL)
+	{
+		Super::Logout(Exiting);
+	}
 
 	if (GameSession != NULL)
 	{
