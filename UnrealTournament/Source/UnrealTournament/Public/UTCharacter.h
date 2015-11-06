@@ -1507,6 +1507,10 @@ public:
 	UPROPERTY(BlueprintReadWrite, Category = HUD)
 	float SpectatorIndicatorMaxDistance;
 
+	/** Scale of text for player indicator (interpolates based on distance). */
+	UPROPERTY(BlueprintReadWrite, Category = HUD)
+		float BeaconTextScale;
+
 	/** Mark this pawn as belonging to the player with the highest score, intended for cosmetic usage only */
 	UPROPERTY(ReplicatedUsing=OnRep_HasHighScore, BlueprintReadOnly, Category=Pawn)
 	bool bHasHighScore;
