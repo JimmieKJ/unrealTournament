@@ -156,6 +156,10 @@ void AUTProjectile::OnRep_Instigator()
 	if (Instigator != NULL)
 	{
 		InstigatorController = Instigator->Controller;
+		if (Cast<AUTCharacter>(Instigator))
+		{
+			((AUTCharacter*)(Instigator))->LastFiredProjectile = this;
+		}
 	}
 
 	// turn off other player's projectile flight lights at low/medium effects quality
