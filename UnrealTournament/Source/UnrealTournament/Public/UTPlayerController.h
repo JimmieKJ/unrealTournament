@@ -271,12 +271,6 @@ public:
 	UFUNCTION(exec)
 	virtual void ViewCamera(int32 Index);
 
-	UFUNCTION(exec)
-		virtual void StartCameraControl();
-
-	UFUNCTION(exec)
-		virtual void EndCameraControl();
-
 	/** Returns updated rotation for third person camera view. */
 	UFUNCTION()
 		virtual FRotator GetSpectatingRotation(const FVector& ViewLoc, float DeltaTime);
@@ -479,6 +473,9 @@ public:
 
 	UPROPERTY()
 	FVector2D SavedMouseCursorLocation;
+
+	UPROPERTY()
+		float MouseButtonPressTime;
 
 	UPROPERTY()
 	class AUTPlayerState* LastSpectatedPlayerState;

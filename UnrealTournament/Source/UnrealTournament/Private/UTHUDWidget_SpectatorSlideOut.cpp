@@ -126,22 +126,20 @@ void UUTHUDWidget_SpectatorSlideOut::Draw_Implementation(float DeltaTime)
 
 	if (TextureAtlas && UTGameState)
 	{
-		SlideIn = (UTHUDOwner->UTPlayerOwner->bRequestingSlideOut || UTHUDOwner->UTPlayerOwner->bShowCameraBinds) 
+		float DrawOffset = 0.2f * Canvas->ClipY / RenderScale;
+		DrawSelector("ToggleMinimap", !UTHUDOwner->bDrawMinimap, 0.f, DrawOffset - CellHeight);
+
+		SlideIn = (UTHUDOwner->UTPlayerOwner->bRequestingSlideOut || UTHUDOwner->UTPlayerOwner->bShowCameraBinds)
 					? FMath::Min(Size.X, SlideIn + DeltaTime*Size.X*SlideSpeed) 
 					: FMath::Max(0.f, SlideIn - DeltaTime*Size.X*SlideSpeed);
-
-		float DrawOffset = 0.2f * Canvas->ClipY/RenderScale;
 		if (SlideIn <= 0.f)
 		{
 			DrawSelector("ToggleSlideOut", true, 0.f, DrawOffset);
 			return;
 		}
 
-		DrawSelector("ToggleMinimap", !UTHUDOwner->bDrawMinimap, 0.f, DrawOffset - CellHeight);
-
 		float XOffset = SlideIn - Size.X;
 		SlideOutFont = UTHUDOwner->SmallFont;
-
 		DrawPlayerHeader(DeltaTime, XOffset, DrawOffset);
 		if (SlideIn > 0.95f)
 		{
@@ -529,7 +527,7 @@ void UUTHUDWidget_SpectatorSlideOut::DrawPlayerHeader(float RenderDelta, float X
 
 void UUTHUDWidget_SpectatorSlideOut::DrawSelector(FString Command, bool bPointRight, float XOffset, float YOffset)
 {
-	if (bIsInteractive)
+	if (bIsInteractive && UTHUDOwner->UTPlayerOwner && UTHUDOwner->UTPlayerOwner->bShowMouseCursor)
 	{
 		FLinearColor DrawColor = FLinearColor::White;
 		float U = bPointRight ? 36.f : 0.f;
@@ -647,7 +645,7 @@ void UUTHUDWidget_SpectatorSlideOut::DrawPlayer(int32 Index, AUTPlayerState* Pla
 
 int32 UUTHUDWidget_SpectatorSlideOut::MouseHitTest(FVector2D Position)
 {
-	if (bIsInteractive)
+	if (bIsInteractive && UTHUDOwner->UTPlayerOwner && UTHUDOwner->UTPlayerOwner->bShowMouseCursor)
 	{
 		for (int32 i = 0; i < ClickElementStack.Num(); i++)
 		{

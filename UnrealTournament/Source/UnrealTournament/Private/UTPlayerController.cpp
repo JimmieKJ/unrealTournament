@@ -548,6 +548,7 @@ bool AUTPlayerController::InputKey(FKey Key, EInputEvent EventType, float Amount
 					FReply& SlateOps = LocalPlayer->GetSlateOperations();
 					SlateOps.UseHighPrecisionMouseMovement(LocalPlayer->ViewportClient->GetGameViewportWidget().ToSharedRef());
 					SavedMouseCursorLocation = FSlateApplication::Get().GetCursorPos();
+					MouseButtonPressTime = GetWorld()->GetTimeSeconds();
 					bShowMouseCursor = false;
 				}
 			}
@@ -557,7 +558,7 @@ bool AUTPlayerController::InputKey(FKey Key, EInputEvent EventType, float Amount
 				if (LocalPlayer)
 				{
 					LocalPlayer->GetSlateOperations().ReleaseMouseCapture().SetMousePos(SavedMouseCursorLocation.IntPoint());
-					bShowMouseCursor = true;
+					bShowMouseCursor = (GetWorld()->GetTimeSeconds() - MouseButtonPressTime < 1.f);
 				}
 			}
 		}
@@ -2428,23 +2429,6 @@ void AUTPlayerController::FindGoodView(const FVector& TargetLoc, bool bIsUpdate)
 	SetControlRotation(BestRot);
 }
 
-void AUTPlayerController::StartCameraControl()
-{
-	AUTPlayerCameraManager* CamMgr = Cast<AUTPlayerCameraManager>(PlayerCameraManager);
-	if (CamMgr)
-	{
-		CamMgr->bAllowSpecCameraControl = true;
-	}
-}
-
-void AUTPlayerController::EndCameraControl()
-{
-	AUTPlayerCameraManager* CamMgr = Cast<AUTPlayerCameraManager>(PlayerCameraManager);
-	if (CamMgr)
-	{
-		CamMgr->bAllowSpecCameraControl = false;
-	}
-}
 
 void AUTPlayerController::ViewSelf(FViewTargetTransitionParams TransitionParams)
 {

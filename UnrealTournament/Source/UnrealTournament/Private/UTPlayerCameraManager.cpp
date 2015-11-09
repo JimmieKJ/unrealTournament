@@ -50,7 +50,6 @@ AUTPlayerCameraManager::AUTPlayerCameraManager(const class FObjectInitializer& O
 
 	LastThirdPersonCameraLoc = FVector::ZeroVector;
 	ThirdPersonCameraSmoothingSpeed = 6.0f;
-	bAllowSpecCameraControl = false;
 	CurrentCameraRoll = 0.f;
 	WallSlideCameraRoll = 12.5f;
 }
@@ -235,7 +234,7 @@ void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTi
 		bool bGameOver = (UTPC != nullptr && UTPC->GetStateName() == NAME_GameOver);
 		float CameraDistance = bGameOver ? EndGameFreeCamDistance : FreeCamDistance;
 		FVector CameraOffset = bGameOver ? EndGameFreeCamOffset : FreeCamOffset;
-		FRotator Rotator = (bAllowSpecCameraControl || !UTPC) ? PCOwner->GetControlRotation() : UTPC->GetSpectatingRotation(Loc, DeltaTime);
+		FRotator Rotator = (!UTPC || !UTPC->bShowMouseCursor) ? PCOwner->GetControlRotation() : UTPC->GetSpectatingRotation(Loc, DeltaTime);
 		if (Cast<AUTProjectile>(TargetActor) && !TargetActor->IsPendingKillPending())
 		{
 			Rotator = TargetActor->GetVelocity().Rotation();
@@ -339,7 +338,7 @@ void AUTPlayerCameraManager::ApplyCameraModifiers(float DeltaTime, FMinimalViewI
 
 void AUTPlayerCameraManager::ProcessViewRotation(float DeltaTime, FRotator& OutViewRotation, FRotator& OutDeltaRot)
 {
-	if (PCOwner && PCOwner->PlayerState && PCOwner->PlayerState->bOnlySpectator && !bAllowSpecCameraControl && (GetViewTarget() != PCOwner->GetSpectatorPawn()))
+	if (PCOwner && PCOwner->PlayerState && PCOwner->PlayerState->bOnlySpectator && PCOwner->bShowMouseCursor && (GetViewTarget() != PCOwner->GetSpectatorPawn()))
 	{
 		return;
 	}

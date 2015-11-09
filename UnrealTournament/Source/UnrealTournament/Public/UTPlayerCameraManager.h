@@ -18,10 +18,6 @@ class UNREALTOURNAMENT_API AUTPlayerCameraManager : public APlayerCameraManager
 
 	FVector LastThirdPersonCameraLoc;
 
-	/** Whether to allow spectator to rotate a camera viewing a player. */
-	UPROPERTY()
-		bool bAllowSpecCameraControl;
-
 	UPROPERTY()
 		AActor* LastThirdPersonTarget;
 
