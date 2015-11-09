@@ -311,7 +311,7 @@ FMacOpenGLQueryEmu::FMacOpenGLQueryEmu(FPlatformOpenGLContext* InContext)
 	
 	// Only use the timestamp emulation in a non-shipping build - end-users shouldn't care about this profiling feature.
 #if (!UE_BUILD_SHIPPING)
-	GIsEmulatingTimestamp = !FParse::Param(FCommandLine::Get(), TEXT("DisableMacGPUTimestamp"));
+	GIsEmulatingTimestamp = ((FPlatformMisc::MacOSXVersionCompare(10,10,0) >= 0 && !IsRHIDeviceNVIDIA()) || FPlatformMisc::MacOSXVersionCompare(10,11,0) >= 0 || GIsEmulatingTimestamp == 2) && !FParse::Param(FCommandLine::Get(), TEXT("DisableMacGPUTimestamp"));
 #endif
 	
 	if ( GIsEmulatingTimestamp )
