@@ -50,7 +50,6 @@ AUTPlayerCameraManager::AUTPlayerCameraManager(const class FObjectInitializer& O
 
 	LastThirdPersonCameraLoc = FVector::ZeroVector;
 	ThirdPersonCameraSmoothingSpeed = 6.0f;
-	bAllowSpecCameraControl = false;
 	CurrentCameraRoll = 0.f;
 	WallSlideCameraRoll = 12.5f;
 }
@@ -178,6 +177,7 @@ void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTi
 	{
 		AUTCharacter* UTCharacter = Cast<AUTCharacter>(OutVT.Target);
 		AUTCTFFlagBase* UTFlagBase = Cast<AUTCTFFlagBase>(OutVT.Target);
+		AUTCarriedObject* UTFlag = Cast<AUTCarriedObject>(OutVT.Target);
 		OutVT.POV.FOV = DefaultFOV;
 		OutVT.POV.OrthoWidth = DefaultOrthoWidth;
 		OutVT.POV.bConstrainAspectRatio = false;
@@ -185,6 +185,7 @@ void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTi
 		OutVT.POV.PostProcessBlendWeight = 1.0f;
 
 		FVector DesiredLoc = (Cast<AController>(OutVT.Target) && !LastThirdPersonCameraLoc.IsZero()) ? LastThirdPersonCameraLoc : OutVT.Target->GetActorLocation();
+		AActor* TargetActor = OutVT.Target;
 		if (UTCharacter != nullptr && UTCharacter->IsRagdoll() && UTCharacter->GetCapsuleComponent() != nullptr)
 		{
 			// we must use the capsule location here as the ragdoll's root component can be rubbing a wall
@@ -194,17 +195,23 @@ void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTi
 		{
 			DesiredLoc += FlagBaseFreeCamOffset;
 		}
+		else if (UTFlag && (GetWorld()->GetTimeSeconds() < UTFlag->LastTeleportedTime + 2.5f))
+		{
+			DesiredLoc = UTFlag->LastTeleportedLoc;
+			LastThirdPersonTarget = UTFlag;
+			TargetActor = UTFlag;
+		}
 		else if (Cast<APlayerState>(OutVT.Target))
 		{
 			DesiredLoc = LastThirdPersonCameraLoc;
 		}
 
 		//If camera is jumping to a new location and we have LOS then interp 
-		bool bSnapCamera = ((UTCharacter && UTCharacter->IsDead()) || LastThirdPersonCameraLoc.IsZero() || (OutVT.Target != LastThirdPersonTarget));
+		bool bSnapCamera = ((UTCharacter && UTCharacter->IsDead()) || LastThirdPersonCameraLoc.IsZero() || (TargetActor != LastThirdPersonTarget));
 		if (!bSnapCamera && ((DesiredLoc - LastThirdPersonCameraLoc).SizeSquared() > 250000.f))
 		{
 			FHitResult Result;
-			CheckCameraSweep(Result, OutVT.Target, DesiredLoc, LastThirdPersonCameraLoc);
+			CheckCameraSweep(Result, TargetActor, DesiredLoc, LastThirdPersonCameraLoc);
 			bSnapCamera = Result.bBlockingHit;
 		}
 		FVector Loc = bSnapCamera ? DesiredLoc : FMath::VInterpTo(LastThirdPersonCameraLoc, DesiredLoc, DeltaTime, ThirdPersonCameraSmoothingSpeed);
@@ -212,7 +219,6 @@ void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTi
 		AUTCharacter* BaseChar = UTCharacter;
 		if (!BaseChar)
 		{
-			AUTCarriedObject* UTFlag = Cast<AUTCarriedObject>(OutVT.Target);
 			BaseChar = UTFlag && UTFlag->Holder ? Cast<AUTCharacter>(UTFlag->AttachmentReplication.AttachParent) : NULL;
 		}
 		if (BaseChar && BaseChar->GetMovementBase() && MovementBaseUtility::UseRelativeLocation(BaseChar->GetMovementBase()))
@@ -222,16 +228,16 @@ void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTi
 		}
 
 		LastThirdPersonCameraLoc = Loc;
-		LastThirdPersonTarget = OutVT.Target;
+		LastThirdPersonTarget = TargetActor;
 
 		AUTPlayerController* UTPC = Cast<AUTPlayerController>(PCOwner);
 		bool bGameOver = (UTPC != nullptr && UTPC->GetStateName() == NAME_GameOver);
 		float CameraDistance = bGameOver ? EndGameFreeCamDistance : FreeCamDistance;
 		FVector CameraOffset = bGameOver ? EndGameFreeCamOffset : FreeCamOffset;
-		FRotator Rotator = (bAllowSpecCameraControl || !UTPC) ? PCOwner->GetControlRotation() : UTPC->GetSpectatingRotation(Loc, DeltaTime);
-		if (Cast<AUTProjectile>(OutVT.Target) && !OutVT.Target->IsPendingKillPending())
+		FRotator Rotator = (!UTPC || !UTPC->bShowMouseCursor) ? PCOwner->GetControlRotation() : UTPC->GetSpectatingRotation(Loc, DeltaTime);
+		if (Cast<AUTProjectile>(TargetActor) && !TargetActor->IsPendingKillPending())
 		{
-			Rotator = OutVT.Target->GetVelocity().Rotation();
+			Rotator = TargetActor->GetVelocity().Rotation();
 			CameraDistance = 60.f;
 			Loc = DesiredLoc;
 		}
@@ -239,7 +245,7 @@ void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTi
 		FVector Pos = Loc + FRotationMatrix(Rotator).TransformVector(CameraOffset) - Rotator.Vector() * CameraDistance;
 
 		FHitResult Result;
-		CheckCameraSweep(Result, OutVT.Target, Loc, Pos);
+		CheckCameraSweep(Result, TargetActor, Loc, Pos);
 		OutVT.POV.Location = !Result.bBlockingHit ? Pos : Result.Location;
 		OutVT.POV.Rotation = Rotator;
 
@@ -332,7 +338,7 @@ void AUTPlayerCameraManager::ApplyCameraModifiers(float DeltaTime, FMinimalViewI
 
 void AUTPlayerCameraManager::ProcessViewRotation(float DeltaTime, FRotator& OutViewRotation, FRotator& OutDeltaRot)
 {
-	if (PCOwner && PCOwner->PlayerState && PCOwner->PlayerState->bOnlySpectator && !bAllowSpecCameraControl && (GetViewTarget() != PCOwner->GetSpectatorPawn()))
+	if (PCOwner && PCOwner->PlayerState && PCOwner->PlayerState->bOnlySpectator && PCOwner->bShowMouseCursor && (GetViewTarget() != PCOwner->GetSpectatorPawn()))
 	{
 		return;
 	}

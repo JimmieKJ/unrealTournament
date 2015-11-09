@@ -555,6 +555,10 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 
 	bool IsInInventory(const AUTInventory* TestInv) const;
 
+	/** Used for spectating fired projectiles. */
+	UPROPERTY(BlueprintReadOnly, Category = "Weapon")
+	class AUTProjectile* LastFiredProjectile;
+
 	/** called by weapon being put down when it has finished being unequipped. Transition PendingWeapon to Weapon and bring it up 
 	 * @param OverflowTime - amount of time past end of timer that previous weapon PutDown() used (due to frame delta) - pass onto BringUp() to keep things in sync
 	 */
@@ -755,7 +759,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = Pawn)
 	virtual void TurnOff() override;
 
-	virtual bool IsFeigningDeath();
+	/** Return true if character is currently feigning death (Note: returns false within the recovery state) */
+	UFUNCTION(BlueprintCallable, Category = "Pawn|Character")
+	virtual bool IsFeigningDeath() const;
 
 	// AI hooks
 	virtual void OnWalkingOffLedge_Implementation(const FVector& PreviousFloorImpactNormal, const FVector& PreviousFloorContactNormal, const FVector& PreviousLocation, float TimeDelta) override;
@@ -778,7 +784,9 @@ protected:
 	int32 UnfeignCount;
 
 public:
-	inline bool IsRagdoll() const
+	/** Return true if character is in a ragdoll state */
+	UFUNCTION(BlueprintCallable, Category = "Pawn|Character")
+	virtual bool IsRagdoll() const
 	{
 		return bFeigningDeath || bInRagdollRecovery || (RootComponent == GetMesh() && GetMesh()->IsSimulatingPhysics());
 	}
@@ -1168,8 +1176,9 @@ public:
 	UPROPERTY(BlueprintReadWrite, Category = UnderWater)
 	float LastDrownTime;
 
+	/** returns true if sound was played. (doesn't allow spamming) */
 	UFUNCTION(BlueprintCallable, Category = Pawn)
-	virtual void PlayWaterSound(USoundBase* WaterSound);
+	virtual bool PlayWaterSound(USoundBase* WaterSound);
 
 	/** Called when character enters water volume. */
 	virtual void EnteredWater(class AUTWaterVolume* WaterVolume);
@@ -1497,6 +1506,10 @@ public:
 	/** Max distance for same team player indicator */
 	UPROPERTY(BlueprintReadWrite, Category = HUD)
 	float SpectatorIndicatorMaxDistance;
+
+	/** Scale of text for player indicator (interpolates based on distance). */
+	UPROPERTY(BlueprintReadWrite, Category = HUD)
+		float BeaconTextScale;
 
 	/** Mark this pawn as belonging to the player with the highest score, intended for cosmetic usage only */
 	UPROPERTY(ReplicatedUsing=OnRep_HasHighScore, BlueprintReadOnly, Category=Pawn)

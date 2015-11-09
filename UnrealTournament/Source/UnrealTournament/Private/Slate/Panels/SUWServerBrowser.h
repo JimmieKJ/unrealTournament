@@ -547,7 +547,7 @@ public:
 					IconBox->AddSlot()
 						[
 							SNew( SImage )		
-								.Image(SUTStyle::Get().GetBrush("UT.Icons.Lan.Small"))
+								.Image(SUTStyle::Get().GetBrush("UT.Icon.Lan.Small"))
 						];
 				
 				}
@@ -557,7 +557,7 @@ public:
 					IconBox->AddSlot()
 						[
 							SNew( SImage )		
-								.Image(SUTStyle::Get().GetBrush("UT.Icons.Lock.Small"))
+								.Image(SUTStyle::Get().GetBrush("UT.Icon.Lock.Small"))
 						];
 				}
 
@@ -764,7 +764,7 @@ protected:
 	virtual FReply BrowserTypeChanged();
 	
 	// Walk over both the lists and expire out any servers not available on the MCP
-	virtual void ExpireDeadServers();
+	virtual void ExpireDeadServers(bool bLANServers);
 
 	// Adds a server if it doesn't exist
 	virtual void AddServer(TSharedPtr<FServerData> Server);

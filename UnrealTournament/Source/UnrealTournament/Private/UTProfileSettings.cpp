@@ -28,6 +28,7 @@ UUTProfileSettings::UUTProfileSettings(const FObjectInitializer& ObjectInitializ
 
 	ReplayCustomBloomIntensity = 0.2f;
 	ReplayCustomDOFScale = 1.0f;
+	bUseClassicWeaponGroups = true;
 
 	Avatar = FName("UT.Avatar.0");
 }
@@ -113,7 +114,7 @@ void UUTProfileSettings::GatherAllSettings(UUTLocalPlayer* ProfilePlayer)
 {
 	bSuppressToastsInGame = ProfilePlayer->bSuppressToastsInGame;
 	PlayerName = ProfilePlayer->GetNickname();
-	
+
 	// Get all settings from the Player Controller
 	AUTPlayerController* PC = Cast<AUTPlayerController>(ProfilePlayer->PlayerController);
 	if (PC == NULL)
@@ -134,6 +135,8 @@ void UUTProfileSettings::GatherAllSettings(UUTLocalPlayer* ProfilePlayer)
 		ViewBob = PC->EyeOffsetGlobalScaling;
 		WeaponHand = PC->GetPreferredWeaponHand();
 		FFAPlayerColor = PC->FFAPlayerColor;
+
+		bUseClassicWeaponGroups = PC->bUseClassicGroups;
 
 		PlayerFOV = PC->ConfigDefaultFOV;
 
@@ -211,6 +214,8 @@ void UUTProfileSettings::ApplyAllSettings(UUTLocalPlayer* ProfilePlayer)
 
 	if (PC != NULL)
 	{
+		PC->bUseClassicGroups = bUseClassicWeaponGroups;
+
 		PC->MaxDodgeClickTime = MaxDodgeClickTimeValue;
 		PC->MaxDodgeTapTime = MaxDodgeTapTimeValue;
 		PC->bSingleTapWallDodge = bSingleTapWallDodge;
@@ -339,6 +344,11 @@ void UUTProfileSettings::ApplyAllSettings(UUTLocalPlayer* ProfilePlayer)
 	ProfilePlayer->SetTaunt2Path(Taunt2Path);
 	ProfilePlayer->SetHatVariant(HatVariant);
 	ProfilePlayer->SetEyewearVariant(EyewearVariant);
+
+	for (int32 i=0; i < WeaponGroups.Num(); i++)
+	{
+		WeaponGroupLookup.Add(WeaponGroups[i].WeaponClassName, WeaponGroups[i]);
+	}
 
 	TokensCommit();
 }

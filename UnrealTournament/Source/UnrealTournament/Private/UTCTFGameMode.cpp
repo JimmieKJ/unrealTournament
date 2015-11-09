@@ -100,7 +100,7 @@ float AUTCTFGameMode::GetTravelDelay()
 
 void AUTCTFGameMode::CheatScore()
 {
-	if ((GetNetMode() == NM_Standalone) && !bOfflineChallenge)
+	if ((GetNetMode() == NM_Standalone) && !bOfflineChallenge && !bBasicTrainingGame)
 	{
 		int32 ScoringTeam = (FMath::FRand() < 0.5f) ? 0 : 1;
 		TArray<AController*> Members = Teams[ScoringTeam]->GetTeamMembers();
@@ -211,7 +211,11 @@ void AUTCTFGameMode::AddCaptureEventToReplay(AUTPlayerState* Holder, AUTTeamInfo
 	if (DemoNetDriver != nullptr && DemoNetDriver->ServerConnection == nullptr)
 	{
 		TArray<uint8> Data;
-		FString CapInfo = FString::Printf(TEXT("%s"), Holder ? *Holder->PlayerName : TEXT("None"));
+
+		FString PlayerName = Holder ? *Holder->PlayerName : TEXT("None");
+		PlayerName.ReplaceInline(TEXT(" "), TEXT("%20"));
+
+		FString CapInfo = FString::Printf(TEXT("%s"), *PlayerName);
 
 		FMemoryWriter MemoryWriter(Data);
 		MemoryWriter.Serialize(TCHAR_TO_ANSI(*CapInfo), CapInfo.Len() + 1);
@@ -228,7 +232,11 @@ void AUTCTFGameMode::AddReturnEventToReplay(AUTPlayerState* Returner, AUTTeamInf
 	if (Returner && DemoNetDriver != nullptr && DemoNetDriver->ServerConnection == nullptr)
 	{
 		TArray<uint8> Data;
-		FString ReturnInfo = FString::Printf(TEXT("%s"), Returner ? *Returner->PlayerName : TEXT("None"));
+
+		FString PlayerName = Returner ? *Returner->PlayerName : TEXT("None");
+		PlayerName.ReplaceInline(TEXT(" "), TEXT("%20"));
+
+		FString ReturnInfo = FString::Printf(TEXT("%s"), *PlayerName);
 
 		FMemoryWriter MemoryWriter(Data);
 		MemoryWriter.Serialize(TCHAR_TO_ANSI(*ReturnInfo), ReturnInfo.Len() + 1);
@@ -248,10 +256,17 @@ void AUTCTFGameMode::AddDeniedEventToReplay(APlayerState* KillerPlayerState, AUT
 	if (DemoNetDriver != nullptr && DemoNetDriver->ServerConnection == nullptr)
 	{
 		TArray<uint8> Data;
-		FString CapInfo = FString::Printf(TEXT("%s %s"), KillerPlayerState ? *KillerPlayerState->PlayerName : TEXT("None"), Holder ? *Holder->PlayerName : TEXT("None"));
+
+		FString PlayerName = KillerPlayerState ? *KillerPlayerState->PlayerName : TEXT("None");
+		PlayerName.ReplaceInline(TEXT(" "), TEXT("%20"));
+
+		FString HolderName = Holder ? *Holder->PlayerName : TEXT("None");
+		HolderName.ReplaceInline(TEXT(" "), TEXT("%20"));
+
+		FString DenyInfo = FString::Printf(TEXT("%s %s"), *PlayerName, *HolderName);
 
 		FMemoryWriter MemoryWriter(Data);
-		MemoryWriter.Serialize(TCHAR_TO_ANSI(*CapInfo), CapInfo.Len() + 1);
+		MemoryWriter.Serialize(TCHAR_TO_ANSI(*DenyInfo), DenyInfo.Len() + 1);
 
 		FString MetaTag = FString::FromInt(Team->TeamIndex);
 
@@ -936,7 +951,7 @@ void AUTCTFGameMode::UpdateSkillRating()
 
 void AUTCTFGameMode::SetRedScore(int32 NewScore)
 {
-	if (!bOfflineChallenge)
+	if (!bOfflineChallenge && !bBasicTrainingGame)
 	{
 		Teams[0]->Score = NewScore;
 	}
@@ -944,7 +959,7 @@ void AUTCTFGameMode::SetRedScore(int32 NewScore)
 
 void AUTCTFGameMode::SetBlueScore(int32 NewScore)
 {
-	if (!bOfflineChallenge)
+	if (!bOfflineChallenge && !bBasicTrainingGame)
 	{
 		Teams[1]->Score = NewScore;
 	}
@@ -952,7 +967,7 @@ void AUTCTFGameMode::SetBlueScore(int32 NewScore)
 
 void AUTCTFGameMode::SetRemainingTime(int32 RemainingSeconds)
 {
-	if (bOfflineChallenge)
+	if (bOfflineChallenge || bBasicTrainingGame)
 	{
 		return;
 	}

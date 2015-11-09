@@ -19,7 +19,7 @@ AUTShowdownGame::AUTShowdownGame(const FObjectInitializer& OI)
 	DisplayName = NSLOCTEXT("UTGameMode", "Showdown", "Showdown");
 	TimeLimit = 2.0f; // per round
 	GoalScore = 5;
-	SpawnSelectionTime = 5;
+	SpawnSelectionTime = 9;
 	PowerupDuration = 15.0f;
 	XPMultiplier = 15.0f;
 	bHasRespawnChoices = false; // unique system
@@ -284,7 +284,7 @@ void AUTShowdownGame::StartIntermission()
 	if (!HasMatchEnded())
 	{
 		// if there's not enough time for a new round to work, then award victory now
-		uint32 bTied = 0;
+		bool bTied = false;
 		AUTPlayerState* Winner = NULL;
 		Winner = IsThereAWinner(bTied);
 		if (Winner != NULL && !bTied && ((Winner->Team == NULL) ? (Winner->Score >= GoalScore) : (Winner->Team->Score >= GoalScore)))
@@ -296,6 +296,14 @@ void AUTShowdownGame::StartIntermission()
 			SetMatchState(MatchState::MatchIntermission);
 			GameState->ForceNetUpdate();
 		}
+	}
+}
+
+void AUTShowdownGame::RestartPlayer(AController* aPlayer)
+{
+	if (bAllowPlayerRespawns)
+	{
+		Super::RestartPlayer(aPlayer);
 	}
 }
 
@@ -379,6 +387,7 @@ void AUTShowdownGame::HandleMatchIntermission()
 
 	GS->bActivateXRayVision = false;
 	GS->IntermissionStageTime = 3;
+	GS->bStartedSpawnSelection = false;
 	GS->bFinalIntermissionDelay = false;
 	RemainingPicks.Empty();
 	GS->SpawnSelector = NULL;
@@ -421,6 +430,13 @@ void AUTShowdownGame::HandleMatchIntermission()
 				PS->RespawnChoiceA = NULL;
 				PS->RespawnChoiceB = NULL;
 				UnsortedPicks.Add(PS);
+				// make sure players that were spectating while dead go back to dead state
+				AUTPlayerController* PC = Cast<AUTPlayerController>(C);
+				if (PC != NULL && PC->IsInState(NAME_Spectating))
+				{
+					PC->ChangeState(NAME_Inactive);
+					PC->ClientGotoState(NAME_Inactive);
+				}
 			}
 		}
 	}
@@ -467,6 +483,10 @@ void AUTShowdownGame::HandleMatchIntermission()
 			RemainingPicks.Add(UnsortedPicks[0]);
 			UnsortedPicks.RemoveAt(0);
 		}
+	}
+	for (int32 i = 0; i < RemainingPicks.Num(); i++)
+	{
+		RemainingPicks[i]->SelectionOrder = uint8(i);
 	}
 }
 
@@ -519,38 +539,46 @@ void AUTShowdownGame::DefaultTimer()
 		}
 		if (GS->IntermissionStageTime == 0)
 		{
-			if (GS->SpawnSelector != NULL)
+			if (!GS->bStartedSpawnSelection)
 			{
-				if (GS->SpawnSelector->RespawnChoiceA == NULL)
-				{
-					GS->SpawnSelector->RespawnChoiceA = Cast<APlayerStart>(FindPlayerStart(Cast<AController>(GS->SpawnSelector->GetOwner())));
-					GS->SpawnSelector->ForceNetUpdate();
-				}
-				RemainingPicks.Remove(GS->SpawnSelector);
-				GS->SpawnSelector = NULL;
-			}
-			// make sure we don't have any stale entries from quitters
-			for (int32 i = RemainingPicks.Num() - 1; i >= 0; i--)
-			{
-				if (RemainingPicks[i] == NULL || RemainingPicks[i]->bPendingKillPending)
-				{
-					RemainingPicks.RemoveAt(i);
-				}
-			}
-			if (RemainingPicks.Num() > 0)
-			{
-				GS->SpawnSelector = RemainingPicks[0];
-				GS->IntermissionStageTime = FMath::Max<uint8>(1, SpawnSelectionTime);
-			}
-			else if (!GS->bFinalIntermissionDelay)
-			{
-				GS->bFinalIntermissionDelay = true;
+				GS->bStartedSpawnSelection = true;
 				GS->IntermissionStageTime = 3;
 			}
 			else
 			{
-				GS->bFinalIntermissionDelay = false;
-				SetMatchState(MatchState::InProgress);
+				if (GS->SpawnSelector != NULL)
+				{
+					if (GS->SpawnSelector->RespawnChoiceA == NULL)
+					{
+						GS->SpawnSelector->RespawnChoiceA = Cast<APlayerStart>(FindPlayerStart(Cast<AController>(GS->SpawnSelector->GetOwner())));
+						GS->SpawnSelector->ForceNetUpdate();
+					}
+					RemainingPicks.Remove(GS->SpawnSelector);
+					GS->SpawnSelector = NULL;
+				}
+				// make sure we don't have any stale entries from quitters
+				for (int32 i = RemainingPicks.Num() - 1; i >= 0; i--)
+				{
+					if (RemainingPicks[i] == NULL || RemainingPicks[i]->bPendingKillPending)
+					{
+						RemainingPicks.RemoveAt(i);
+					}
+				}
+				if (RemainingPicks.Num() > 0)
+				{
+					GS->SpawnSelector = RemainingPicks[0];
+					GS->IntermissionStageTime = FMath::Max<uint8>(1, SpawnSelectionTime);
+				}
+				else if (!GS->bFinalIntermissionDelay)
+				{
+					GS->bFinalIntermissionDelay = true;
+					GS->IntermissionStageTime = 3;
+				}
+				else
+				{
+					GS->bFinalIntermissionDelay = false;
+					SetMatchState(MatchState::InProgress);
+				}
 			}
 		}
 		if (GS->bFinalIntermissionDelay)
@@ -592,98 +620,104 @@ void AUTShowdownGame::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpa
 	TSharedPtr< TAttributePropertyBool > BroadcastHealthAttr = StaticCastSharedPtr<TAttributePropertyBool>(FindGameURLOption(ConfigProps, TEXT("BroadcastPlayerHealth")));
 	TSharedPtr< TAttributePropertyBool > XRayBreakerAttr = StaticCastSharedPtr<TAttributePropertyBool>(FindGameURLOption(ConfigProps, TEXT("XRayBreaker")));
 
-	MenuSpace->AddSlot()
-	.Padding(0.0f, 0.0f, 0.0f, 5.0f)
-	.AutoHeight()
-	.VAlign(VAlign_Top)
-	[
-		SNew(SHorizontalBox)
-		+ SHorizontalBox::Slot()
-		.AutoWidth()
-		.VAlign(VAlign_Center)
+	if (GoalScoreAttr.IsValid())
+	{
+		MenuSpace->AddSlot()
+		.Padding(0.0f, 0.0f, 0.0f, 5.0f)
+		.AutoHeight()
+		.VAlign(VAlign_Top)
 		[
-			SNew(SBox)
-			.WidthOverride(350)
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot()
+			.AutoWidth()
+			.VAlign(VAlign_Center)
 			[
-				SNew(STextBlock)
-				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-				.Text(NSLOCTEXT("UTGameMode", "GoalScore", "Goal Score"))
+				SNew(SBox)
+				.WidthOverride(350)
+				[
+					SNew(STextBlock)
+					.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+					.Text(NSLOCTEXT("UTGameMode", "GoalScore", "Goal Score"))
+				]
 			]
-		]
-		+ SHorizontalBox::Slot()
-		.Padding(20.0f, 0.0f, 0.0f, 0.0f)
-		.AutoWidth()
+			+ SHorizontalBox::Slot()
+			.Padding(20.0f, 0.0f, 0.0f, 0.0f)
+			.AutoWidth()
+			[
+				SNew(SBox)
+				.WidthOverride(300)
+				[
+					bCreateReadOnly ?
+					StaticCastSharedRef<SWidget>(
+					SNew(STextBlock)
+					.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
+					.Text(GoalScoreAttr.ToSharedRef(), &TAttributeProperty<int32>::GetAsText)
+					) :
+					StaticCastSharedRef<SWidget>(
+					SNew(SNumericEntryBox<int32>)
+					.Value(GoalScoreAttr.ToSharedRef(), &TAttributeProperty<int32>::GetOptional)
+					.OnValueChanged(GoalScoreAttr.ToSharedRef(), &TAttributeProperty<int32>::Set)
+					.AllowSpin(true)
+					.Delta(1)
+					.MinValue(0)
+					.MaxValue(999)
+					.MinSliderValue(0)
+					.MaxSliderValue(99)
+					.EditableTextBoxStyle(SUWindowsStyle::Get(), "UT.Common.NumEditbox.White")
+					)
+				]
+			]
+		];
+	}
+	if (TimeLimitAttr.IsValid())
+	{
+		MenuSpace->AddSlot()
+		.Padding(0.0f, 0.0f, 0.0f, 5.0f)
+		.AutoHeight()
+		.VAlign(VAlign_Top)
 		[
-			SNew(SBox)
-			.WidthOverride(300)
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot()
+			.AutoWidth()
+			.VAlign(VAlign_Center)
 			[
-				bCreateReadOnly ?
-				StaticCastSharedRef<SWidget>(
-				SNew(STextBlock)
-				.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
-				.Text(GoalScoreAttr.ToSharedRef(), &TAttributeProperty<int32>::GetAsText)
-				) :
-				StaticCastSharedRef<SWidget>(
-				SNew(SNumericEntryBox<int32>)
-				.Value(GoalScoreAttr.ToSharedRef(), &TAttributeProperty<int32>::GetOptional)
-				.OnValueChanged(GoalScoreAttr.ToSharedRef(), &TAttributeProperty<int32>::Set)
-				.AllowSpin(true)
-				.Delta(1)
-				.MinValue(0)
-				.MaxValue(999)
-				.MinSliderValue(0)
-				.MaxSliderValue(99)
-				.EditableTextBoxStyle(SUWindowsStyle::Get(), "UT.Common.NumEditbox.White")
-				)
+				SNew(SBox)
+				.WidthOverride(350)
+				[
+					SNew(STextBlock)
+					.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+					.Text(NSLOCTEXT("UTGameMode", "RoundTimeLimit", "Round Time Limit"))
+				]
 			]
-		]
-	];
-	MenuSpace->AddSlot()
-	.Padding(0.0f, 0.0f, 0.0f, 5.0f)
-	.AutoHeight()
-	.VAlign(VAlign_Top)
-	[
-		SNew(SHorizontalBox)
-		+ SHorizontalBox::Slot()
-		.AutoWidth()
-		.VAlign(VAlign_Center)
-		[
-			SNew(SBox)
-			.WidthOverride(350)
+			+ SHorizontalBox::Slot()
+			.Padding(20.0f, 0.0f, 0.0f, 0.0f)
+			.AutoWidth()
 			[
-				SNew(STextBlock)
-				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-				.Text(NSLOCTEXT("UTGameMode", "RoundTimeLimit", "Round Time Limit"))
+				SNew(SBox)
+				.WidthOverride(300)
+				[
+					bCreateReadOnly ?
+					StaticCastSharedRef<SWidget>(
+					SNew(STextBlock)
+					.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
+					.Text(TimeLimitAttr.ToSharedRef(), &TAttributeProperty<int32>::GetAsText)
+					) :
+					StaticCastSharedRef<SWidget>(
+					SNew(SNumericEntryBox<int32>)
+					.Value(TimeLimitAttr.ToSharedRef(), &TAttributeProperty<int32>::GetOptional)
+					.OnValueChanged(TimeLimitAttr.ToSharedRef(), &TAttributeProperty<int32>::Set)
+					.AllowSpin(true)
+					.Delta(1)
+					.MinValue(0)
+					.MaxValue(999)
+					.MinSliderValue(0)
+					.MaxSliderValue(60)
+					.EditableTextBoxStyle(SUWindowsStyle::Get(), "UT.Common.NumEditbox.White")
+					)
+				]
 			]
-		]
-		+ SHorizontalBox::Slot()
-		.Padding(20.0f, 0.0f, 0.0f, 0.0f)
-		.AutoWidth()
-		[
-			SNew(SBox)
-			.WidthOverride(300)
-			[
-				bCreateReadOnly ?
-				StaticCastSharedRef<SWidget>(
-				SNew(STextBlock)
-				.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
-				.Text(TimeLimitAttr.ToSharedRef(), &TAttributeProperty<int32>::GetAsText)
-				) :
-				StaticCastSharedRef<SWidget>(
-				SNew(SNumericEntryBox<int32>)
-				.Value(TimeLimitAttr.ToSharedRef(), &TAttributeProperty<int32>::GetOptional)
-				.OnValueChanged(TimeLimitAttr.ToSharedRef(), &TAttributeProperty<int32>::Set)
-				.AllowSpin(true)
-				.Delta(1)
-				.MinValue(0)
-				.MaxValue(999)
-				.MinSliderValue(0)
-				.MaxSliderValue(60)
-				.EditableTextBoxStyle(SUWindowsStyle::Get(), "UT.Common.NumEditbox.White")
-				)
-			]
-		]
-	];
+		];
+	}
 	MenuSpace->AddSlot()
 	.Padding(0.0f, 0.0f, 0.0f, 5.0f)
 	.AutoHeight()

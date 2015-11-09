@@ -390,12 +390,6 @@ namespace ELobbyMatchState
 	const FName Returning = TEXT("Returning");
 }
 
-namespace QuickMatchTypes
-{
-	const FName Deathmatch = TEXT("QuickMatchDeathmatch");
-	const FName CaptureTheFlag = TEXT("QuickMatchCaptureTheFlag");
-}
-
 class FSimpleListData
 {
 public: 
@@ -425,11 +419,6 @@ namespace FFriendsStatus
 	const FName Friend = FName(TEXT("Friend"));
 }
 
-namespace FQuickMatchTypeRulesetTag
-{
-	const FString CTF = TEXT("CTF");
-	const FString DM = TEXT("Deathmatch");
-}
 
 UENUM()
 namespace ERedirectStatus
@@ -708,6 +697,17 @@ struct FMatchUpdate
 	UPROPERTY()
 	TArray<int32> TeamScores;
 
+	// The current state of the match
+	UPROPERTY()
+	FName MatchState;
+
+	UPROPERTY()
+	bool bMatchHasBegun;
+
+	UPROPERTY()
+	bool bMatchHasEnded;
+
+
 	FMatchUpdate()
 	{
 		GameTime = 0.0f;
@@ -730,16 +730,13 @@ struct FServerInstanceData
 	FString RulesTitle;
 
 	UPROPERTY()
+	FString RulesTag;
+
+	UPROPERTY()
 	FString MapName;
 	
 	UPROPERTY()
-	int32 NumPlayers;
-
-	UPROPERTY()
 	int32 MaxPlayers;
-
-	UPROPERTY()
-	int32 NumFriends;
 
 	UPROPERTY()
 	uint32 Flags;
@@ -752,6 +749,7 @@ struct FServerInstanceData
 
 	UPROPERTY()
 	bool bJoinableAsPlayer;
+
 	UPROPERTY()
 	bool bJoinableAsSpectator;
 
@@ -762,17 +760,19 @@ struct FServerInstanceData
 	FString Score;
 
 	UPROPERTY()
-	FMatchUpdate MatchUpdate;
+	FMatchUpdate MatchData;
 
 	UPROPERTY(NotReplicated)
 	TArray<FMatchPlayerListStruct> Players;
 
+	UPROPERTY()
+	bool bQuickplayMatch;
+
 	FServerInstanceData()
 		: RulesTitle(TEXT(""))
+		, RulesTag(TEXT(""))
 		, MapName(TEXT(""))
-		, NumPlayers(0)
 		, MaxPlayers(0)
-		, NumFriends(0)
 		, Flags(0x00)
 		, Rank(1500)
 		, bTeamGame(false)
@@ -780,16 +780,17 @@ struct FServerInstanceData
 		, bJoinableAsSpectator(false)
 		, MutatorList(TEXT(""))
 		, Score(TEXT(""))
+		, bQuickplayMatch(false)
 	{
+		MatchData = FMatchUpdate();
 	}
 
-	FServerInstanceData(FGuid inInstanceId, const FString& inRulesTitle, const FString& inMapName, int32 inNumPlayers, int32 inMaxPlayers, int32 inNumFriends, uint32 inFlags, int32 inRank, bool inbTeamGame, bool inbJoinableAsPlayer, bool inbJoinableAsSpectator, const FString& inMutatorList, const FString& inScore)
+	FServerInstanceData(FGuid inInstanceId, const FString& inRulesTitle, const FString& inRulesTag, const FString& inMapName, int32 inMaxPlayers, uint32 inFlags, int32 inRank, bool inbTeamGame, bool inbJoinableAsPlayer, bool inbJoinableAsSpectator, const FString& inMutatorList, const FString& inScore, bool inbQuickplayMatch)
 		: InstanceId(inInstanceId)
 		, RulesTitle(inRulesTitle)
+		, RulesTag(inRulesTag)
 		, MapName(inMapName)
-		, NumPlayers(inNumPlayers)
 		, MaxPlayers(inMaxPlayers)
-		, NumFriends(inNumFriends)
 		, Flags(inFlags)
 		, Rank(inRank)
 		, bTeamGame(inbTeamGame)
@@ -797,12 +798,20 @@ struct FServerInstanceData
 		, bJoinableAsSpectator(inbJoinableAsSpectator)
 		, MutatorList(inMutatorList)
 		, Score(inScore)
+		, bQuickplayMatch(inbQuickplayMatch)
 	{
+		MatchData = FMatchUpdate();
 	}
 
-	static TSharedRef<FServerInstanceData> Make(FGuid inInstanceId, const FString& inRulesTitle, const FString& inMapName, int32 inNumPlayers, int32 inMaxPlayers, int32 inNumFriends, uint32 inFlags, int32 inRank, bool inbTeamGame, bool inbJoinableAsPlayer, bool inbJoinableAsSpectator, const FString& inMutatorList, const FString& inScore)
+	int32 NumPlayers()		{ return MatchData.NumPlayers; }
+	int32 NumSpectators()	{ return MatchData.NumSpectators; }
+
+	void SetNumPlayers(int32 NewNumPlayers)			{ MatchData.NumPlayers = NewNumPlayers; }
+	void SetNumSpectators(int32 NewNumSpectators)	{ MatchData.NumSpectators = NewNumSpectators; }
+
+	static TSharedRef<FServerInstanceData> Make(FGuid inInstanceId, const FString& inRulesTitle, const FString& inRulesTag, const FString& inMapName, int32 inMaxPlayers, uint32 inFlags, int32 inRank, bool inbTeamGame, bool inbJoinableAsPlayer, bool inbJoinableAsSpectator, const FString& inMutatorList, const FString& inScore, bool inbQuickplayMatch)
 	{
-		return MakeShareable(new FServerInstanceData(inInstanceId, inRulesTitle, inMapName, inNumPlayers, inMaxPlayers, inNumFriends, inFlags, inRank, inbTeamGame, inbJoinableAsPlayer, inbJoinableAsSpectator, inMutatorList, inScore));
+		return MakeShareable(new FServerInstanceData(inInstanceId, inRulesTitle, inRulesTag, inMapName, inMaxPlayers, inFlags, inRank, inbTeamGame, inbJoinableAsPlayer, inbJoinableAsSpectator, inMutatorList, inScore, inbQuickplayMatch));
 	}
 	static TSharedRef<FServerInstanceData> Make(const FServerInstanceData& Other)
 	{
@@ -1095,9 +1104,13 @@ struct FMCPPulledData
 	UPROPERTY()
 	TArray<FStoredUTChallengeInfo> Challenges;
 
+	UPROPERTY()
+	int32 FragCenterCounter;
+
 	FMCPPulledData()
 	{
 		Challenges.Empty();
+		FragCenterCounter=0;
 	}
 };
 

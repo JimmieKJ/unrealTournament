@@ -23,6 +23,7 @@ public class UnrealTournamentEditor : ModuleRules
             "PakFile", 
             "StreamingFile", 
             "NetworkFile", 
+			"PerfCounters",
             "UMG" });
 	}
 }

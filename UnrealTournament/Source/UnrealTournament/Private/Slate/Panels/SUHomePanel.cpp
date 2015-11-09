@@ -595,6 +595,13 @@ TSharedRef<SWidget> SUHomePanel::BuildHomePanel()
 									
 								]
 
+								+SOverlay::Slot()
+								[
+									SNew(SImage)
+									.Image(SUTStyle::Get().GetBrush("UT.HomePanel.NewFragCenter"))
+									.ColorAndOpacity(this, &SUHomePanel::GetFragCenterWatchNowColorAndOpacity)
+								]
+
 								+ SOverlay::Slot()
 								[
 									SNew(SButton)
@@ -769,14 +776,14 @@ FReply SUHomePanel::BasicTraining_Click()
 FReply SUHomePanel::QuickMatch_DM_Click()
 {
 	TSharedPtr<SUWindowsMainMenu> MainMenu = StaticCastSharedPtr<SUWindowsMainMenu>(GetParentWindow());
-	if (MainMenu.IsValid()) MainMenu->QuickPlay(FQuickMatchTypeRulesetTag::DM);
+	if (MainMenu.IsValid()) MainMenu->QuickPlay(EEpicDefaultRuleTags::Deathmatch);
 	return FReply::Handled();
 }
 
 FReply SUHomePanel::QuickMatch_CTF_Click()
 {
 	TSharedPtr<SUWindowsMainMenu> MainMenu = StaticCastSharedPtr<SUWindowsMainMenu>(GetParentWindow());
-	if (MainMenu.IsValid()) MainMenu->QuickPlay(FQuickMatchTypeRulesetTag::CTF);
+	if (MainMenu.IsValid()) MainMenu->QuickPlay(EEpicDefaultRuleTags::CTF);
 	return FReply::Handled();
 }
 
@@ -796,6 +803,9 @@ FReply SUHomePanel::FindAMatch_Click()
 
 FReply SUHomePanel::FragCenter_Click()
 {
+
+	PlayerOwner->UpdateFragCenter();
+
 	TSharedPtr<SUWindowsMainMenu> MainMenu = StaticCastSharedPtr<SUWindowsMainMenu>(GetParentWindow());
 	if (MainMenu.IsValid()) MainMenu->ShowFragCenter();
 	return FReply::Handled();
@@ -834,5 +844,17 @@ EVisibility SUHomePanel::ShowNewChallengeImage() const
 
 	return EVisibility::Hidden;
 }
+
+FSlateColor SUHomePanel::GetFragCenterWatchNowColorAndOpacity() const
+{
+	if (PlayerOwner->IsFragCenterNew())
+	{
+		float Alpha = 0.5 + (0.5 * FMath::Abs<float>(FMath::Sin(PlayerOwner->GetWorld()->GetTimeSeconds() * 3)));
+		return FSlateColor(FLinearColor(1.0,1.0,1.0, Alpha));
+	}
+	return FSlateColor(FLinearColor(1.0,1.0,1.0,0.0));
+}
+
+
 
 #endif

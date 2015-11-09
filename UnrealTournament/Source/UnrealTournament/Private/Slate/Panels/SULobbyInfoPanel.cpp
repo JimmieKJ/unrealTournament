@@ -339,4 +339,12 @@ void SULobbyInfoPanel::PlayerClicked(FUniqueNetIdRepl PlayerId)
 	}
 }
 
+void SULobbyInfoPanel::FocusChat(const FCharacterEvent& InCharacterEvent)
+{
+	if (TextChatPanel.IsValid())
+	{
+		TextChatPanel->FocusChat(InCharacterEvent);
+	}
+}
+
 #endif

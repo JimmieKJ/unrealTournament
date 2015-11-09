@@ -340,6 +340,7 @@ void SUTStyle::SetCommonStyle(TSharedRef<FSlateStyleSet> StyleRef)
 		Style.Set("UT.HomePanel.NewChallenge", &NewChallengeBrushAsset->Brush);
 	}
 
+	Style.Set("UT.HomePanel.NewFragCenter", new IMAGE_BRUSH("UTStyle/MainPanel/NewFragCenter", FVector2D(180,180), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
 
 	Style.Set("UT.HomePanel.FragCenterLogo", new IMAGE_BRUSH("UTStyle/MainPanel/FragCenterEmblem", FVector2D(644, 644), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
 	Style.Set("UT.HomePanel.Flak", new IMAGE_BRUSH( "UTStyle/MainPanel/Flak", FVector2D(180,180), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f) ));

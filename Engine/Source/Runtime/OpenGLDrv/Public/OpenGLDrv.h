@@ -411,6 +411,9 @@ private:
 	/** Per-context state caching */
 	FOpenGLContextState	SharedContextState;
 	FOpenGLContextState	RenderingContextState;
+	
+	/** Cached mip-limits for textures when ARB_texture_view is unavailable */
+	TMap<GLuint, TPair<GLenum, GLenum>> TextureMipLimits;
 
 	/** Underlying platform-specific data */
 	struct FPlatformOpenGLDevice* PlatformDevice;

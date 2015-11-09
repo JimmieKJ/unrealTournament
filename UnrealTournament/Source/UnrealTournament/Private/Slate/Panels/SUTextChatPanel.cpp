@@ -6,6 +6,7 @@
 #include "SlateBasics.h"
 #include "Slate/SlateGameResources.h"
 #include "../SUWindowsStyle.h"
+#include "../Widgets/SUTEditableTextBox.h"
 #include "UTGameEngine.h"
 #include "UTLobbyGameState.h"
 #include "UTLobbyMatchInfo.h"
@@ -103,10 +104,11 @@ void SUTextChatPanel::Construct(const FArguments& InArgs)
 						]
 						+SOverlay::Slot()
 						[
-							SAssignNew(ChatEditBox, SEditableTextBox)
+							SAssignNew(ChatEditBox, SUTEditableTextBox)
 							.Style(SUTStyle::Get(), "UT.ChatEditBox")
 							.OnTextChanged(this, &SUTextChatPanel::ChatTextChanged)
 							.OnTextCommitted(this, &SUTextChatPanel::ChatTextCommited)
+							.IsCaretMovedWhenGainFocus(false)
 							.ClearKeyboardFocusOnCommit(false)
 							.MinDesiredWidth(500.0f)
 							.Text(FText::GetEmpty())
@@ -125,17 +127,6 @@ void SUTextChatPanel::Construct(const FArguments& InArgs)
 			]
 		]
 	];
-}
-
-void SUTextChatPanel::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
-{
-	// If we don't have keyboard focus, make sure we grab it.
-	if (PlayerOwner->NumDialogsOpened() == 0 && !ChatEditBox->HasKeyboardFocus())
-	{
-		// Force Keyboard force to the chat edit box.
-		FSlateApplication::Get().SetKeyboardFocus(ChatEditBox,EFocusCause::SetDirectly);
-	}
-
 }
 
 void SUTextChatPanel::AddDestination(const FText& Caption, const FName ChatDestionation, float Weight, bool bSelect)
@@ -444,5 +435,14 @@ void SUTextChatPanel::SetChatText(const FString& NewText)
 {
 	if (ChatEditBox.IsValid()) ChatEditBox->SetText(FText::FromString(NewText));
 }
+
+void SUTextChatPanel::FocusChat(const FCharacterEvent& InCharacterEvent)
+{
+	if (ChatEditBox.IsValid())
+	{
+		ChatEditBox->ForceFocus(InCharacterEvent);
+	}
+}
+
 
 #endif

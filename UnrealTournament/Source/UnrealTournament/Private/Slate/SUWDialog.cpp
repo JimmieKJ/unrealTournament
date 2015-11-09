@@ -17,6 +17,7 @@ void SUWDialog::Construct(const FArguments& InArgs)
 	checkSlow(PlayerOwner != NULL);
 
 	TabStop = 0;
+	bSkipWorldRender = false;
 
 	OnDialogResult = InArgs._OnDialogResult;
 

@@ -29,6 +29,13 @@ AUTCarriedObject::AUTCarriedObject(const FObjectInitializer& ObjectInitializer)
 	LastGameMessageTime = 0.f;
 	AutoReturnTime = 30.0f;
 	bMovementEnabled = true;
+	LastTeleportedTime = -1000.f;
+}
+
+void AUTCarriedObject::GetActorEyesViewPoint(FVector& OutLocation, FRotator& OutRotation) const
+{
+	OutLocation = (GetWorld()->GetTimeSeconds() < LastTeleportedTime + 5.f) ? LastTeleportedLoc : GetActorLocation();
+	OutRotation = GetActorRotation();
 }
 
 void AUTCarriedObject::OnConstruction(const FTransform& Transform)
@@ -475,6 +482,9 @@ void AUTCarriedObject::SendHomeWithNotify()
 
 void AUTCarriedObject::SendHome()
 {
+	LastTeleportedTime = GetWorld()->GetTimeSeconds();
+	LastTeleportedLoc = GetActorLocation();
+
 	DetachRootComponentFromParent(true);
 	if (ObjectState == CarriedObjectState::Home) return;	// Don't both if we are already home
 
@@ -484,6 +494,19 @@ void AUTCarriedObject::SendHome()
 	MoveToHome();
 }
 
+FVector AUTCarriedObject::GetHomeLocation() const
+{
+	if (HomeBase == NULL)
+	{
+		UE_LOG(UT, Warning, TEXT("Carried object querying home location with no home"), *GetName());
+		return GetActorLocation();
+	}
+	else
+	{
+		return HomeBase->GetActorLocation() + HomeBase->GetActorRotation().RotateVector(HomeBaseOffset) + FVector(0.f, 0.f, Collision->GetScaledCapsuleHalfHeight());
+	}
+}
+
 void AUTCarriedObject::MoveToHome()
 {
 	DetachRootComponentFromParent(true);
@@ -491,9 +514,8 @@ void AUTCarriedObject::MoveToHome()
 	HolderRescuers.Empty();
 	if (HomeBase != NULL)
 	{
-		const FVector BaseLocation = HomeBase->GetActorLocation() + HomeBase->GetActorRotation().RotateVector(HomeBaseOffset) + FVector(0.f, 0.f, Collision->GetScaledCapsuleHalfHeight());
 		MovementComponent->Velocity = FVector(0.0f,0.0f,0.0f);
-		SetActorLocationAndRotation(BaseLocation, HomeBase->GetActorRotation());
+		SetActorLocationAndRotation(GetHomeLocation(), HomeBase->GetActorRotation());
 		ForceNetUpdate();
 	}
 }

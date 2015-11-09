@@ -12,6 +12,12 @@ UUTGameInstance::UUTGameInstance(const class FObjectInitializer& ObjectInitializ
 {
 }
 
+void UUTGameInstance::Init()
+{
+	Super::Init();
+	InitPerfCounters();
+}
+
 void UUTGameInstance::StartGameInstance()
 {
 	Super::StartGameInstance();

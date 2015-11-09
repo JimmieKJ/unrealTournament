@@ -21,6 +21,7 @@
 #include "UTHUD.h"
 #include "UTGameViewportClient.h"
 #include "UTCrosshair.h"
+#include "UTDroppedPickup.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogUTWeapon, Log, All);
 
@@ -42,6 +43,7 @@ AUTWeapon::AUTWeapon(const FObjectInitializer& ObjectInitializer)
 
 	BringUpTime = 0.37f;
 	PutDownTime = 0.3f;
+	RefirePutDownTimePercent = 1.0f;
 	WeaponBobScaling = 1.f;
 	FiringViewKickback = -20.f;
 	bNetDelayedShot = false;
@@ -94,7 +96,6 @@ AUTWeapon::AUTWeapon(const FObjectInitializer& ObjectInitializer)
 
 	BaseAISelectRating = 0.55f;
 	DisplayName = NSLOCTEXT("PickupMessage", "WeaponPickedUp", "Weapon");
-	IconColor = FLinearColor::White;
 	bShowPowerupTimer = false;
 
 }
@@ -259,6 +260,7 @@ void AUTWeapon::ClientGivenTo_Internal(bool bAutoActivate)
 	if (UTPC != NULL)
 	{
 		AutoSwitchPriority = UTPC->GetWeaponAutoSwitchPriority(GetNameSafe(this), AutoSwitchPriority);
+		Group = UTPC->GetWeaponGroup(GetNameSafe(this), GroupSlot);
 	}
 
 	// assign GroupSlot if required
@@ -281,6 +283,11 @@ void AUTWeapon::ClientGivenTo_Internal(bool bAutoActivate)
 	{
 		UTPC->CheckAutoWeaponSwitch(this);
 	}
+}
+
+bool AUTWeapon::ShouldDropOnDeath()
+{
+	return (DroppedPickupClass != nullptr) && HasAnyAmmo();
 }
 
 void AUTWeapon::DropFrom(const FVector& StartLocation, const FVector& TossVelocity)
@@ -1484,6 +1491,10 @@ AUTProjectile* AUTWeapon::SpawnNetPredictedProjectile(TSubclassOf<AUTProjectile>
 		: NULL;
 	if (NewProjectile)
 	{
+		if (UTOwner)
+		{
+			UTOwner->LastFiredProjectile = NewProjectile;
+		}
 		if (Role == ROLE_Authority)
 		{
 			NewProjectile->HitsStatsName = HitsStatsName;

@@ -166,19 +166,9 @@ FString AUTLobbyGameMode::InitNewPlayer(class APlayerController* NewPlayerContro
 
 		if ( QuickStartOption != TEXT("") )
 		{
-			PS->DesiredQuickStartGameMode = (QuickStartOption.ToLower() == TEXT("CTF")) ? FQuickMatchTypeRulesetTag::CTF : FQuickMatchTypeRulesetTag::DM;
+			PS->DesiredQuickStartGameMode = (QuickStartOption.ToLower() == TEXT("CTF")) ? EEpicDefaultRuleTags::CTF : EEpicDefaultRuleTags::Deathmatch;
 		}
 
-/*
-		This is older legacy code.  Friends now join directly to the hub.  I'm leaving this there though in case we want to
-		do something similar in the future.
-
-		FString FriendID = ParseOption(Options, TEXT("Friend"));
-		if (FriendID != TEXT(""))
-		{
-			//PS->DesiredFriendToJoin = FriendID;
-		}
-*/
 		FString MatchId = ParseOption(Options, TEXT("MatchId"));
 		if (!MatchId.IsEmpty())
 		{
@@ -299,14 +289,22 @@ void AUTLobbyGameMode::GetInstanceData(TArray<TSharedPtr<FServerInstanceData>>& 
 				if (MatchInfo->bDedicatedMatch)
 				{
 					FString Map = FString::Printf(TEXT("%s (%s)"), *MatchInfo->InitialMap, *MatchInfo->DedicatedServerGameMode);
-					Data = FServerInstanceData::Make(MatchInfo->UniqueMatchID, MatchInfo->DedicatedServerName, Map, NumPlayers, MatchInfo->DedicatedServerMaxPlayers, 0, MatchInfo->GetMatchFlags(), 1500, false, MatchInfo->bJoinAnytime || !MatchInfo->IsInProgress(), MatchInfo->bSpectatable, MatchInfo->DedicatedServerDescription, TEXT(""));
+					Data = FServerInstanceData::Make(MatchInfo->UniqueMatchID, MatchInfo->DedicatedServerName, TEXT(""), Map, MatchInfo->DedicatedServerMaxPlayers, MatchInfo->GetMatchFlags(), 1500, false, MatchInfo->bJoinAnytime || !MatchInfo->IsInProgress(), MatchInfo->bSpectatable, MatchInfo->DedicatedServerDescription, TEXT(""), false);
 				}
 				else
 				{
-					Data = FServerInstanceData::Make(MatchInfo->UniqueMatchID, MatchInfo->CurrentRuleset->Title, (MatchInfo->InitialMapInfo.IsValid() ? MatchInfo->InitialMapInfo->Title : MatchInfo->InitialMap), NumPlayers, MatchInfo->CurrentRuleset->MaxPlayers, 0, MatchInfo->GetMatchFlags(), MatchInfo->AverageRank, MatchInfo->CurrentRuleset->bTeamGame, MatchInfo->bJoinAnytime || !MatchInfo->IsInProgress(), MatchInfo->bSpectatable, MatchInfo->CurrentRuleset->Description, TEXT(""));
+					Data = FServerInstanceData::Make(MatchInfo->UniqueMatchID, MatchInfo->CurrentRuleset->Title, MatchInfo->CurrentRuleset->UniqueTag, (MatchInfo->InitialMapInfo.IsValid() ? MatchInfo->InitialMapInfo->Title : MatchInfo->InitialMap), MatchInfo->CurrentRuleset->MaxPlayers, MatchInfo->GetMatchFlags(), MatchInfo->AverageRank, MatchInfo->CurrentRuleset->bTeamGame, MatchInfo->bJoinAnytime || !MatchInfo->IsInProgress(), MatchInfo->bSpectatable, MatchInfo->CurrentRuleset->Description, TEXT(""), MatchInfo->bQuickPlayMatch);
 				}
 
-				Data->MatchUpdate = MatchInfo->MatchUpdate;
+				Data->MatchData = MatchInfo->MatchUpdate;
+
+				// If this match hasn't started yet, the MatchUpdate will be empty.  So we have to manually fix up the # of players in the match.
+				if (!MatchInfo->IsInProgress())
+				{
+					Data->SetNumPlayers(MatchInfo->NumPlayersInMatch());
+					Data->SetNumSpectators(MatchInfo->NumSpectatorsInMatch());
+				}
+
 				MatchInfo->GetPlayerData(Data->Players);
 				InstanceData.Add(Data);
 			}

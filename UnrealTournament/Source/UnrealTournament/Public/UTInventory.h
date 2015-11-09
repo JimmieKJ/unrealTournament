@@ -188,9 +188,14 @@ public:
 	float DetourWeight(APawn* Asker, AActor* Pickup, float PathDistance) const;
 
 public:
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
+	FLinearColor IconColor;
 	/** icon for drawing time remaining on the HUD */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = HUD)
 	FCanvasIcon HUDIcon;
+	/** icon for minimap when this item is in a pickup (uses HUDIcon if not specified) */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = HUD)
+	FCanvasIcon MinimapIcon;
 
 	/** Whether to show timer for this on spectator slide out HUD. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = HUD)

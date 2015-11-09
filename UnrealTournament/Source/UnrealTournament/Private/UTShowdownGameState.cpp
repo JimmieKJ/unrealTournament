@@ -16,6 +16,7 @@ void AUTShowdownGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>&
 	DOREPLIFETIME_CONDITION(AUTShowdownGameState, bBroadcastPlayerHealth, COND_InitialOnly);
 	DOREPLIFETIME(AUTShowdownGameState, SpawnSelector);
 	DOREPLIFETIME(AUTShowdownGameState, IntermissionStageTime);
+	DOREPLIFETIME(AUTShowdownGameState, bStartedSpawnSelection);
 	DOREPLIFETIME(AUTShowdownGameState, bFinalIntermissionDelay);
 	
 	DOREPLIFETIME(AUTShowdownGameState, bActivateXRayVision);

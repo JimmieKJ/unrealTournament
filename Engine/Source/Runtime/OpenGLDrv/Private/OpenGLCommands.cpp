@@ -559,22 +559,27 @@ void FOpenGLDynamicRHI::CachedSetupTextureStage(FOpenGLContextState& ContextStat
 	// which should be preferred.
 	if(Target != GL_NONE && Target != GL_TEXTURE_BUFFER && !FOpenGL::SupportsTextureView())
 	{
-		const bool bSameLimitMip = bSameTarget && bSameResource && TextureState.LimitMip == LimitMip;
-		const bool bSameNumMips = bSameTarget && bSameResource && TextureState.NumMips == NumMips;
+		TPair<GLenum, GLenum>* MipLimits = TextureMipLimits.Find(Resource);
+		
+		GLint BaseMip = LimitMip == -1 ? 0 : LimitMip;
+		GLint MaxMip = LimitMip == -1 ? NumMips - 1 : LimitMip;
+		
+		const bool bSameLimitMip = MipLimits && MipLimits->Key == BaseMip;
+		const bool bSameNumMips = MipLimits && MipLimits->Value == MaxMip;
 		
 		if(FOpenGL::SupportsTextureBaseLevel() && !bSameLimitMip)
 		{
-			GLint BaseMip = LimitMip == -1 ? 0 : LimitMip;
 			FOpenGL::TexParameter(Target, GL_TEXTURE_BASE_LEVEL, BaseMip);
 		}
 		TextureState.LimitMip = LimitMip;
 		
 		if(FOpenGL::SupportsTextureMaxLevel() && !bSameNumMips)
 		{
-			GLint MaxMip = LimitMip == -1 ? NumMips - 1 : LimitMip;
 			FOpenGL::TexParameter(Target, GL_TEXTURE_MAX_LEVEL, MaxMip);
 		}
 		TextureState.NumMips = NumMips;
+		
+		TextureMipLimits.Add(Resource, TPairInitializer<GLenum, GLenum>(BaseMip, MaxMip));
 	}
 	else
 	{
@@ -700,14 +705,6 @@ void FOpenGLDynamicRHI::SetupTexturesForDraw( FOpenGLContextState& ContextState,
 			// which should be preferred.
 			if(!FOpenGL::SupportsTextureView())
 			{
-				{
-					FTextureStage& CurrentTextureStage = ContextState.Textures[TextureStageIndex];
-					const bool bSameTarget = (TextureStage.Target == CurrentTextureStage.Target);
-					const bool bSameResource = (TextureStage.Resource == CurrentTextureStage.Resource);
-					const bool bSameLimitMip = bSameTarget && bSameResource && CurrentTextureStage.LimitMip == TextureStage.LimitMip;
-					const bool bSameNumMips = bSameTarget && bSameResource && CurrentTextureStage.NumMips == TextureStage.NumMips;
-				}
-				
 				// When trying to limit the mip available for sampling (as part of texture SRV)
 				// ensure that the texture is bound to only one sampler, or that all samplers
 				// share the same restriction.

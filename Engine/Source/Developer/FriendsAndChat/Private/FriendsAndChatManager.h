@@ -405,14 +405,14 @@ public:
 	{
 		return AllowFriendsJoinGameDelegate;
 	}
-
-	// Internal events
-
-	DECLARE_EVENT(FFriendsAndChatManager, FOnFriendsUpdated)
-	virtual FOnFriendsUpdated& OnFriendsListUpdated()
+	
+	DECLARE_DERIVED_EVENT(IFriendsAndChatManager, IFriendsAndChatManager::FOnFriendsUpdated, FOnFriendsUpdated)
+	virtual FOnFriendsUpdated& OnFriendsListUpdated() override
 	{
 		return OnFriendsListUpdatedDelegate;
 	}
+
+	// Internal events
 
 	DECLARE_EVENT(FFriendsAndChatManager, FOnGameInvitesUpdated)
 	virtual FOnGameInvitesUpdated& OnGameInvitesUpdated()

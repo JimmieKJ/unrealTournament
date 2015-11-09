@@ -35,6 +35,7 @@ public class UnrealTournament : ModuleRules
                                                     "EngineSettings", 
 			                                        "Landscape",
                                                     "Foliage",
+													"PerfCounters",
                                                     "PakFile", });
 
         PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore", "FriendsAndChat", "Sockets" });
@@ -49,12 +50,19 @@ public class UnrealTournament : ModuleRules
 
         if (UEBuildConfiguration.bCompileMcpOSS == true)
         {
+            Definitions.Add("WITH_PROFILE=1");
+
             PublicDependencyModuleNames.AddRange(
                 new string[]
                 {
                     "OnlineSubsystemMcp",
+                    "UTMcpProfile",
                 }
             );
+        }
+        else
+        {
+            Definitions.Add("WITH_PROFILE=0");
         }
     }
 }

@@ -478,6 +478,26 @@ bool UDemoNetDriver::InitListen( FNetworkNotify* InNotify, FURL& ListenURL, bool
 
 	// Spawn the demo recording spectator.
 	SpawnDemoRecSpectator( Connection );
+	
+	for (auto It = GetWorld()->GetNetDriver()->DestroyedStartupOrDormantActors.CreateIterator(); It; ++It)
+	{
+		UActorChannel* Channel = (UActorChannel*)Connection->CreateChannel(CHTYPE_Actor, 1);
+		if (Channel)
+		{
+			FActorDestructionInfo DestructionInfo = It.Value();
+
+			GuidCache->GetOrAssignNetGUID(DestructionInfo.ObjOuter.Get());
+
+#define COMPOSE_NET_GUID( Index, IsStatic )	( ( ( Index ) << 1 ) | ( IsStatic ) )
+#define ALLOC_NEW_NET_GUID( IsStatic )		( COMPOSE_NET_GUID( ++GuidCache->UniqueNetIDs[ IsStatic ], IsStatic ) )
+
+			const int32 IsStatic = 1;
+			
+			DestructionInfo.NetGUID = FNetworkGUID(ALLOC_NEW_NET_GUID(IsStatic));
+			
+			Channel->SetChannelActorForDestroy(&DestructionInfo);
+		}
+	}
 
 	return true;
 }

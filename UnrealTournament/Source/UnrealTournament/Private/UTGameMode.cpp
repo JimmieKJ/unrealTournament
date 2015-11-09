@@ -40,6 +40,7 @@
 #include "UTChallengeManager.h"
 #include "DataChannel.h"
 #include "UTGameInstance.h"
+#include "UTDemoRecSpectator.h"
 
 UUTResetInterface::UUTResetInterface(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
@@ -120,6 +121,7 @@ AUTGameMode::AUTGameMode(const class FObjectInitializer& ObjectInitializer)
 	bPlayPlayerIntro = true;
 	bShowMatchSummary = true;
 	bOfflineChallenge = false;
+	bBasicTrainingGame = false;
 
 	// note: one based
 	LevelUpRewards.AddZeroed(51);
@@ -176,7 +178,7 @@ void AUTGameMode::BeginPlayMutatorHack(FFrame& Stack, RESULT_DECL)
 
 bool AUTGameMode::AllowCheats(APlayerController* P)
 {
-	return (GetNetMode() == NM_Standalone || GIsEditor) && !bOfflineChallenge; 
+	return (GetNetMode() == NM_Standalone || GIsEditor) && !bOfflineChallenge && !bBasicTrainingGame;
 }
 
 void AUTGameMode::Demigod()
@@ -1054,7 +1056,7 @@ void AUTGameMode::DefaultTimer()
 		{
 			if (!HasMatchStarted())
 			{
-				if (GetWorld()->GetRealTimeSeconds() > LobbyInitialTimeoutTime && NumPlayers <= 0)
+				if (GetWorld()->GetRealTimeSeconds() > LobbyInitialTimeoutTime && NumPlayers <= 0 && (GetNetDriver() == NULL || GetNetDriver()->ClientConnections.Num() == 0))
 				{
 					// Catch all...
 					SendEveryoneBackToLobby();
@@ -1315,17 +1317,21 @@ void AUTGameMode::AddKillEventToReplay(AController* Killer, AController* Other, 
 	{
 		return;
 	}
-
+	
 	UDemoNetDriver* DemoNetDriver = GetWorld()->DemoNetDriver;
 	if (DemoNetDriver != nullptr && DemoNetDriver->ServerConnection == nullptr)
 	{
 		AUTPlayerState* KillerPlayerState = Cast<AUTPlayerState>(Killer->PlayerState);
 		AUTPlayerState* OtherPlayerState = Cast<AUTPlayerState>(Other->PlayerState);
+
+		FString KillerName = KillerPlayerState ? *KillerPlayerState->PlayerName : TEXT("None");
+		FString VictimName = OtherPlayerState ? *OtherPlayerState->PlayerName : TEXT("None");
+
+		KillerName.ReplaceInline(TEXT(" "), TEXT("%20"));
+		VictimName.ReplaceInline(TEXT(" "), TEXT("%20"));
+
 		TArray<uint8> Data;
-		FString KillInfo = FString::Printf(TEXT("%s %s %s"),
-											KillerPlayerState ? *KillerPlayerState->PlayerName : TEXT("None"),
-											OtherPlayerState ? *OtherPlayerState->PlayerName : TEXT("None"),
-											*DamageType->GetName());
+		FString KillInfo = FString::Printf(TEXT("%s %s %s"), *KillerName, *VictimName, *DamageType->GetName());
 
 		FMemoryWriter MemoryWriter(Data);
 		MemoryWriter.Serialize(TCHAR_TO_ANSI(*KillInfo), KillInfo.Len() + 1);
@@ -1349,8 +1355,11 @@ void AUTGameMode::AddMultiKillEventToReplay(AController* Killer, int32 MultiKill
 	if (Killer && DemoNetDriver != nullptr && DemoNetDriver->ServerConnection == nullptr)
 	{
 		AUTPlayerState* KillerPlayerState = Cast<AUTPlayerState>(Killer->PlayerState);
+		FString KillerName = KillerPlayerState ? *KillerPlayerState->PlayerName : TEXT("None");
+		KillerName.ReplaceInline(TEXT(" "), TEXT("%20"));
+
 		TArray<uint8> Data;
-		FString KillInfo = FString::Printf(TEXT("%s %d"), KillerPlayerState ? *KillerPlayerState->PlayerName : TEXT("None"), MultiKillLevel);
+		FString KillInfo = FString::Printf(TEXT("%s %d"), *KillerName, MultiKillLevel);
 
 		FMemoryWriter MemoryWriter(Data);
 		MemoryWriter.Serialize(TCHAR_TO_ANSI(*KillInfo), KillInfo.Len() + 1);
@@ -1374,8 +1383,11 @@ void AUTGameMode::AddSpreeKillEventToReplay(AController* Killer, int32 SpreeLeve
 	if (Killer && DemoNetDriver != nullptr && DemoNetDriver->ServerConnection == nullptr)
 	{
 		AUTPlayerState* KillerPlayerState = Cast<AUTPlayerState>(Killer->PlayerState);
+		FString KillerName = KillerPlayerState ? *KillerPlayerState->PlayerName : TEXT("None");
+		KillerName.ReplaceInline(TEXT(" "), TEXT("%20"));
+
 		TArray<uint8> Data;
-		FString KillInfo = FString::Printf(TEXT("%s %d"), KillerPlayerState ? *KillerPlayerState->PlayerName : TEXT("None"), SpreeLevel);
+		FString KillInfo = FString::Printf(TEXT("%s %d"), *KillerName, SpreeLevel);
 
 		FMemoryWriter MemoryWriter(Data);
 		MemoryWriter.Serialize(TCHAR_TO_ANSI(*KillInfo), KillInfo.Len() + 1);
@@ -1406,7 +1418,19 @@ void AUTGameMode::DiscardInventory(APawn* Other, AController* Killer)
 		// toss weapon
 		if (UTC->GetWeapon() != NULL)
 		{
-			UTC->TossInventory(UTC->GetWeapon());
+			if (UTC->GetWeapon()->ShouldDropOnDeath())
+			{
+				UTC->TossInventory(UTC->GetWeapon());
+			}
+			else
+			{
+				// drop default weapon instead @TODO FIXMESTEVE - this should go through default items array
+				AUTWeapon* Enforcer = UTC->FindInventoryType<AUTWeapon>(AUTWeap_Enforcer::StaticClass());
+				if (Enforcer && !Enforcer->IsPendingKillPending())
+				{
+					UTC->TossInventory(Enforcer);
+				}
+			}
 		}
 		// toss all powerups
 		for (TInventoryIterator<> It(UTC); It; ++It)
@@ -1438,8 +1462,8 @@ void AUTGameMode::FindAndMarkHighScorer()
 
 	for (int32 i = 0; i < UTGameState->PlayerArray.Num(); i++)
 	{
-		AUTPlayerState *PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
-		AController *C = Cast<AController>(PS->GetOwner());
+		AUTPlayerState* PS = Cast<AUTPlayerState>(UTGameState->PlayerArray[i]);
+		AController* C = (PS != NULL) ? Cast<AController>(PS->GetOwner()) : NULL;
 		if (PS != nullptr && PS->Score == BestScore)
 		{
 			PS->bHasHighScore = true;
@@ -1456,7 +1480,10 @@ void AUTGameMode::FindAndMarkHighScorer()
 		else
 		{
 			// Clear previous high scores
-			PS->bHasHighScore = false;
+			if (PS != NULL)
+			{
+				PS->bHasHighScore = false;
+			}
 			if (C != nullptr)
 			{
 				AUTCharacter *UTChar = Cast<AUTCharacter>(C->GetPawn());
@@ -1469,19 +1496,6 @@ void AUTGameMode::FindAndMarkHighScorer()
 		}
 	}
 }
-
-bool AUTGameMode::CheckScore_Implementation(AUTPlayerState* Scorer)
-{
-	if ( Scorer != NULL )
-	{
-		if ( (GoalScore > 0) && (Scorer->Score >= GoalScore) )
-		{
-			EndGame(Scorer,FName(TEXT("fraglimit")));
-		}
-	}
-	return true;
-}
-
 
 void AUTGameMode::StartMatch()
 {
@@ -1849,6 +1863,9 @@ void AUTGameMode::EndGame(AUTPlayerState* Winner, FName Reason )
 		MatchUpdate.GameTime = UTGameState->ElapsedTime;
 		MatchUpdate.NumPlayers = NumPlayers;
 		MatchUpdate.NumSpectators = NumSpectators;
+		MatchUpdate.MatchState = MatchState;
+		MatchUpdate.bMatchHasBegun = HasMatchStarted();
+		MatchUpdate.bMatchHasEnded = HasMatchEnded();
 
 		UpdateLobbyScore(MatchUpdate);
 		LobbyBeacon->EndGame(MatchUpdate);
@@ -2526,7 +2543,10 @@ void AUTGameMode::StartNewPlayer(APlayerController* NewPlayer)
 	{
 		// tell client what hud class to use
 		UTNewPlayer->HUDClass = HUDClass;
-		UTNewPlayer->OnRep_HUDClass();
+		if (Cast<UNetConnection>(UTNewPlayer->Player) == NULL)
+		{
+			UTNewPlayer->OnRep_HUDClass();
+		}
 
 		// start match, or let player enter, immediately
 		if (UTGameState->HasMatchStarted())
@@ -2768,7 +2788,7 @@ void AUTGameMode::CheckGameTime()
 	{
 		// Game should be over.. look to see if we need to go in to overtime....	
 
-		uint32 bTied = 0;
+		bool bTied = false;
 		AUTPlayerState* Winner = IsThereAWinner(bTied);
 
 		if (!bAllowOvertime || !bTied)
@@ -2794,11 +2814,7 @@ void AUTGameMode::HandleMatchIsWaitingToStart()
 	}
 }
 
-/**
- *	Look though the player states and see if we have a winner.  If there is a tie, we return
- *  NULL so that we can enter overtime.
- **/
-AUTPlayerState* AUTGameMode::IsThereAWinner(uint32& bTied)
+AUTPlayerState* AUTGameMode::IsThereAWinner_Implementation(bool& bTied)
 {
 	AUTPlayerState* BestPlayer = NULL;
 	float BestScore = 0.0;
@@ -2819,8 +2835,19 @@ AUTPlayerState* AUTGameMode::IsThereAWinner(uint32& bTied)
 			}
 		}
 	}
-
 	return BestPlayer;
+}
+
+bool AUTGameMode::CheckScore_Implementation(AUTPlayerState* Scorer)
+{
+	if (Scorer != NULL)
+	{
+		if ((GoalScore > 0) && (Scorer->Score >= GoalScore))
+		{
+			EndGame(Scorer, FName(TEXT("fraglimit")));
+		}
+	}
+	return true;
 }
 
 void AUTGameMode::OverridePlayerState(APlayerController* PC, APlayerState* OldPlayerState)
@@ -2890,6 +2917,9 @@ void AUTGameMode::PostLogin( APlayerController* NewPlayer )
 
 	CheckBotCount();
 
+	// Check if a (re)joining player is the leader
+	FindAndMarkHighScorer();
+
 	HUDClass = SavedHUDClass;
 }
 
@@ -2927,6 +2957,9 @@ void AUTGameMode::Logout(AController* Exiting)
 		ParamArray.Add(FAnalyticsEventAttribute(TEXT("Score"), PS->Score));
 		ParamArray.Add(FAnalyticsEventAttribute(TEXT("GameName"), GetNameSafe(GetClass())));
 		ParamArray.Add(FAnalyticsEventAttribute(TEXT("PlayerXP"), PS->GetXP().Total()));
+		ParamArray.Add(FAnalyticsEventAttribute(TEXT("PlayerXP"), PS->GetXP().Total()));
+		ParamArray.Add(FAnalyticsEventAttribute(TEXT("PlayerLevel"), GetLevelForXP(PS->GetXP().Total())));
+		ParamArray.Add(FAnalyticsEventAttribute(TEXT("PlayerStars"), PS->TotalChallengeStars));
 		FUTAnalytics::GetProvider().RecordEvent( TEXT("PlayerLogoutStat"), ParamArray );
 		PS->RespawnChoiceA = NULL;
 		PS->RespawnChoiceB = NULL;
@@ -2942,7 +2975,11 @@ void AUTGameMode::Logout(AController* Exiting)
 		NumBots--;
 	}
 
-	Super::Logout(Exiting);
+	// the demorec spectator doesn't count as a real player or spectator and we need to avoid the Super call that will incorrectly decrement the spectator count
+	if (Cast<AUTDemoRecSpectator>(Exiting) == NULL)
+	{
+		Super::Logout(Exiting);
+	}
 
 	if (GameSession != NULL)
 	{
@@ -2979,6 +3016,11 @@ bool AUTGameMode::ModifyDamage_Implementation(int32& Damage, FVector& Momentum, 
 	}
 
 	return true;
+}
+
+bool AUTGameMode::PreventDeath_Implementation(APawn* KilledPawn, AController* Killer, TSubclassOf<UDamageType> DamageType, const FHitResult& HitInfo)
+{
+	return (BaseMutator != NULL && BaseMutator->PreventDeath(KilledPawn, Killer, DamageType, HitInfo));
 }
 
 bool AUTGameMode::CheckRelevance_Implementation(AActor* Other)
@@ -3118,190 +3160,201 @@ void AUTGameMode::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, 
 	TSharedPtr< TAttributeProperty<int32> > CombatantsAttr = StaticCastSharedPtr<TAttributeProperty<int32>>(FindGameURLOption(ConfigProps, TEXT("BotFill")));
 
 	// FIXME: temp 'ReadOnly' handling by creating new widgets; ideally there would just be a 'disabled' or 'read only' state in Slate...
-	MenuSpace->AddSlot()
-	.AutoHeight()
-	.VAlign(VAlign_Top)
-	.Padding(0.0f,0.0f,0.0f,5.0f)
-	[
-		SNew(SHorizontalBox)
-		+ SHorizontalBox::Slot()
-		.AutoWidth()
-		.Padding(0.0f, 5.0f, 0.0f, 0.0f)
+	if (CombatantsAttr.IsValid())
+	{
+		MenuSpace->AddSlot()
+		.AutoHeight()
+		.VAlign(VAlign_Top)
+		.Padding(0.0f,0.0f,0.0f,5.0f)
 		[
-			SNew(SBox)
-			.WidthOverride(350)
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot()
+			.AutoWidth()
+			.Padding(0.0f, 5.0f, 0.0f, 0.0f)
 			[
-				SNew(STextBlock)
-				.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-				.Text(NSLOCTEXT("UTGameMode", "NumCombatants", "Number of Combatants"))
+				SNew(SBox)
+				.WidthOverride(350)
+				[
+					SNew(STextBlock)
+					.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+					.Text(NSLOCTEXT("UTGameMode", "NumCombatants", "Number of Combatants"))
+				]
 			]
-		]
-		+ SHorizontalBox::Slot()
-		.AutoWidth()
-		.Padding(20.0f,0.0f,0.0f,0.0f)
-		[
-			SNew(SBox)
-			.WidthOverride(300)
+			+ SHorizontalBox::Slot()
+			.AutoWidth()
+			.Padding(20.0f,0.0f,0.0f,0.0f)
 			[
-				bCreateReadOnly ?
-				StaticCastSharedRef<SWidget>(
+				SNew(SBox)
+				.WidthOverride(300)
+				[
+					bCreateReadOnly ?
+					StaticCastSharedRef<SWidget>(
+						SNew(STextBlock)
+						.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
+						.Text(CombatantsAttr.ToSharedRef(), &TAttributeProperty<int32>::GetAsText)
+					) :
+					StaticCastSharedRef<SWidget>(
+						SNew(SNumericEntryBox<int32>)
+						.Value(CombatantsAttr.ToSharedRef(), &TAttributeProperty<int32>::GetOptional)
+						.OnValueChanged(CombatantsAttr.ToSharedRef(), &TAttributeProperty<int32>::Set)
+						.AllowSpin(true)
+						.Delta(1)
+						.MinValue(1)
+						.MaxValue(32)
+						.MinSliderValue(1)
+						.MaxSliderValue(32)
+						.EditableTextBoxStyle(SUWindowsStyle::Get(), "UT.Common.NumEditbox.White")
+
+					)
+				]
+			]
+		];
+	}
+	if (GoalScoreAttr.IsValid())
+	{
+		MenuSpace->AddSlot()
+		.AutoHeight()
+		.VAlign(VAlign_Top)
+		.Padding(0.0f,0.0f,0.0f,5.0f)
+		[
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot()
+			.AutoWidth()
+			.VAlign(VAlign_Center)
+			[
+				SNew(SBox)
+				.WidthOverride(350)
+				[
+					SNew(STextBlock)
+					.TextStyle(SUWindowsStyle::Get(),"UT.Common.NormalText")
+					.Text(NSLOCTEXT("UTGameMode", "GoalScore", "Goal Score"))
+				]
+			]
+			+ SHorizontalBox::Slot()
+			.Padding(20.0f,0.0f,0.0f,0.0f)
+			.AutoWidth()
+			[
+				SNew(SBox)
+				.WidthOverride(300)
+				[
+					bCreateReadOnly ?
+					StaticCastSharedRef<SWidget>(
+						SNew(STextBlock)
+						.TextStyle(SUWindowsStyle::Get(),"UT.Common.ButtonText.White")
+						.Text(GoalScoreAttr.ToSharedRef(), &TAttributeProperty<int32>::GetAsText)
+					) :
+					StaticCastSharedRef<SWidget>(
+						SNew(SNumericEntryBox<int32>)
+						.Value(GoalScoreAttr.ToSharedRef(), &TAttributeProperty<int32>::GetOptional)
+						.OnValueChanged(GoalScoreAttr.ToSharedRef(), &TAttributeProperty<int32>::Set)
+						.AllowSpin(true)
+						.Delta(1)
+						.MinValue(0)
+						.MaxValue(999)
+						.MinSliderValue(0)
+						.MaxSliderValue(99)
+						.EditableTextBoxStyle(SUWindowsStyle::Get(), "UT.Common.NumEditbox.White")
+					)
+				]
+			]
+		];
+	}
+	if (TimeLimitAttr.IsValid())
+	{
+		MenuSpace->AddSlot()
+		.AutoHeight()
+		.VAlign(VAlign_Top)
+		.Padding(0.0f,0.0f,0.0f,5.0f)
+		[
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot()
+			.AutoWidth()
+			.VAlign(VAlign_Center)
+			[
+				SNew(SBox)
+				.WidthOverride(350)
+				[
+					SNew(STextBlock)
+					.TextStyle(SUWindowsStyle::Get(),"UT.Common.NormalText")
+					.Text(NSLOCTEXT("UTGameMode", "TimeLimit", "Time Limit"))
+				]
+			]
+			+ SHorizontalBox::Slot()
+			.Padding(20.0f,0.0f,0.0f,0.0f)
+			.AutoWidth()
+			[
+				SNew(SBox)
+				.WidthOverride(300)
+				[
+					bCreateReadOnly ?
+					StaticCastSharedRef<SWidget>(
 					SNew(STextBlock)
 					.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
-					.Text(CombatantsAttr.ToSharedRef(), &TAttributeProperty<int32>::GetAsText)
-				) :
-				StaticCastSharedRef<SWidget>(
+					.Text(TimeLimitAttr.ToSharedRef(), &TAttributeProperty<int32>::GetAsText)
+					) :
+					StaticCastSharedRef<SWidget>(
 					SNew(SNumericEntryBox<int32>)
-					.Value(CombatantsAttr.ToSharedRef(), &TAttributeProperty<int32>::GetOptional)
-					.OnValueChanged(CombatantsAttr.ToSharedRef(), &TAttributeProperty<int32>::Set)
-					.AllowSpin(true)
-					.Delta(1)
-					.MinValue(1)
-					.MaxValue(32)
-					.MinSliderValue(1)
-					.MaxSliderValue(32)
-					.EditableTextBoxStyle(SUWindowsStyle::Get(), "UT.Common.NumEditbox.White")
-
-				)
-			]
-		]
-	];
-	MenuSpace->AddSlot()
-	.AutoHeight()
-	.VAlign(VAlign_Top)
-	.Padding(0.0f,0.0f,0.0f,5.0f)
-	[
-		SNew(SHorizontalBox)
-		+ SHorizontalBox::Slot()
-		.AutoWidth()
-		.VAlign(VAlign_Center)
-		[
-			SNew(SBox)
-			.WidthOverride(350)
-			[
-				SNew(STextBlock)
-				.TextStyle(SUWindowsStyle::Get(),"UT.Common.NormalText")
-				.Text(NSLOCTEXT("UTGameMode", "GoalScore", "Goal Score"))
-			]
-		]
-		+ SHorizontalBox::Slot()
-		.Padding(20.0f,0.0f,0.0f,0.0f)
-		.AutoWidth()
-		[
-			SNew(SBox)
-			.WidthOverride(300)
-			[
-				bCreateReadOnly ?
-				StaticCastSharedRef<SWidget>(
-					SNew(STextBlock)
-					.TextStyle(SUWindowsStyle::Get(),"UT.Common.ButtonText.White")
-					.Text(GoalScoreAttr.ToSharedRef(), &TAttributeProperty<int32>::GetAsText)
-				) :
-				StaticCastSharedRef<SWidget>(
-					SNew(SNumericEntryBox<int32>)
-					.Value(GoalScoreAttr.ToSharedRef(), &TAttributeProperty<int32>::GetOptional)
-					.OnValueChanged(GoalScoreAttr.ToSharedRef(), &TAttributeProperty<int32>::Set)
+					.Value(TimeLimitAttr.ToSharedRef(), &TAttributeProperty<int32>::GetOptional)
+					.OnValueChanged(TimeLimitAttr.ToSharedRef(), &TAttributeProperty<int32>::Set)
 					.AllowSpin(true)
 					.Delta(1)
 					.MinValue(0)
 					.MaxValue(999)
 					.MinSliderValue(0)
-					.MaxSliderValue(99)
+					.MaxSliderValue(60)
 					.EditableTextBoxStyle(SUWindowsStyle::Get(), "UT.Common.NumEditbox.White")
-				)
+					)
+				]
 			]
-		]
-	];
-	MenuSpace->AddSlot()
-	.AutoHeight()
-	.VAlign(VAlign_Top)
-	.Padding(0.0f,0.0f,0.0f,5.0f)
-	[
-		SNew(SHorizontalBox)
-		+ SHorizontalBox::Slot()
-		.AutoWidth()
-		.VAlign(VAlign_Center)
+		];
+	}
+	if (ForceRespawnAttr.IsValid())
+	{
+		MenuSpace->AddSlot()
+		.AutoHeight()
+		.VAlign(VAlign_Top)
+		.Padding(0.0f,0.0f,0.0f,5.0f)
 		[
-			SNew(SBox)
-			.WidthOverride(350)
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot()
+			.AutoWidth()
+			.VAlign(VAlign_Center)
 			[
-				SNew(STextBlock)
-				.TextStyle(SUWindowsStyle::Get(),"UT.Common.NormalText")
-				.Text(NSLOCTEXT("UTGameMode", "TimeLimit", "Time Limit"))
+				SNew(SBox)
+				.WidthOverride(350)
+				[
+					SNew(STextBlock)
+					.TextStyle(SUWindowsStyle::Get(),"UT.Common.NormalText")
+					.Text(NSLOCTEXT("UTGameMode", "ForceRespawn", "Force Respawn"))
+				]
 			]
-		]
-		+ SHorizontalBox::Slot()
-		.Padding(20.0f,0.0f,0.0f,0.0f)
-		.AutoWidth()
-		[
-			SNew(SBox)
-			.WidthOverride(300)
+			+ SHorizontalBox::Slot()
+			.Padding(20.0f, 0.0f, 0.0f, 10.0f)
+			.AutoWidth()
 			[
-				bCreateReadOnly ?
-				StaticCastSharedRef<SWidget>(
-				SNew(STextBlock)
-				.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
-				.Text(TimeLimitAttr.ToSharedRef(), &TAttributeProperty<int32>::GetAsText)
-				) :
-				StaticCastSharedRef<SWidget>(
-				SNew(SNumericEntryBox<int32>)
-				.Value(TimeLimitAttr.ToSharedRef(), &TAttributeProperty<int32>::GetOptional)
-				.OnValueChanged(TimeLimitAttr.ToSharedRef(), &TAttributeProperty<int32>::Set)
-				.AllowSpin(true)
-				.Delta(1)
-				.MinValue(0)
-				.MaxValue(999)
-				.MinSliderValue(0)
-				.MaxSliderValue(60)
-				.EditableTextBoxStyle(SUWindowsStyle::Get(), "UT.Common.NumEditbox.White")
-				)
+				SNew(SBox)
+				.WidthOverride(300)
+				[
+					bCreateReadOnly ?
+					StaticCastSharedRef<SWidget>(
+						SNew(SCheckBox)
+						.IsChecked(ForceRespawnAttr.ToSharedRef(), &TAttributePropertyBool::GetAsCheckBox)
+						.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
+						.ForegroundColor(FLinearColor::White)
+						.Type(ESlateCheckBoxType::CheckBox)
+					) :
+					StaticCastSharedRef<SWidget>(
+						SNew(SCheckBox)
+						.IsChecked(ForceRespawnAttr.ToSharedRef(), &TAttributePropertyBool::GetAsCheckBox)
+						.OnCheckStateChanged(ForceRespawnAttr.ToSharedRef(), &TAttributePropertyBool::SetFromCheckBox)
+						.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
+						.ForegroundColor(FLinearColor::White)
+						.Type(ESlateCheckBoxType::CheckBox)
+					)
+				]
 			]
-		]
-	];
-	MenuSpace->AddSlot()
-	.AutoHeight()
-	.VAlign(VAlign_Top)
-	.Padding(0.0f,0.0f,0.0f,5.0f)
-	[
-		SNew(SHorizontalBox)
-		+ SHorizontalBox::Slot()
-		.AutoWidth()
-		.VAlign(VAlign_Center)
-		[
-			SNew(SBox)
-			.WidthOverride(350)
-			[
-				SNew(STextBlock)
-				.TextStyle(SUWindowsStyle::Get(),"UT.Common.NormalText")
-				.Text(NSLOCTEXT("UTGameMode", "ForceRespawn", "Force Respawn"))
-			]
-		]
-		+ SHorizontalBox::Slot()
-		.Padding(20.0f, 0.0f, 0.0f, 10.0f)
-		.AutoWidth()
-		[
-			SNew(SBox)
-			.WidthOverride(300)
-			[
-				bCreateReadOnly ?
-				StaticCastSharedRef<SWidget>(
-					SNew(SCheckBox)
-					.IsChecked(ForceRespawnAttr.ToSharedRef(), &TAttributePropertyBool::GetAsCheckBox)
-					.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
-					.ForegroundColor(FLinearColor::White)
-					.Type(ESlateCheckBoxType::CheckBox)
-				) :
-				StaticCastSharedRef<SWidget>(
-					SNew(SCheckBox)
-					.IsChecked(ForceRespawnAttr.ToSharedRef(), &TAttributePropertyBool::GetAsCheckBox)
-					.OnCheckStateChanged(ForceRespawnAttr.ToSharedRef(), &TAttributePropertyBool::SetFromCheckBox)
-					.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
-					.ForegroundColor(FLinearColor::White)
-					.Type(ESlateCheckBoxType::CheckBox)
-				)
-			]
-		]
-	];
-
+		];
+	}
 }
 
 
@@ -3439,6 +3492,9 @@ void AUTGameMode::UpdateLobbyMatchStats()
 		MatchUpdate.GameTime = TimeLimit > 0 ? UTGameState->RemainingTime : UTGameState->ElapsedTime;
 		MatchUpdate.NumPlayers = NumPlayers;
 		MatchUpdate.NumSpectators = NumSpectators;
+		MatchUpdate.MatchState = MatchState;
+		MatchUpdate.bMatchHasBegun = HasMatchStarted();
+		MatchUpdate.bMatchHasEnded = HasMatchEnded();
 
 		UpdateLobbyScore(MatchUpdate);
 		LobbyBeacon->UpdateMatch(MatchUpdate);

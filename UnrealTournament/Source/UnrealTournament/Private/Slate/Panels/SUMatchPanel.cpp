@@ -24,7 +24,6 @@ void SUMatchPanel::Construct(const FArguments& InArgs)
 	PlayerOwner = InArgs._PlayerOwner;
 	bShowingNoMatches = false;
 	OnJoinMatchDelegate = InArgs._OnJoinMatchDelegate;
-	bExpectServerData = InArgs._bExpectServerData;
 
 	TSharedPtr<SVerticalBox> VertBox;
 
@@ -38,7 +37,7 @@ void SUMatchPanel::Construct(const FArguments& InArgs)
 		]
 	];
 
-	if (!bExpectServerData)
+	if (ShouldUseLiveData())
 	{
 		VertBox->AddSlot()
 		.VAlign(VAlign_Center)
@@ -75,30 +74,6 @@ void SUMatchPanel::Construct(const FArguments& InArgs)
 					.HAlign(HAlign_Right)
 					[
 						SNew(SHorizontalBox)
-/*
-						+SHorizontalBox::Slot()
-						.Padding(0.0,0.0,10.0,0.0)
-						.AutoWidth()
-						.HAlign(HAlign_Right)
-						[
-							SNew(SHorizontalBox)
-							+SHorizontalBox::Slot()
-							.AutoWidth()
-							[
-								SNew(SCheckBox)
-								.Style(SUTStyle::Get(), "UT.CheckBox")
-								.IsChecked(ECheckBoxState::Checked)
-							]
-							+SHorizontalBox::Slot()
-							.VAlign(VAlign_Center)
-							.AutoWidth()
-							[
-								SNew(STextBlock)
-								.Text(NSLOCTEXT("SUMatchPanel","UnJoinableTitle","Hide unjoinable matches"))
-								.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small")
-							]
-						]
-*/
 						+SHorizontalBox::Slot()
 						.AutoWidth()
 						.Padding(10.0,5.0,21.0,5.0)
@@ -186,9 +161,11 @@ void SUMatchPanel::Construct(const FArguments& InArgs)
 			]
 		]
 	];
+}
 
-
-
+bool SUMatchPanel::ShouldUseLiveData()
+{
+	return (PlayerOwner.IsValid() && PlayerOwner->GetWorld()->GetGameState<AUTLobbyGameState>() != NULL);
 }
 
 TSharedRef<ITableRow> SUMatchPanel::OnGenerateWidgetForMatchList( TSharedPtr<FTrackedMatch> InItem, const TSharedRef<STableViewBase>& OwnerTable )
@@ -205,9 +182,7 @@ TSharedRef<ITableRow> SUMatchPanel::OnGenerateWidgetForMatchList( TSharedPtr<FTr
 			.AutoHeight()
 			[
 				SNew(SUTPopOverAnchor)
-				.OnGetPopoverWidget(this, &SUMatchPanel::OnGetPopup)
-				.AssociatedActor(InItem->MatchInfo)
-				.AssociatedString(InItem->MatchId.ToString())
+				.OnGetPopoverWidget(this, &SUMatchPanel::OnGetPopup, InItem)
 				[
 					SNew(SHorizontalBox)
 					+SHorizontalBox::Slot()
@@ -454,7 +429,7 @@ int32 SUMatchPanel::IsTrackingMatch(AUTLobbyMatchInfo* Match)
 {
 	for (int32 i = 0; i < TrackedMatches.Num(); i++)
 	{
-		if (TrackedMatches[i]->MatchInfo.IsValid() && TrackedMatches[i]->MatchInfo.Get() == Match)
+		if (TrackedMatches[i]->MatchId == Match->UniqueMatchID)
 		{
 			return i;
 		}
@@ -465,102 +440,104 @@ int32 SUMatchPanel::IsTrackingMatch(AUTLobbyMatchInfo* Match)
 
 void SUMatchPanel::Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime )
 {
-	if (bExpectServerData) return;	
-
-	for (int32 i = 0; i < TrackedMatches.Num(); i++)
+	// If this 
+	if (ShouldUseLiveData())
 	{
-		TrackedMatches[i]->bPendingKill = true;
-	}
-
-	bool bListNeedsUpdate = false;
-
-	AUTLobbyGameState* GameState = PlayerOwner->GetWorld()->GetGameState<AUTLobbyGameState>();
-	if (GameState)
-	{
-		// Look at the available matches
-		for (int32 i = 0; i < GameState->AvailableMatches.Num(); i++)
+		// Flag all matches as pending kill.  
+		for (int32 i = 0; i < TrackedMatches.Num(); i++)
 		{
-			AUTLobbyMatchInfo* Match = GameState->AvailableMatches[i];
-			if (Match && GameState->IsMatchStillValid(Match) && Match->ShouldShowInDock())
-			{
-				int32 Idx = IsTrackingMatch(Match);
-				if (Idx != INDEX_NONE)
-				{
-					TrackedMatches[Idx]->bPendingKill = false;
-				}
-				else
-				{
-					// We need to add this match
-					TrackedMatches.Add(FTrackedMatch::Make(Match));
-					bListNeedsUpdate = true;
-				}
-			}
+			TrackedMatches[i]->bPendingKill = true;
 		}
 
-		// Look at running instances
-		for (int32 i = 0; i < GameState->GameInstances.Num(); i++)
+		bool bListNeedsUpdate = false;
+
+		AUTLobbyGameState* GameState = PlayerOwner->GetWorld()->GetGameState<AUTLobbyGameState>();
+		if (GameState)
 		{
-			AUTLobbyMatchInfo* Match = GameState->GameInstances[i].MatchInfo;
-			if (Match && GameState->IsMatchStillValid(Match) && Match->ShouldShowInDock())
+			// Look at the available matches
+			for (int32 i = 0; i < GameState->AvailableMatches.Num(); i++)
 			{
-				int32 Idx = IsTrackingMatch(Match);
-				if (Idx != INDEX_NONE)
+				AUTLobbyMatchInfo* Match = GameState->AvailableMatches[i];
+				if (Match && GameState->IsMatchStillValid(Match) && Match->ShouldShowInDock())
 				{
-					TrackedMatches[Idx]->bPendingKill = false;
-				}
-				else
-				{
-					// We need to add this match
-					TrackedMatches.Add(FTrackedMatch::Make(Match));
-					bListNeedsUpdate = true;
+					int32 Idx = IsTrackingMatch(Match);
+					if (Idx != INDEX_NONE)
+					{
+						TrackedMatches[Idx]->bPendingKill = false;
+					}
+					else
+					{
+						// We need to add this match
+						TrackedMatches.Add(FTrackedMatch::Make(Match));
+						bListNeedsUpdate = true;
+					}
 				}
 			}
-		}
+
+			// Look at running instances
+			for (int32 i = 0; i < GameState->GameInstances.Num(); i++)
+			{
+				AUTLobbyMatchInfo* Match = GameState->GameInstances[i].MatchInfo;
+				if (Match && GameState->IsMatchStillValid(Match) && Match->ShouldShowInDock())
+				{
+					int32 Idx = IsTrackingMatch(Match);
+					if (Idx != INDEX_NONE)
+					{
+						TrackedMatches[Idx]->bPendingKill = false;
+					}
+					else
+					{
+						// We need to add this match
+						TrackedMatches.Add(FTrackedMatch::Make(Match));
+						bListNeedsUpdate = true;
+					}
+				}
+			}
 	
-	}
-
-	// Remove any entries that are pending kill
-	for (int32 i = TrackedMatches.Num() - 1; i >= 0; i--)
-	{
-		if (TrackedMatches[i]->bPendingKill) 
-		{
-			bListNeedsUpdate = true;
-			TrackedMatches.RemoveAt(i);
 		}
-	}
 
-	// Update the friends.
-	TArray<FUTFriend> FriendsList;
-	PlayerOwner->GetFriendsList(FriendsList);
-
-	for (int32 i=0; i < TrackedMatches.Num(); i++)
-	{
-		if (TrackedMatches[i]->MatchInfo.IsValid())
+		// Remove any entries that are pending kill
+		for (int32 i = TrackedMatches.Num() - 1; i >= 0; i--)
 		{
-			TrackedMatches[i]->NumFriends = TrackedMatches[i]->MatchInfo->CountFriendsInMatch(FriendsList);
+			if (TrackedMatches[i]->bPendingKill) 
+			{
+				bListNeedsUpdate = true;
+				TrackedMatches.RemoveAt(i);
+			}
 		}
-	}
 
+		// Update the friends.
+		TArray<FUTFriend> FriendsList;
+		PlayerOwner->GetFriendsList(FriendsList);
 
-	if (bShowingNoMatches && TrackedMatches.Num() > 0)
-	{
-		bShowingNoMatches = false;
-		NoMatchesBox->ClearChildren();
-	}
-	else if (TrackedMatches.Num() == 0 && !bShowingNoMatches)
-	{
-		bShowingNoMatches = true;
-		NoMatchesBox->AddSlot().AutoHeight().Padding(10.0f,10.0f,0.0f,0.0f)
-		[
-			SNew(STextBlock)
-			.Text(NSLOCTEXT("SUMatchPanel","NoMatches","There are no active matches.  Start one!"))
-			.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
-		];
-	}
+		for (int32 i=0; i < TrackedMatches.Num(); i++)
+		{
+			if (TrackedMatches[i]->MatchInfo.IsValid())
+			{
+				TrackedMatches[i]->NumFriends = TrackedMatches[i]->MatchInfo->CountFriendsInMatch(FriendsList);
+			}
+		}
 
-	if (bListNeedsUpdate)
-	{
-		MatchList->RequestListRefresh();	
+		if (bShowingNoMatches && TrackedMatches.Num() > 0)
+		{
+			bShowingNoMatches = false;
+			NoMatchesBox->ClearChildren();
+		}
+		else if (TrackedMatches.Num() == 0 && !bShowingNoMatches)
+		{
+			bShowingNoMatches = true;
+			NoMatchesBox->AddSlot().AutoHeight().Padding(10.0f,10.0f,0.0f,0.0f)
+			[
+				SNew(STextBlock)
+				.Text(NSLOCTEXT("SUMatchPanel","NoMatches","There are no active matches.  Start one!"))
+				.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
+			];
+		}
+
+		if (bListNeedsUpdate)
+		{
+			MatchList->RequestListRefresh();	
+		}
 	}
 }
  
@@ -579,9 +556,8 @@ FReply SUMatchPanel::StartNewMatch()
 	return FReply::Handled();
 }	
 
-TSharedRef<SWidget> SUMatchPanel::OnGetPopupContent(TSharedPtr<SUTPopOverAnchor> Anchor)
+TSharedRef<SWidget> SUMatchPanel::OnGetPopupContent(TSharedPtr<SUTPopOverAnchor> Anchor, TSharedPtr<FTrackedMatch> TrackedMatch)
 {
-
 	// Create the player list..
 
 	TSharedPtr<SVerticalBox> VertBox;
@@ -599,13 +575,33 @@ TSharedRef<SWidget> SUMatchPanel::OnGetPopupContent(TSharedPtr<SUTPopOverAnchor>
 
 	bool bTeamGame = false;
 
-	if (bExpectServerData)
+	if (ShouldUseLiveData())
+	{
+		if (TrackedMatch->MatchInfo.IsValid())
+		{
+			TrackedMatch->MatchInfo->FillPlayerColumnsForDisplay(ColumnA, ColumnB, Spectators);
+			if (TrackedMatch->MatchInfo->CurrentRuleset.IsValid())
+			{
+				bTeamGame = TrackedMatch->MatchInfo->CurrentRuleset->bTeamGame;
+				RulesList = TrackedMatch->MatchInfo->CurrentRuleset->Description;
+			}
+			else if (TrackedMatch->MatchInfo->bDedicatedMatch)
+			{
+				bTeamGame = TrackedMatch->MatchInfo->bDedicatedTeamGame;
+				RulesList = TrackedMatch->MatchInfo->DedicatedServerDescription;
+			}
+
+			Scores = TrackedMatch->MatchInfo->MatchUpdate.TeamScores;
+			GameTime = TrackedMatch->MatchInfo->MatchUpdate.GameTime;
+		}
+	}
+	else
 	{
 		TSharedPtr<FServerInstanceData> Instance;
 		// Find the instance data
 		for (int32 i=0; i < ServerData->HUBInstances.Num(); i++)
 		{
-			if (ServerData->HUBInstances[i]->InstanceId.ToString() == Anchor->AssociatedString)
+			if (ServerData->HUBInstances[i]->InstanceId == TrackedMatch->MatchId)
 			{
 				Instance = ServerData->HUBInstances[i];
 				break;
@@ -661,32 +657,8 @@ TSharedRef<SWidget> SUMatchPanel::OnGetPopupContent(TSharedPtr<SUTPopOverAnchor>
 			bTeamGame = Instance->bTeamGame;
 			RulesList = Instance->MutatorList;
 	
-			Scores = Instance->MatchUpdate.TeamScores;
-			GameTime = Instance->MatchUpdate.GameTime;
-		}
-	}
-	else
-	{
-		if (Anchor->AssociatedActor.IsValid())
-		{
-			AUTLobbyMatchInfo* MatchInfo = Cast<AUTLobbyMatchInfo>(Anchor->AssociatedActor.Get());
-			if (MatchInfo)
-			{
-				MatchInfo->FillPlayerColumnsForDisplay(ColumnA, ColumnB, Spectators);
-				if (MatchInfo->CurrentRuleset.IsValid())
-				{
-					bTeamGame = MatchInfo->CurrentRuleset->bTeamGame;
-					RulesList = MatchInfo->CurrentRuleset->Description;
-				}
-				else if (MatchInfo->bDedicatedMatch)
-				{
-					bTeamGame = MatchInfo->bDedicatedTeamGame;
-					RulesList = MatchInfo->DedicatedServerDescription;
-				}
-
-				Scores = MatchInfo->MatchUpdate.TeamScores;
-				GameTime = MatchInfo->MatchUpdate.GameTime;
-			}
+			Scores = Instance->MatchData.TeamScores;
+			GameTime = Instance->MatchData.GameTime;
 		}
 	}
 
@@ -909,6 +881,22 @@ TSharedRef<SWidget> SUMatchPanel::OnGetPopupContent(TSharedPtr<SUTPopOverAnchor>
 	}
 
 
+	VertBox->AddSlot()
+	.HAlign(HAlign_Center)
+	.Padding(5.0f,0.0f,5.0f,5.0)
+	[
+		SNew(SHorizontalBox)
+		+SHorizontalBox::Slot()
+		.FillWidth(1.0)
+		[
+			SNew(STextBlock)
+			.Text(FText::FromString(TrackedMatch->MatchData->MatchData.MatchState.ToString()))
+			.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Tiny")
+			.AutoWrapText(true)
+		]
+	];
+
+
 	if (Scores.Num() == 2)
 	{
 		FText ScoreText = FText::Format( NSLOCTEXT("SUMatchPanel","ScoreTextFormat","<UT.Font.TeamScore.Red>{0}</> - <UT.Font.TeamScore.Blue>{1}</>"), FText::AsNumber(Scores[0]), FText::AsNumber(Scores[1]) );
@@ -969,7 +957,7 @@ TSharedRef<SWidget> SUMatchPanel::OnGetPopupContent(TSharedPtr<SUTPopOverAnchor>
 
 }
 
-TSharedRef<SWidget> SUMatchPanel::OnGetPopup(TSharedPtr<SUTPopOverAnchor> Anchor)
+TSharedRef<SWidget> SUMatchPanel::OnGetPopup(TSharedPtr<SUTPopOverAnchor> Anchor, TSharedPtr<FTrackedMatch> TrackedMatch)
 {
 	return SNew(SBox).WidthOverride(420)
 		[
@@ -986,7 +974,7 @@ TSharedRef<SWidget> SUMatchPanel::OnGetPopup(TSharedPtr<SUTPopOverAnchor> Anchor
 				]
 				+SOverlay::Slot()
 				[
-					OnGetPopupContent(Anchor)
+					OnGetPopupContent(Anchor, TrackedMatch)
 				]
 			]
 		];
@@ -994,17 +982,9 @@ TSharedRef<SWidget> SUMatchPanel::OnGetPopup(TSharedPtr<SUTPopOverAnchor> Anchor
 
 void SUMatchPanel::OnListMouseButtonDoubleClick(TSharedPtr<FTrackedMatch> SelectedMatch)
 {
-
 	if (!SelectedMatch->CanJoin()) return;
 
-	if (bExpectServerData)
-	{
-		if (OnJoinMatchDelegate.IsBound())
-		{
-			OnJoinMatchDelegate.Execute(SelectedMatch->MatchId.ToString(), false);
-		}
-	}
-	else
+	if (ShouldUseLiveData())
 	{
 		AUTLobbyGameState* GameState = PlayerOwner->GetWorld()->GetGameState<AUTLobbyGameState>();
 		if (SelectedMatch.IsValid() && GameState && PlayerOwner->PlayerController && PlayerOwner->PlayerController->PlayerState)
@@ -1016,6 +996,13 @@ void SUMatchPanel::OnListMouseButtonDoubleClick(TSharedPtr<FTrackedMatch> Select
 			}
 		}
 	}
+	else
+	{
+		if (OnJoinMatchDelegate.IsBound())
+		{
+			OnJoinMatchDelegate.Execute(SelectedMatch->MatchId.ToString(), false);
+		}
+	}
 }
 
 
@@ -1024,22 +1011,25 @@ FReply SUMatchPanel::JoinMatchButtonClicked(TSharedPtr<FTrackedMatch> InItem)
 {
 	if (InItem.IsValid() && InItem->CanJoin() )
 	{
-		if (bExpectServerData)
+		if (ShouldUseLiveData())
+		{
+			if (InItem.IsValid() && InItem->MatchInfo.IsValid())
+			{
+				if (PlayerOwner.IsValid() && PlayerOwner->PlayerController && PlayerOwner->PlayerController->PlayerState)
+				{
+					AUTLobbyPlayerState* LobbyPlayerState = Cast<AUTLobbyPlayerState>(PlayerOwner->PlayerController->PlayerState);
+					if (LobbyPlayerState)
+					{
+						LobbyPlayerState->ServerJoinMatch(InItem->MatchInfo.Get(),false);
+					}
+				}
+			}
+		}
+		else
 		{
 			if (OnJoinMatchDelegate.IsBound())
 			{
 				OnJoinMatchDelegate.Execute(InItem->MatchId.ToString(), false);
-			}
-		}
-		else if (InItem.IsValid() && InItem->MatchInfo.IsValid())
-		{
-			if (PlayerOwner.IsValid() && PlayerOwner->PlayerController && PlayerOwner->PlayerController->PlayerState)
-			{
-				AUTLobbyPlayerState* LobbyPlayerState = Cast<AUTLobbyPlayerState>(PlayerOwner->PlayerController->PlayerState);
-				if (LobbyPlayerState)
-				{
-					LobbyPlayerState->ServerJoinMatch(InItem->MatchInfo.Get(),false);
-				}
 			}
 		}
 	}
@@ -1049,24 +1039,27 @@ FReply SUMatchPanel::SpectateMatchButtonClicked(TSharedPtr<FTrackedMatch> InItem
 {
 	if (InItem.IsValid() && InItem->CanSpectate())
 	{
-		if (bExpectServerData)
+		if (ShouldUseLiveData())
+		{
+			if (InItem.IsValid() && InItem->MatchInfo.IsValid())
+			{
+				if (PlayerOwner.IsValid() && PlayerOwner->PlayerController && PlayerOwner->PlayerController->PlayerState)
+				{
+					AUTLobbyPlayerState* LobbyPlayerState = Cast<AUTLobbyPlayerState>(PlayerOwner->PlayerController->PlayerState);
+					if (LobbyPlayerState)
+					{
+						LobbyPlayerState->ServerJoinMatch(InItem->MatchInfo.Get(),true);
+					}
+				}
+			}	
+		}
+		else
 		{
 			if (OnJoinMatchDelegate.IsBound())
 			{
 				OnJoinMatchDelegate.Execute(InItem->MatchId.ToString(), true);
 			}
 		}
-		else if (InItem.IsValid() && InItem->MatchInfo.IsValid())
-		{
-			if (PlayerOwner.IsValid() && PlayerOwner->PlayerController && PlayerOwner->PlayerController->PlayerState)
-			{
-				AUTLobbyPlayerState* LobbyPlayerState = Cast<AUTLobbyPlayerState>(PlayerOwner->PlayerController->PlayerState);
-				if (LobbyPlayerState)
-				{
-					LobbyPlayerState->ServerJoinMatch(InItem->MatchInfo.Get(),true);
-				}
-			}
-		}	
 	}
 
 	return FReply::Handled();
@@ -1087,7 +1080,7 @@ void SUMatchPanel::SetServerData(TSharedPtr<FServerData> inServerData)
 		TSharedPtr<FServerInstanceData> Instance = ServerData->HUBInstances[i];
 		if (Instance.IsValid())
 		{
-			int32 Index = TrackedMatches.Add(FTrackedMatch::Make(Instance->InstanceId, Instance->RulesTitle, Instance->MapName, Instance->NumPlayers, Instance->MaxPlayers, Instance->NumFriends, Instance->Flags, Instance->Rank));
+			int32 Index = TrackedMatches.Add(FTrackedMatch::Make(Instance));
 
 			// Count the # of friends....
 			int32 NumFriends = 0;

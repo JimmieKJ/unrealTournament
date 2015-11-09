@@ -24,6 +24,8 @@ AUTWeap_Translocator::AUTWeap_Translocator(const class FObjectInitializer& Objec
 	AfterImageType = AUTWeaponRedirector::StaticClass();
 	TranslocatorMessageClass = UUTTranslocatorMessage::StaticClass();
 	FOVOffset = FVector(1.2f, 1.f, 3.f);
+	ShotPitchUp = 0.f;
+	DiskGravity = 1.f;
 
 	KillStatsName = NAME_TelefragKills;
 	DeathStatsName = NAME_TelefragDeaths;
@@ -81,6 +83,17 @@ void AUTWeap_Translocator::RecallDisk()
 	}
 }
 
+FRotator AUTWeap_Translocator::GetAdjustedAim_Implementation(FVector StartFireLoc)
+{
+	FRotator BaseAim = Super::GetAdjustedAim_Implementation(StartFireLoc);
+	AUTBot* B = Cast<AUTBot>(UTOwner->Controller);
+	if (B == NULL)
+	{
+		BaseAim.Pitch += (90.f - FMath::Min(1.f, FMath::Abs(BaseAim.Pitch))) * ShotPitchUp/90.f;
+	}
+	return BaseAim;
+}
+
 void AUTWeap_Translocator::FireShot()
 {
 	UTOwner->DeactivateSpawnProtection();
@@ -129,6 +142,10 @@ void AUTWeap_Translocator::FireShot()
 			else
 			{
 				RecallDisk();
+			}
+			if (TransDisk && TransDisk->ProjectileMovement)
+			{
+				TransDisk->ProjectileMovement->ProjectileGravityScale = DiskGravity;
 			}
 		}
 		else if (TransDisk != NULL)
@@ -197,6 +214,12 @@ void AUTWeap_Translocator::FireShot()
 						if (UTOwner->TeleportTo(WarpLocation, WarpRotation))
 						{
 							ConsumeAmmo(CurrentFireMode);
+							if (UTOwner && UTOwner->UTCharacterMovement && UTOwner->UTCharacterMovement->bIsFloorSliding)
+							{
+								float VelZ = UTOwner->UTCharacterMovement->Velocity.Z;
+								UTOwner->UTCharacterMovement->Velocity *= 0.9f;
+								UTOwner->UTCharacterMovement->Velocity.Z = VelZ;
+							}
 							// spawn effects
 							FActorSpawnParameters SpawnParams;
 							SpawnParams.Instigator = SavedOwner;
@@ -237,7 +260,11 @@ void AUTWeap_Translocator::FireShot()
 	FireZOffsetTime = 0.f; 
 }
 
-//Dont drop Weapon when killed
+bool AUTWeap_Translocator::ShouldDropOnDeath()
+{
+	return false;
+}
+
 void AUTWeap_Translocator::DropFrom(const FVector& StartLocation, const FVector& TossVelocity)
 {
 	Destroy();

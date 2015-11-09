@@ -11,8 +11,6 @@
 
 void SUTPopOverAnchor::Construct(const FArguments& InArgs)
 {
-	AssociatedActor = InArgs._AssociatedActor;
-	AssociatedString = InArgs._AssociatedString;
 	OnGetPopoverWidget = InArgs._OnGetPopoverWidget;
 	bWaitingToPopup = false;
 	TSharedPtr<SHorizontalBox> HBox;

@@ -20,6 +20,7 @@ Super(ObjectInitializer)
 	SpecEnteredMessage = NSLOCTEXT("UTEngineMessage", "SpecEnteredMessage", "{Player1Name} joined as a spectator.");
 	NewPlayerMessage = NSLOCTEXT("UTEngineMessage", "NewPlayerMessage", "A new player has joined the server.");
 	NewSpecMessage = NSLOCTEXT("UTEngineMessage", "NewSpecMessage", "A new spectator joined the server.");
+	ServerNotResponding = NSLOCTEXT("UTGameMessage", "ServerNotResponding", "Server not responding.");
 }
 
 FText UUTEngineMessage::GetText(int32 Switch, bool bTargetsPlayerState1, class APlayerState* RelatedPlayerState_1, class APlayerState* RelatedPlayerState_2, class UObject* OptionalObject) const
@@ -36,6 +37,8 @@ FText UUTEngineMessage::GetText(int32 Switch, bool bTargetsPlayerState1, class A
 		return MaxedOutMessage;
 	case 16:
 		return (RelatedPlayerState_1 == NULL) ? NewSpecMessage : SpecEnteredMessage;
+	case 17:
+		return ServerNotResponding;
 	}
 	return FText::GetEmpty();
 }

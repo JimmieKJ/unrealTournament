@@ -407,3 +407,8 @@ float UUTHUDWidget_WeaponBar::GetDrawScaleOverride()
 {
 	return UTHUDOwner->HUDWidgetScaleOverride * UTHUDOwner->HUDWidgetWeaponBarScaleOverride;
 }
+
+bool UUTHUDWidget_WeaponBar::ShouldDraw_Implementation(bool bShowScores)
+{
+	return Super::ShouldDraw_Implementation(bShowScores) && !UTHUDOwner->bDrawMinimap;
+}

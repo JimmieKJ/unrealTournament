@@ -3,6 +3,11 @@
 
 #include "UTBasePlayerController.h"
 #include "UTPickupWeapon.h"
+
+#if WITH_PROFILE
+#include "UTMcpProfile.h"
+#endif
+
 #include "UTPlayerController.generated.h"
 
 // range user is allowed to configure FOV angle
@@ -88,10 +93,13 @@ public:
 	virtual void CheckAutoWeaponSwitch(class AUTWeapon* TestWeapon);
 
 	UPROPERTY(GlobalConfig)
-		bool bHearsTaunts;
+	bool bHearsTaunts;
 
 	UPROPERTY()
-		float LastSameTeamTime;
+	float LastSameTeamTime;
+
+	UFUNCTION(reliable, client, BlueprintCallable, Category = PlayerController)
+	void UTClientSetRotation(FRotator NewRotation);
 
 	/** check if sound is audible to this player and call ClientHearSound() if so to actually play it
 	 * SoundPlayer may be NULL
@@ -112,7 +120,14 @@ public:
 	}
 
 	UFUNCTION(exec)
+	virtual void Mutate(FString MutateString);
+
+	UFUNCTION(server, reliable, withvalidation)
+	virtual void ServerMutate(const FString& MutateString);
+
+	UFUNCTION(exec)
 	virtual void SwitchToBestWeapon();
+
 	/** forces SwitchToBestWeapon() call, should only be used after granting startup inventory */
 	UFUNCTION(Client, Reliable)
 	virtual void ClientSwitchToBestWeapon();
@@ -221,9 +236,16 @@ public:
 	UFUNCTION(exec)
 	virtual void ViewNextPlayer();
 
+	UFUNCTION(exec)
+		virtual void ViewPowerup(FString PowerupName);
+
 	/** View Player holding flag specified by TeamIndex. */
 	UFUNCTION(unreliable, server, WithValidation)
 	void ServerViewFlagHolder(uint8 TeamIndex);
+
+	/** Set when request view projectile if no projectile find, keep looking. */
+	UPROPERTY()
+		float ViewProjectileTime;
 
 	/** View last projectile fired by currently viewed player. */
 	UFUNCTION(unreliable, server, WithValidation)
@@ -248,12 +270,6 @@ public:
 
 	UFUNCTION(exec)
 	virtual void ViewCamera(int32 Index);
-
-	UFUNCTION(exec)
-		virtual void StartCameraControl();
-
-	UFUNCTION(exec)
-		virtual void EndCameraControl();
 
 	/** Returns updated rotation for third person camera view. */
 	UFUNCTION()
@@ -385,11 +401,20 @@ public:
 	UPROPERTY()
 		bool bShowCameraBinds;
 
+	UPROPERTY()
+		bool bShowPowerupTimers;
+
 	UFUNCTION(exec)
 		virtual void ToggleSlideOut();
 
 	UFUNCTION(exec)
+		virtual void ToggleMinimap();
+
+	UFUNCTION(exec)
 		virtual void ToggleShowBinds();
+
+	UFUNCTION(exec)
+		virtual void ToggleShowTimers();
 
 	UFUNCTION(exec)
 	virtual void TogglePlayerInfo();
@@ -448,6 +473,9 @@ public:
 
 	UPROPERTY()
 	FVector2D SavedMouseCursorLocation;
+
+	UPROPERTY()
+		float MouseButtonPressTime;
 
 	UPROPERTY()
 	class AUTPlayerState* LastSpectatedPlayerState;
@@ -532,6 +560,7 @@ public:
 	APawn* LastShotTargetGuess;
 
 	virtual float GetWeaponAutoSwitchPriority(FString WeaponClassname, float DefaultPriority);
+	virtual int32 GetWeaponGroup(FString WeaponClassname, int32 DefaultGroup);
 
 	virtual void ClientRequireContentItemListComplete_Implementation() override;
 
@@ -819,6 +848,10 @@ protected:
 
 	void TurnOffPawns();
 
+	FUniqueNetIdRepl GetGameAccountId() const;
+	virtual void OnLoginStatusChanged(int32 LocalUserNum, ELoginStatus::Type PreviousLoginStatus, ELoginStatus::Type LoginStatus, const FUniqueNetId& UniqueID);
+	FDelegateHandle OnLoginStatusChangedDelegate;
+
 public:
 	TMap<int32,FString> WeaponGroupKeys;
 	virtual void UpdateWeaponGroupKeys();
@@ -919,6 +952,18 @@ public:
 	 */
 	UPROPERTY()
 	TArray<const class UUTProfileItem*> LevelRewards;
+
+#if WITH_PROFILE
+	void InitializeMcpProfile();
+
+	void SynchronizeProfileWithMcp(const FMcpQueryComplete& OnComplete = FMcpQueryComplete());
+
+	UFUNCTION()
+	void SynchronizeProfileWithMcp_Complete(const FMcpQueryResult& Result, FMcpQueryComplete Callback);
+
+	UPROPERTY(Transient)
+	UUTMcpProfile* McpProfile;
+#endif
 };
 
 

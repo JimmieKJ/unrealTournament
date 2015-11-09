@@ -14,7 +14,7 @@
 AUTTeamShowdownGame::AUTTeamShowdownGame(const FObjectInitializer& OI)
 	: Super(OI)
 {
-	TimeLimit = 2.0f; // per round
+	TimeLimit = 3.0f; // per round
 	GoalScore = 5;
 	DisplayName = NSLOCTEXT("UTGameMode", "TeamShowdown", "Team Showdown");
 }
@@ -51,14 +51,14 @@ bool AUTTeamShowdownGame::CheckRelevance_Implementation(AActor* Other)
 	AUTWeapon* W = Cast<AUTWeapon>(Other);
 	if (W != NULL)
 	{
-		W->Ammo = FMath::Min<int32>(W->MaxAmmo, W->Ammo * 2);
+		W->Ammo = FMath::Min<int32>(W->MaxAmmo, W->Ammo * 1.5);
 	}
 	else
 	{
 		AUTPickupAmmo* AmmoPickup = Cast<AUTPickupAmmo>(Other);
 		if (AmmoPickup != NULL)
 		{
-			AmmoPickup->Ammo.Amount *= 2;
+			AmmoPickup->Ammo.Amount *= 1.5;
 		}
 		else
 		{
@@ -71,6 +71,37 @@ bool AUTTeamShowdownGame::CheckRelevance_Implementation(AActor* Other)
 		}
 	}
 	return Super::CheckRelevance_Implementation(Other);
+}
+
+void AUTTeamShowdownGame::RestartPlayer(AController* aPlayer)
+{
+	if (bAllowPlayerRespawns)
+	{
+		Super::RestartPlayer(aPlayer);
+	}
+	// go to spectating if dead and can't respawn
+	else if (IsMatchInProgress() && aPlayer->GetPawn() == NULL)
+	{
+		AUTPlayerController* PC = Cast<AUTPlayerController>(aPlayer);
+		if (PC != NULL)
+		{
+			PC->ChangeState(NAME_Spectating);
+			PC->ClientGotoState(NAME_Spectating);
+
+			AUTPlayerState* PS = Cast<AUTPlayerState>(PC->PlayerState);
+			if (PS != NULL && PS->Team != NULL)
+			{
+				for (AController* Member : PS->Team->GetTeamMembers())
+				{
+					if (Member->GetPawn() != NULL)
+					{
+						PC->ServerViewPlayerState(Member->PlayerState);
+						break;
+					}
+				}
+			}
+		}
+	}
 }
 
 void AUTTeamShowdownGame::DiscardInventory(APawn* Other, AController* Killer)

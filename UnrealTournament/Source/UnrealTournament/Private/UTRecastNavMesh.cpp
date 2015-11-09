@@ -2412,7 +2412,15 @@ bool AUTRecastNavMesh::HasReachedTarget(APawn* Asker, const FNavAgentProperties&
 			}
 			if (Pickup != NULL && Pickup->State.bActive)
 			{
-				return Pickup->IsOverlappingActor(Asker);
+				if (Pickup->IsOverlappingActor(Asker))
+				{
+					Pickup->OnOverlapBegin(Asker, Cast<UPrimitiveComponent>(Asker->GetRootComponent()), INDEX_NONE, false, FHitResult(Pickup, Pickup->Collision, Pickup->GetActorLocation(), -Asker->GetVelocity().GetSafeNormal()));
+					return true;
+				}
+				else
+				{
+					return false;
+				}
 			}
 			else if (Teleporter != NULL && Teleporter->IsOverlappingActor(Asker))
 			{

@@ -38,6 +38,7 @@
 #include "Slate/SUTReplayMenu.h"
 #include "Slate/SUTAdminDialog.h"
 #include "Slate/SUTDownloadAllDialog.h"
+#include "Slate/SUTSpectatorWindow.h"
 #include "UTAnalytics.h"
 #include "FriendsAndChat.h"
 #include "Runtime/Analytics/Analytics/Public/Analytics.h"
@@ -1248,10 +1249,6 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 			FString CmdLineSwitch = TEXT("");
 			bool bClearProfile = FParse::Param(FCommandLine::Get(), TEXT("ClearProfile"));
 
-			// Set the ranks/etc so the player card is right.
-			AUTBasePlayerController* UTBasePlayer = Cast<AUTBasePlayerController>(PlayerController);
-			if (UTBasePlayer) UTBasePlayer->ServerReceiveRank(GetBaseELORank(), GetRankDuel(), GetRankCTF(), GetRankTDM(), GetRankDM(), GetTotalChallengeStars());
-
 			// Check to make sure the profile settings are valid and that we aren't forcing them
 			// to be cleared.  If all is OK, then apply these settings.
 			if (CurrentProfileSettings->SettingsRevisionNum >= VALID_PROFILESETTINGS_VERSION && !bClearProfile)
@@ -1272,6 +1269,27 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 			// Set some profile defaults, should be a function call if this gets any larger
 			CurrentProfileSettings->TauntPath = GetDefaultURLOption(TEXT("Taunt"));
 			CurrentProfileSettings->Taunt2Path = GetDefaultURLOption(TEXT("Taunt2"));
+		}
+
+		// Set the ranks/etc so the player card is right.
+		AUTBasePlayerController* UTBasePlayer = Cast<AUTBasePlayerController>(PlayerController);
+		if (UTBasePlayer != NULL)
+		{
+			UTBasePlayer->ServerReceiveRank(GetBaseELORank(), GetRankDuel(), GetRankCTF(), GetRankTDM(), GetRankDM(), GetTotalChallengeStars());
+			// TODO: should this be in BasePlayerController?
+			AUTPlayerController* UTPC = Cast<AUTPlayerController>(UTBasePlayer);
+			if (UTPC != NULL)
+			{
+				UTPC->ServerReceiveCountryFlag(GetCountryFlag());
+			}
+			else
+			{
+				AUTPlayerState* UTPS = Cast<AUTPlayerState>(UTBasePlayer->PlayerState);
+				if (UTPS != NULL)
+				{
+					UTPS->CountryFlag = GetCountryFlag();
+				}
+			}
 		}
 
 		PlayerNickname = GetAccountDisplayName().ToString();
@@ -1691,6 +1709,14 @@ void UUTLocalPlayer::SetHatPath(const FString& NewHatPath)
 		AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerController->PlayerState);
 		if (PS != NULL)
 		{
+			if (FUTAnalytics::IsAvailable())
+			{
+				TArray<FAnalyticsEventAttribute> ParamArray;
+				ParamArray.Add(FAnalyticsEventAttribute(TEXT("PlayerID"), PS->UniqueId.ToString()));
+				ParamArray.Add(FAnalyticsEventAttribute(TEXT("HatPath"), NewHatPath));
+				FUTAnalytics::GetProvider().RecordEvent( TEXT("HatChanged"), ParamArray );
+			}
+
 			PS->ServerReceiveHatClass(NewHatPath);
 		}
 	}
@@ -1712,6 +1738,14 @@ void UUTLocalPlayer::SetLeaderHatPath(const FString& NewLeaderHatPath)
 		AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerController->PlayerState);
 		if (PS != NULL)
 		{
+			if (FUTAnalytics::IsAvailable())
+			{
+				TArray<FAnalyticsEventAttribute> ParamArray;
+				ParamArray.Add(FAnalyticsEventAttribute(TEXT("PlayerID"), PS->UniqueId.ToString()));
+				ParamArray.Add(FAnalyticsEventAttribute(TEXT("LeaderHatPath"), NewLeaderHatPath));
+				FUTAnalytics::GetProvider().RecordEvent( TEXT("LeaderHatChanged"), ParamArray );
+			}
+
 			PS->ServerReceiveLeaderHatClass(NewLeaderHatPath);
 		}
 	}
@@ -1733,6 +1767,14 @@ void UUTLocalPlayer::SetEyewearPath(const FString& NewEyewearPath)
 		AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerController->PlayerState);
 		if (PS != NULL)
 		{
+			if (FUTAnalytics::IsAvailable())
+			{
+				TArray<FAnalyticsEventAttribute> ParamArray;
+				ParamArray.Add(FAnalyticsEventAttribute(TEXT("PlayerID"), PS->UniqueId.ToString()));
+				ParamArray.Add(FAnalyticsEventAttribute(TEXT("EyewearPath"), NewEyewearPath));
+				FUTAnalytics::GetProvider().RecordEvent( TEXT("CharacterChanged"), ParamArray );
+			}
+
 			PS->ServerReceiveEyewearClass(NewEyewearPath);
 		}
 	}
@@ -1743,18 +1785,23 @@ FString UUTLocalPlayer::GetCharacterPath() const
 }
 void UUTLocalPlayer::SetCharacterPath(const FString& NewCharacterPath)
 {
+	AUTPlayerState* PS = Cast<AUTPlayerState>((PlayerController != NULL) ? PlayerController->PlayerState : NULL);
+	if (PS != NULL && FUTAnalytics::IsAvailable())
+	{
+		TArray<FAnalyticsEventAttribute> ParamArray;
+		ParamArray.Add(FAnalyticsEventAttribute(TEXT("PlayerID"), PS->UniqueId.ToString()));
+		ParamArray.Add(FAnalyticsEventAttribute(TEXT("CharacterPath"), NewCharacterPath));
+		FUTAnalytics::GetProvider().RecordEvent( TEXT("CharacterChanged"), ParamArray );
+	}
+
 	if (CurrentProfileSettings != NULL)
 	{
 		CurrentProfileSettings->CharacterPath = NewCharacterPath;
 	}
 	SetDefaultURLOption(TEXT("Character"), NewCharacterPath);
-	if (PlayerController != NULL)
+	if (PS != NULL)
 	{
-		AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerController->PlayerState);
-		if (PS != NULL)
-		{
-			PS->ServerSetCharacter(NewCharacterPath);
-		}
+		PS->ServerSetCharacter(NewCharacterPath);
 	}
 }
 FString UUTLocalPlayer::GetTauntPath() const
@@ -1929,13 +1976,11 @@ void UUTLocalPlayer::ReturnToMainMenu()
 	}
 }
 
-bool UUTLocalPlayer::JoinSession(const FOnlineSessionSearchResult& SearchResult, bool bSpectate, FName QuickMatchType, bool bFindMatch, int32 DesiredTeam,  FString MatchId)
+bool UUTLocalPlayer::JoinSession(const FOnlineSessionSearchResult& SearchResult, bool bSpectate, bool bFindMatch, int32 DesiredTeam,  FString MatchId)
 {
 	UE_LOG(UT,Log, TEXT("##########################"));
 	UE_LOG(UT,Log, TEXT("Joining a New Session"));
 	UE_LOG(UT,Log, TEXT("##########################"));
-
-	QuickMatchJoinType = QuickMatchType;
 
 	bWantsToConnectAsSpectator = bSpectate;
 	bWantsToFindMatch = bFindMatch;
@@ -2001,19 +2046,6 @@ void UUTLocalPlayer::OnJoinSessionComplete(FName SessionName, EOnJoinSessionComp
 		FString ConnectionString;
 		if ( OnlineSessionInterface->GetResolvedConnectString(SessionName, ConnectionString) )
 		{
-			if (QuickMatchJoinType != NAME_None)
-			{
-				if (QuickMatchJoinType == QuickMatchTypes::Deathmatch)
-				{
-					ConnectionString += TEXT("?QuickStart=DM");
-				}
-				else if (QuickMatchJoinType == QuickMatchTypes::CaptureTheFlag)
-				{
-					ConnectionString += TEXT("?QuickStart=CTF");
-				}
-			}
-			QuickMatchJoinType = NAME_None;
-
 			if (PendingFriendInviteFriendId != TEXT(""))
 			{
 				ConnectionString += FString::Printf(TEXT("?Friend=%s"), *PendingFriendInviteFriendId);
@@ -2054,7 +2086,6 @@ void UUTLocalPlayer::OnJoinSessionComplete(FName SessionName, EOnJoinSessionComp
 	// Any failures, return to the main menu.
 	bWantsToConnectAsSpectator = false;
 	bWantsToFindMatch = false;
-	QuickMatchJoinType = NAME_None;
 
 	if (Result == EOnJoinSessionCompleteResult::AlreadyInSession)
 	{
@@ -2698,10 +2729,7 @@ void UUTLocalPlayer::OpenMatchSummary(AUTGameState* GameState)
 		CloseMatchSummary();
 	}
 	SAssignNew(MatchSummaryWindow, SUWMatchSummary).PlayerOwner(this).GameState(GameState);
-
-	//Disable world rendering since this is a fullscreen widget with a render target
-	GEngine->GameViewport->bDisableWorldRendering = true;
-
+	
 	UUTGameViewportClient* UTGVC = Cast<UUTGameViewportClient>(GEngine->GameViewport);
 	if (MatchSummaryWindow.IsValid() && UTGVC != nullptr)
 	{
@@ -2713,24 +2741,21 @@ void UUTLocalPlayer::OpenMatchSummary(AUTGameState* GameState)
 void UUTLocalPlayer::CloseMatchSummary()
 {
 #if !UE_SERVER
-	PlayerController->FlushPressedKeys();
-	PlayerController->EnableInput(PlayerController);
-
 	UUTGameViewportClient* UTGVC = Cast<UUTGameViewportClient>(GEngine->GameViewport);
 	if (MatchSummaryWindow.IsValid() && UTGVC != nullptr)
 	{
 		UTGVC->RemoveViewportWidgetContent(MatchSummaryWindow.ToSharedRef());
 		MatchSummaryWindow.Reset();
-
-		//Enable rendering again
-		GEngine->GameViewport->bDisableWorldRendering = false;
-
+		
 		//Since we use SUInGameHomePanel for the time being for chat, we need to clear bForceScores
 		AUTPlayerController* PC = Cast<AUTPlayerController>(PlayerController);
 		if (PC && PC->MyUTHUD)
 		{
 			PC->MyUTHUD->bForceScores = false;
 		}
+
+		PlayerController->FlushPressedKeys();
+		PlayerController->EnableInput(PlayerController);
 	}
 #endif
 }
@@ -3238,6 +3263,14 @@ void UUTLocalPlayer::CloseAllUI(bool bExceptDialogs)
 	AdminDialogClosed();
 	CloseMapVote();
 	CloseMatchSummary();
+	CloseSpectatorWindow();
+
+	if (ToastList.Num() > 0)
+	{
+		GEngine->GameViewport->RemoveViewportWidgetContent(ToastList[0].ToSharedRef());
+		ToastList.Empty();
+	}
+
 #endif
 }
 
@@ -3396,10 +3429,10 @@ void UUTLocalPlayer::SkullPickedUp()
 
 void UUTLocalPlayer::ChallengeCompleted(FName ChallengeTag, int32 Stars)
 {
+	EarnedStars = 0;
 	if (CurrentProfileSettings && Stars > 0)
 	{
 		bool bFound = false;
-		EarnedStars = 0;
 		for (int32 i = 0 ; i < CurrentProfileSettings->ChallengeResults.Num(); i++)
 		{
 			if (CurrentProfileSettings->ChallengeResults[i].Tag == ChallengeTag)
@@ -3463,7 +3496,7 @@ void UUTLocalPlayer::ChallengeCompleted(FName ChallengeTag, int32 Stars)
 						{
 							FText OldTeammate = FText::FromName(UUTChallengeManager::StaticClass()->GetDefaultObject<UUTChallengeManager>()->PlayerTeamRoster.Roster[(TotalStars - Stars) / 5]);
 							FText NewTeammate = FText::FromName(UUTChallengeManager::StaticClass()->GetDefaultObject<UUTChallengeManager>()->PlayerTeamRoster.Roster[4 + (TotalStars - Stars) / 5]);
-							RosterUpgradeText = FText::Format(NSLOCTEXT("Challenge", "RosterUpgrade", "Roster Upgrade!  {0} replaces {1}."), OldTeammate, NewTeammate);
+							RosterUpgradeText = FText::Format(NSLOCTEXT("Challenge", "RosterUpgrade", "Roster Upgrade!  {0} replaces {1}."), NewTeammate, OldTeammate);
 							ShowToast(RosterUpgradeText);
 						}
 					}
@@ -3628,4 +3661,80 @@ int32 UUTLocalPlayer::NumDialogsOpened()
 }
 #endif
 
+bool UUTLocalPlayer::SkipWorldRender()
+{
+#if !UE_SERVER
+	if (MatchSummaryWindow.IsValid())
+	{
+		return true;
+	}
 
+	for (auto& Dialog : OpenDialogs)
+	{
+		if (Dialog.IsValid() && Dialog.Get()->bSkipWorldRender)
+		{
+			return true;
+		}
+	}
+#endif
+	return false;
+}
+
+void UUTLocalPlayer::OpenSpectatorWindow()
+{
+#if !UE_SERVER
+	if (!SpectatorWidget.IsValid())
+	{
+		SAssignNew(SpectatorWidget, SUTSpectatorWindow)
+			.PlayerOwner(this);
+
+		if (SpectatorWidget.IsValid())
+		{
+			GEngine->GameViewport->AddViewportWidgetContent( SNew(SWeakWidget).PossiblyNullContent(SpectatorWidget.ToSharedRef()),-1);
+		}
+	}
+#endif
+}
+void UUTLocalPlayer::CloseSpectatorWindow()
+{
+#if !UE_SERVER
+	if (SpectatorWidget.IsValid())
+	{
+		GEngine->GameViewport->RemoveViewportWidgetContent(SpectatorWidget.ToSharedRef());
+		SpectatorWidget.Reset();
+	}
+#endif
+}
+
+bool UUTLocalPlayer::IsFragCenterNew()
+{
+	if (MCPPulledData.bValid)
+	{
+		return FragCenterCounter != MCPPulledData.FragCenterCounter;
+	}
+
+	return false;
+}
+
+void UUTLocalPlayer::UpdateFragCenter()
+{
+	if (IsFragCenterNew())
+	{
+		FragCenterCounter = MCPPulledData.FragCenterCounter;
+		SaveConfig();
+	}
+}
+
+FUniqueNetIdRepl UUTLocalPlayer::GetGameAccountId() const
+{
+	if (OnlineIdentityInterface.IsValid())
+	{
+		// Not multi-screen compatible
+		return FUniqueNetIdRepl(OnlineIdentityInterface->GetUniquePlayerId(0));
+	}
+	else
+	{
+		check(0);
+		return FUniqueNetIdRepl();
+	}
+}

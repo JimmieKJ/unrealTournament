@@ -54,6 +54,11 @@ struct UNREALTOURNAMENT_API FBestInventoryEval : public FUTNodeEvaluator
 	float BestWeight;
 	AActor* BestPickup;
 
+	/** goal from last pathing attempt
+	 * this is used to when using respawn prediction and the time-to-goal changes so the bot doesn't "lose" its existing valid goal
+	 */
+	AActor* PrevGoal;
+
 	virtual float Eval(APawn* Asker, const FNavAgentProperties& AgentProps, const UUTPathNode* Node, const FVector& EntryLoc, int32 TotalDistance) override;
 	virtual bool GetRouteGoal(AActor*& OutGoal, FVector& OutGoalLoc) const override;
 	virtual uint32 GetTransientCost(const FUTPathLink& Link, APawn* Asker, const FNavAgentProperties& AgentProps, NavNodeRef StartPoly, int32 TotalDistance) override
@@ -67,7 +72,7 @@ struct UNREALTOURNAMENT_API FBestInventoryEval : public FUTNodeEvaluator
 	}
 
 	FBestInventoryEval(float InPredictionTime, float InMoveSpeed, int32 InMaxDist = 0)
-		: RespawnPredictionTime(InPredictionTime), MoveSpeed(FMath::Max<float>(InMoveSpeed, 1.0f)), MaxDist(InMaxDist), BestWeight(0.0f), BestPickup(NULL)
+		: RespawnPredictionTime(InPredictionTime), MoveSpeed(FMath::Max<float>(InMoveSpeed, 1.0f)), MaxDist(InMaxDist), BestWeight(0.0f), BestPickup(NULL), PrevGoal(NULL)
 	{}
 };
 struct UNREALTOURNAMENT_API FRandomDestEval : public FUTNodeEvaluator
@@ -715,8 +720,9 @@ public:
 
 	virtual void NotifyTakeHit(AController* InstigatedBy, int32 Damage, FVector Momentum, const FDamageEvent& DamageEvent);
 	virtual void NotifyCausedHit(APawn* HitPawn, int32 Damage);
-	/** notification about a pickup event by another player
+	/** notification about a pickup event (including pickups by self)
 	 * if close enough, bot updates some enemy info based on the pickup (e.g. if it's a health/armor pickup, update view of enemy effective health)
+	 * this is also used to send team messages about major powerups ("the enemy got the shield belt", "I got the UDamage", etc)
 	 */
 	virtual void NotifyPickup(APawn* PickedUpBy, AActor* Pickup, float AudibleRadius);
 
@@ -901,6 +907,9 @@ public:
 	 * this function does spam protection so you don't have to!
 	 */
 	virtual void SendVoiceMessage(FName MessageName);
+
+	/** equivalent to UTPC Say/TeamSay; sends text messages to all or team */
+	virtual void Say(const FString& Msg, bool bTeam);
 
 protected:
 	FTimerHandle CheckWeaponFiringTimerHandle;

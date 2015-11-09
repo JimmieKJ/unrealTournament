@@ -716,6 +716,7 @@ TSharedRef<SWidget> SUWSystemSettingsDialog::BuildGraphicsTab()
 			+ AddConsoleVarCheckboxWidget(MakeShareable(new SSlateConsoleVarDelegate(TEXT("r.ReflectionEnvironment"))), NSLOCTEXT("SUWSystemSettingsDialog", "ReflectionEnv", "Reflection Environment Mapping"))
 			+ AddConsoleVarCheckboxWidget(MakeShareable(new SSlateConsoleVarDelegate(TEXT("r.TranslucencyVolumeBlur"))), NSLOCTEXT("SUWSystemSettingsDialog", "TranslucencyVolume", "Translucency Volume Blur"))
 			+ AddConsoleVarCheckboxWidget(MakeShareable(new SSlateConsoleVarDelegate(TEXT("r.MaterialQualityLevel"))), NSLOCTEXT("SUWSystemSettingsDialog", "MaterialQuality", "High Detail Shaders"))
+			+ AddConsoleVarSliderWidget(MakeShareable(new SSlateConsoleVarDelegate(TEXT("Foliage.MinimumScreenSize"), FVector2D(0.0002f, 0.000002f), 1.01f)), NSLOCTEXT("SUWSystemSettingsDialog", "FoliageDrawDist", "Foliage Draw Distance"))
 		];
 	TSharedRef<SBox> PPAdvanced = SNew(SBox)
 		[

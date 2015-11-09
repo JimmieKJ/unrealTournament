@@ -49,6 +49,16 @@ class UNREALTOURNAMENT_API AUTWeap_Translocator : public AUTWeapon
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Translocator)
 	float RecallFireInterval;
 
+	virtual FRotator GetAdjustedAim_Implementation(FVector StartFireLoc) override;
+
+	/** Adjust pitch of projectile shot by this amount of degrees (scaled down as player aims up). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Translocator)
+		float ShotPitchUp;
+
+	/** Adjust pitch of projectile shot by this amount of degrees (scaled down as player aims up). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Translocator)
+		float DiskGravity;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Telefrag)
 	float TelefragDamage;
 
@@ -86,7 +96,7 @@ class UNREALTOURNAMENT_API AUTWeap_Translocator : public AUTWeapon
 		return false;
 	}
 
-	/**Don't drop translocator when killed. Kill the disk*/
+	virtual bool ShouldDropOnDeath() override;
 	virtual void DropFrom(const FVector& StartLocation, const FVector& TossVelocity) override;
 
 	virtual void Tick(float DeltaTime) override;

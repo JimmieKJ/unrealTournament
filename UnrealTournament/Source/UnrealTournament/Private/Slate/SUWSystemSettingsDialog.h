@@ -16,9 +16,11 @@ class SSlateConsoleVarDelegate : public TSharedFromThis<SSlateConsoleVarDelegate
 	const FString StartingValue;
 	const FVector2D ValueRange;
 	const bool bIntegerValue;
+	// if >= 0, calls to Set*() to ValueRange.X will set it to this instead
+	const float SpecialMinValue;
 public:
-	SSlateConsoleVarDelegate(const TCHAR* InCVarName, const FVector2D& InValueRange = FVector2D::ZeroVector)
-		: VarName(InCVarName), CVar(IConsoleManager::Get().FindConsoleVariable(InCVarName)), StartingValue(CVar->GetString()), ValueRange(InValueRange), bIntegerValue(CVar->AsVariableInt() != NULL)
+	SSlateConsoleVarDelegate(const TCHAR* InCVarName, const FVector2D& InValueRange = FVector2D::ZeroVector, float InSpecialMinValue = -1.0f)
+		: VarName(InCVarName), CVar(IConsoleManager::Get().FindConsoleVariable(InCVarName)), StartingValue(CVar->GetString()), ValueRange(InValueRange), bIntegerValue(CVar->AsVariableInt() != NULL), SpecialMinValue(InSpecialMinValue)
 	{
 		CVar->ClearFlags(ECVF_SetByConsoleVariablesIni); // workaround for badly thought out priority system
 	}
@@ -49,6 +51,10 @@ public:
 	}
 	void SetFloat(float InValue)
 	{
+		if (InValue == ValueRange.X && SpecialMinValue >= 0.0f)
+		{
+			InValue = SpecialMinValue;
+		}
 		CVar->Set(InValue);
 	}
 	int32 GetInt() const
@@ -57,6 +63,10 @@ public:
 	}
 	void SetInt(int32 InValue)
 	{
+		if (InValue == FMath::TruncToInt(ValueRange.X) && SpecialMinValue >= 0.0f)
+		{
+			InValue = FMath::TruncToInt(SpecialMinValue);
+		}
 		CVar->Set(InValue);
 	}
 	bool GetBool() const
@@ -87,6 +97,10 @@ public:
 	void SetFromSlider(float InSliderValue)
 	{
 		float AdjustedValue = ValueRange.IsZero() ? InSliderValue : FMath::Lerp<float>(ValueRange.X, ValueRange.Y, InSliderValue);
+		if (InSliderValue <= 0.0f && SpecialMinValue > 0.0f)
+		{
+			AdjustedValue = SpecialMinValue;
+		}
 		if (bIntegerValue)
 		{
 			CVar->Set(FMath::RoundToInt(AdjustedValue));
@@ -99,7 +113,14 @@ public:
 	float GetForSlider() const
 	{
 		float Value = CVar->GetFloat();
-		return ValueRange.IsZero() ? Value : ((Value - ValueRange.X) / (ValueRange.Y - ValueRange.X));
+		if (SpecialMinValue >= 0.0f && Value == SpecialMinValue)
+		{
+			return 0.0f;
+		}
+		else
+		{
+			return ValueRange.IsZero() ? Value : ((Value - ValueRange.X) / (ValueRange.Y - ValueRange.X));
+		}
 	}
 };
 

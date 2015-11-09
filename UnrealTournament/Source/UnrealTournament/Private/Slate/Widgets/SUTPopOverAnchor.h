@@ -14,7 +14,6 @@ class UNREALTOURNAMENT_API SUTPopOverAnchor: public SMenuAnchor
 	SLATE_BEGIN_ARGS(SUTPopOverAnchor)
 		: _Content()
 		, _MenuPlacement(MenuPlacement_MenuRight)
-		, _AssociatedString(TEXT(""))
 		{}
 
 		
@@ -29,18 +28,11 @@ class UNREALTOURNAMENT_API SUTPopOverAnchor: public SMenuAnchor
 		/** Where should the menu be placed */
 		SLATE_ATTRIBUTE( EMenuPlacement, MenuPlacement )
 
-		SLATE_ARGUMENT(TWeakObjectPtr<AActor>, AssociatedActor)
-
-		SLATE_ARGUMENT(FString, AssociatedString)
-
 	SLATE_END_ARGS()
 
 public:
 	/** needed for every widget */
 	void Construct(const FArguments& InArgs);
-
-	TWeakObjectPtr<AActor> AssociatedActor;
-	FString AssociatedString;
 
 	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime );
 

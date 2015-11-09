@@ -175,7 +175,27 @@ float FBestInventoryEval::Eval(APawn* Asker, const FNavAgentProperties& AgentPro
 				const float PickupDist = FMath::Max<float>(1.0f, float(TotalDistance) + (TestPickup->GetActorLocation() - EntryLoc).Size());
 				const float RespawnOffset = TestPickup->GetRespawnTimeOffset(Asker);
 				// if short distance and active, allow regardless of prediction time to make sure bots don't look excessively stupid walking by a pickup right in front of them
-				if ((TestPickup->State.bActive && (TotalDistance == 0 || PickupDist < 2048.0f)) || ((RespawnOffset <= 0.0f) ? (RespawnPredictionTime > RespawnOffset) : (FMath::Min<float>(PickupDist / MoveSpeed + 1.0f, RespawnPredictionTime) > RespawnOffset)))
+				bool bConsiderActive = (TestPickup->State.bActive && (TotalDistance == 0 || PickupDist < 2048.0f));
+				if (!bConsiderActive)
+				{
+					// check respawn awareness versus time remaining
+					if (RespawnOffset <= 0.0f)
+					{
+						bConsiderActive = (RespawnPredictionTime > RespawnOffset);
+					}
+					// if previously picked this powerup, keep on it unless it respawned and got taken already
+					// this accounts for the bot reaching the powerup faster than expected (advanced movement, etc) resulting in the movement speed check below becoming false
+					// which otherwise would result in the bot getting confused and backing away from the powerup before heading back to it
+					else if (PrevGoal == TestPickup)
+					{
+						bConsiderActive = (RespawnPredictionTime > RespawnOffset && RespawnOffset < TestPickup->RespawnTime * 0.75f);
+					}
+					else
+					{
+						bConsiderActive = (FMath::Min<float>(PickupDist / MoveSpeed + 1.0f, RespawnPredictionTime) > RespawnOffset);
+					}
+				}
+				if (bConsiderActive)
 				{
 					float NewWeight = TestPickup->BotDesireability(Asker, PickupDist);
 					if (AllowPickup(Asker, TestPickup, NewWeight, PickupDist))
@@ -721,14 +741,15 @@ void AUTBot::Tick(float DeltaTime)
 			ExecuteWhatToDoNext();
 			bExecutingWhatToDoNext = false;
 			bPendingWhatToDoNext = false;
-			if (CurrentAction == NULL)
-			{
-				UE_LOG(UT, Warning, TEXT("%s (%s) failed to get an action from ExecuteWhatToDoNext()"), *GetName(), *PlayerState->PlayerName);
-				GoalString = TEXT("BUG - NO ACTION - Setting CampAction");
-				StartNewAction(CampAction);
-			}
 			if (GetPawn() != NULL)
 			{
+				if (CurrentAction == NULL)
+				{
+					UE_LOG(UT, Warning, TEXT("%s (%s) failed to get an action from ExecuteWhatToDoNext()"), *GetName(), *PlayerState->PlayerName);
+					GoalString = TEXT("BUG - NO ACTION - Setting CampAction");
+					StartNewAction(CampAction);
+				}
+			
 				SetDefaultFocus();
 				// switch to best weapon after deciding what we want to do
 				// if we have a new movement destination, init that first before deciding (may want to use translocator, etc)
@@ -1788,29 +1809,32 @@ void AUTBot::NotifyMoveBlocked(const FHitResult& Impact)
 				else if ( (Skill + Personality.Jumpiness > 4.0f && UTChar->UTCharacterMovement->bIsDodging) ||
 						(!UTChar->UTCharacterMovement->bIsDodging && Enemy != NULL && Skill >= 3.0f && GetWorld()->TimeSeconds - UTChar->LastTakeHitTime > 2.0f - Skill * 0.2f - Personality.ReactionTime * 0.5f) )
 				{
-					FVector Start = GetPawn()->GetActorLocation();
-					// reject if on special path, unless above dest already and dodge is in its direction, or in direct combat and prefer evasiveness
-					if ((!CurrentPath.Spec.IsValid() && CurrentPath.ReachFlags == 0) || (Start.Z > GetMovePoint().Z && (WallNormal2D | (GetMovePoint() - Start).GetSafeNormal2D()) > 0.7f) || (Enemy != NULL && IsEnemyVisible(Enemy) && FMath::FRand() < Personality.Jumpiness))
+					if (FMath::FRand() < 0.5f + 0.5f * Personality.Jumpiness && (Enemy == NULL || Impact.Actor != Enemy))
 					{
-						Start.Z += 50.0f;
-						FVector DuckDir = WallNormal2D * 700.0f; // technically not reliable since we're in air, but every once in a while a bot wall dodging off a cliff is pretty realistic
-						FCollisionShape PawnShape = GetCharacter()->GetCapsuleComponent()->GetCollisionShape();
-						FCollisionQueryParams Params(FName(TEXT("WallDodge")), false, GetPawn());
-						float MinDist = (Personality.Jumpiness > 0.0f) ? 150.0f : 350.0f;
-
-						FHitResult Hit;
-						bool bHit = GetWorld()->SweepSingleByChannel(Hit, Start, Start + DuckDir, FQuat::Identity, ECC_Pawn, PawnShape, Params);
-						if (!bHit || (Hit.Location - Start).Size() > MinDist)
+						FVector Start = GetPawn()->GetActorLocation();
+						// reject if on special path, unless above dest already and dodge is in its direction, or in direct combat and prefer evasiveness
+						if ((!CurrentPath.Spec.IsValid() && CurrentPath.ReachFlags == 0) || (Start.Z > GetMovePoint().Z && (WallNormal2D | (GetMovePoint() - Start).GetSafeNormal2D()) > 0.7f) || (Enemy != NULL && IsEnemyVisible(Enemy) && FMath::FRand() < Personality.Jumpiness))
 						{
-							if (!bHit)
+							Start.Z += 50.0f;
+							FVector DuckDir = WallNormal2D * 1000.0f; // technically not reliable since we're in air, but every once in a while a bot wall dodging off a cliff is pretty realistic
+							FCollisionShape PawnShape = GetCharacter()->GetCapsuleComponent()->GetCollisionShape();
+							FCollisionQueryParams Params(FName(TEXT("WallDodge")), false, GetPawn());
+							float MinDist = (Personality.Jumpiness > 0.0f) ? 150.0f : 350.0f;
+
+							FHitResult Hit;
+							bool bHit = GetWorld()->SweepSingleByChannel(Hit, Start, Start + DuckDir, FQuat::Identity, ECC_Pawn, PawnShape, Params);
+							if (!bHit || (Hit.Location - Start).Size() > MinDist)
 							{
-								Hit.Location = Start + DuckDir;
-							}
-							// now check for floor
-							if (GetWorld()->SweepTestByChannel(Hit.Location, Hit.Location - FVector(0.0f, 0.0f, 2.5f * GetCharacter()->GetCharacterMovement()->MaxStepHeight + GetCharacter()->GetCharacterMovement()->GetGravityZ() * -0.25f), FQuat::Identity, ECC_Pawn, PawnShape, Params))
-							{
-								// found one, so try the wall dodge!
-								PendingWallDodgeDir = WallNormal2D;
+								if (!bHit)
+								{
+									Hit.Location = Start + DuckDir;
+								}
+								// now check for floor
+								if (GetWorld()->SweepTestByChannel(Hit.Location, Hit.Location - FVector(0.0f, 0.0f, 2.5f * GetCharacter()->GetCharacterMovement()->MaxStepHeight + GetCharacter()->GetCharacterMovement()->GetGravityZ() * -0.25f), FQuat::Identity, ECC_Pawn, PawnShape, Params))
+								{
+									// found one, so try the wall dodge!
+									PendingWallDodgeDir = WallNormal2D;
+								}
 							}
 						}
 					}
@@ -1836,6 +1860,10 @@ void AUTBot::PostMovementUpdate(float DeltaTime, FVector OldLocation, FVector Ol
 void AUTBot::NotifyLanded(const FHitResult& Hit)
 {
 	bPlannedWallDodge = false;
+	if (UTChar != NULL)
+	{
+		UTChar->UTCharacterMovement->UpdateWallSlide(false);
+	}
 }
 
 void AUTBot::NotifyJumpApex()
@@ -2164,11 +2192,10 @@ bool AUTBot::FindInventoryGoal(float MinWeight)
 	{
 		return false;
 	}
-	/*else if (GameHasNoInventory() || PawnCantPickUpInventory())
+	else if (/*GameHasNoInventory() || */UTChar == NULL || !UTChar->bCanPickupItems)
 	{
 		return false;
 	}
-	*/
 	else
 	{
 		LastFindInventoryTime = GetWorld()->TimeSeconds;
@@ -2193,6 +2220,10 @@ bool AUTBot::TryPathToward(AActor* Goal, bool bAllowDetours, const FString& Succ
 	}
 	else
 	{
+		if (UTChar == NULL || !UTChar->bCanPickupItems)
+		{
+			bAllowDetours = false;
+		}
 		FSingleEndpointEval NodeEval(Goal);
 		float Weight = 0.0f;
 		if (NavData->FindBestPath(GetPawn(), GetPawn()->GetNavAgentPropertiesRef(), NodeEval, GetPawn()->GetNavAgentLocation(), Weight, bAllowDetours, RouteCache))
@@ -2550,6 +2581,28 @@ void AUTBot::SendVoiceMessage(FName MessageName)
 		if (PS != NULL)
 		{
 			PS->AnnounceStatus(MessageName);
+		}
+	}
+}
+
+void AUTBot::Say(const FString& Msg, bool bTeam)
+{
+	if (!bTeam || GetWorld()->GetAuthGameMode<AUTTeamGameMode>() != NULL)
+	{
+		for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
+		{
+			AUTBasePlayerController* UTPC = Cast<AUTBasePlayerController>(*Iterator);
+			if (UTPC != NULL)
+			{
+				if (!bTeam || UTPC->GetTeamNum() == GetTeamNum())
+				{
+					// Dont send spectator chat to players
+					if (UTPC->PlayerState != NULL)
+					{
+						UTPC->ClientSay(Cast<AUTPlayerState>(PlayerState), Msg, (bTeam ? ChatDestinations::Team : ChatDestinations::Local));
+					}
+				}
+			}
 		}
 	}
 }
@@ -2919,6 +2972,10 @@ void AUTBot::DoHunt(APawn* NewHuntTarget)
 		UE_LOG(UT, Warning, TEXT("Bot %s in DoHunt() with no enemy"), *PlayerState->PlayerName);
 		GoalString = TEXT("BUG - HUNT WITH BAD TARGET - Force CampAction");
 		StartNewAction(CampAction);
+	}
+	else if (GetPawn() == NULL)
+	{
+		UE_LOG(UT, Warning, TEXT("Bot %s in DoHunt() with no Pawn"), *PlayerState->PlayerName);
 	}
 	else
 	{
@@ -3583,12 +3640,32 @@ void AUTBot::NotifyPickup(APawn* PickedUpBy, AActor* Pickup, float AudibleRadius
 				bCanUpdateEnemyInfo = InventoryType.GetDefaultObject()->bCallDamageEvents;
 			}
 		}
-		if (bCanUpdateEnemyInfo)
+		if ((Pickup->GetActorLocation() - GetPawn()->GetActorLocation()).Size() < AudibleRadius * HearingRadiusMult * 0.5f || IsEnemyVisible(PickedUpBy) || LineOfSightTo(Pickup))
 		{
-			if ((Pickup->GetActorLocation() - GetPawn()->GetActorLocation()).Size() < AudibleRadius * HearingRadiusMult * 0.5f || IsEnemyVisible(PickedUpBy) || LineOfSightTo(Pickup))
+			if (bCanUpdateEnemyInfo)
 			{
 				UpdateEnemyInfo(PickedUpBy, EUT_HealthUpdate);
 			}
+			// maybe send team message
+			AUTPickup* Item = Cast<AUTPickup>(Pickup);
+			if (Item != NULL && Item->BaseDesireability >= 1.0f && PickedUpBy->PlayerState != NULL)
+			{
+				static float PickupMessageTime = -1.0f;
+				if (PickupMessageTime != GetWorld()->TimeSeconds)
+				{
+					PickupMessageTime = GetWorld()->TimeSeconds;
+					Say(FText::Format(NSLOCTEXT("UTBot", "EnemyPickup", "Enemy {0} got {1}."), FText::FromString(PickedUpBy->PlayerState->PlayerName), Item->GetDisplayName()).ToString(), true);
+				}
+			}
+		}
+	}
+	else if (GetPawn() == PickedUpBy)
+	{
+		// maybe send team message
+		AUTPickup* Item = Cast<AUTPickup>(Pickup);
+		if (Item != NULL && Item->BaseDesireability >= 1.0f)
+		{
+			Say(FText::Format(NSLOCTEXT("UTBot", "GotPickup", "I got the {0}!"), Item->GetDisplayName()).ToString(), true);
 		}
 	}
 	// clear any claims on this pickup since it's likely no longer available
@@ -4334,6 +4411,8 @@ bool AUTBot::UTLineOfSightTo(const AActor* Other, FVector ViewPoint, bool bAlter
 	}
 	else
 	{
+		const bool bOtherIsRagdoll = Cast<AUTCharacter>(Other) != NULL && ((AUTCharacter*)Other)->IsRagdoll();
+
 		if (ViewPoint.IsZero())
 		{
 			AActor*	ViewTarg = GetViewTarget();
@@ -4354,12 +4433,18 @@ bool AUTBot::UTLineOfSightTo(const AActor* Other, FVector ViewPoint, bool bAlter
 		CollisionParams.AddIgnoredActor(Other);
 
 		bool bHit = GetWorld()->LineTraceTestByChannel(ViewPoint, TargetLocation, ECC_Visibility, CollisionParams);
+		if (bOtherIsRagdoll)
+		{
+			// actor location will be near/in the ground for ragdolls, push up
+			TargetLocation.Z += Other->GetSimpleCollisionHalfHeight();
+			bHit = GetWorld()->LineTraceTestByChannel(ViewPoint, TargetLocation, ECC_Visibility, CollisionParams);
+		}
 		// TODO: suddenly we switch back to GetActorLocation() instead of TargetLocation? Seems incorrect...
 		if (Other == Enemy)
 		{
 			if (bHit)
 			{
-				bHit = GetWorld()->LineTraceTestByChannel(ViewPoint, Enemy->GetActorLocation() + FVector(0.0f, 0.0f, Enemy->BaseEyeHeight), ECC_Visibility, CollisionParams);
+				bHit = GetWorld()->LineTraceTestByChannel(ViewPoint, Enemy->GetActorLocation() + FVector(0.0f, 0.0f, Enemy->BaseEyeHeight + (bOtherIsRagdoll ? Enemy->GetSimpleCollisionHalfHeight() : 0.0f)), ECC_Visibility, CollisionParams);
 			}
 			if (!bHit)
 			{
@@ -4393,7 +4478,7 @@ bool AUTBot::UTLineOfSightTo(const AActor* Other, FVector ViewPoint, bool bAlter
 				return false;
 			}
 			// try viewpoint to head
-			if ((!bAlternateChecks || !bLOSflag) && !GetWorld()->LineTraceTestByChannel(ViewPoint, TargetLocation + FVector(0.0f, 0.0f, Other->GetSimpleCollisionHalfHeight()), ECC_Visibility, CollisionParams))
+			if ((!bAlternateChecks || !bLOSflag) && !GetWorld()->LineTraceTestByChannel(ViewPoint, TargetLocation + FVector(0.0f, 0.0f, Other->GetSimpleCollisionHalfHeight() * (bOtherIsRagdoll ? 2.0f : 1.0f)), ECC_Visibility, CollisionParams))
 			{
 				return true;
 			}

@@ -599,6 +599,13 @@ private:
 	TSharedPtr<SNotificationItem> NeedsRebuildWarning;
 
 	void ClearRebuildWarning();
+
+	virtual void BeginDestroy() override
+	{
+		Super::BeginDestroy();
+
+		ClearRebuildWarning();
+	}
 #endif
 
 public:

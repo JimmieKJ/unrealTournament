@@ -122,6 +122,8 @@ private:
 public:
 	virtual void EnableButton(uint16 ButtonID);
 	virtual void DisableButton(uint16 ButtonID);
+
+	bool bSkipWorldRender;
 };
 
 #endif

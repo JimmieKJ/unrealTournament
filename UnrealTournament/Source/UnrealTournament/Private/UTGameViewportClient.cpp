@@ -757,6 +757,16 @@ void UUTGameViewportClient::Tick(float DeltaSeconds)
 	}
 
 	UpdateRedirects(DeltaSeconds);
+
+	UUTLocalPlayer* FirstPlayer = Cast<UUTLocalPlayer>(GEngine->GetLocalPlayerFromControllerId(this, 0));	// Grab the first local player.
+	if (FirstPlayer && FirstPlayer->SkipWorldRender())
+	{
+		GEngine->GameViewport->bDisableWorldRendering = true;
+	}
+	else
+	{
+		GEngine->GameViewport->bDisableWorldRendering = false;
+	}
 }
 
 void UUTGameViewportClient::UpdateRedirects(float DeltaTime)
@@ -994,6 +1004,7 @@ void UUTGameViewportClient::HttpRequestComplete(FHttpRequestPtr HttpRequest, FHt
 				{
 					FCoreDelegates::OnMountPak.Execute(FullFilePath, 0);
 					UTEngine->MountedDownloadedContentChecksums.Add(BaseFilename, MD5);
+					UTEngine->AddAssetRegistry(BaseFilename);
 				}
 			}
 		}

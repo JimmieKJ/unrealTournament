@@ -41,6 +41,7 @@ AUTPickup::AUTPickup(const FObjectInitializer& ObjectInitializer)
 		TimerEffect->LDMaxDrawDistance = 1024.0f;
 		TimerEffect->RelativeLocation.Z = 40.0f;
 		TimerEffect->Mobility = EComponentMobility::Static;
+		TimerEffect->SetCastShadow(false);
 	}
 	BaseEffect = ObjectInitializer.CreateOptionalDefaultSubobject<UParticleSystemComponent>(this, TEXT("BaseEffect"));
 	if (BaseEffect != NULL)
@@ -63,6 +64,7 @@ AUTPickup::AUTPickup(const FObjectInitializer& ObjectInitializer)
 	bHasTacComView = false;
 	TeamSide = 255;
 	bOverride_TeamSide = false;
+	IconColor = FLinearColor::White;
 }
 
 void AUTPickup::SetTacCom(bool bTacComEnabled)
@@ -101,6 +103,11 @@ void AUTPickup::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	{
 		NavData->RemoveFromNavigation(this);
 	}
+}
+
+FCanvasIcon AUTPickup::GetMinimapIcon() const
+{
+	return (MinimapIcon.Texture != NULL) ? MinimapIcon : HUDIcon;
 }
 
 void AUTPickup::Reset_Implementation()
@@ -163,7 +170,7 @@ void AUTPickup::ProcessTouch_Implementation(APawn* TouchedBy)
 					if (It->IsValid())
 					{
 						AUTBot* B = Cast<AUTBot>(It->Get());
-						if (B != NULL && B->GetPawn() != TouchedBy)
+						if (B != NULL)
 						{
 							B->NotifyPickup(TouchedBy, this, Radius);
 						}

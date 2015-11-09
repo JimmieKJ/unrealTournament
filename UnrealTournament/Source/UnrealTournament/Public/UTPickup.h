@@ -87,9 +87,20 @@ class UNREALTOURNAMENT_API AUTPickup : public AActor, public IUTResetInterface, 
 	UPROPERTY(BlueprintReadOnly, Category = Game)
 	AUTPlayerState* LastPickedUpBy;
 
+	/** Spectator camera associated with this pickup. */
+	class AUTSpectatorCamera* Camera;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = HUD)
+	FLinearColor IconColor;
 	/** icon for drawing time remaining on the HUD. AUTPickupInventory use their InventoryClasses HUDIcon*/
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Pickup)
 	FCanvasIcon HUDIcon;
+	/** icon for minimap (if not specified, use HUDIcon) */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Pickup)
+	FCanvasIcon MinimapIcon;
+
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = HUD)
+	FCanvasIcon GetMinimapIcon() const;
 
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
@@ -139,6 +150,12 @@ class UNREALTOURNAMENT_API AUTPickup : public AActor, public IUTResetInterface, 
 	/** Pickup message to display on player HUD. */
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = Pickup)
 	FText PickupMessageString;
+
+	/** returns name of item for HUD displays, etc */
+	virtual FText GetDisplayName() const
+	{
+		return PickupMessageString;
+	}
 
 	virtual void Reset_Implementation() override;
 

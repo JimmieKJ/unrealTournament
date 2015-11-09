@@ -309,7 +309,26 @@ uint8 AUTCTFGameState::NearestTeamSide(AActor* InActor)
 {
 	if (FlagBases.Num() > 1)
 	{
-		return ((InActor->GetActorLocation() - FlagBases[0]->GetActorLocation()).Size() < (InActor->GetActorLocation() - FlagBases[1]->GetActorLocation()).Size()) ? 0 : 1;
+		// if there is only one of this pickup, return 255
+		bool bFoundAnother = false;
+		AUTPickupInventory* InPickupInventory = Cast<AUTPickupInventory>(InActor);
+		if (InPickupInventory)
+		{
+			for (FActorIterator It(GetWorld()); It; ++It)
+			{
+				AUTPickupInventory* PickupInventory = Cast<AUTPickupInventory>(*It);
+				if (PickupInventory && (PickupInventory != InPickupInventory) && (PickupInventory->GetInventoryType() == InPickupInventory->GetInventoryType()))
+				{
+					bFoundAnother = true;
+					break;
+				}
+			}
+		}
+		if (bFoundAnother)
+		{
+			float DistDiff = (InActor->GetActorLocation() - FlagBases[0]->GetActorLocation()).Size() - (InActor->GetActorLocation() - FlagBases[1]->GetActorLocation()).Size();
+			return (DistDiff < 0) ? 0 : 1;
+		}
 	}
 	return 255;
 }

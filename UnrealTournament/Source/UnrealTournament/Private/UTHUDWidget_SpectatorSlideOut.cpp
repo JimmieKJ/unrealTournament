@@ -8,19 +8,23 @@
 #include "UTPickupInventory.h"
 #include "UTArmor.h"
 #include "UTDemoRecSpectator.h"
+#include "UTWeap_ImpactHammer.h"
+#include "UTWeap_Enforcer.h"
+#include "UTWeap_Translocator.h"
 
 UUTHUDWidget_SpectatorSlideOut::UUTHUDWidget_SpectatorSlideOut(const class FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer)
 {
 	DesignedResolution = 1080;
 	Position = FVector2D(0, 0);
-	Size = FVector2D(360.0f, 108.0f);
+	Size = FVector2D(320.0f, 108.0f);
 	ScreenPosition = FVector2D(0.0f, 0.005f);
 	Origin = FVector2D(0.0f, 0.0f);
+	ArrowSize = 36.f / Size.X;
 
-	FlagX = 0.09f;
-	ColumnHeaderPlayerX = 0.2f;
-	ColumnHeaderScoreX = 0.8f;
-	ColumnHeaderArmor = 0.94f;
+	FlagX = 0.02f;
+	ColumnHeaderPlayerX = 0.12f;
+	ColumnHeaderScoreX = 0.78f;
+	ColumnHeaderArmor = 0.93f;
 	ColumnY = 0.11f * Size.Y;
 
 	CellHeight = 32;
@@ -65,75 +69,17 @@ UUTHUDWidget_SpectatorSlideOut::UUTHUDWidget_SpectatorSlideOut(const class FObje
 	FlagIcon.UL = 43.f;
 	FlagIcon.VL = 41.f;
 
-	RedFlagBind = NAME_None;
-	BlueFlagBind = NAME_None;
-
-	NumpadString.Add(FName(TEXT("NumPadZero")), TEXT("NumPd 0"));
-	NumpadString.Add(FName(TEXT("NumPadOne")), TEXT("NumPd 1"));
-	NumpadString.Add(FName(TEXT("NumPadTwo")), TEXT("NumPd 2"));
-	NumpadString.Add(FName(TEXT("NumPadThree")), TEXT("NumPd 3"));
-	NumpadString.Add(FName(TEXT("NumPadFour")), TEXT("NumPd 4"));
-	NumpadString.Add(FName(TEXT("NumPadFive")), TEXT("NumPd 5"));
-	NumpadString.Add(FName(TEXT("NumPadSix")), TEXT("NumPd 6"));
-	NumpadString.Add(FName(TEXT("NumPadSeven")), TEXT("NumPd 7"));
-	NumpadString.Add(FName(TEXT("NumPadEight")), TEXT("NumPd 8"));
-	NumpadString.Add(FName(TEXT("NumPadNine")), TEXT("NumPd 9"));
-}
-
-void UUTHUDWidget_SpectatorSlideOut::InitializeWidget(AUTHUD* Hud)
-{
-	Super::InitializeWidget(Hud);
-
-	// cache spectating keybinds
-	UTPlayerOwner = Hud ? Hud->UTPlayerOwner : NULL;
-	if (UTPlayerOwner != NULL)
-	{
-		UUTPlayerInput* Input = Cast<UUTPlayerInput>(UTPlayerOwner->PlayerInput);
-		if (Input)
-		{
-			int32 CameraIndex = 0;
-			for (int32 i = 0; i < Input->SpectatorBinds.Num(); i++)
-			{
-				if (Input->SpectatorBinds[i].Command == "ViewFlag 0")
-				{
-					RedFlagBind = Input->SpectatorBinds[i].KeyName;
-				}
-				else if (Input->SpectatorBinds[i].Command == "ViewFlag 1")
-				{
-					BlueFlagBind = Input->SpectatorBinds[i].KeyName;
-				}
-				else if (Input->SpectatorBinds[i].Command.Left(10) == "ViewCamera")
-				{
-					CameraBind[CameraIndex] = Input->SpectatorBinds[i].KeyName;
-					CameraIndex++;
-				}
-				else if (Input->SpectatorBinds[i].Command == "EnableAutoCam")
-				{
-					AutoCamBind = Input->SpectatorBinds[i].KeyName;
-				}
-				else if (Input->SpectatorBinds[i].Command == "DemoRestart")
-				{
-					DemoRestartBind = Input->SpectatorBinds[i].KeyName;
-				}
-				else if (Input->SpectatorBinds[i].Command == "DemoGoToLive")
-				{
-					DemoLiveBind = Input->SpectatorBinds[i].KeyName;
-				}
-				else if (Input->SpectatorBinds[i].Command == "DemoPause")
-				{
-					DemoPauseBind = Input->SpectatorBinds[i].KeyName;
-				}
-				else if (Input->SpectatorBinds[i].Command == "DemoSeek -5")
-				{
-					DemoRewindBind = Input->SpectatorBinds[i].KeyName;
-				}
-				else if (Input->SpectatorBinds[i].Command == "DemoSeek 10")
-				{
-					DemoFastForwardBind = Input->SpectatorBinds[i].KeyName;
-				}
-			}
-		}
-	}
+	CamTypeButtonStart = 0.75f * ArrowSize;
+	CamTypeButtonWidth = 0.1f;
+	MouseOverOpacity = 0.5f;
+	SelectedOpacity = 0.7f;
+	CameraBindWidth = 0.48f;
+	PowerupWidth = 0.35f;
+	bShowingStats = false;
+	KillsColumn = 0.32f;
+	DeathsColumn = 0.49f;
+	ShotsColumn = 0.66f;
+	AccuracyColumn = 0.83f;
 }
 
 bool UUTHUDWidget_SpectatorSlideOut::ShouldDraw_Implementation(bool bShowScores)
@@ -152,8 +98,7 @@ bool UUTHUDWidget_SpectatorSlideOut::ShouldDraw_Implementation(bool bShowScores)
 			return false;
 		}
 #endif
-
-		return (UTHUDOwner->UTPlayerOwner->bRequestingSlideOut || UTHUDOwner->UTPlayerOwner->bShowCameraBinds || (SlideIn > 0.f));
+		return true;
 	}
 	return false;
 }
@@ -181,16 +126,25 @@ void UUTHUDWidget_SpectatorSlideOut::Draw_Implementation(float DeltaTime)
 
 	if (TextureAtlas && UTGameState)
 	{
-		SlideIn = (UTHUDOwner->UTPlayerOwner->bRequestingSlideOut || UTHUDOwner->UTPlayerOwner->bShowCameraBinds) 
+		float DrawOffset = 0.2f * Canvas->ClipY / RenderScale;
+		DrawSelector("ToggleMinimap", !UTHUDOwner->bDrawMinimap, 0.f, DrawOffset - CellHeight);
+
+		SlideIn = (UTHUDOwner->UTPlayerOwner->bRequestingSlideOut || UTHUDOwner->UTPlayerOwner->bShowCameraBinds)
 					? FMath::Min(Size.X, SlideIn + DeltaTime*Size.X*SlideSpeed) 
 					: FMath::Max(0.f, SlideIn - DeltaTime*Size.X*SlideSpeed);
+		if (SlideIn <= 0.f)
+		{
+			DrawSelector("ToggleSlideOut", true, 0.f, DrawOffset);
+			return;
+		}
 
-		int32 MaxRedPlaces = UTGameState->bTeamGame ? 5 : 10; // warning: hardcoded to match default binds, which has 5 red and 5 blue
 		float XOffset = SlideIn - Size.X;
-		float DrawOffset = 0.27f * Canvas->ClipY;
 		SlideOutFont = UTHUDOwner->SmallFont;
-
 		DrawPlayerHeader(DeltaTime, XOffset, DrawOffset);
+		if (SlideIn > 0.95f)
+		{
+			DrawSelector("ToggleSlideOut", false, 0.f, DrawOffset);
+		}
 		DrawOffset += CellHeight;
 
 		TArray<AUTPlayerState*> RedPlayerList, BluePlayerList;
@@ -229,103 +183,102 @@ void UUTHUDWidget_SpectatorSlideOut::Draw_Implementation(float DeltaTime)
 			};
 		}
 		RedPlayerList.Sort(SortFunc);
-		for (int32 PlayerBind = 1; PlayerBind <= MaxRedPlaces; PlayerBind++)
+		int32 NumRed = UTGameState->bTeamGame ? FMath::Min(RedPlayerList.Num(), 12) : FMath::Min(RedPlayerList.Num(), 24);
+		for (int32 i = 0; i < NumRed; i++)
 		{
-			for (int32 i = 0; i < RedPlayerList.Num(); i++)
-			{
-				AUTPlayerState* PlayerState = RedPlayerList[i];
-				uint8 Place = UTGameState->bTeamGame ? PlayerState->SpectatingIDTeam : PlayerState->SpectatingID;
-				if ((Place % MaxRedPlaces) == (PlayerBind % MaxRedPlaces))
-				{
-					DrawPlayer(PlayerBind, PlayerState, DeltaTime, XOffset, DrawOffset);
-					DrawOffset += CellHeight;
-					PlayerState->bNeedsAssistAnnouncement = true; // hack - use this transient property
-					break;
-				}
-			}
-		}
-		for (int32 i = 0; i < RedPlayerList.Num(); i++)
-		{
-			AUTPlayerState* PlayerState = RedPlayerList[i];
-			if (!PlayerState->bNeedsAssistAnnouncement)
-			{
-				DrawPlayer(-1, PlayerState, DeltaTime, XOffset, DrawOffset);
-				DrawOffset += CellHeight;
-			}
-			PlayerState->bNeedsAssistAnnouncement = false;
+			DrawPlayer(i, RedPlayerList[i], DeltaTime, XOffset, DrawOffset);
+			DrawOffset += CellHeight;
 		}
 
 		if (UTGameState->bTeamGame)
 		{
-			if (!UTHUDOwner->UTPlayerOwner->bShowCameraBinds)
-			{
-				DrawOffset += CellHeight;
-				DrawOffset += CellHeight;
-			}
+			DrawOffset += CellHeight;
 			BluePlayerList.Sort(SortFunc);
-			for (int32 PlayerBind = 1; PlayerBind <= MaxRedPlaces; PlayerBind++)
+			int32 NumBlue = FMath::Min(BluePlayerList.Num(), 12);
+			for (int32 i = 0; i < NumBlue; i++)
 			{
-				for (int32 i = 0; i < BluePlayerList.Num(); i++)
-				{
-					AUTPlayerState* PlayerState = BluePlayerList[i];
-					uint8 Place = PlayerState->SpectatingIDTeam;
-					if ((Place % MaxRedPlaces) == (PlayerBind % MaxRedPlaces))
-					{
-						DrawPlayer(MaxRedPlaces + PlayerBind, PlayerState, DeltaTime, XOffset, DrawOffset);
-						DrawOffset += CellHeight;
-						PlayerState->bNeedsAssistAnnouncement = true;
-						break;
-					}
-				}
-			}
-			for (int32 i = 0; i < BluePlayerList.Num(); i++)
-			{
-				AUTPlayerState* PlayerState = BluePlayerList[i];
-				if (!PlayerState->bNeedsAssistAnnouncement)
-				{
-					DrawPlayer(-1, PlayerState, DeltaTime, XOffset, DrawOffset);
-					DrawOffset += CellHeight;
-				}
-				PlayerState->bNeedsAssistAnnouncement = false;
+				DrawPlayer(i, BluePlayerList[i], DeltaTime, XOffset, DrawOffset);
+				DrawOffset += CellHeight;
 			}
 		}
+		DrawOffset += 0.2f*CellHeight;
 
-		if (!UTHUDOwner->UTPlayerOwner->bShowCameraBinds)
+		AUTCTFGameState * CTFGameState = Cast<AUTCTFGameState>(UTGameState);
+		if (CTFGameState && (CTFGameState->FlagBases.Num() > 1))
+		{
+			// show flag binds
+			if (CTFGameState->FlagBases[0] && CTFGameState->FlagBases[0]->MyFlag)
+			{
+				DrawFlag("ViewFlag 0", "Red", CTFGameState->FlagBases[0]->MyFlag, DeltaTime, XOffset + CamTypeButtonStart*Size.X, DrawOffset);
+			}
+			if (CTFGameState->FlagBases[1] && CTFGameState->FlagBases[1]->MyFlag)
+			{
+				DrawFlag("ViewFlag 1", "Blue", CTFGameState->FlagBases[1]->MyFlag, DeltaTime, XOffset + CamTypeButtonStart*Size.X + 0.37f * Size.X, DrawOffset);
+			}
+			DrawOffset += 1.2f*CellHeight;
+		}
+
+		//draw powerup clocks
+		DrawSelector("ToggleShowTimers", !UTHUDOwner->UTPlayerOwner->bShowPowerupTimers, XOffset, DrawOffset);
+		if (UTHUDOwner->UTPlayerOwner->bShowPowerupTimers)
 		{
 			if (!bPowerupListInitialized)
 			{
 				InitPowerupList();
 			}
-			//draw powerup clocks
-			DrawOffset += 0.2f*CellHeight;
+			int32 TimerOffset = XOffset + CamTypeButtonStart*Size.X;
+			float DrawOffsetRed = DrawOffset;
+			float DrawOffsetBlue = DrawOffset;
 			for (int32 i = 0; i < PowerupList.Num(); i++)
 			{
 				if (PowerupList[i] != NULL)
 				{
-					DrawPowerup(PowerupList[i], XOffset, DrawOffset);
-					DrawOffset += 1.2f*CellHeight;
-				}
-			}
-
-			AUTPlayerState* OwnerPS = Cast<AUTPlayerState>(UTHUDOwner->UTPlayerOwner->PlayerState);
-			if (!OwnerPS->bCaster)
-			{
-				float StartCamOffset = DrawOffset;
-				float EndCamOffset = 0.0f; //Unknown. will be filled in when cambinds hit the bottom of the screen
-				bool bOverflow = false;
-				DrawCamBind(AutoCamBind, "Auto Camera", DeltaTime, XOffset, DrawOffset, false);
-				UpdateCameraBindOffset(DrawOffset, XOffset, bOverflow, StartCamOffset, EndCamOffset);
-				if (!bOverflow)
-				{
-					DrawCamBind(FName(TEXT("Enter")), "Show Camera Binds", DeltaTime, XOffset, DrawOffset, false);
-					UpdateCameraBindOffset(DrawOffset, XOffset, bOverflow, StartCamOffset, EndCamOffset);
-					if (!bOverflow)
+					if (PowerupList[i]->TeamSide == 0)
 					{
-						DrawCamBind(FName(TEXT("Numpad Add")), "Toggle SlideOut", DeltaTime, XOffset, DrawOffset, false);
+						TimerOffset = XOffset + CamTypeButtonStart*Size.X;
+						DrawPowerup(PowerupList[i], TimerOffset, DrawOffsetRed);
+						DrawOffsetRed += 1.2f*CellHeight;
+					}
+					else if (PowerupList[i]->TeamSide == 1)
+					{
+						TimerOffset = XOffset + CamTypeButtonStart*Size.X + (PowerupWidth + 0.02f) * Size.X;
+						DrawPowerup(PowerupList[i], TimerOffset, DrawOffsetBlue);
+						DrawOffsetBlue += 1.2f*CellHeight;
 					}
 				}
 			}
+			for (int32 i = 0; i < PowerupList.Num(); i++)
+			{
+				if (PowerupList[i] && (PowerupList[i]->TeamSide > 1))
+				{
+					if (DrawOffsetRed <= DrawOffsetBlue)
+					{
+						TimerOffset = XOffset + CamTypeButtonStart*Size.X;
+						DrawPowerup(PowerupList[i], TimerOffset, DrawOffsetRed);
+						DrawOffsetRed += 1.2f*CellHeight;
+					}
+					else
+					{
+						TimerOffset = XOffset + CamTypeButtonStart*Size.X + (PowerupWidth + 0.02f) * Size.X;
+						DrawPowerup(PowerupList[i], TimerOffset, DrawOffsetBlue);
+						DrawOffsetBlue += 1.2f*CellHeight;
+					}
+				}
+			}
+			DrawOffset = FMath::Max(DrawOffsetRed, DrawOffsetBlue);
 		}
+		else
+		{
+			DrawOffset += 1.2f*CellHeight;
+		}
+
+		float StartCamOffset = DrawOffset;
+		float EndCamOffset = 0.0f; 
+		bool bOverflow = false;
+
+		DrawSelector("ToggleShowBinds", !UTHUDOwner->UTPlayerOwner->bShowCameraBinds, XOffset, DrawOffset);
+		float CamOffset = XOffset + CamTypeButtonStart*Size.X;
+
 		UUTPlayerInput* Input = Cast<UUTPlayerInput>(UTHUDOwner->PlayerOwner->PlayerInput);
 		if (Input && UTHUDOwner->UTPlayerOwner->bShowCameraBinds)
 		{
@@ -340,76 +293,49 @@ void UUTHUDWidget_SpectatorSlideOut::Draw_Implementation(float DeltaTime)
 					{
 						CameraString[NumCameras] = Cam->CamLocationName;
 						NumCameras++;
-						if (NumCameras == 10)
-						{
-							break;
-						}
 					}
 				}
 			}
 			DrawOffset += 0.25f*(10.f-float(NumCameras))*CellHeight;
 
-			bool bOverflow = false;
-			float StartCamOffset = DrawOffset;
-			float EndCamOffset = 0.0f; //Unknown. will be filled in when cambinds hit the bottom of the screen
-			DrawCamBind(AutoCamBind, "Auto Camera", DeltaTime, XOffset, DrawOffset, false);
-			UpdateCameraBindOffset(DrawOffset, XOffset, bOverflow, StartCamOffset, EndCamOffset);
-
-			AUTCTFGameState * CTFGameState = Cast<AUTCTFGameState>(UTGameState);
-			if (CTFGameState && (CTFGameState->FlagBases.Num() > 1))
-			{
-				// show flag binds
-				if ((RedFlagBind != NAME_None) && CTFGameState->FlagBases[0] && CTFGameState->FlagBases[0]->MyFlag)
-				{
-					DrawFlag(RedFlagBind, "Red Flag", CTFGameState->FlagBases[0]->MyFlag, DeltaTime, XOffset, DrawOffset);
-					UpdateCameraBindOffset(DrawOffset, XOffset, bOverflow, StartCamOffset, EndCamOffset);
-				}
-				if ((BlueFlagBind != NAME_None) && CTFGameState->FlagBases[1] && CTFGameState->FlagBases[1]->MyFlag)
-				{
-					DrawFlag(BlueFlagBind, "Blue Flag", CTFGameState->FlagBases[1]->MyFlag, DeltaTime, XOffset, DrawOffset);
-					UpdateCameraBindOffset(DrawOffset, XOffset, bOverflow, StartCamOffset, EndCamOffset);
-				}
-			}
+			bOverflow = false;
+			StartCamOffset = DrawOffset;
+			EndCamOffset = 0.0f; //Unknown. will be filled in when cambinds hit the bottom of the screen
+			NumCamBinds = NumCameras + ((Cast<AUTDemoRecSpectator>(UTHUDOwner->PlayerOwner) != nullptr) ? 5 : 0);
+			DrawnCamBinds = 0;
 			for (int32 i = 0; i < Input->SpectatorBinds.Num(); i++)
 			{
-				if ((Input->SpectatorBinds[i].FriendlyName != "") && (Input->SpectatorBinds[i].KeyName != NAME_None))
+				if ((Input->SpectatorBinds[i].FriendlyName != "") && (Input->SpectatorBinds[i].Command != ""))
 				{
-					DrawCamBind(Input->SpectatorBinds[i].KeyName, Input->SpectatorBinds[i].FriendlyName, DeltaTime, XOffset, DrawOffset, (Cast<AUTProjectile>(UTHUDOwner->UTPlayerOwner->GetViewTarget()) != NULL));
-					UpdateCameraBindOffset(DrawOffset, XOffset, bOverflow, StartCamOffset, EndCamOffset);
+					DrawCamBind(Input->SpectatorBinds[i].Command, Input->SpectatorBinds[i].FriendlyName, DeltaTime, CamOffset, DrawOffset, CameraBindWidth * Size.X, (Cast<AUTProjectile>(UTHUDOwner->UTPlayerOwner->GetViewTarget()) != NULL));
+					UpdateCameraBindOffset(DrawOffset, CamOffset, bOverflow, StartCamOffset, EndCamOffset);
+					NumCamBinds++;
 				}
 			}
-			static FName NAME_PressFire = FName(TEXT("Fire"));
-			DrawCamBind(NAME_PressFire, "Camera Rotation Control", DeltaTime, XOffset, DrawOffset, false);
-			UpdateCameraBindOffset(DrawOffset, XOffset, bOverflow, StartCamOffset, EndCamOffset);
-			static FName NAME_PressAltFire = FName(TEXT("AltFire"));
-			DrawCamBind(NAME_PressAltFire, "Free Cam", DeltaTime, XOffset, DrawOffset, false);
-			UpdateCameraBindOffset(DrawOffset, XOffset, bOverflow, StartCamOffset, EndCamOffset);
+			bBalanceCamBinds = (StartCamOffset + float(NumCamBinds)*CellHeight > Canvas->ClipY / RenderScale);
 
 			if (Cast<AUTDemoRecSpectator>(UTHUDOwner->PlayerOwner) != nullptr)
 			{
-				DrawCamBind(DemoRestartBind, "Restart Demo", DeltaTime, XOffset, DrawOffset, false);
-				UpdateCameraBindOffset(DrawOffset, XOffset, bOverflow, StartCamOffset, EndCamOffset);
+				DrawCamBind("DemoRestart", "Restart Demo", DeltaTime, CamOffset, DrawOffset, CameraBindWidth * Size.X, false);
+				UpdateCameraBindOffset(DrawOffset, CamOffset, bOverflow, StartCamOffset, EndCamOffset);
 
-				DrawCamBind(DemoRewindBind, "Rewind Demo", DeltaTime, XOffset, DrawOffset, false);
-				UpdateCameraBindOffset(DrawOffset, XOffset, bOverflow, StartCamOffset, EndCamOffset);
+				DrawCamBind("DemoSeek -5", "Rewind Demo", DeltaTime, CamOffset, DrawOffset, CameraBindWidth * Size.X, false);
+				UpdateCameraBindOffset(DrawOffset, CamOffset, bOverflow, StartCamOffset, EndCamOffset);
 
-				DrawCamBind(DemoFastForwardBind, "Fast Forward", DeltaTime, XOffset, DrawOffset, false);
-				UpdateCameraBindOffset(DrawOffset, XOffset, bOverflow, StartCamOffset, EndCamOffset);
+				DrawCamBind("DemoSeek 10", "Fast Forward", DeltaTime, CamOffset, DrawOffset, CameraBindWidth * Size.X, false);
+				UpdateCameraBindOffset(DrawOffset, CamOffset, bOverflow, StartCamOffset, EndCamOffset);
 
-				DrawCamBind(DemoLiveBind, "Jump to Real Time", DeltaTime, XOffset, DrawOffset, false);
-				UpdateCameraBindOffset(DrawOffset, XOffset, bOverflow, StartCamOffset, EndCamOffset);
+				DrawCamBind("DemoGoToLive", "Jump to Real Time", DeltaTime, CamOffset, DrawOffset, CameraBindWidth * Size.X, false);
+				UpdateCameraBindOffset(DrawOffset, CamOffset, bOverflow, StartCamOffset, EndCamOffset);
 
-				DrawCamBind(DemoPauseBind, "Pause Demo", DeltaTime, XOffset, DrawOffset, false);
-				UpdateCameraBindOffset(DrawOffset, XOffset, bOverflow, StartCamOffset, EndCamOffset);
+				DrawCamBind("DemoPause", "Pause Demo", DeltaTime, CamOffset, DrawOffset, CameraBindWidth * Size.X, false);
+				UpdateCameraBindOffset(DrawOffset, CamOffset, bOverflow, StartCamOffset, EndCamOffset);
 			}
 
 			for (int32 i = 0; i < NumCameras; i++)
 			{
-				if (CameraBind[i] != NAME_None)
-				{
-					DrawCamBind(CameraBind[i], CameraString[i], DeltaTime, XOffset, DrawOffset, false);
-					UpdateCameraBindOffset(DrawOffset, XOffset, bOverflow, StartCamOffset, EndCamOffset);
-				}
+				DrawCamBind("ViewCamera " + FString::Printf(TEXT("%d"), i), CameraString[i], DeltaTime, CamOffset, DrawOffset, CameraBindWidth * Size.X, false);
+				UpdateCameraBindOffset(DrawOffset, CamOffset, bOverflow, StartCamOffset, EndCamOffset);
 			}
 		}
 	}
@@ -420,8 +346,24 @@ void UUTHUDWidget_SpectatorSlideOut::DrawPowerup(AUTPickup* Pickup, float XOffse
 	// @TODO FIXMESTEVE get rid of armor hacks when they have icons
 	FLinearColor BarColor = FLinearColor::White;
 	float RemainingTime = GetWorld()->GetTimerManager().GetTimerRemaining(Pickup->WakeUpTimerHandle);
-	float FinalBarOpacity = (RemainingTime > 0.f) ? FMath::Clamp(1.f - 0.4f*(Pickup->RespawnTime - RemainingTime), 0.3f, 1.f) : 1.f;
-	DrawTexture(TextureAtlas, XOffset, YOffset, 0.4f*Size.X, 0.95f*CellHeight, 149, 138, 32, 32, FinalBarOpacity, FLinearColor::White);
+	float BarOpacity = (RemainingTime > 0.f) ? 0.3f : 0.6f;
+
+	// If we are interactive and this element has a keybind, store it so the mouse can click it
+	if (bIsInteractive)
+	{
+		FVector4 Bounds = FVector4(RenderPosition.X + (XOffset * RenderScale), RenderPosition.Y + (YOffset * RenderScale),
+			RenderPosition.X + ((XOffset + PowerupWidth*Size.X) * RenderScale), RenderPosition.Y + ((YOffset + CellHeight) * RenderScale));
+		ClickElementStack.Add(FClickElement("ViewPowerup " + FString::Printf(TEXT("%s"), *Pickup->GetName()), Bounds));
+		if ((MousePosition.X >= Bounds.X && MousePosition.X <= Bounds.Z && MousePosition.Y >= Bounds.Y && MousePosition.Y <= Bounds.W))
+		{
+			BarOpacity = MouseOverOpacity;
+		}
+	}
+	if (UTHUDOwner->UTPlayerOwner && (UTHUDOwner->UTPlayerOwner->GetViewTarget() == Pickup))
+	{
+		BarOpacity = SelectedOpacity;
+	}
+	DrawTexture(TextureAtlas, XOffset, YOffset, PowerupWidth*Size.X, 0.95f*CellHeight, 149, 138, 32, 32, BarOpacity, FLinearColor::White);
 
 	if (Pickup->TeamSide < 2)
 	{
@@ -430,11 +372,16 @@ void UUTHUDWidget_SpectatorSlideOut::DrawPowerup(AUTPickup* Pickup, float XOffse
 	AUTPickupInventory* PickupInventory = Cast<AUTPickupInventory>(Pickup);
 	if (PickupInventory && PickupInventory->GetInventoryType()->IsChildOf(AUTArmor::StaticClass()))
 	{
-		DrawTexture(ArmorIcon.Texture, XOffset + 0.12f*Size.X, YOffset, 0.085f*Size.X, 0.085f*Size.X, ArmorIcon.U, ArmorIcon.V, ArmorIcon.UL, ArmorIcon.VL, 1.f, FLinearColor::White);
-		FFormatNamedArguments Args;
+		DrawTexture(PickupInventory->HUDIcon.Texture, XOffset + 0.12f*Size.X, YOffset, 0.085f*Size.X, 0.085f*Size.X, PickupInventory->HUDIcon.U, PickupInventory->HUDIcon.V, PickupInventory->HUDIcon.UL, PickupInventory->HUDIcon.VL, 1.f, PickupInventory->IconColor);
+		/*FFormatNamedArguments Args;
 		Args.Add("Armor", FText::AsNumber(PickupInventory->GetInventoryType()->GetDefaultObject<AUTArmor>()->ArmorAmount));
 		FLinearColor DrawColor = FLinearColor::Yellow;
-		DrawText(FText::Format(NSLOCTEXT("UTCharacter", "ArmorDisplay", "{Armor}"), Args), XOffset + 0.16f*Size.X, YOffset + ColumnY, SlideOutFont, FVector2D(1.f, 1.f), FLinearColor::Black, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
+		DrawText(FText::Format(NSLOCTEXT("UTCharacter", "ArmorDisplay", "{Armor}"), Args), XOffset + 0.16f*Size.X, YOffset + ColumnY, SlideOutFont, FVector2D(1.f, 1.f), FLinearColor::Black, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);*/
+	}
+	else if (PickupInventory && PickupInventory->GetInventoryType()->IsChildOf(AUTWeapon::StaticClass()))
+	{
+		FCanvasIcon HUDIcon = PickupInventory->HUDIcon;
+		DrawTexture(HUDIcon.Texture, XOffset + 0.1f*Size.X, YOffset - 0.021f*Size.X, 0.1f*Size.X, 0.1f*Size.X, HUDIcon.U, HUDIcon.V, HUDIcon.UL, HUDIcon.VL, 0.8f, FLinearColor::White);
 	}
 	else
 	{
@@ -450,29 +397,35 @@ void UUTHUDWidget_SpectatorSlideOut::DrawPowerup(AUTPickup* Pickup, float XOffse
 		DrawColor.R *= 0.5f;
 		DrawColor.G *= 0.5f;
 		DrawColor.B *= 0.5f;
-		DrawText(FText::Format(NSLOCTEXT("UTCharacter", "PowerupTimeDisplay", "{TimeRemaining}"), Args), XOffset + 0.28f*Size.X, YOffset + ColumnY, SlideOutFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
+		DrawText(FText::Format(NSLOCTEXT("UTCharacter", "PowerupTimeDisplay", "{TimeRemaining}"), Args), XOffset + 0.29f*Size.X - 1.f, YOffset + ColumnY - 1.f, SlideOutFont, 1.0f, 0.7f, FLinearColor::Black, ETextHorzPos::Center, ETextVertPos::Center);
+		DrawText(FText::Format(NSLOCTEXT("UTCharacter", "PowerupTimeDisplay", "{TimeRemaining}"), Args), XOffset + 0.29f*Size.X, YOffset + ColumnY, SlideOutFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
 	}
 	else
 	{
+		DrawText(NSLOCTEXT("UTCharacter", "PowerupUp", "UP"), XOffset + 0.28f*Size.X - 1.f, YOffset + ColumnY - 1.f, SlideOutFont, 1.0f, 0.7f, FLinearColor::Black, ETextHorzPos::Center, ETextVertPos::Center);
 		DrawText(NSLOCTEXT("UTCharacter", "PowerupUp", "UP"), XOffset + 0.28f*Size.X, YOffset + ColumnY, SlideOutFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
 	}
 }
 
-void UUTHUDWidget_SpectatorSlideOut::DrawFlag(FName KeyName, FString FlagName, AUTCarriedObject* Flag, float RenderDelta, float XOffset, float YOffset)
+void UUTHUDWidget_SpectatorSlideOut::DrawFlag(FString FlagCommand, FString FlagName, AUTCarriedObject* Flag, float RenderDelta, float XOffset, float YOffset)
 {
 	FLinearColor DrawColor = FLinearColor::White;
 	float BarOpacity = 0.3f;
-	float Width = 0.75f * Size.X;
+	float Width = PowerupWidth * Size.X;
 
 	// If we are interactive and this element has a keybind, store it so the mouse can click it
-	if (bIsInteractive && KeyName != NAME_None)
+	if (bIsInteractive)
 	{
 		FVector4 Bounds = FVector4(RenderPosition.X + (XOffset * RenderScale), RenderPosition.Y + (YOffset * RenderScale),
 			RenderPosition.X + ((XOffset + Width) * RenderScale), RenderPosition.Y + ((YOffset + CellHeight) * RenderScale));
-		ClickElementStack.Add(FClickElement(KeyName, Bounds));
+		ClickElementStack.Add(FClickElement(FlagCommand, Bounds));
 		if (MousePosition.X >= Bounds.X && MousePosition.X <= Bounds.Z && MousePosition.Y >= Bounds.Y && MousePosition.Y <= Bounds.W)
 		{
-			BarOpacity = 0.5;
+			BarOpacity = MouseOverOpacity;
+		}
+		if (UTHUDOwner->PlayerOwner && (UTHUDOwner->PlayerOwner->GetViewTarget() == Flag))
+		{
+			BarOpacity = SelectedOpacity;
 		}
 	}
 
@@ -481,72 +434,57 @@ void UUTHUDWidget_SpectatorSlideOut::DrawFlag(FName KeyName, FString FlagName, A
 	float FinalBarOpacity = BarOpacity;
 	DrawTexture(TextureAtlas, XOffset, YOffset, Width, 0.95f*CellHeight, 149, 138, 32, 32, FinalBarOpacity, BarColor);
 
-	if (Flag == UTHUDOwner->UTPlayerOwner->GetViewTarget())
-	{
-		DrawTexture(TextureAtlas, XOffset + Width, YOffset, 0.95f*CellHeight, 36, 36, 188, -36, 65, FinalBarOpacity, BarColor);
-	}
-
 	// Draw the Text
-	DrawText(FText::FromString("[" + KeyName.ToString() + "]"), XOffset + 4.f, YOffset + ColumnY, UTHUDOwner->TinyFont, 1.f, 1.f, FLinearColor(0.7f, 0.7f, 0.7f, 1.f), ETextHorzPos::Left, ETextVertPos::Center);
-
 	FLinearColor FlagColor = Flag->Team ? Flag->Team->TeamColor : FLinearColor::White;
-	DrawTexture(FlagIcon.Texture, XOffset + (Width * 0.5f), YOffset + ColumnY - 0.025f*Width, 0.09f*Width, 0.09f*Width, FlagIcon.U, FlagIcon.V, FlagIcon.UL, FlagIcon.VL, 1.0, FlagColor, FVector2D(1.0, 0.0));
+	DrawTexture(FlagIcon.Texture, XOffset + (Width * 0.25f), YOffset + ColumnY - 0.1f*Width, 0.25f*Width, 0.25f*Width, FlagIcon.U, FlagIcon.V, FlagIcon.UL, FlagIcon.VL, 1.0, FlagColor, FVector2D(1.0, 0.0));
 
-	DrawText(FText::FromString(FlagName), XOffset + (Width * 0.6f), YOffset + ColumnY, UTHUDOwner->TinyFont, 1.0f, 1.0f, FlagColor, ETextHorzPos::Left, ETextVertPos::Center);
+	DrawText(FText::FromString(FlagName), XOffset + (Width * 0.28f), YOffset + ColumnY, SlideOutFont, 1.0f, 1.0f, FlagColor, ETextHorzPos::Left, ETextVertPos::Center);
 }
 
-void UUTHUDWidget_SpectatorSlideOut::DrawCamBind(FName KeyName, FString ProjName, float RenderDelta, float XOffset, float YOffset, bool bCamSelected)
+void UUTHUDWidget_SpectatorSlideOut::DrawCamBind(FString CamCommand, FString ProjName, float RenderDelta, float XOffset, float YOffset, float Width, bool bCamSelected)
 {
 	FLinearColor DrawColor = FLinearColor::White;
 	float BarOpacity = 0.3f;
-	float Width = 0.75f * Size.X;
 
 	// If we are interactive and this element has a keybind, store it so the mouse can click it
-	if (bIsInteractive && KeyName != NAME_None)
+	if (bIsInteractive)
 	{
 		FVector4 Bounds = FVector4(RenderPosition.X + (XOffset * RenderScale), RenderPosition.Y + (YOffset * RenderScale),
 			RenderPosition.X + ((XOffset + Width) * RenderScale), RenderPosition.Y + ((YOffset + CellHeight) * RenderScale));
-		ClickElementStack.Add(FClickElement(KeyName, Bounds));
+		ClickElementStack.Add(FClickElement(CamCommand, Bounds));
 		if ((MousePosition.X >= Bounds.X && MousePosition.X <= Bounds.Z && MousePosition.Y >= Bounds.Y && MousePosition.Y <= Bounds.W))
 		{
-			BarOpacity = 0.5f;
+			BarOpacity = MouseOverOpacity;
 		}
+	}
+	if (bCamSelected)
+	{
+		BarOpacity = SelectedOpacity;
 	}
 
 	// Draw the background border.
 	FLinearColor BarColor = FLinearColor::White;
-	float FinalBarOpacity = BarOpacity;
-	DrawTexture(TextureAtlas, XOffset, YOffset, Width, 0.95f*CellHeight, 149, 138, 32, 32, FinalBarOpacity, BarColor);
-
-	if (bCamSelected)
-	{
-		DrawTexture(TextureAtlas, XOffset + Width, YOffset, 35, 0.95f*CellHeight, 36, 188, -36, 65, FinalBarOpacity, BarColor);
-	}
+	DrawTexture(TextureAtlas, XOffset, YOffset, Width, 0.95f*CellHeight, 149, 138, 32, 32, BarOpacity, BarColor);
 
 	// Draw the Text
-	if (KeyName != NAME_None)
-	{
-		FString KeyString = NumpadString.FindRef(KeyName);
-		if (KeyString.IsEmpty())
-		{
-			KeyString = KeyName.ToString();
-		}
-		DrawText(FText::FromString("[" + KeyString + "]"), XOffset + 4.f, YOffset + ColumnY, UTHUDOwner->TinyFont, 1.f, 1.f, FLinearColor(0.7f, 0.7f, 0.7f, 1.f), ETextHorzPos::Left, ETextVertPos::Center);
-	}
-	DrawText(FText::FromString(ProjName), XOffset + (Width * 0.98f), YOffset + ColumnY, UTHUDOwner->TinyFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Right, ETextVertPos::Center);
+	float XL, YL;
+	Canvas->TextSize(UTHUDOwner->TinyFont, ProjName, XL, YL, 1.f, 1.f);
+	DrawText(FText::FromString(ProjName), XOffset + 0.5f*Width, YOffset + ColumnY, UTHUDOwner->TinyFont, FMath::Min(1.f, Width/XL), 1.0f, DrawColor, ETextHorzPos::Center, ETextVertPos::Center);
 }
 
 void UUTHUDWidget_SpectatorSlideOut::UpdateCameraBindOffset(float& DrawOffset, float& XOffset, bool& bOverflow, float StartOffset, float& EndCamOffset)
 {
+	DrawnCamBinds++;
 	if (!bOverflow)
 	{
 		DrawOffset += CellHeight;
-		if (DrawOffset > (Canvas->ClipY / RenderScale) - (CellHeight * 6))
+		if ((DrawOffset > (Canvas->ClipY / RenderScale) - CellHeight) || (bBalanceCamBinds && (NumCamBinds <= 2 * DrawnCamBinds)))
 		{
 			bOverflow = true;
-			XOffset = XOffset + 0.75f * Size.X + 2.f;
+			XOffset = XOffset + 0.51f * Size.X;
 			DrawOffset -= CellHeight;
 			EndCamOffset = DrawOffset;
+			DrawnCamBinds = 0;
 		}
 	}
 	else
@@ -555,7 +493,7 @@ void UUTHUDWidget_SpectatorSlideOut::UpdateCameraBindOffset(float& DrawOffset, f
 		DrawOffset -= CellHeight;
 		if (DrawOffset < StartOffset)
 		{
-			XOffset = XOffset + 0.75f * Size.X + 2.f;
+			XOffset = XOffset + 0.51f * Size.X;
 			DrawOffset = EndCamOffset;
 		}
 	}
@@ -566,16 +504,41 @@ void UUTHUDWidget_SpectatorSlideOut::DrawPlayerHeader(float RenderDelta, float X
 	FLinearColor DrawColor = FLinearColor::White;
 	float BarOpacity = 0.3f;
 	float Width = Size.X;
-
-	// Draw the background border.
 	FLinearColor BarColor = FLinearColor::White;
 	float FinalBarOpacity = BarOpacity;
-	DrawTexture(TextureAtlas, XOffset, YOffset, Width, 0.95f*CellHeight, 149, 138, 32, 32, FinalBarOpacity, BarColor);
+
+	if (bIsInteractive && UTHUDOwner->UTPlayerOwner)
+	{
+		FText CamString = UTHUDOwner->UTPlayerOwner->bSpectateBehindView ? NSLOCTEXT("UTSlideout", "CamType3P", "3P") : NSLOCTEXT("UTSlideout", "CamType1P", "1P");
+		float Spacing = 0.333f * (ColumnHeaderScoreX - 0.05f - CamTypeButtonStart - 2.7f * CamTypeButtonWidth - 0.3f);
+		DrawCamBind("ToggleBehindView", CamString.ToString(), RenderDelta, XOffset + CamTypeButtonStart*Width, YOffset, CamTypeButtonWidth * Size.X, false);
+		DrawCamBind("ToggleTacCom", "X-Ray", RenderDelta, XOffset + (CamTypeButtonStart + CamTypeButtonWidth + Spacing)*Width, YOffset, 1.7f* CamTypeButtonWidth * Size.X, Cast<AUTPlayerController>(UTHUDOwner->UTPlayerOwner) && Cast<AUTPlayerController>(UTHUDOwner->UTPlayerOwner)->bTacComView);
+		DrawCamBind("EnableAutoCam", "Auto Cam", RenderDelta, XOffset + (CamTypeButtonStart + 2.7f * CamTypeButtonWidth + 2.f*Spacing) * Size.X, YOffset, 0.3f * Size.X, Cast<AUTPlayerController>(UTHUDOwner->UTPlayerOwner) && Cast<AUTPlayerController>(UTHUDOwner->UTPlayerOwner)->bAutoCam);
+	}
+	
+	// Draw the background border.
+	float BorderWidth = Width * (1.f - ColumnHeaderScoreX + 0.05f);
+	DrawTexture(TextureAtlas, XOffset + Width - BorderWidth, YOffset, BorderWidth, 0.95f*CellHeight, 149, 138, 32, 32, FinalBarOpacity, BarColor);
 
 	// Draw the Text
-	DrawText(FText::FromString("Press number to view player"), XOffset + (Width * 0.01f), YOffset + ColumnY, UTHUDOwner->TinyFont, 1.0f, 1.0f, DrawColor, ETextHorzPos::Left, ETextVertPos::Center);
 	DrawTexture(HealthIcon.Texture, XOffset + (Width * (ColumnHeaderScoreX - 0.05f)), YOffset + ColumnY - 0.04f*Width, 0.1f*Width, 0.1f*Width, HealthIcon.U, HealthIcon.V, HealthIcon.UL, HealthIcon.VL, 1.0, FLinearColor::White);
 	DrawTexture(ArmorIcon.Texture, XOffset + (Width * (ColumnHeaderArmor - 0.05f)), YOffset + ColumnY - 0.04f*Width, 0.1f*Width, 0.1f*Width, ArmorIcon.U, ArmorIcon.V, ArmorIcon.UL, ArmorIcon.VL, 1.0, FLinearColor::White);
+}
+
+void UUTHUDWidget_SpectatorSlideOut::DrawSelector(FString Command, bool bPointRight, float XOffset, float YOffset)
+{
+	if (bIsInteractive && UTHUDOwner->UTPlayerOwner && UTHUDOwner->UTPlayerOwner->bShowMouseCursor)
+	{
+		FLinearColor DrawColor = FLinearColor::White;
+		float U = bPointRight ? 36.f : 0.f;
+		float UL = bPointRight ? -36.f : 36.f;
+		FVector4 Bounds = FVector4(RenderPosition.X + (XOffset * RenderScale), RenderPosition.Y + (YOffset * RenderScale),
+			RenderPosition.X + ((XOffset + CamTypeButtonStart*Size.X) * RenderScale), RenderPosition.Y + ((YOffset + ArrowSize*Size.X) * RenderScale));
+		ClickElementStack.Add(FClickElement(Command, Bounds));
+		float Opacity = (MousePosition.X >= Bounds.X && MousePosition.X <= Bounds.Z && MousePosition.Y >= Bounds.Y && MousePosition.Y <= Bounds.W)
+				? 1.f : 0.5f;
+		DrawTexture(TextureAtlas, XOffset, YOffset + 0.5f*CellHeight - 9.f, 18.f, 18.f, U, 188.f, UL, 65.f, Opacity, DrawColor);
+	}
 }
 
 void UUTHUDWidget_SpectatorSlideOut::DrawPlayer(int32 Index, AUTPlayerState* PlayerState, float RenderDelta, float XOffset, float YOffset)
@@ -587,15 +550,23 @@ void UUTHUDWidget_SpectatorSlideOut::DrawPlayer(int32 Index, AUTPlayerState* Pla
 	float Width = Size.X;
 
 	// If we are interactive and this element has a keybind, store it so the mouse can click it
-	if (bIsInteractive)
+	if (bIsInteractive && UTGameState)
 	{
 		FVector4 Bounds = FVector4(RenderPosition.X + (XOffset * RenderScale), RenderPosition.Y + (YOffset * RenderScale),
 			RenderPosition.X + ((XOffset + Width) * RenderScale), RenderPosition.Y + ((YOffset + CellHeight) * RenderScale));
-		ClickElementStack.Add(FClickElement(NumberToKey(Index), Bounds));
+		int32 PickedTeamNum = (PlayerState && PlayerState->Team) ? PlayerState->Team->TeamIndex : 255;
+		int32 SpectatingID = UTGameState->bTeamGame ? PlayerState->SpectatingIDTeam : PlayerState->SpectatingID;
+		ClickElementStack.Add(FClickElement("ViewPlayerNum " + FString::Printf(TEXT("%d %d"), SpectatingID, PickedTeamNum), Bounds, PlayerState));
 		if (MousePosition.X >= Bounds.X && MousePosition.X <= Bounds.Z && MousePosition.Y >= Bounds.Y && MousePosition.Y <= Bounds.W)
 		{
-			FinalBarOpacity = 1.f;
+			FinalBarOpacity = MouseOverOpacity;
 		}
+	}
+	bool bIsSelectedPlayer = false;
+	if (Cast<AUTPlayerController>(UTHUDOwner->PlayerOwner) && (Cast<AUTPlayerController>(UTHUDOwner->PlayerOwner)->LastSpectatedPlayerId == PlayerState->SpectatingID))
+	{
+		FinalBarOpacity = SelectedOpacity;
+		bIsSelectedPlayer = true;
 	}
 
 	FText PlayerName = FText::FromString(GetClampedName(PlayerState, SlideOutFont, 1.f, 0.475f*Width));
@@ -612,31 +583,21 @@ void UUTHUDWidget_SpectatorSlideOut::DrawPlayer(int32 Index, AUTPlayerState* Pla
 	}
 
 	AUTCharacter* Character = PlayerState->GetUTCharacter();
-	PlayerState->SpectatorNameScale = 1.f; 
 	DrawTexture(TextureAtlas, XOffset, YOffset, Width, 0.95f*CellHeight, 149, 138, 32, 32, FinalBarOpacity, BarColor);
 
-	if ((PlayerState == UTHUDOwner->UTPlayerOwner->LastSpectatedPlayerState) || (PlayerState->CarriedObject && (PlayerState->CarriedObject == UTHUDOwner->UTPlayerOwner->GetViewTarget())))
-	{
-		DrawTexture(TextureAtlas, XOffset + Width, YOffset, 35, 0.95f*CellHeight, 36, 188, -36, 65, FinalBarOpacity, BarColor);
-	}
-
 	FTextureUVs FlagUV;
-
 	UTexture2D* NewFlagAtlas = UTHUDOwner->ResolveFlag(PlayerState, FlagUV);
 	DrawTexture(NewFlagAtlas, XOffset + (Width * FlagX), YOffset + 18, FlagUV.UL, FlagUV.VL, FlagUV.U, FlagUV.V, 36, 26, 1.0, FLinearColor::White, FVector2D(0.0f, 0.5f));
 
-	// Draw the Text
-	if (Index >= 0)
-	{
-		int32 DisplayNum = (Index < 10) ? Index : 0;
-		FText Position = FText::Format(NSLOCTEXT("UTScoreboard", "PositionFormatText", "{0}"), FText::AsNumber(DisplayNum));
-		DrawText(Position, XOffset + 4.f, YOffset + ColumnY, SlideOutFont, 1.f, 1.f, DrawColor, ETextHorzPos::Left, ETextVertPos::Center);
-	}
-	FVector2D NameSize = DrawText(PlayerName, XOffset + (Width * ColumnHeaderPlayerX), YOffset + ColumnY, SlideOutFont, PlayerState->SpectatorNameScale, PlayerState->SpectatorNameScale, DrawColor, ETextHorzPos::Left, ETextVertPos::Center);
+	FVector2D NameSize = DrawText(PlayerName, XOffset + (Width * ColumnHeaderPlayerX), YOffset + ColumnY, SlideOutFont, 1.f, 1.f, DrawColor, ETextHorzPos::Left, ETextVertPos::Center);
 
+	if (bShowingStats && bIsSelectedPlayer)
+	{
+		ShowSelectedPlayerStats(PlayerState, RenderDelta, XOffset + 1.2f * Width, YOffset);
+	}
 	if (UTGameState && UTGameState->HasMatchStarted())
 	{
-		if (Character)
+		if (Character && (Character->Health > 0))
 		{
 			float FlagOffset = -0.05f;
 			if (Character->GetWeaponOverlayFlags() != 0)
@@ -684,7 +645,7 @@ void UUTHUDWidget_SpectatorSlideOut::DrawPlayer(int32 Index, AUTPlayerState* Pla
 
 int32 UUTHUDWidget_SpectatorSlideOut::MouseHitTest(FVector2D Position)
 {
-	if (bIsInteractive)
+	if (bIsInteractive && UTHUDOwner->UTPlayerOwner && UTHUDOwner->UTPlayerOwner->bShowMouseCursor)
 	{
 		for (int32 i = 0; i < ClickElementStack.Num(); i++)
 		{
@@ -701,34 +662,119 @@ int32 UUTHUDWidget_SpectatorSlideOut::MouseHitTest(FVector2D Position)
 bool UUTHUDWidget_SpectatorSlideOut::MouseClick(FVector2D InMousePosition)
 { 
 	int32 ElementIndex = MouseHitTest(InMousePosition);
-	if (ClickElementStack.IsValidIndex(ElementIndex) && UTHUDOwner && UTHUDOwner->PlayerOwner && Cast<UUTPlayerInput>(UTHUDOwner->PlayerOwner->PlayerInput))
+	if (ClickElementStack.IsValidIndex(ElementIndex) && UTHUDOwner && Cast<AUTPlayerController>(UTHUDOwner->PlayerOwner) && Cast<UUTPlayerInput>(UTHUDOwner->PlayerOwner->PlayerInput))
 	{
-		UUTPlayerInput* Input = Cast<UUTPlayerInput>(UTHUDOwner->PlayerOwner->PlayerInput);
-		Input->ExecuteCustomBind(ClickElementStack[ElementIndex].Key, EInputEvent::IE_Pressed);
-		return true;
+		if (ClickElementStack[ElementIndex].SelectedPlayer && (Cast<AUTPlayerController>(UTHUDOwner->PlayerOwner)->LastSpectatedPlayerId == ClickElementStack[ElementIndex].SelectedPlayer->SpectatingID))
+		{
+			ToggleStats();
+			return false;
+		}
+		FStringOutputDevice DummyOut;
+		UTHUDOwner->PlayerOwner->Player->Exec(UTHUDOwner->PlayerOwner->GetWorld(), *ClickElementStack[ElementIndex].Command, DummyOut);
+		return false;
 	}
 	return false; 
 }
 
-FKey UUTHUDWidget_SpectatorSlideOut::NumberToKey(int32 InNumber)
-{
-	switch (InNumber)
-	{
-	case 0: return FKey(TEXT("Zero"));
-	case 1: return FKey(TEXT("One"));
-	case 2: return FKey(TEXT("Two"));
-	case 3: return FKey(TEXT("Three"));
-	case 4: return FKey(TEXT("Four"));
-	case 5: return FKey(TEXT("Five"));
-	case 6: return FKey(TEXT("Six"));
-	case 7: return FKey(TEXT("Seven"));
-	case 8: return FKey(TEXT("Eight"));
-	case 9: return FKey(TEXT("Nine"));
-	}
-	return FKey();
-}
-
 float UUTHUDWidget_SpectatorSlideOut::GetDrawScaleOverride()
 {
-	return 1.0;
+	return 1.f;
+}
+
+void UUTHUDWidget_SpectatorSlideOut::ToggleStats()
+{
+	bShowingStats = !bShowingStats;
+}
+
+void UUTHUDWidget_SpectatorSlideOut::ShowSelectedPlayerStats(AUTPlayerState* PlayerState, float RenderDelta, float XOffset, float YOffset)
+{
+	FStatsFontInfo StatsFontInfo;
+	StatsFontInfo.TextRenderInfo.bEnableShadow = true;
+	StatsFontInfo.TextRenderInfo.bClipText = true;
+	StatsFontInfo.TextFont = UTHUDOwner->TinyFont;
+	float XL, SmallYL;
+	Canvas->TextSize(UTHUDOwner->TinyFont, "TEST", XL, SmallYL, 1.f, 1.f);
+	StatsFontInfo.TextHeight = SmallYL;
+
+	float ScoreWidth = 0.4f * Canvas->ClipX;
+	float MaxHeight = 0.5f*Canvas->ClipY;
+	float ScoreYOffset = FMath::Min(YOffset, Canvas->ClipY - MaxHeight);
+	DrawTexture(TextureAtlas, XOffset, ScoreYOffset, ScoreWidth, MaxHeight, 149, 138, 32, 32, 0.3f, FLinearColor::Black);
+	DrawWeaponStats(PlayerState, RenderDelta, ScoreYOffset, XOffset, ScoreWidth, MaxHeight, StatsFontInfo);
+}
+
+void UUTHUDWidget_SpectatorSlideOut::DrawWeaponStatsLine(FText StatsName, int32 StatValue, int32 ScoreValue, int32 Shots, float Accuracy, float DeltaTime, float XOffset, float& YPos, const FStatsFontInfo& StatsFontInfo, float ScoreWidth, bool bIsBestWeapon)
+{
+	FLinearColor DrawColor = bIsBestWeapon ? FLinearColor::Yellow : FLinearColor::White;
+	DrawText(StatsName, XOffset, YPos, UTHUDOwner->TinyFont, 1.f, 1.f, DrawColor, ETextHorzPos::Left, ETextVertPos::Top);
+
+	if (StatValue >= 0)
+	{
+		DrawColor = (StatValue >= 15) ? FLinearColor::Yellow : FLinearColor::White;
+		FFormatNamedArguments StatArgs;
+		StatArgs.Add("Stat", FText::AsNumber(StatValue));
+		DrawText(FText::Format(NSLOCTEXT("UTCharacter", "StatDisplay", "{Stat}"), StatArgs), XOffset + KillsColumn*ScoreWidth, YPos, UTHUDOwner->TinyFont, 1.f, 1.f, DrawColor, ETextHorzPos::Center, ETextVertPos::Top);
+	}
+	DrawColor = FLinearColor::White;
+	if (ScoreValue >= 0)
+	{
+		FFormatNamedArguments StatArgs;
+		StatArgs.Add("Stat", FText::AsNumber(ScoreValue));
+		DrawText(FText::Format(NSLOCTEXT("UTCharacter", "StatDisplay", "{Stat}"), StatArgs), XOffset + DeathsColumn*ScoreWidth, YPos, UTHUDOwner->TinyFont, 1.f, 1.f, DrawColor, ETextHorzPos::Center, ETextVertPos::Top);
+	}
+	if (Shots >= 0)
+	{
+		FFormatNamedArguments StatArgs;
+		StatArgs.Add("Stat", FText::AsNumber(Shots));
+		DrawText(FText::Format(NSLOCTEXT("UTCharacter", "StatDisplay", "{Stat}"), StatArgs), XOffset + ShotsColumn*ScoreWidth, YPos, UTHUDOwner->TinyFont, 1.f, 1.f, DrawColor, ETextHorzPos::Center, ETextVertPos::Top);
+
+		FNumberFormattingOptions NumberFormattingOptions;
+		NumberFormattingOptions.MaximumFractionalDigits = 1;
+		FFormatNamedArguments AccArgs;
+		AccArgs.Add("Stat", FText::AsNumber(Accuracy, &NumberFormattingOptions));
+		DrawText(FText::Format(NSLOCTEXT("UTCharacter", "StatDisplay", "{Stat}"), AccArgs), XOffset + AccuracyColumn*ScoreWidth, YPos, UTHUDOwner->TinyFont, 1.f, 1.f, DrawColor, ETextHorzPos::Center, ETextVertPos::Top);
+	}
+	YPos += StatsFontInfo.TextHeight;
+}
+
+void UUTHUDWidget_SpectatorSlideOut::DrawWeaponStats(AUTPlayerState* PS, float DeltaTime, float& YPos, float XOffset, float ScoreWidth, float MaxHeight, const FStatsFontInfo& StatsFontInfo)
+{
+	DrawText(NSLOCTEXT("SlideOut", "KillsW", "Kills w /"), XOffset + (KillsColumn - 0.05f)*ScoreWidth, YPos, UTHUDOwner->TinyFont, 1.f, 1.f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Top);
+	DrawText(NSLOCTEXT("SlideOut", "DeathsBy", "Deaths by"), XOffset + (DeathsColumn - 0.05f)*ScoreWidth, YPos, UTHUDOwner->TinyFont, 1.f, 1.f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Top);
+	DrawText(NSLOCTEXT("SlideOut", "Shots", "Shots"), XOffset + (ShotsColumn - 0.02f)*ScoreWidth, YPos, UTHUDOwner->TinyFont, 1.f, 1.f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Top);
+	DrawText(NSLOCTEXT("SlideOut", "Accuracy", "Accuracy"), XOffset + (AccuracyColumn - 0.03f)*ScoreWidth, YPos, UTHUDOwner->TinyFont, 1.f, 1.f, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Top);
+	YPos += StatsFontInfo.TextHeight;
+
+	/** List of weapons to display stats for. */
+	if (StatsWeapons.Num() == 0)
+	{
+		// add default weapons - needs to be automated
+		StatsWeapons.AddUnique(AUTWeap_ImpactHammer::StaticClass()->GetDefaultObject<AUTWeapon>());
+		StatsWeapons.AddUnique(AUTWeap_Enforcer::StaticClass()->GetDefaultObject<AUTWeapon>());
+
+		for (FActorIterator It(GetWorld()); It; ++It)
+		{
+			AUTPickupWeapon* Pickup = Cast<AUTPickupWeapon>(*It);
+			if (Pickup && Pickup->GetInventoryType())
+			{
+				StatsWeapons.AddUnique(Pickup->GetInventoryType()->GetDefaultObject<AUTWeapon>());
+			}
+		}
+
+		StatsWeapons.AddUnique(AUTWeap_Translocator::StaticClass()->GetDefaultObject<AUTWeapon>());
+	}
+
+	float BestWeaponKills = (BestWeaponIndex == FMath::Clamp(BestWeaponIndex, 0, StatsWeapons.Num() - 1)) ? StatsWeapons[BestWeaponIndex]->GetWeaponKillStats(PS) : 0;
+	for (int32 i = 0; i < StatsWeapons.Num(); i++)
+	{
+		int32 Kills = StatsWeapons[i]->GetWeaponKillStats(PS);
+		float Shots = StatsWeapons[i]->GetWeaponShotsStats(PS);
+		float Accuracy = (Shots > 0) ? 100.f * StatsWeapons[i]->GetWeaponHitsStats(PS) / Shots : 0.f;
+		DrawWeaponStatsLine(StatsWeapons[i]->DisplayName, Kills, StatsWeapons[i]->GetWeaponDeathStats(PS), Shots, Accuracy, DeltaTime, XOffset, YPos, StatsFontInfo, ScoreWidth, (i == BestWeaponIndex));
+		if (Kills > BestWeaponKills)
+		{
+			BestWeaponKills = Kills;
+			BestWeaponIndex = i;
+		}
+	}
 }

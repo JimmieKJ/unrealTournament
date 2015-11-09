@@ -36,6 +36,7 @@
 #include "UTGameEngine.h"
 #include "UTFlagInfo.h"
 #include "UTProfileItem.h"
+#include "UTMutator.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogUTPlayerController, Log, All);
 
@@ -77,9 +78,9 @@ AUTPlayerController::AUTPlayerController(const class FObjectInitializer& ObjectI
 	bSpectateBehindView = true;
 	StylizedPPIndex = INDEX_NONE;
 
-	PredictionFudgeFactor = 15.f;
+	PredictionFudgeFactor = 20.f;
 	MaxPredictionPing = 0.f; 
-	DesiredPredictionPing = 0.f;
+	DesiredPredictionPing = 120.f;
 
 	bIsDebuggingProjectiles = false;
 	bUseClassicGroups = true;
@@ -193,6 +194,25 @@ float AUTPlayerController::GetPredictionTime()
 float AUTPlayerController::GetProjectileSleepTime()
 {
 	return 0.001f * FMath::Max(0.f, PlayerState->ExactPing - PredictionFudgeFactor - MaxPredictionPing);
+}
+
+void AUTPlayerController::Mutate(FString MutateString)
+{
+	ServerMutate(MutateString);
+}
+
+bool AUTPlayerController::ServerMutate_Validate(const FString& MutateString)
+{
+	return true;
+}
+
+void AUTPlayerController::ServerMutate_Implementation(const FString& MutateString)
+{
+	AUTGameMode* GameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
+	if (GameMode != NULL && GameMode->BaseMutator != NULL)
+	{
+		GameMode->BaseMutator->Mutate(MutateString, this);
+	}
 }
 
 void AUTPlayerController::NP()
@@ -528,6 +548,7 @@ bool AUTPlayerController::InputKey(FKey Key, EInputEvent EventType, float Amount
 					FReply& SlateOps = LocalPlayer->GetSlateOperations();
 					SlateOps.UseHighPrecisionMouseMovement(LocalPlayer->ViewportClient->GetGameViewportWidget().ToSharedRef());
 					SavedMouseCursorLocation = FSlateApplication::Get().GetCursorPos();
+					MouseButtonPressTime = GetWorld()->GetTimeSeconds();
 					bShowMouseCursor = false;
 				}
 			}
@@ -537,7 +558,7 @@ bool AUTPlayerController::InputKey(FKey Key, EInputEvent EventType, float Amount
 				if (LocalPlayer)
 				{
 					LocalPlayer->GetSlateOperations().ReleaseMouseCapture().SetMousePos(SavedMouseCursorLocation.IntPoint());
-					bShowMouseCursor = true;
+					bShowMouseCursor = (GetWorld()->GetTimeSeconds() - MouseButtonPressTime < 1.f);
 				}
 			}
 		}
@@ -689,6 +710,13 @@ void AUTPlayerController::SwitchWeaponInSequence(bool bPrev)
 		}
 		else
 		{
+			UUTProfileSettings* ProfileSettings = NULL;
+
+			if (Cast<UUTLocalPlayer>(Player))
+			{
+				ProfileSettings = Cast<UUTLocalPlayer>(Player)->GetProfileSettings();
+			}
+
 			AUTWeapon* Best = NULL;
 			AUTWeapon* WraparoundChoice = NULL;
 			AUTWeapon* CurrentWeapon = (UTCharacter->GetPendingWeapon() != NULL) ? UTCharacter->GetPendingWeapon() : UTCharacter->GetWeapon();
@@ -802,6 +830,13 @@ void AUTPlayerController::SwitchWeaponGroup(int32 Group)
 
 void AUTPlayerController::SwitchWeapon(int32 Group)
 {
+
+	if (!bUseClassicGroups)
+	{
+		SwitchWeaponGroup(Group);
+		return;
+	}
+
 	if (UTCharacter != NULL && IsLocalPlayerController() && UTCharacter->EmoteCount == 0 && !UTCharacter->IsRagdoll())
 	{
 		// if current weapon isn't in the specified group, pick lowest GroupSlot in that group
@@ -932,13 +967,8 @@ void AUTPlayerController::ViewPlayerNum(int32 Index, uint8 TeamNum)
 	if (GS != NULL)
 	{
 		APlayerState** PlayerToView = NULL;
-		if (TeamNum == 255 || GS->Teams.Num() == 0)
+		if (TeamNum == 255)
 		{
-			// hack for default binds
-			if (TeamNum == 1)
-			{
-				Index += TeamNum * 5;
-			}
 			int32 MaxSpectatingId = GS->GetMaxSpectatingId();
 			while ((Index <= MaxSpectatingId) && (PlayerToView == NULL))
 			{
@@ -989,9 +1019,22 @@ void AUTPlayerController::ToggleSlideOut()
 	bRequestingSlideOut = !bRequestingSlideOut;
 }
 
+void AUTPlayerController::ToggleMinimap()
+{
+	if (MyUTHUD)
+	{
+		MyUTHUD->bDrawMinimap = !MyUTHUD->bDrawMinimap;
+	}
+}
+
 void AUTPlayerController::ToggleShowBinds()
 {
 	bShowCameraBinds = !bShowCameraBinds;
+}
+
+void AUTPlayerController::ToggleShowTimers()
+{
+	bShowPowerupTimers = !bShowPowerupTimers;
 }
 
 void AUTPlayerController::ViewNextPlayer()
@@ -1001,13 +1044,40 @@ void AUTPlayerController::ViewNextPlayer()
 	ServerViewNextPlayer();
 }
 
+void AUTPlayerController::ViewPowerup(FString PowerupName)
+{
+	for (FActorIterator It(GetWorld()); It; ++It)
+	{
+		AUTPickup* Pickup = Cast<AUTPickup>(*It);
+		if (Pickup && (Pickup->GetName() == PowerupName))
+		{
+			bAutoCam = false;
+			if (Pickup->Camera)
+			{
+				AActor* NewViewTarget = (GetSpectatorPawn() != NULL) ? GetSpectatorPawn() : SpawnSpectatorPawn();
+				NewViewTarget->SetActorLocationAndRotation(Pickup->Camera->GetActorLocation(), Pickup->Camera->GetActorRotation());
+				ResetCameraMode();
+				SetViewTarget(NewViewTarget);
+				SetControlRotation(Pickup->Camera->GetActorRotation());
+				ServerViewSelf();
+			}
+			else
+			{
+				SetViewTarget(Pickup);
+			}
+			break;
+		}
+	}
+}
+
 bool AUTPlayerController::ServerViewFlagHolder_Validate(uint8 TeamIndex)
 {
 	return true;
 }
+
 void AUTPlayerController::ServerViewFlagHolder_Implementation(uint8 TeamIndex)
 {
-	if (PlayerState && PlayerState->bOnlySpectator)
+	if (IsInState(NAME_Spectating) && (PlayerState == NULL || PlayerState->bOnlySpectator || GetTeamNum() == TeamIndex))
 	{
 		AUTCTFGameState* CTFGameState = GetWorld()->GetGameState<AUTCTFGameState>();
 		if (CTFGameState && (CTFGameState->FlagBases.Num() > TeamIndex) && CTFGameState->FlagBases[TeamIndex] && CTFGameState->FlagBases[TeamIndex]->MyFlag && CTFGameState->FlagBases[TeamIndex]->MyFlag->Holder)
@@ -1053,7 +1123,7 @@ bool AUTPlayerController::ServerViewPlayerState_Validate(APlayerState* PS)
 
 void AUTPlayerController::ServerViewPlayerState_Implementation(APlayerState* PS)
 {
-	if (PlayerState && PlayerState->bOnlySpectator && PS)
+	if (IsInState(NAME_Spectating) && PS != NULL && (PlayerState == NULL || PlayerState->bOnlySpectator || GetTeamNum() == 255 || GetWorld()->GetGameState<AUTGameState>()->OnSameTeam(PS, this)))
 	{
 		SetViewTarget(PS);
 	}
@@ -1072,7 +1142,7 @@ bool AUTPlayerController::ServerViewFlag_Validate(uint8 Index)
 
 void AUTPlayerController::ServerViewFlag_Implementation(uint8 Index)
 {
-	if (PlayerState && PlayerState->bOnlySpectator)
+	if (IsInState(NAME_Spectating))
 	{
 		AUTCTFGameState* CTFGameState = GetWorld()->GetGameState<AUTCTFGameState>();
 		if (CTFGameState && (CTFGameState->FlagBases.Num() > Index) && CTFGameState->FlagBases[Index] && CTFGameState->FlagBases[Index]->MyFlag )
@@ -1084,7 +1154,7 @@ void AUTPlayerController::ServerViewFlag_Implementation(uint8 Index)
 
 void AUTPlayerController::ViewCamera(int32 Index)
 {
-	if (PlayerState && PlayerState->bOnlySpectator)
+	if (IsInState(NAME_Spectating))
 	{
 		int32 CamCount = 0;
 		for (FActorIterator It(GetWorld()); It; ++It)
@@ -1092,7 +1162,6 @@ void AUTPlayerController::ViewCamera(int32 Index)
 			AUTSpectatorCamera* Cam = Cast<AUTSpectatorCamera>(*It);
 			if (Cam)
 			{
-				CamCount++;
 				if (CamCount == Index)
 				{
 					bAutoCam = false;
@@ -1103,6 +1172,7 @@ void AUTPlayerController::ViewCamera(int32 Index)
 					SetControlRotation(Cam->GetActorRotation());
 					ServerViewSelf();
 				}
+				CamCount++;
 			}
 		}
 	}
@@ -1178,22 +1248,19 @@ void AUTPlayerController::ServerViewProjectile_Implementation()
 			AUTCarriedObject* Flag = Cast<AUTCarriedObject>(GetViewTarget());
 			ViewedCharacter = Flag ? Flag->HoldingPawn : NULL;
 		}
-		// @TODO FIXMESTEVE save last fired projectile as optimization
-		AUTProjectile* BestProj = NULL;
-		if (ViewedCharacter)
+		UE_LOG(UT, Warning, TEXT("ServerViewProjectile %f"), ViewProjectileTime);
+		if (!ViewedCharacter)
 		{
-			for (FActorIterator It(GetWorld()); It; ++It)
-			{
-				AUTProjectile* Proj = Cast<AUTProjectile>(*It);
-				if (Proj && !Proj->bExploded && !Proj->GetVelocity().IsNearlyZero() && (Proj->Instigator == ViewedCharacter) && (!BestProj || (BestProj->CreationTime < Proj->CreationTime)))
-				{
-					BestProj = Proj;
-				}
-			}
+			ViewProjectileTime = 0.f;
 		}
-		if (BestProj)
+		else if (ViewedCharacter->LastFiredProjectile && !ViewedCharacter->LastFiredProjectile->IsPendingKillPending())
 		{
-			SetViewTarget(BestProj);
+			SetViewTarget(ViewedCharacter->LastFiredProjectile);
+			ViewProjectileTime = 0.f;
+		}
+		else if (ViewProjectileTime == 0.f)
+		{
+			ViewProjectileTime = GetWorld()->GetTimeSeconds() + 8.f;
 		}
 	}
 }
@@ -1804,9 +1871,9 @@ void AUTPlayerController::UpdateHiddenComponents(const FVector& ViewLocation, TS
 
 void AUTPlayerController::ToggleScoreboard(bool bShow)
 {
-	if (MyHUD != NULL && Cast<AUTHUD>(MyHUD) != NULL)
+	if (MyUTHUD)
 	{
-		Cast<AUTHUD>(MyHUD)->ToggleScoreboard(bShow);
+		MyUTHUD->ToggleScoreboard(bShow);
 	}
 }
 
@@ -2180,6 +2247,7 @@ void AUTPlayerController::SetViewTarget(class AActor* NewViewTarget, FViewTarget
 		AUTCharacter* Char = Cast<AUTCharacter>(UpdatedViewTarget);
 		if (Char)
 		{
+			ViewProjectileTime = 0.f;
 			LastSpectatedPlayerState = Cast<AUTPlayerState>(Char->PlayerState);
 			if (LastSpectatedPlayerState)
 			{
@@ -2204,7 +2272,7 @@ void AUTPlayerController::SetViewTarget(class AActor* NewViewTarget, FViewTarget
 
 FRotator AUTPlayerController::GetSpectatingRotation(const FVector& ViewLoc, float DeltaTime)
 {
-	if (PlayerState && PlayerState->bOnlySpectator)
+	if (IsInState(NAME_Spectating))
 	{
 		AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 		if (GS && (!GS->IsMatchInProgress() || GS->IsMatchAtHalftime()))
@@ -2361,23 +2429,6 @@ void AUTPlayerController::FindGoodView(const FVector& TargetLoc, bool bIsUpdate)
 	SetControlRotation(BestRot);
 }
 
-void AUTPlayerController::StartCameraControl()
-{
-	AUTPlayerCameraManager* CamMgr = Cast<AUTPlayerCameraManager>(PlayerCameraManager);
-	if (CamMgr)
-	{
-		CamMgr->bAllowSpecCameraControl = true;
-	}
-}
-
-void AUTPlayerController::EndCameraControl()
-{
-	AUTPlayerCameraManager* CamMgr = Cast<AUTPlayerCameraManager>(PlayerCameraManager);
-	if (CamMgr)
-	{
-		CamMgr->bAllowSpecCameraControl = false;
-	}
-}
 
 void AUTPlayerController::ViewSelf(FViewTargetTransitionParams TransitionParams)
 {
@@ -2529,7 +2580,7 @@ void AUTPlayerController::PlayerTick( float DeltaTime )
 	}
 	APawn* ViewTargetPawn = PlayerCameraManager->GetViewTargetPawn();
 	AUTCharacter* ViewTargetCharacter = Cast<AUTCharacter>(ViewTargetPawn);
-	if (PlayerState && PlayerState->bOnlySpectator && bAutoCam && (!ViewTargetCharacter || !ViewTargetCharacter->IsRecentlyDead()))
+	if (IsInState(NAME_Spectating) && bAutoCam && (!ViewTargetCharacter || !ViewTargetCharacter->IsRecentlyDead()))
 	{
 		// possibly switch cameras
 		ChooseBestCamera();
@@ -2679,6 +2730,11 @@ void AUTPlayerController::Tick(float DeltaTime)
 				}
 			}
 		}
+	}
+
+	if (GetWorld()->GetTimeSeconds() < ViewProjectileTime)
+	{
+		ServerViewProjectile_Implementation();
 	}
 }
 
@@ -2859,7 +2915,7 @@ void AUTPlayerController::ServerEmote_Implementation(int32 EmoteIndex)
 void AUTPlayerController::ReceivedPlayer()
 {
 	Super::ReceivedPlayer();
-
+	
 	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
 	if (LP != NULL)
 	{
@@ -2877,12 +2933,26 @@ void AUTPlayerController::ReceivedPlayer()
 		if (OnlineSub != nullptr)
 		{
 			IOnlineIdentityPtr OnlineIdentityInterface = OnlineSub->GetIdentityInterface();
-			if (OnlineIdentityInterface.IsValid() && OnlineIdentityInterface->GetLoginStatus(LP->GetControllerId()))
+			if (OnlineIdentityInterface.IsValid())
 			{
-				TSharedPtr<FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(LP->GetControllerId());
-				if (UserId.IsValid())
+				if (OnlineIdentityInterface->GetLoginStatus(LP->GetControllerId()))
 				{
-					ServerReceiveStatsID(UserId->ToString());
+					TSharedPtr<FUniqueNetId> UserId = OnlineIdentityInterface->GetUniquePlayerId(LP->GetControllerId());
+					if (UserId.IsValid())
+					{
+						ServerReceiveStatsID(UserId->ToString());
+					}
+
+#if WITH_PROFILE
+					if (GetNetMode() != NM_DedicatedServer)
+					{
+						InitializeMcpProfile();
+					}
+#endif
+				}
+				else
+				{
+					OnLoginStatusChangedDelegate = OnlineIdentityInterface->AddOnLoginStatusChangedDelegate_Handle(LP->GetControllerId(), FOnLoginStatusChangedDelegate::CreateUObject(this, &AUTPlayerController::OnLoginStatusChanged));
 				}
 			}
 		}
@@ -3064,6 +3134,22 @@ float AUTPlayerController::GetWeaponAutoSwitchPriority(FString WeaponClassname, 
 	return DefaultPriority;
 }
 
+int32 AUTPlayerController::GetWeaponGroup(FString WeaponClassname, int32 DefaultGroup)
+{
+	if (Cast<UUTLocalPlayer>(Player))
+	{
+		UUTProfileSettings* ProfileSettings = Cast<UUTLocalPlayer>(Player)->GetProfileSettings();
+		if (ProfileSettings)
+		{
+			if (ProfileSettings->WeaponGroupLookup.Contains(WeaponClassname))
+			{
+				return ProfileSettings->WeaponGroupLookup[WeaponClassname].Group;
+			}
+		}
+	}
+
+	return DefaultGroup;
+}
 
 void AUTPlayerController::RconMap(FString NewMap)
 {
@@ -3255,7 +3341,7 @@ void AUTPlayerController::OnRep_CastingGuide()
 			{
 				// partial copy from UGameInstance::CreateLocalPlayer() and ULocalPlayer::SendSplitJoin() as we want to do special join handling
 				ULocalPlayer* NewPlayer = NewObject<ULocalPlayer>(GEngine, GEngine->LocalPlayerClass);
-				int32 InsertIndex = LP->GetGameInstance()->AddLocalPlayer(NewPlayer, 255);
+				int32 InsertIndex = LP->GetGameInstance()->AddLocalPlayer(NewPlayer, 7);
 				if (InsertIndex == INDEX_NONE)
 				{
 					// something went wrong
@@ -3786,4 +3872,80 @@ void AUTPlayerController::OpenMatchSummary()
 	{
 		LocalPlayer->OpenMatchSummary(UTGS);
 	}
+}
+
+void AUTPlayerController::UTClientSetRotation_Implementation(FRotator NewRotation)
+{
+	SetControlRotation(NewRotation);
+	if (GetPawn() != NULL)
+	{
+		GetPawn()->FaceRotation(NewRotation, 0.f);
+	}
+}
+
+#if WITH_PROFILE
+
+void AUTPlayerController::InitializeMcpProfile()
+{
+	// asserts in the editor...
+	if (!GIsEditor)
+	{
+		if (McpProfile)
+		{
+			McpProfile = nullptr;
+		}
+
+		McpProfile = NewObject<UUTMcpProfile>(this);
+		if (McpProfile)
+		{
+			FString McpPlayerName;
+			UUTLocalPlayer *LocalPlayer = Cast<UUTLocalPlayer>(Player);
+			if (LocalPlayer)
+			{
+				McpPlayerName = LocalPlayer->GetOnlinePlayerNickname();
+			}
+
+			McpProfile->Initialize((FOnlineSubsystemMcp*)IOnlineSubsystem::Get(), McpPlayerName, GetGameAccountId().GetUniqueNetId(), LocalPlayer != nullptr);
+		}
+		SynchronizeProfileWithMcp();
+	}
+}
+
+void AUTPlayerController::SynchronizeProfileWithMcp(const FMcpQueryComplete& OnComplete)
+{
+	if (McpProfile)
+	{
+		// NOTE: this should be the ONLY code in this class that calls ForceQueryProfile. Everything else should go through this function so we can track.
+		McpProfile->ForceQueryProfile(FMcpQueryComplete::CreateUObject(this, &ThisClass::SynchronizeProfileWithMcp_Complete, OnComplete));
+	}
+}
+
+void AUTPlayerController::SynchronizeProfileWithMcp_Complete(const FMcpQueryResult& Result, FMcpQueryComplete Callback)
+{
+	UE_LOG(LogUTPlayerController, Display, TEXT("Profile sync complete"));
+}
+
+FUniqueNetIdRepl AUTPlayerController::GetGameAccountId() const
+{
+	UUTLocalPlayer *LocalPlayer = Cast<UUTLocalPlayer>(Player);
+	if (LocalPlayer)
+	{
+		// if we're local, get the ID from the local player as it's guaranteed to be there
+		return LocalPlayer->GetGameAccountId();
+	}
+
+	// otherwise we're either remote or on the server. In the server case, this is guaranteed. In the remote case, there may be a replication delay.
+	return PlayerState ? PlayerState->UniqueId : FUniqueNetIdRepl();
+}
+
+#endif
+
+void AUTPlayerController::OnLoginStatusChanged(int32 LocalUserNum, ELoginStatus::Type PreviousLoginStatus, ELoginStatus::Type LoginStatus, const FUniqueNetId& UniqueID)
+{
+#if WITH_PROFILE
+	if (LoginStatus == ELoginStatus::LoggedIn)
+	{
+		InitializeMcpProfile();
+	}
+#endif
 }

@@ -148,6 +148,7 @@ public:
 };
 
 class SUPlayerListPanel;
+class SUTEditableTextBox;
 
 class UNREALTOURNAMENT_API SUTextChatPanel : public SCompoundWidget
 {
@@ -161,9 +162,7 @@ class UNREALTOURNAMENT_API SUTextChatPanel : public SCompoundWidget
 public:	
 	/** needed for every widget */
 	void Construct(const FArguments& InArgs);
-
-	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime );
-
+	void FocusChat(const FCharacterEvent& InCharacterEvent);
 
 	// Make sure to clean up the delegates in the destructor
 	virtual ~SUTextChatPanel();
@@ -189,7 +188,7 @@ protected:
 	TArray<TSharedPtr<FChatDestination>> ChatDestinationList;
 	TSharedPtr<SHorizontalBox> ChatDestinationBar;
 	TSharedPtr<SScrollBox> ChatScrollBox;
-	TSharedPtr<SEditableTextBox> ChatEditBox;
+	TSharedPtr<SUTEditableTextBox> ChatEditBox;
 	TSharedPtr<STextBlock> TypeMsg;
 
 	FReply OnDestinationClick(TSharedPtr<FChatDestination> Destination);

@@ -5,6 +5,7 @@
 #include "SUWReplayBrowser.h"
 #include "../SUWInputBox.h"
 #include "Net/UnrealNetwork.h"
+#include "FriendsAndChat.h"
 
 #if !UE_SERVER
 
@@ -56,20 +57,11 @@ TSharedRef<SWidget> SReplayBrowserRow::GenerateWidgetForColumn(const FName& Colu
 		.Text(ColumnText);
 }
 
-void SUWReplayBrowser::ConstructPanel(FVector2D ViewportSize)
+void SUWReplayBrowser::FriendsListUpdated()
 {
-	Tag = FName(TEXT("ReplayBrowser"));
+	FriendList.Empty();
+	FriendStatIDList.Empty();
 
-	OnlineSubsystem = IOnlineSubsystem::Get();
-	if (OnlineSubsystem)
-	{
-		OnlineIdentityInterface = OnlineSubsystem->GetIdentityInterface();
-	}
-
-	bShouldShowAllReplays = false;
-	bLiveOnly = false;
-	bShowReplaysFromAllUsers = false;
-	
 	FriendList.Add(MakeShareable(new FString(TEXT("My Replays"))));
 
 	if (OnlineIdentityInterface.IsValid())
@@ -124,6 +116,30 @@ void SUWReplayBrowser::ConstructPanel(FVector2D ViewportSize)
 			}
 		}
 	}
+}
+
+SUWReplayBrowser::~SUWReplayBrowser()
+{
+	IFriendsAndChatModule::Get().GetFriendsAndChatManager()->OnFriendsListUpdated().Remove(FriendsListUpdatedDelegateHandle);
+}
+
+void SUWReplayBrowser::ConstructPanel(FVector2D ViewportSize)
+{
+	Tag = FName(TEXT("ReplayBrowser"));
+
+	OnlineSubsystem = IOnlineSubsystem::Get();
+	if (OnlineSubsystem)
+	{
+		OnlineIdentityInterface = OnlineSubsystem->GetIdentityInterface();
+	}
+
+	bShouldShowAllReplays = false;
+	bLiveOnly = false;
+	bShowReplaysFromAllUsers = false;
+	
+	FriendsListUpdated();
+	
+	FriendsListUpdatedDelegateHandle = IFriendsAndChatModule::Get().GetFriendsAndChatManager()->OnFriendsListUpdated().AddSP(this, &SUWReplayBrowser::FriendsListUpdated);
 
 	this->ChildSlot
 	[

@@ -15,6 +15,7 @@ class UNREALTOURNAMENT_API UUTHUDWidget_DMPlayerLeaderboard : public UUTHUDWidge
 public:
 	virtual void Draw_Implementation(float DeltaTime);
 	virtual void InitializeWidget(AUTHUD* Hud);
+	virtual bool ShouldDraw_Implementation(bool bShowScores) override;
 
 protected:
 
@@ -63,7 +64,4 @@ protected:
 	float BarWidth;
 
 	void DrawPlayer(float& YPosition, int32 PlayerIndex, AUTPlayerState* OwnerPS);
-
-
-
 };

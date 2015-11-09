@@ -11,6 +11,14 @@ void AUTMutator::Init_Implementation(const FString& Options)
 {
 }
 
+void AUTMutator::Mutate_Implementation(const FString& MutateString, APlayerController* Sender)
+{
+	if (NextMutator != NULL)
+	{
+		NextMutator->Mutate(MutateString, Sender);
+	}
+}
+
 void AUTMutator::ModifyLogin_Implementation(FString& Portal, FString& Options)
 {
 	if (NextMutator != NULL)
@@ -68,6 +76,11 @@ bool AUTMutator::ModifyDamage_Implementation(int32& Damage, FVector& Momentum, A
 		NextMutator->ModifyDamage(Damage, Momentum, Injured, InstigatedBy, HitInfo, DamageCauser, DamageType);
 	}
 	return true;
+}
+
+bool AUTMutator::PreventDeath_Implementation(APawn* KilledPawn, AController* Killer, TSubclassOf<UDamageType> DamageType, const FHitResult& HitInfo)
+{
+	return (NextMutator != NULL && NextMutator->PreventDeath(KilledPawn, Killer, DamageType, HitInfo));
 }
 
 void AUTMutator::ScoreKill_Implementation(AController* Killer, AController* Other, TSubclassOf<UDamageType> DamageType)

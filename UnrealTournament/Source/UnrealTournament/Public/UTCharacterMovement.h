@@ -121,31 +121,31 @@ public:
 
 	/** Max constant Acceleration when swimming. */
 	UPROPERTY(Category = "Character Movement", EditAnywhere, BlueprintReadWrite, meta = (ClampMin = "0", UIMin = "0"))
-		float MaxSwimmingAcceleration;
+	float MaxSwimmingAcceleration;
 
 	/** Additional Acceleration when swimming, divided by Velocity magnitude.  Swimming acceleration is MaxSwimmingAcceleration + MaxRelativeSwimmingAccelNumerator/(Speed + MaxRelativeSwimmingAccelDenominator). */
 	UPROPERTY(Category = "Character Movement", EditAnywhere, BlueprintReadWrite, meta = (ClampMin = "0", UIMin = "0"))
-		float MaxRelativeSwimmingAccelNumerator;
+	float MaxRelativeSwimmingAccelNumerator;
 
 	/** Part of swimming acceleration formula.  Swimming acceleration is MaxSwimmingAcceleration + MaxRelativeSwimmingAccelNumerator/(Speed + MaxRelativeSwimmingAccelDenominator). */
 	UPROPERTY(Category = "Character Movement", EditAnywhere, BlueprintReadWrite, meta = (ClampMin = "0", UIMin = "0"))
-		float MaxRelativeSwimmingAccelDenominator;
+	float MaxRelativeSwimmingAccelDenominator;
 
 	/** Ground friction when braking. */
 	UPROPERTY(Category = "Character Movement", EditAnywhere, BlueprintReadWrite, meta = (ClampMin = "0", UIMin = "0"))
-		float BrakingFriction;
+	float BrakingFriction;
 
 	/** Braking when sliding. */
 	UPROPERTY(Category = "Character Movement", EditAnywhere, BlueprintReadWrite, meta = (ClampMin = "0", UIMin = "0"))
-		float BrakingDecelerationSliding;
+	float BrakingDecelerationSliding;
 
 	/** Braking when walking - set to same value as BrakingDecelerationWalking. */
-	UPROPERTY(Category = "Character Movement", BlueprintReadWrite, meta = (ClampMin = "0", UIMin = "0"))
-		float DefaultBrakingDecelerationWalking;
+	UPROPERTY(Category = "Character Movement", EditAnywhere, BlueprintReadWrite, meta = (ClampMin = "0", UIMin = "0"))
+	float DefaultBrakingDecelerationWalking;
 
 	/** Max speed player can travel in water (faster than powered swim speed */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category=Swimming)
-		float MaxWaterSpeed;
+	float MaxWaterSpeed;
 
 	/** Impulse when pushing off wall underwater */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Swimming)

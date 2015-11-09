@@ -16,12 +16,15 @@ public:
 	{
 		SelectingSpawnText = NSLOCTEXT("UTHUD_Showdown", "SelectingSpawn", "{0} is picking... {1}");
 		RoundBeginsText = NSLOCTEXT("UTHUD_Showdown", "RoundBegins", "Round begins in... {0}");
+		PickingStartsText = NSLOCTEXT("UTHUD_Showdown", "PickingStarts", "Spawn selection begins in... {0}");
 	}
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	FText SelectingSpawnText;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 	FText RoundBeginsText;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	FText PickingStartsText;
 
 	virtual FLinearColor GetMessageColor() const override
 	{
@@ -45,6 +48,10 @@ public:
 			if (GS->SpawnSelector != NULL)
 			{
 				return FText::Format(SelectingSpawnText, FText::FromString(GS->SpawnSelector->PlayerName), FText::AsNumber(GS->IntermissionStageTime));
+			}
+			else if (GS->bStartedSpawnSelection && !GS->bFinalIntermissionDelay)
+			{
+				return FText::Format(PickingStartsText, FText::AsNumber(GS->IntermissionStageTime));
 			}
 			else
 			{

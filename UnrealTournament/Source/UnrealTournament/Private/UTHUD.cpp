@@ -62,6 +62,12 @@ AUTHUD::AUTHUD(const class FObjectInitializer& ObjectInitializer) : Super(Object
 	static ConstructorHelpers::FObjectFinder<UTexture2D> HUDTex(TEXT("Texture'/Game/RestrictedAssets/UI/HUDAtlas01.HUDAtlas01'"));
 	HUDAtlas = HUDTex.Object;
 
+	static ConstructorHelpers::FObjectFinder<UTexture2D> PlayerDirectionTextureObject(TEXT("/Game/RestrictedAssets/UI/MiniMap/Minimap_PS_BG.Minimap_PS_BG"));
+	PlayerMinimapTexture = PlayerDirectionTextureObject.Object;
+
+	static ConstructorHelpers::FObjectFinder<UTexture2D> SelectedPlayerTextureObject(TEXT("/Game/RestrictedAssets/Weapons/Sniper/Assets/TargetCircle.TargetCircle"));
+	SelectedPlayerTexture = SelectedPlayerTextureObject.Object;
+
 	LastConfirmedHitTime = -100.0f;
 	LastPickupTime = -100.f;
 	bFontsCached = false;
@@ -115,6 +121,13 @@ void AUTHUD::AddSpectatorWidgets()
 	{
 		BuildHudWidget(*SpectatorHudWidgetClasses[i]);
 	}
+
+	UUTLocalPlayer* UTLP = UTPlayerOwner ? Cast<UUTLocalPlayer>(UTPlayerOwner->Player) : NULL;
+	if (UTLP)
+	{
+		UTLP->OpenSpectatorWindow();
+	}
+
 }
 
 void AUTHUD::PostInitializeComponents()
@@ -491,10 +504,18 @@ void AUTHUD::DrawHUD()
 					UTPlayerOwner->SetViewedScorePS(GetScorerPlayerState(), UTPlayerOwner->CurrentlyViewedStatsTab);
 				}
 			}
-			else
+			else 
 			{
-				DrawDamageIndicators();
+				if (!UTPlayerOwner->bCurrentlyBehindView || !UTPlayerOwner->UTPlayerState || !UTPlayerOwner->UTPlayerState->bOnlySpectator)
+				{
+					DrawDamageIndicators();
+				}
 				UTPlayerOwner->SetViewedScorePS(NULL, 0);
+				if (bDrawMinimap && UTPlayerOwner->PlayerState && UTPlayerOwner->PlayerState->bOnlySpectator)
+				{
+					const float MapSize = float(Canvas->SizeY) * 0.75f;
+					DrawMinimap(FColor(192, 192, 192, 210), MapSize, FVector2D(Canvas->SizeX - MapSize + MapSize*MinimapOffset.X, MapSize*MinimapOffset.Y));
+				}
 			}
 		}
 	}
@@ -843,7 +864,7 @@ UTexture2D* AUTHUD::ResolveFlag(AUTPlayerState* PS, FTextureUVs& UV)
 	return nullptr;
 }
 
-EInputMode::Type AUTHUD::GetInputMode_Implementation() 
+EInputMode::Type AUTHUD::GetInputMode_Implementation() const
 {
 	return EInputMode::EIM_None;
 }
@@ -899,4 +920,178 @@ FCrosshairInfo* AUTHUD::GetCrosshairInfo(AUTWeapon* Weapon)
 		NewInfo.WeaponClassName = WeaponClass;
 		return &CrosshairInfos[CrosshairInfos.Add(NewInfo)];
 	}
+}
+
+void AUTHUD::CreateMinimapTexture()
+{
+	MinimapTexture = UCanvasRenderTarget2D::CreateCanvasRenderTarget2D(GetWorld(), UCanvasRenderTarget2D::StaticClass(), 1024, 1024);
+	MinimapTexture->ClearColor = FLinearColor::Black;
+	MinimapTexture->ClearColor.A = 0.f;
+	MinimapTexture->OnCanvasRenderTargetUpdate.AddDynamic(this, &AUTHUD::UpdateMinimapTexture);
+	MinimapTexture->UpdateResource();
+}
+
+void AUTHUD::CalcMinimapTransform(const FBox& LevelBox, int32 MapWidth, int32 MapHeight)
+{
+	const bool bLargerXAxis = LevelBox.GetExtent().X > LevelBox.GetExtent().Y;
+	const float LevelRadius = bLargerXAxis ? LevelBox.GetExtent().X : LevelBox.GetExtent().Y;
+	const float ScaleFactor = float(MapWidth) / (LevelRadius * 2.0f);
+	const FVector CenteringAdjust = bLargerXAxis ? FVector(0.0f, (LevelBox.GetExtent().X - LevelBox.GetExtent().Y), 0.0f) : FVector((LevelBox.GetExtent().Y - LevelBox.GetExtent().X), 0.0f, 0.0f);
+	MinimapOffset = FVector2D(0.f, 0.f);
+	if (bLargerXAxis)
+	{
+		MinimapOffset.Y = 0.5f*(LevelBox.GetExtent().X - LevelBox.GetExtent().Y) / LevelBox.GetExtent().X;
+	}
+	else
+	{
+		MinimapOffset.X = 0.5f*(LevelBox.GetExtent().Y - LevelBox.GetExtent().X) / LevelBox.GetExtent().Y;
+	}
+	MinimapTransform = FTranslationMatrix(-LevelBox.Min + CenteringAdjust) * FScaleMatrix(FVector(ScaleFactor));
+}
+
+void AUTHUD::UpdateMinimapTexture(UCanvas* C, int32 Width, int32 Height)
+{
+	FBox LevelBox(0);
+	AUTRecastNavMesh* NavMesh = GetUTNavData(GetWorld());
+	if (NavMesh != NULL)
+	{
+		TMap<const UUTPathNode*, FNavMeshTriangleList> TriangleMap;
+		NavMesh->GetNodeTriangleMap(TriangleMap);
+		// calculate a bounding box for the level
+		for (TMap<const UUTPathNode*, FNavMeshTriangleList>::TConstIterator It(TriangleMap); It; ++It)
+		{
+			const FNavMeshTriangleList& TriList = It.Value();
+			for (const FVector& Vert : TriList.Verts)
+			{
+				LevelBox += Vert;
+			}
+		}
+		if (LevelBox.IsValid)
+		{
+			LevelBox = LevelBox.ExpandBy(LevelBox.GetSize() * 0.01f); // extra so edges aren't right up against the texture
+			CalcMinimapTransform(LevelBox, Width, Height);
+			for (TMap<const UUTPathNode*, FNavMeshTriangleList>::TConstIterator It(TriangleMap); It; ++It)
+			{
+				const FNavMeshTriangleList& TriList = It.Value();
+
+				for (const FNavMeshTriangleList::FTriangle& Tri : TriList.Triangles)
+				{
+					// don't draw triangles in water
+					bool bInWater = false;
+					FVector Verts[3] = { TriList.Verts[Tri.Indices[0]], TriList.Verts[Tri.Indices[1]], TriList.Verts[Tri.Indices[2]] };
+					for (int32 i = 0; i < ARRAY_COUNT(Verts); i++)
+					{
+						UUTPathNode* Node = NavMesh->FindNearestNode(Verts[i], NavMesh->GetHumanPathSize().GetExtent());
+						if (Node != NULL && Node->PhysicsVolume != NULL && Node->PhysicsVolume->bWaterVolume)
+						{
+							bInWater = true;
+							break;
+						}
+						Verts[i] = MinimapTransform.TransformPosition(Verts[i]);
+					}
+					if (!bInWater)
+					{
+						FCanvasTriangleItem Item(FVector2D(Verts[0]), FVector2D(Verts[1]), FVector2D(Verts[2]), C->DefaultTexture->Resource);
+						C->DrawItem(Item);
+					}
+				}
+			}
+		}
+	}
+	if (!LevelBox.IsValid)
+	{
+		// set minimap scale based on colliding geometry so map has some functionality without a working navmesh
+		for (TActorIterator<AActor> It(GetWorld()); It; ++It)
+		{
+			TArray<UPrimitiveComponent*> Components;
+			It->GetComponents(Components);
+			for (UPrimitiveComponent* Prim : Components)
+			{
+				if (Prim->IsCollisionEnabled())
+				{
+					LevelBox += Prim->Bounds.GetBox();
+				}
+			}
+		}
+		LevelBox = LevelBox.ExpandBy(LevelBox.GetSize() * 0.01f); // extra so edges aren't right up against the texture
+		CalcMinimapTransform(LevelBox, Width, Height);
+	}
+}
+
+void AUTHUD::DrawMinimap(const FColor& DrawColor, float MapSize, FVector2D DrawPos)
+{
+	if (MinimapTexture == NULL)
+	{
+		CreateMinimapTexture();
+	}
+
+	FVector ScaleFactor(MapSize / MinimapTexture->GetSurfaceWidth(), MapSize / MinimapTexture->GetSurfaceHeight(), 1.0f);
+	MapToScreen = FTranslationMatrix(FVector(DrawPos, 0.0f) / ScaleFactor) * FScaleMatrix(ScaleFactor);
+	if (MinimapTexture != NULL)
+	{
+		Canvas->DrawColor = DrawColor;
+		Canvas->DrawTile(MinimapTexture, MapToScreen.GetOrigin().X, MapToScreen.GetOrigin().Y, MapSize, MapSize, 0.0f, 0.0f, MinimapTexture->GetSurfaceWidth(), MinimapTexture->GetSurfaceHeight());
+	}
+
+	if (PlayerOwner && PlayerOwner->PlayerState && PlayerOwner->PlayerState->bOnlySpectator)
+	{
+		DrawMinimapSpectatorIcons();
+	}
+}
+
+void AUTHUD::DrawMinimapSpectatorIcons()
+{
+	const float RenderScale = float(Canvas->SizeY) / 1080.0f;
+	for (FConstPawnIterator Iterator = GetWorld()->GetPawnIterator(); Iterator; ++Iterator)
+	{
+		AUTCharacter* UTChar = Cast<AUTCharacter>(*Iterator);
+		if (UTChar)
+		{
+			FVector2D Pos(WorldToMapToScreen(UTChar->GetActorLocation()));
+			if (UTChar->bTearOff)
+			{
+				// Draw skull at location
+				DrawMinimapIcon(HUDAtlas, Pos, FVector2D(20.f, 20.f), FVector2D(725.f, 0.f), FVector2D(28.f, 36.f), FLinearColor::White, true);
+			}
+			else
+			{
+				// draw team colored dot at location
+				AUTPlayerState* PS = Cast<AUTPlayerState>(UTChar->PlayerState);
+				FLinearColor PlayerColor = (PS && PS->Team) ? PS->Team->TeamColor : FLinearColor::Green;
+				PlayerColor.A = 0.5f;
+				Canvas->K2_DrawTexture(PlayerMinimapTexture, Pos - FVector2D(10.0f * RenderScale, 10.0f * RenderScale), FVector2D(20.0f, 20.0f) * RenderScale, FVector2D(0.0f, 0.0f), FVector2D(1.0f, 1.0f), PlayerColor, BLEND_Translucent, UTChar->GetActorRotation().Yaw + 90.0f);
+
+				if (Cast<AUTPlayerController>(PlayerOwner) && (Cast<AUTPlayerController>(PlayerOwner)->LastSpectatedPlayerId == PS->SpectatingID))
+				{
+					Canvas->DrawColor = FColor(255, 255, 0, 255);
+					Canvas->DrawTile(SelectedPlayerTexture, Pos.X - 12.0f * RenderScale, Pos.Y - 12.0f * RenderScale, 24.0f * RenderScale, 24.0f * RenderScale, 0.0f, 0.0f, SelectedPlayerTexture->GetSurfaceWidth(), SelectedPlayerTexture->GetSurfaceHeight());
+				}
+			}
+		}
+	}
+}
+
+void AUTHUD::DrawMinimapIcon(UTexture2D* Texture, FVector2D Pos, FVector2D DrawSize, FVector2D UV, FVector2D UVL, FLinearColor DrawColor, bool bDropShadow)
+{
+	const float RenderScale = float(Canvas->SizeY) / 1080.0f;
+	float Height = DrawSize.X * RenderScale;
+	float Width = DrawSize.Y * RenderScale;
+	FVector2D RenderPos = FVector2D(Pos.X - (Width * 0.5f), Pos.Y - (Height * 0.5f));
+	float U = UV.X / Texture->Resource->GetSizeX();
+	float V = UV.Y / Texture->Resource->GetSizeY();;
+	float UL = U + (UVL.X / Texture->Resource->GetSizeX());
+	float VL = V + (UVL.Y / Texture->Resource->GetSizeY());
+	if (bDropShadow)
+	{
+		FCanvasTileItem ImageItemShadow(FVector2D(RenderPos.X - 1.f, RenderPos.Y - 1.f), Texture->Resource, FVector2D(Width, Height), FVector2D(U, V), FVector2D(UL, VL), FLinearColor::Black);
+		ImageItemShadow.Rotation = FRotator(0.f, 0.f, 0.f);
+		ImageItemShadow.PivotPoint = FVector2D(0.f, 0.f);
+		ImageItemShadow.BlendMode = ESimpleElementBlendMode::SE_BLEND_Translucent;
+		Canvas->DrawItem(ImageItemShadow);
+	}
+	FCanvasTileItem ImageItem(RenderPos, Texture->Resource, FVector2D(Width, Height), FVector2D(U, V), FVector2D(UL, VL), DrawColor);
+	ImageItem.Rotation = FRotator(0.f, 0.f, 0.f);
+	ImageItem.PivotPoint = FVector2D(0.f, 0.f);
+	ImageItem.BlendMode = ESimpleElementBlendMode::SE_BLEND_Translucent;
+	Canvas->DrawItem(ImageItem);
 }

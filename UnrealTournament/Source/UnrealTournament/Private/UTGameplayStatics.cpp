@@ -147,7 +147,7 @@ float UUTGameplayStatics::GetGravityZ(UObject* WorldContextObject, const FVector
 }
 
 /** largely copied from GameplayStatics.cpp, with mods to use our trace channel and better handling if we don't get a hit on the target */
-static bool ComponentIsVisibleFrom(UPrimitiveComponent* VictimComp, FVector const& Origin, AActor const* IgnoredActor, FHitResult& OutHitResult)
+static bool ComponentIsVisibleFrom(UPrimitiveComponent* VictimComp, FVector const& Origin, AActor const* IgnoredActor, FHitResult& OutHitResult, const TArray<FVector>* AltVisibilityOrigins)
 {
 	static FName NAME_ComponentIsVisibleFrom = FName(TEXT("ComponentIsVisibleFrom"));
 	FCollisionQueryParams LineParams(NAME_ComponentIsVisibleFrom, true, IgnoredActor);
@@ -164,7 +164,24 @@ static bool ComponentIsVisibleFrom(UPrimitiveComponent* VictimComp, FVector cons
 		// tiny nudge so LineTraceSingle doesn't early out with no hits
 		TraceStart.Z += 0.01f;
 	}
-	bool const bHadBlockingHit = World->LineTraceSingleByChannel(OutHitResult, TraceStart, TraceEnd, COLLISION_TRACE_WEAPON, LineParams, ResponseParams);
+	bool bHadBlockingHit = World->LineTraceSingleByChannel(OutHitResult, TraceStart, TraceEnd, COLLISION_TRACE_WEAPON, LineParams, ResponseParams);
+	if (bHadBlockingHit && OutHitResult.Component != VictimComp && AltVisibilityOrigins != NULL)
+	{
+		// check alt visibility locations
+		for (const FVector& TestLoc : *AltVisibilityOrigins)
+		{
+			bHadBlockingHit = World->LineTraceSingleByChannel(OutHitResult, TestLoc, TraceEnd, COLLISION_TRACE_WEAPON, LineParams, ResponseParams);
+			if (OutHitResult.Component == VictimComp)
+			{
+				// always pass bHadBlockingHit = false out of here so we generate HitLocation using the original Origin
+				bHadBlockingHit = false;
+			}
+			if (!bHadBlockingHit)
+			{
+				break;
+			}
+		}
+	}
 
 	// If there was a blocking hit, it will be the last one
 	if (bHadBlockingHit)
@@ -195,7 +212,8 @@ static bool ComponentIsVisibleFrom(UPrimitiveComponent* VictimComp, FVector cons
 	return true;
 }
 bool UUTGameplayStatics::UTHurtRadius( UObject* WorldContextObject, float BaseDamage, float MinimumDamage, float BaseMomentumMag, const FVector& Origin, float DamageInnerRadius, float DamageOuterRadius, float DamageFalloff,
-									   TSubclassOf<class UDamageType> DamageTypeClass, const TArray<AActor*>& IgnoreActors, AActor* DamageCauser, AController* InstigatedByController, AController* FFInstigatedBy, TSubclassOf<UDamageType> FFDamageType, float CollisionFreeRadius )
+									   TSubclassOf<class UDamageType> DamageTypeClass, const TArray<AActor*>& IgnoreActors, AActor* DamageCauser, AController* InstigatedByController, AController* FFInstigatedBy, TSubclassOf<UDamageType> FFDamageType,
+									   float CollisionFreeRadius, const TArray<FVector>* AltVisibilityOrigins )
 {
 	static FName NAME_ApplyRadialDamage = FName(TEXT("ApplyRadialDamage"));
 	FCollisionQueryParams SphereParams(NAME_ApplyRadialDamage, true, DamageCauser);
@@ -223,7 +241,7 @@ bool UUTGameplayStatics::UTHurtRadius( UObject* WorldContextObject, float BaseDa
 		{
 			FHitResult Hit(OverlapActor, Overlap.Component.Get(), OverlapActor->GetActorLocation(), FVector(0,0,1.f));
 			if ((OverlapActor->GetActorLocation() - Origin).Size() <= CollisionFreeRadius || 
-				ComponentIsVisibleFrom(Overlap.Component.Get(), Origin, DamageCauser, Hit))
+				ComponentIsVisibleFrom(Overlap.Component.Get(), Origin, DamageCauser, Hit, AltVisibilityOrigins))
 			{
 				TArray<FHitResult>& HitList = OverlapComponentMap.FindOrAdd(OverlapActor);
 				HitList.Add(Hit);

@@ -1,4 +1,4 @@
-// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
+	// Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
 #include "SlateBasics.h"
@@ -29,6 +29,7 @@ class SUTJoinInstance;
 class FServerData;
 class AUTRconAdminInfo;
 class SUTDownloadAllDialog;
+class SUTSpectatorWindow;
 
 DECLARE_MULTICAST_DELEGATE_ThreeParams(FPlayerOnlineStatusChanged, class UUTLocalPlayer*, ELoginStatus::Type, const FUniqueNetId&);
 
@@ -169,6 +170,7 @@ protected:
 
 #if !UE_SERVER
 	TSharedPtr<class SUWindowsDesktop> DesktopSlateWidget;
+	TSharedPtr<class SUTSpectatorWindow> SpectatorWidget;
 	
 	// Holds a persistent reference to the server browser.
 	TSharedPtr<class SUWServerBrowser> ServerBrowserWidget;
@@ -278,6 +280,7 @@ public:
 	 **/
 	virtual void RemoveChatArchiveChangedDelegate(FDelegateHandle DelegateHandle);
 
+	virtual bool SkipWorldRender();
 
 #if !UE_SERVER
 	virtual void ToastCompleted();
@@ -428,7 +431,7 @@ public:
 	static void GetBadgeFromELO(int32 EloRating, int32& BadgeLevel, int32& SubLevel);
 
 	// Connect to a server via the session id.  Returns TRUE if the join continued, or FALSE if it failed to start
-	virtual bool JoinSession(const FOnlineSessionSearchResult& SearchResult, bool bSpectate, FName QuickMatch = NAME_None, bool bFindMatch = false, int32 DesiredTeam = -1, FString MatchId=TEXT(""));
+	virtual bool JoinSession(const FOnlineSessionSearchResult& SearchResult, bool bSpectate, bool bFindMatch = false, int32 DesiredTeam = -1, FString MatchId=TEXT(""));
 	virtual void LeaveSession();
 	virtual void ReturnToMainMenu();
 
@@ -477,9 +480,6 @@ protected:
 	// If the player is not logged in, then this string will hold the last attempted presence update
 	FString LastPresenceUpdate;
 	bool bLastAllowInvites;
-
-	FName QuickMatchJoinType;
-
 
 public:
 	virtual FName GetCountryFlag();
@@ -725,7 +725,9 @@ public:
 		const static FString MCPStorageFilename = "UnrealTournmentMCPStorage.json";
 		return MCPStorageFilename;
 	}
-
+	
+	/** Get the MCP account ID for this player */
+	FUniqueNetIdRepl GetGameAccountId() const;
 
 	// Holds data pulled from the MCP upon login.
 	FMCPPulledData MCPPulledData;
@@ -750,7 +752,21 @@ public:
 protected:
 #if !UE_SERVER
 	TSharedPtr<SUTDownloadAllDialog> DownloadAllDialog;
+
+	
+
 #endif
 
+public:
+	virtual void OpenSpectatorWindow();
+	virtual void CloseSpectatorWindow();
+
+	bool IsFragCenterNew();
+	void UpdateFragCenter();
+
+protected:
+	UPROPERTY(Config)
+	int32 FragCenterCounter;
+	
 
 };

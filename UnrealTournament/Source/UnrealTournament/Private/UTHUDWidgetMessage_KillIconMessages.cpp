@@ -29,19 +29,17 @@ UUTHUDWidgetMessage_KillIconMessages::UUTHUDWidgetMessage_KillIconMessages(const
 	CurrentIndex = 0;
 }
 
-
 float UUTHUDWidgetMessage_KillIconMessages::GetDrawScaleOverride()
 {
 	return 0.75f * UTHUDOwner->HUDWidgetScaleOverride;
 }
-
 
 void UUTHUDWidgetMessage_KillIconMessages::DrawMessages(float DeltaTime)
 {
 	Canvas->Reset();
 	
 	//Find the height of the bottom message
-	float Y = ((MessageHeight + MessagePadding) * (GetNumberOfMessages() - 1)) + (MessageHeight * 0.5f);
+	float Y = ((MessageHeight + MessagePadding) * (GetNumberOfMessages() - 1)) + (MessageHeight * 0.25f);
 
 	//Draw in reverse order
 	int32 MessageIndex = FMath::Min(CurrentIndex, MessageQueue.Num() - 1);
@@ -180,7 +178,9 @@ void UUTHUDWidgetMessage_KillIconMessages::DrawMessage(int32 QueueIndex, float X
 		if (bHasWeaponReward)
 		{
 			MsgIndex -= 10000 * (MsgIndex / 10000);
-			FText RewardMessage = DmgType->SpecialRewardText;
+			FFormatNamedArguments Args;
+			Args.Add("Reward", DmgType->SpecialRewardText);
+			FText RewardMessage = FText::Format(NSLOCTEXT("KillIconMessages", "Rewardmessage", "{Reward} "), Args);
 			DrawText(RewardMessage, X, VictimSize.Y, MessageQueue[QueueIndex].DisplayFont, bShadowedText, ShadowDirection, ShadowColor, bOutlinedText, OutlineColor, CurrentScale, Alpha * UTHUDOwner->HUDWidgetOpacity, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
 			Canvas->TextSize(MessageQueue[QueueIndex].DisplayFont, RewardMessage.ToString(), XL, YL, CurrentScale);
 			X += XL;
@@ -194,7 +194,9 @@ void UUTHUDWidgetMessage_KillIconMessages::DrawMessage(int32 QueueIndex, float X
 		MsgIndex = MsgIndex - 100 * SpreeIndex;
 		if (DmgType && DmgType->RewardAnnouncementClass)
 		{
-			FText RewardMessage = GetDefault<UUTRewardMessage>(DmgType->RewardAnnouncementClass)->MessageText;
+			FFormatNamedArguments Args;
+			Args.Add("Reward", GetDefault<UUTRewardMessage>(DmgType->RewardAnnouncementClass)->MessageText);
+			FText RewardMessage = FText::Format(NSLOCTEXT("KillIconMessages", "Rewardmessage", "{Reward} "), Args);
 			DrawText(RewardMessage, X, VictimSize.Y, MessageQueue[QueueIndex].DisplayFont, bShadowedText, ShadowDirection, ShadowColor, bOutlinedText, OutlineColor, CurrentScale, Alpha * UTHUDOwner->HUDWidgetOpacity, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
 			Canvas->TextSize(MessageQueue[QueueIndex].DisplayFont, RewardMessage.ToString(), XL, YL, CurrentScale);
 			X += XL;
@@ -202,14 +204,18 @@ void UUTHUDWidgetMessage_KillIconMessages::DrawMessage(int32 QueueIndex, float X
 		if (MsgIndex >= 10)
 		{
 			MsgIndex = MsgIndex / 10;
-			FText  MKillMessage = GetDefault<UUTLocalMessage>(UUTMultiKillMessage::StaticClass())->GetText(FMath::Min(MsgIndex - 1, 3), true);
+			FFormatNamedArguments Args;
+			Args.Add("Reward", GetDefault<UUTLocalMessage>(UUTMultiKillMessage::StaticClass())->GetText(FMath::Min(MsgIndex - 1, 3), true));
+			FText MKillMessage = FText::Format(NSLOCTEXT("KillIconMessages", "Rewardmessage", "{Reward} "), Args);
 			DrawText(MKillMessage, X, VictimSize.Y, MessageQueue[QueueIndex].DisplayFont, bShadowedText, ShadowDirection, ShadowColor, bOutlinedText, OutlineColor, CurrentScale, Alpha * UTHUDOwner->HUDWidgetOpacity, FLinearColor::White, ETextHorzPos::Left, ETextVertPos::Center);
 			Canvas->TextSize(MessageQueue[QueueIndex].DisplayFont, MKillMessage.ToString(), XL, YL, CurrentScale);
 			X += XL;
 		}
 		if (SpreeIndex > 0)
 		{
-			FText SpreeMessage = GetDefault<UUTLocalMessage>(UUTSpreeMessage::StaticClass())->GetText(FMath::Min(SpreeIndex, 5), true);
+			FFormatNamedArguments Args;
+			Args.Add("Reward", GetDefault<UUTLocalMessage>(UUTSpreeMessage::StaticClass())->GetText(FMath::Min(SpreeIndex, 5), true));
+			FText SpreeMessage = FText::Format(NSLOCTEXT("KillIconMessages", "Rewardmessage", "{Reward} "), Args);
 			DrawText(SpreeMessage, X, VictimSize.Y, MessageQueue[QueueIndex].DisplayFont, bShadowedText, ShadowDirection, ShadowColor, bOutlinedText, OutlineColor, CurrentScale, Alpha * UTHUDOwner->HUDWidgetOpacity, FLinearColor::Yellow, ETextHorzPos::Left, ETextVertPos::Center);
 			Canvas->TextSize(MessageQueue[QueueIndex].DisplayFont, SpreeMessage.ToString(), XL, YL, CurrentScale);
 			X += XL;

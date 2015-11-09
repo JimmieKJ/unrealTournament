@@ -25,6 +25,12 @@
 #include "UTDemoRecSpectator.h"
 #include "Slate/SUTStyle.h"
 
+/** disables load warnings for dedicated server where invalid client input can cause unpreventable logspam, but enables on clients so developers can make sure their stuff is working */
+static inline ELoadFlags GetCosmeticLoadFlags()
+{
+	return IsRunningDedicatedServer() ? LOAD_NoWarn : LOAD_None;
+}
+
 AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
 {
@@ -51,7 +57,6 @@ AUTPlayerState::AUTPlayerState(const class FObjectInitializer& ObjectInitializer
 	CTFSkillRatingThisMatch = 0;
 	ReadyColor = FLinearColor::White;
 	ReadyScale = 1.f;
-	SpectatorNameScale = 1.f;
 	bIsDemoRecording = false;
 	EngineMessageClass = UUTEngineMessage::StaticClass();
 	LastTauntTime = -1000.f;
@@ -107,6 +112,7 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	DOREPLIFETIME(AUTPlayerState, StatsID);
 	DOREPLIFETIME(AUTPlayerState, FavoriteWeapon);
 	DOREPLIFETIME(AUTPlayerState, bIsRconAdmin);
+	DOREPLIFETIME(AUTPlayerState, SelectionOrder);
 
 	DOREPLIFETIME_CONDITION(AUTPlayerState, RespawnChoiceA, COND_None); // also used when replicating spawn choice to other players
 	DOREPLIFETIME_CONDITION(AUTPlayerState, RespawnChoiceB, COND_OwnerOnly);
@@ -551,23 +557,23 @@ AUTCharacter* AUTPlayerState::GetUTCharacter()
 			return UTChar;
 		}
 	}
-	if (CachedCharacter && CachedCharacter->PlayerState == this)
-	{
-		return CachedCharacter;
-	}
-
+	
 	// iterate through all pawns and find matching playerstate ref
-	for (FConstPawnIterator Iterator = GetWorld()->GetPawnIterator(); Iterator; ++Iterator)
+	// note: this is set up to use the old character as long as possible after death, until the player respawns
+	if (CachedCharacter == NULL || CachedCharacter->IsDead() || CachedCharacter->PlayerState != this)
 	{
-		AUTCharacter* UTChar = Cast<AUTCharacter>(*Iterator);
-		if (UTChar && UTChar->PlayerState == this)
+		for (FConstPawnIterator Iterator = GetWorld()->GetPawnIterator(); Iterator; ++Iterator)
 		{
-			CachedCharacter = UTChar;
-			return UTChar;
+			AUTCharacter* UTChar = Cast<AUTCharacter>(*Iterator);
+			if (UTChar != NULL && UTChar->PlayerState == this && !UTChar->IsDead())
+			{
+				CachedCharacter = UTChar;
+				return UTChar;
+			}
 		}
 	}
 
-	return nullptr;
+	return CachedCharacter;
 }
 
 void AUTPlayerState::OnRepHat()
@@ -630,9 +636,9 @@ bool AUTPlayerState::ServerReceiveEyewearVariant_Validate(int32 NewVariant)
 
 void AUTPlayerState::ServerReceiveHatClass_Implementation(const FString& NewHatClass)
 {
-	if (GetWorld()->IsPlayInEditor() || GetNetMode() == NM_Standalone || HatClass == NULL || !GetWorld()->GetGameState()->HasMatchStarted())
+	if (!bOnlySpectator && (GetWorld()->IsPlayInEditor() || GetNetMode() == NM_Standalone || HatClass == NULL || !GetWorld()->GetGameState()->HasMatchStarted()))
 	{
-		HatClass = LoadClass<AUTHat>(NULL, *NewHatClass, NULL, LOAD_NoWarn, NULL);
+		HatClass = LoadClass<AUTHat>(NULL, *NewHatClass, NULL, GetCosmeticLoadFlags(), NULL);
 
 		// Allow the game mode to validate the hat.
 		AUTGameMode* GameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
@@ -662,9 +668,9 @@ bool AUTPlayerState::ServerReceiveHatClass_Validate(const FString& NewHatClass)
 
 void AUTPlayerState::ServerReceiveLeaderHatClass_Implementation(const FString& NewLeaderHatClass)
 {
-	if (GetNetMode() == NM_Standalone || LeaderHatClass == NULL || !GetWorld()->GetGameState()->HasMatchStarted())
+	if (!bOnlySpectator && (GetNetMode() == NM_Standalone || LeaderHatClass == NULL || !GetWorld()->GetGameState()->HasMatchStarted()))
 	{
-		LeaderHatClass = LoadClass<AUTHatLeader>(NULL, *NewLeaderHatClass, NULL, LOAD_NoWarn, NULL);
+		LeaderHatClass = LoadClass<AUTHatLeader>(NULL, *NewLeaderHatClass, NULL, GetCosmeticLoadFlags(), NULL);
 
 		if (LeaderHatClass != nullptr)
 		{
@@ -680,9 +686,9 @@ bool AUTPlayerState::ServerReceiveLeaderHatClass_Validate(const FString& NewHatC
 
 void AUTPlayerState::ServerReceiveEyewearClass_Implementation(const FString& NewEyewearClass)
 {
-	if (GetNetMode() == NM_Standalone || EyewearClass == NULL || !GetWorld()->GetGameState()->HasMatchStarted())
+	if (!bOnlySpectator && (GetNetMode() == NM_Standalone || EyewearClass == NULL || !GetWorld()->GetGameState()->HasMatchStarted()))
 	{
-		EyewearClass = LoadClass<AUTEyewear>(NULL, *NewEyewearClass, NULL, LOAD_NoWarn, NULL);
+		EyewearClass = LoadClass<AUTEyewear>(NULL, *NewEyewearClass, NULL, GetCosmeticLoadFlags(), NULL);
 		OnRepEyewear();
 		if (EyewearClass != NULL)
 		{
@@ -698,10 +704,13 @@ bool AUTPlayerState::ServerReceiveEyewearClass_Validate(const FString& NewEyewea
 
 void AUTPlayerState::ServerReceiveTauntClass_Implementation(const FString& NewTauntClass)
 {
-	TauntClass = LoadClass<AUTTaunt>(NULL, *NewTauntClass, NULL, LOAD_NoWarn, NULL);
-	if (TauntClass != NULL)
+	if (!bOnlySpectator)
 	{
-		ValidateEntitlements();
+		TauntClass = LoadClass<AUTTaunt>(NULL, *NewTauntClass, NULL, GetCosmeticLoadFlags(), NULL);
+		if (TauntClass != NULL)
+		{
+			ValidateEntitlements();
+		}
 	}
 }
 
@@ -712,10 +721,13 @@ bool AUTPlayerState::ServerReceiveTauntClass_Validate(const FString& NewEyewearC
 
 void AUTPlayerState::ServerReceiveTaunt2Class_Implementation(const FString& NewTauntClass)
 {
-	Taunt2Class = LoadClass<AUTTaunt>(NULL, *NewTauntClass, NULL, LOAD_NoWarn, NULL);
-	if (Taunt2Class != NULL)
+	if (!bOnlySpectator)
 	{
-		ValidateEntitlements();
+		Taunt2Class = LoadClass<AUTTaunt>(NULL, *NewTauntClass, NULL, GetCosmeticLoadFlags(), NULL);
+		if (Taunt2Class != NULL)
+		{
+			ValidateEntitlements();
+		}
 	}
 }
 
@@ -886,12 +898,12 @@ void AUTPlayerState::SetCharacterVoice(const FString& CharacterVoicePath)
 {
 	if (Role == ROLE_Authority)
 	{
-		CharacterVoice = (CharacterVoicePath.Len() > 0) ? LoadClass<UUTCharacterVoice>(NULL, *CharacterVoicePath, NULL, LOAD_None, NULL) : NULL;
+		CharacterVoice = (CharacterVoicePath.Len() > 0) ? LoadClass<UUTCharacterVoice>(NULL, *CharacterVoicePath, NULL, GetCosmeticLoadFlags(), NULL) : NULL;
 		// redirect from blueprint, for easier testing in the editor via C/P
 #if WITH_EDITORONLY_DATA
 		if (CharacterVoice == NULL)
 		{
-			UBlueprint* BP = LoadObject<UBlueprint>(NULL, *CharacterVoicePath, NULL, LOAD_None, NULL);
+			UBlueprint* BP = LoadObject<UBlueprint>(NULL, *CharacterVoicePath, NULL, GetCosmeticLoadFlags(), NULL);
 			if (BP != NULL)
 			{
 				CharacterVoice = *BP->GeneratedClass;
@@ -905,12 +917,12 @@ void AUTPlayerState::SetCharacter(const FString& CharacterPath)
 {
 	if (Role == ROLE_Authority)
 	{
-		SelectedCharacter = (CharacterPath.Len() > 0) ? LoadClass<AUTCharacterContent>(NULL, *CharacterPath, NULL, LOAD_None, NULL) : NULL;
+		SelectedCharacter = (CharacterPath.Len() > 0) ? LoadClass<AUTCharacterContent>(NULL, *CharacterPath, NULL, GetCosmeticLoadFlags(), NULL) : NULL;
 // redirect from blueprint, for easier testing in the editor via C/P
 #if WITH_EDITORONLY_DATA
 		if (SelectedCharacter == NULL)
 		{
-			UBlueprint* BP = LoadObject<UBlueprint>(NULL, *CharacterPath, NULL, LOAD_None, NULL);
+			UBlueprint* BP = LoadObject<UBlueprint>(NULL, *CharacterPath, NULL, GetCosmeticLoadFlags(), NULL);
 			if (BP != NULL)
 			{
 				SelectedCharacter = *BP->GeneratedClass;
@@ -932,7 +944,7 @@ bool AUTPlayerState::ServerSetCharacter_Validate(const FString& CharacterPath)
 }
 void AUTPlayerState::ServerSetCharacter_Implementation(const FString& CharacterPath)
 {
-	if (GetNetMode() == NM_Standalone || SelectedCharacter == NULL || !GetWorld()->GetGameState()->HasMatchStarted())
+	if (!bOnlySpectator && (GetNetMode() == NM_Standalone || SelectedCharacter == NULL || !GetWorld()->GetGameState()->HasMatchStarted()))
 	{
 		AUTCharacter* MyPawn = GetUTCharacter();
 		// suicide if feign death because the mesh reset causes physics issues
@@ -2192,7 +2204,7 @@ void AUTPlayerState::OnRep_PlayerName()
 
 void AUTPlayerState::SetOverrideHatClass(const FString& NewOverrideHatClass)
 {
-	OverrideHatClass = NewOverrideHatClass == TEXT("") ? nullptr : LoadClass<AUTHat>(NULL, *NewOverrideHatClass, NULL, LOAD_NoWarn, NULL);
+	OverrideHatClass = NewOverrideHatClass == TEXT("") ? nullptr : LoadClass<AUTHat>(NULL, *NewOverrideHatClass, NULL, GetCosmeticLoadFlags(), NULL);
 	OnRepOverrideHat();
 }
 

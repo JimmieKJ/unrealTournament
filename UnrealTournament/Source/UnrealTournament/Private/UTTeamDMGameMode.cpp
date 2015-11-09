@@ -97,7 +97,7 @@ void AUTTeamDMGameMode::ScoreKill_Implementation(AController* Killer, AControlle
 	Super::ScoreKill_Implementation(Killer, Other, KilledPawn, DamageType);
 }
 
-AUTPlayerState* AUTTeamDMGameMode::IsThereAWinner(uint32& bTied)
+AUTPlayerState* AUTTeamDMGameMode::IsThereAWinner_Implementation(bool& bTied)
 {
 	AUTTeamInfo* BestTeam = NULL;
 	bTied = false;

@@ -22,6 +22,7 @@ public:
 	}
 
 	virtual void InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage) override;
+	virtual void RestartPlayer(AController* aPlayer) override;
 	virtual void ScoreKill_Implementation(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType) override;
 	virtual void ScoreExpiredRoundTime() override;
 	virtual bool CheckRelevance_Implementation(AActor* Other) override;

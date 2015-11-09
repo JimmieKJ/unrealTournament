@@ -105,16 +105,34 @@ void FWebMRecord::OnWorldCreated(UWorld* World, const UWorld::InitializationValu
 		{
 			for (int32 TextureIndex = 0; TextureIndex < 2; ++TextureIndex)
 			{
-				FRHIResourceCreateInfo CreateInfo;
-				ReadbackTextures[TextureIndex] = RHICreateTexture2D(
-					VideoWidth,
-					VideoHeight,
-					PF_B8G8R8A8,
-					1,
-					1,
-					TexCreate_CPUReadback,
-					CreateInfo
-					);
+				ReadbackTextures[TextureIndex] = nullptr;
+			}
+
+			ENQUEUE_UNIQUE_RENDER_COMMAND_THREEPARAMETER(
+				FWebMRecordCreateBufers,
+				int32, InVideoWidth, VideoWidth,
+				int32, InVideoHeight, VideoHeight,
+				FTexture2DRHIRef*, InReadbackTextures, ReadbackTextures,
+			{
+				for (int32 TextureIndex = 0; TextureIndex < 2; ++TextureIndex)
+				{
+					FRHIResourceCreateInfo CreateInfo;
+					InReadbackTextures[TextureIndex] = RHICreateTexture2D(
+						InVideoWidth,
+						InVideoHeight,
+						PF_B8G8R8A8,
+						1,
+						1,
+						TexCreate_CPUReadback,
+						CreateInfo
+						);
+				}
+			});
+			FlushRenderingCommands();
+
+			for (int32 TextureIndex = 0; TextureIndex < 2; ++TextureIndex)
+			{
+				check(ReadbackTextures[TextureIndex].GetReference());
 			}
 
 			ReadbackTextureIndex = 0;
@@ -1246,6 +1264,9 @@ void FCaptureAudioWorker::InitAudioLoopback()
 				hr = AudioClient->GetMixFormat(&WFX);
 				if (hr == S_OK)
 				{
+					// Force sample rate to 44.1kHz
+					WFX->nSamplesPerSec = 44100;
+
 					// May need to create a silent audio stream to work around an issue from 2008, hopefully not anymore
 					// https://social.msdn.microsoft.com/Forums/windowsdesktop/en-US/c7ba0a04-46ce-43ff-ad15-ce8932c00171/loopback-recording-causes-digital-stuttering?forum=windowspro-audiodevelopment
 

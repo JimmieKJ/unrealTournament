@@ -28,10 +28,30 @@ class UNREALTOURNAMENT_API AUTCTFFlag : public AUTCarriedObject
 	// The mesh for the flag
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Flag)
 	USkeletalMeshComponent* Mesh;
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Flag)
+	UMaterialInstanceDynamic* MeshMID;
 
 	/** played on friendly flag when a capture is scored */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Flag)
 	UParticleSystem* CaptureEffect;
+
+	/** played on the location the flag was previously when returning */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Flag)
+	UParticleSystem* ReturnSrcEffect;
+	/** played on the flag at home when returning */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Flag)
+	UParticleSystem* ReturnDestEffect;
+	/** used to scale material parameters for return effect */
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = Flag)
+	UCurveFloat* ReturnParamCurve;
+
+	/** duplicate of Mesh used temporarily as part of return effect */
+	UPROPERTY()
+	USkeletalMeshComponent* ReturningMesh;
+	UPROPERTY()
+	UMaterialInstanceDynamic* ReturningMeshMID;
+	
+	float ReturnEffectTime;
 
 	/** used to trigger the capture effect */
 	UPROPERTY(ReplicatedUsing = PlayCaptureEffect)
@@ -39,6 +59,14 @@ class UNREALTOURNAMENT_API AUTCTFFlag : public AUTCarriedObject
 
 	UFUNCTION(BlueprintCallable, Category = Flag)
 	virtual void PlayCaptureEffect();
+
+	virtual void PreNetReceive() override;
+	virtual void PostNetReceiveLocationAndRotation() override;
+
+	/** plays effects for flag returning
+	 * NOTE: for 'despawn' end of effect to work this needs to be called BEFORE moving the flag
+	 */
+	virtual void PlayReturnedEffects();
 
 	USkeletalMeshComponent* GetMesh() const
 	{
@@ -52,11 +80,13 @@ class UNREALTOURNAMENT_API AUTCTFFlag : public AUTCarriedObject
 	virtual void OnObjectStateChanged();
 
 	FTimerHandle SendHomeWithNotifyHandle;
+	virtual void SendHome() override;
 	virtual void SendHomeWithNotify() override;
 	virtual void OnConstruction(const FTransform& Transform) override;
 	virtual void Drop(AController* Killer) override;
 	virtual void MoveToHome() override;
 
+	virtual void Tick(float DeltaTime) override;
 
 	/** World time when flag was last dropped. */
 	UPROPERTY()

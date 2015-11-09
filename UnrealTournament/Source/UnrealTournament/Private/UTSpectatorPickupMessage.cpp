@@ -30,7 +30,7 @@ FText UUTSpectatorPickupMessage::ResolveMessage_Implementation(int32 Switch, boo
 		}
 		else if (Pickup != nullptr)
 		{
-			DisplayName = Pickup->PickupMessageString;
+			DisplayName = Pickup->GetDisplayName();
 		}
 
 		if (!DisplayName.IsEmpty())

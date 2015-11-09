@@ -52,6 +52,10 @@ class UNREALTOURNAMENT_API AUTMutator : public AInfo
 	UFUNCTION(BlueprintNativeEvent, BlueprintAuthorityOnly)
 	void Init(const FString& Options);
 
+	/** called when a player calls the mutate command as binding/console command; allows mutators to implement custom keybinds */
+	UFUNCTION(BlueprintNativeEvent, BlueprintAuthorityOnly)
+	void Mutate(const FString& MutateString, APlayerController* Sender);
+
 	/** allows changing or reacting to player login URL options */
 	UFUNCTION(BlueprintNativeEvent, BlueprintAuthorityOnly)
 	void ModifyLogin(FString& Portal, FString& Options);
@@ -95,13 +99,17 @@ class UNREALTOURNAMENT_API AUTMutator : public AInfo
 
 	/** Add an inventory class to the defaultinventory array of the game. */
 	UFUNCTION(BlueprintCallable, BlueprintAuthorityOnly, Category=Inventory)
-		void AddDefaultInventory(TSubclassOf<AUTInventory> InventoryClass);
+	void AddDefaultInventory(TSubclassOf<AUTInventory> InventoryClass);
 
 	/** allows mutators to modify/react to damage
 	 * NOTE: return value is a workaround for blueprint bugs involving ref parameters and is not used
 	 */
 	UFUNCTION(BlueprintNativeEvent, BlueprintAuthorityOnly)
 	bool ModifyDamage(UPARAM(ref) int32& Damage, UPARAM(ref) FVector& Momentum, APawn* Injured, AController* InstigatedBy, const FHitResult& HitInfo, AActor* DamageCauser, TSubclassOf<UDamageType> DamageType);
+
+	/** return true to prevent the passed in pawn from dying (i.e. from Died()) */
+	UFUNCTION(BlueprintNativeEvent)
+	bool PreventDeath(APawn* KilledPawn, AController* Killer, TSubclassOf<UDamageType> DamageType, const FHitResult& HitInfo);
 
 	/** score a kill (or suicide) */
 	UFUNCTION(BlueprintNativeEvent, BlueprintAuthorityOnly)

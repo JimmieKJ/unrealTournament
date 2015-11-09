@@ -54,6 +54,7 @@ public:
 	FString LastUserId;
 	void BuildReplayList(const FString& UserId);
 
+	~SUWReplayBrowser();
 private:
 
 	virtual void ConstructPanel(FVector2D ViewportSize);
@@ -88,6 +89,9 @@ protected:
 	TSharedPtr<STextBlock> SelectedFriend;
 	void OnFriendSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
 	TSharedRef<SWidget> GenerateStringListWidget(TSharedPtr<FString> InItem);
+
+	FDelegateHandle FriendsListUpdatedDelegateHandle;
+	void FriendsListUpdated();
 
 	TSharedPtr< SCheckBox> LiveOnlyCheckbox;
 

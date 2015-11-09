@@ -147,6 +147,7 @@ AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 	TeamPlayerIndicatorMaxDistance = 2700.0f;
 	SpectatorIndicatorMaxDistance = 8000.f;
 	PlayerIndicatorMaxDistance = 1200.f;
+	BeaconTextScale = 1.f;
 	MaxSavedPositionAge = 0.3f; // @TODO FIXMESTEVE should use server's MaxPredictionPing to determine this - note also that bots will increase this if needed to satisfy their tracking requirements
 	MaxShotSynchDelay = 0.1f;
 
@@ -199,13 +200,15 @@ void AUTCharacter::SetBase(UPrimitiveComponent* NewBaseComponent, const FName Bo
 	}
 }
 
-void AUTCharacter::PlayWaterSound(USoundBase* WaterSound)
+bool AUTCharacter::PlayWaterSound(USoundBase* WaterSound)
 {
 	if (WaterSound && (GetWorld()->GetTimeSeconds() - LastWaterSoundTime > MinWaterSoundInterval))
 	{
 		UUTGameplayStatics::UTPlaySound(GetWorld(), WaterSound, this, SRT_None);
 		LastWaterSoundTime = GetWorld()->GetTimeSeconds();
+		return true;
 	}
+	return false;
 }
 
 
@@ -1252,63 +1255,78 @@ bool AUTCharacter::Died(AController* EventInstigator, const FDamageEvent& Damage
 			EventInstigator = LastHitBy;
 		}
 
-		// TODO: GameInfo::PreventDeath()
-
-		bTearOff = true; // important to set this as early as possible so IsDead() returns true
-		Health = FMath::Min<int32>(Health, 0);
-
-		AUTRemoteRedeemer* Redeemer = Cast<AUTRemoteRedeemer>(DrivenVehicle);
-		if (Redeemer != nullptr)
+		FHitResult HitInfo;
 		{
-			Redeemer->DriverLeave(true);
+			FVector UnusedDir;
+			DamageEvent.GetBestHitInfo(this, NULL, HitInfo, UnusedDir);
 		}
 
-		AController* ControllerKilled = Controller;
-		if (ControllerKilled == nullptr)
+		// gameinfo hook to prevent deaths
+		// WARNING - don't prevent bot suicides - they suicide when really needed
+		AUTGameMode* Game = GetWorld()->GetAuthGameMode<AUTGameMode>();
+		if (Game != NULL && Game->PreventDeath(this, EventInstigator, DamageEvent.DamageTypeClass, HitInfo))
 		{
-			ControllerKilled = Cast<AController>(GetOwner());
+			Health = FMath::Max<int32>(Health, 1);
+			return false;
+		}
+		else
+		{
+			bTearOff = true; // important to set this as early as possible so IsDead() returns true
+			Health = FMath::Min<int32>(Health, 0);
+
+			AUTRemoteRedeemer* Redeemer = Cast<AUTRemoteRedeemer>(DrivenVehicle);
+			if (Redeemer != nullptr)
+			{
+				Redeemer->DriverLeave(true);
+			}
+
+			AController* ControllerKilled = Controller;
 			if (ControllerKilled == nullptr)
 			{
-				if (DrivenVehicle != nullptr)
+				ControllerKilled = Cast<AController>(GetOwner());
+				if (ControllerKilled == nullptr)
 				{
-					ControllerKilled = DrivenVehicle->Controller;
+					if (DrivenVehicle != nullptr)
+					{
+						ControllerKilled = DrivenVehicle->Controller;
+					}
 				}
 			}
+			if ((GetWorld()->GetTimeSeconds() - FlakShredTime < 0.05f) && FlakShredInstigator && (FlakShredInstigator == EventInstigator))
+			{
+				AnnounceShred(Cast<AUTPlayerController>(EventInstigator));
+			}
+
+			GetWorld()->GetAuthGameMode<AUTGameMode>()->Killed(EventInstigator, ControllerKilled, this, DamageEvent.DamageTypeClass);
+
+			// Drop any carried objects when you die.
+			AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
+			if (PS != NULL && PS->CarriedObject != NULL)
+			{
+				PS->CarriedObject->Drop(EventInstigator);
+			}
+
+			if (ControllerKilled != nullptr)
+			{
+				ControllerKilled->PawnPendingDestroy(this);
+			}
+
+			OnDied.Broadcast(EventInstigator, DamageEvent.DamageTypeClass ? DamageEvent.DamageTypeClass.GetDefaultObject() : NULL);
+
+			PlayDying();
+
+			//Stop ghosts on death
+			if (GhostComponent->bGhostRecording)
+			{
+				GhostComponent->GhostStopRecording();
+			}
+			if (GhostComponent->bGhostPlaying)
+			{
+				GhostComponent->GhostStopPlaying();
+			}
+
+			return true;
 		}
-		if ((GetWorld()->GetTimeSeconds() - FlakShredTime < 0.05f) && FlakShredInstigator && (FlakShredInstigator == EventInstigator))
-		{
-			AnnounceShred(Cast<AUTPlayerController>(EventInstigator));
-		}
-
-		GetWorld()->GetAuthGameMode<AUTGameMode>()->Killed(EventInstigator, ControllerKilled, this, DamageEvent.DamageTypeClass);
-
-		// Drop any carried objects when you die.
-		AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
-		if (PS != NULL && PS->CarriedObject != NULL)
-		{
-			PS->CarriedObject->Drop(EventInstigator);
-		}
-
-		if (ControllerKilled != nullptr)
-		{
-			ControllerKilled->PawnPendingDestroy(this);
-		}
-
-		OnDied.Broadcast(EventInstigator, DamageEvent.DamageTypeClass ? DamageEvent.DamageTypeClass.GetDefaultObject() : NULL);
-
-		PlayDying();
-
-		//Stop ghosts on death
-		if (GhostComponent->bGhostRecording)
-		{
-			GhostComponent->GhostStopRecording();
-		}
-		if (GhostComponent->bGhostPlaying)
-		{
-			GhostComponent->GhostStopPlaying();
-		}
-
-		return true;
 	}
 }
 
@@ -3141,15 +3159,19 @@ void AUTCharacter::Landed(const FHitResult& Hit)
 		}
 		else if (FeetAreInWater())
 		{
-			PlayWaterSound(CharacterData.GetDefaultObject()->WaterEntrySound);
-			PlayWaterEntryEffect(GetActorLocation() - FVector(0.f, 0.f, GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight()), GetActorLocation());
+			if ( PlayWaterSound(CharacterData.GetDefaultObject()->WaterEntrySound) )
+			{
+				PlayWaterEntryEffect(GetActorLocation() - FVector(0.f, 0.f, GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight()), GetActorLocation());
+			}
 		}
 		else
 		{
 			UUTGameplayStatics::UTPlaySound(GetWorld(), CharacterData.GetDefaultObject()->LandingSound, this, SRT_None);
 			if ((LandEffect != NULL) && (FMath::Abs(GetCharacterMovement()->Velocity.Z) > LandEffectSpeed))
 			{
-				UParticleSystemComponent* LandedPSC = UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), LandEffect, GetActorLocation() - FVector(0.f,0.f, GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight()), Hit.Normal.Rotation(), true);
+				FRotator EffectRot = Hit.Normal.Rotation();
+				EffectRot.Pitch -= 90.f;
+				UParticleSystemComponent* LandedPSC = UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), LandEffect, GetActorLocation() - FVector(0.f, 0.f, GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight()), EffectRot, true);
 				float EffectScale = FMath::Clamp(FMath::Square(GetCharacterMovement()->Velocity.Z)/(2.f*LandEffectSpeed*LandEffectSpeed), 0.5f, 1.f);
 				LandedPSC->SetRelativeScale3D(FVector(EffectScale, EffectScale, 1.f));
 			}
@@ -3165,8 +3187,7 @@ void AUTCharacter::Landed(const FHitResult& Hit)
 
 void AUTCharacter::EnteredWater(AUTWaterVolume* WaterVolume)
 {
-	PlayWaterSound(WaterVolume->EntrySound ? WaterVolume->EntrySound : CharacterData.GetDefaultObject()->WaterEntrySound);
-	if (UTCharacterMovement)
+	if ( UTCharacterMovement && PlayWaterSound(WaterVolume->EntrySound ? WaterVolume->EntrySound : CharacterData.GetDefaultObject()->WaterEntrySound) )
 	{
 		if ((FMath::Abs(UTCharacterMovement->Velocity.Z) > UTCharacterMovement->MaxWaterSpeed) && IsLocallyControlled() && Cast<APlayerController>(GetController()))
 		{
@@ -3181,7 +3202,7 @@ void AUTCharacter::EnteredWater(AUTWaterVolume* WaterVolume)
 void AUTCharacter::PlayWaterEntryEffect(const FVector& InWaterLoc, const FVector& OutofWaterLoc)
 {
 	if (GetMesh() && (GetWorld()->GetTimeSeconds() - GetMesh()->LastRenderTime < 0.05f)
-		&& (GetCachedScalabilityCVars().DetailMode != 0))
+		&& (GetCachedScalabilityCVars().DetailMode != 0) )
 	{
 		AUTWorldSettings* WS = Cast<AUTWorldSettings>(GetWorld()->GetWorldSettings());
 		if (WS->EffectIsRelevant(this, GetActorLocation(), true, true, 10000.f, 0.f, false))
@@ -3419,6 +3440,10 @@ void AUTCharacter::UpdateCharOverlays()
 				OverlayMesh->PrimaryComponentTick = OverlayMesh->GetClass()->GetDefaultObject<USkeletalMeshComponent>()->PrimaryComponentTick;
 				OverlayMesh->PostPhysicsComponentTick = OverlayMesh->GetClass()->GetDefaultObject<USkeletalMeshComponent>()->PostPhysicsComponentTick;
 			}
+			OverlayMesh->SetCastShadow(false);
+			OverlayMesh->BoundsScale = 15000.f;
+			OverlayMesh->InvalidateCachedBounds();
+			OverlayMesh->UpdateBounds();
 			OverlayMesh->SetMasterPoseComponent(GetMesh());
 		}
 		if (!OverlayMesh->IsRegistered())
@@ -3428,6 +3453,7 @@ void AUTCharacter::UpdateCharOverlays()
 			OverlayMesh->SetRelativeScale3D(FVector(1.0f, 1.0f, 1.0f));
 			OverlayMesh->SetRenderCustomDepth(true);
 		}
+
 		FOverlayEffect FirstOverlay = GS->GetFirstOverlay(CharOverlayFlags, false);
 		// note: MID doesn't have any safe way to change Parent at runtime, so we need to make a new one every time...
 		UMaterialInstanceDynamic* MID = UMaterialInstanceDynamic::Create(FirstOverlay.Material, OverlayMesh);
@@ -3500,9 +3526,9 @@ void AUTCharacter::UpdateTacComMesh(bool bNewTacComEnabled)
 
 	GetMesh()->MeshComponentUpdateFlag = bTacComEnabled ? EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones : EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered;
 	GetMesh()->SetRenderCustomDepth(bTacComEnabled);
-	GetMesh()->BoundsScale = bTacComEnabled ? 15000.f : 1.f;
-	GetMesh()->InvalidateCachedBounds();
-	GetMesh()->UpdateBounds();
+	//GetMesh()->BoundsScale = bTacComEnabled ? 15000.f : 1.f;
+	//GetMesh()->InvalidateCachedBounds();
+	//GetMesh()->UpdateBounds();
 
 	UpdateCharOverlays();
 }
@@ -4010,6 +4036,13 @@ void AUTCharacter::TakeDrowningDamage()
 
 uint8 AUTCharacter::GetTeamNum() const
 {
+	static FName NAME_ScriptGetTeamNum(TEXT("ScriptGetTeamNum"));
+	UFunction* GetTeamNumFunc = GetClass()->FindFunctionByName(NAME_ScriptGetTeamNum);
+	if (GetTeamNumFunc != NULL && GetTeamNumFunc->Script.Num() > 0)
+	{
+		return IUTTeamInterface::Execute_ScriptGetTeamNum(const_cast<AUTCharacter*>(this));
+	}
+
 	const IUTTeamInterface* TeamInterface = Cast<IUTTeamInterface>(Controller);
 	if (TeamInterface != NULL)
 	{
@@ -4501,17 +4534,22 @@ void AUTCharacter::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector
 	AUTPlayerState* UTPS = Cast<AUTPlayerState>(PlayerState);
 	AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
 	AUTPlayerController* UTPC = Cast<AUTPlayerController>(PC);
-	bool bSpectating = PC && PC->PlayerState && PC->PlayerState->bOnlySpectator;
-	bool bTacCom = bSpectating && UTPC && UTPC->bTacComView;
-	if (UTPS != NULL && UTPC != NULL && (bSpectating || (PC->GetViewTarget() != this)) && (GetWorld()->TimeSeconds - GetLastRenderTime() < 0.5f) &&
+	const bool bSpectating = PC && PC->PlayerState && PC->PlayerState->bOnlySpectator;
+	const bool bTacCom = bSpectating && UTPC && UTPC->bTacComView;
+	const bool bOnSameTeam = GS != NULL && GS->OnSameTeam(PC->GetPawn(), this);
+	const bool bRecentlyRendered = (GetWorld()->TimeSeconds - GetLastRenderTime() < 0.5f);
+	if (UTPS != NULL && UTPC != NULL && (bSpectating || (PC->GetViewTarget() != this)) && (bRecentlyRendered || bOnSameTeam) &&
 		FVector::DotProduct(CameraDir, (GetActorLocation() - CameraPosition)) > 0.0f && GS != NULL)
 	{
 		float Dist = (CameraPosition - GetActorLocation()).Size() * FMath::Tan(FMath::DegreesToRadians(PC->PlayerCameraManager->GetFOVAngle()*0.5f));
-		if ((GS->OnSameTeam(PC->GetPawn(), this) || bSpectating || GS->HasMatchEnded() || GS->IsMatchAtHalftime()) && (bTacCom || Dist <= (bSpectating ? SpectatorIndicatorMaxDistance : TeamPlayerIndicatorMaxDistance)))
+		if ((bOnSameTeam || bSpectating || GS->HasMatchEnded() || GS->IsMatchAtHalftime()) && (bTacCom || bOnSameTeam || Dist <= (bSpectating ? SpectatorIndicatorMaxDistance : TeamPlayerIndicatorMaxDistance)))
 		{
 			float TextXL, YL;
-			float Scale = Canvas->ClipX / 1920.f;
 			bool bFarAway = (Dist > TeamPlayerIndicatorMaxDistance);
+			float ScaleTime = FMath::Min(1.f, 6.f * GetWorld()->DeltaTimeSeconds);
+			float MinTextScale = 0.75f;
+			BeaconTextScale = (1.f - ScaleTime) * BeaconTextScale + ScaleTime * ((bRecentlyRendered && !bFarAway) ? 1.f : 0.75f);
+			float Scale = BeaconTextScale * Canvas->ClipX / 1920.f;
 			if (bTacCom && !bFarAway && PC->PlayerCameraManager && (PC->GetViewTarget() != this) && (PC->GetViewTarget()->AttachmentReplication.AttachParent != this))
 			{
 				// need to do trace, since taccom guys always rendered
@@ -4530,59 +4568,64 @@ void AUTCharacter::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector
 			Canvas->TextSize(TinyFont, PlayerState->PlayerName, TextXL, YL, Scale, Scale);
 			float BarWidth, Y;
 			Canvas->TextSize(TinyFont, FString("AAAWWW"), BarWidth, Y, Scale, Scale);
-			float XL = bFarAway ? TextXL : FMath::Max(BarWidth, TextXL);
+			float TransitionScaling = (BeaconTextScale - MinTextScale) / (1.f - MinTextScale);
+			float XL = TextXL + TransitionScaling * FMath::Max(BarWidth-TextXL, 0.f);
 			FVector WorldPosition = GetMesh()->GetComponentLocation();
 			FVector ScreenPosition = Canvas->Project(WorldPosition + FVector(0.f, 0.f, GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight() * 2.25f));
 			float XPos = ScreenPosition.X - 0.5f*XL;
-			float YPos = bFarAway ? ScreenPosition.Y : ScreenPosition.Y - YL;
+			float YPos = ScreenPosition.Y - TransitionScaling * YL;
 			if (XPos < Canvas->ClipX || XPos + XL < 0.0f)
 			{
 				FLinearColor TeamColor = UTPS->Team ? UTPS->Team->TeamColor : FLinearColor::White;
-				TeamColor.R *= 0.3f;
-				TeamColor.G *= 0.3f;
-				TeamColor.B *= 0.3f;
-				TeamColor.A = 0.3f;
+				float CenterFade = 1.f;
+				float PctFromCenter = (ScreenPosition - FVector(0.5f*Canvas->ClipX, 0.5f*Canvas->ClipY, 0.f)).Size() / Canvas->ClipX;
+				CenterFade = CenterFade * FMath::Clamp(10.f*PctFromCenter, 0.15f, 1.f);
+				TeamColor.A = 0.2f * CenterFade;
 				Canvas->SetLinearDrawColor(TeamColor);
 				float Border = 2.f*Scale;
-				float Height = bFarAway ? 0.75*YL : YL + 0.45*YL;
+				TransitionScaling = (BeaconTextScale - MinTextScale) / (1.f - MinTextScale);
+				float Height = 0.75*YL + 0.7f * YL * TransitionScaling;
 				Canvas->DrawTile(Canvas->DefaultTexture, XPos - Border, YPos - YL - Border, XL + 2.f*Border, Height + 2.f*Border, 0, 0, 1, 1);
 				FLinearColor BeaconTextColor = FLinearColor::White;
-				BeaconTextColor.A = 0.6f;
+				BeaconTextColor.A = 0.6f * CenterFade;
 				FUTCanvasTextItem TextItem(FVector2D(FMath::TruncToFloat(Canvas->OrgX + XPos + 0.5f*(XL - TextXL)), FMath::TruncToFloat(Canvas->OrgY + YPos - 1.2f*YL)), FText::FromString(PlayerState->PlayerName), TinyFont, BeaconTextColor, NULL);
 				TextItem.Scale = FVector2D(Scale, Scale);
 				TextItem.BlendMode = SE_BLEND_Translucent;
+				FLinearColor ShadowColor = FLinearColor::Black;
+				ShadowColor.A = BeaconTextColor.A;
+				TextItem.EnableShadow(ShadowColor);
 				TextItem.FontRenderInfo = Canvas->CreateFontRenderInfo(true, false);
 				Canvas->DrawItem(TextItem);
 
-				if (!bFarAway)
+				if (TransitionScaling > 0.5f)
 				{
 					BarWidth -= 2.f*Border;
 					XPos += Border;
-					const float BarHeight = 6.f;
-					const float BarSpacing = 2.f;
+					const float BarHeight = 6.f * TransitionScaling;
+					const float BarSpacing = 2.f * TransitionScaling;
 					UTexture* BarTexture = AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->HUDAtlas;
 					FLinearColor BarColor = FLinearColor::Green;
-					BarColor.A = 0.5f;
+					BarColor.A = 0.5f * CenterFade;
 					Canvas->SetLinearDrawColor(BarColor);
 					float HealthWidth = BarWidth * FMath::Min(HealthMax, Health) / FMath::Max(Health, HealthMax);
-					float BarY = YPos - YL + Height - 2.5f*BarHeight - BarSpacing;
+					float BarY = YPos - YL + Height - 2.f*BarHeight - BarSpacing;
 					Canvas->DrawTile(BarTexture, XPos, BarY, HealthWidth, BarHeight, 185.f, 400.f, 4.f, 4.f);
 					if (Health != 100)
 					{
-						BarColor = (Health > 100) ? FLinearColor(0.4f, 0.6f, 2.f, 0.5f) : FLinearColor(0.f, 0.f, 0.f, 0.4f);
+						BarColor = (Health > 100) ? FLinearColor(0.4f, 0.6f, 2.f, 0.5f * CenterFade) : FLinearColor(0.f, 0.f, 0.f, 0.4f * CenterFade);
 						Canvas->SetLinearDrawColor(BarColor);
 						Canvas->DrawTile(BarTexture, XPos + HealthWidth, BarY, BarWidth - HealthWidth, BarHeight, 185.f, 400.f, 4.f, 4.f);
 					}
 					if (ArmorAmount > 0)
 					{
 						BarColor = FLinearColor::Yellow;
-						BarColor.A = 0.5f;
+						BarColor.A = 0.5f * CenterFade;
 						Canvas->SetLinearDrawColor(BarColor);
 						float ArmorWidth = BarWidth * ArmorAmount / FMath::Max(1.f, float(MaxStackedArmor));
 						Canvas->DrawTile(BarTexture, XPos, BarY + BarHeight + BarSpacing, ArmorWidth, BarHeight, 185.f, 400.f, 4.f, 4.f);
 						if (ArmorAmount < MaxStackedArmor)
 						{
-							BarColor = FLinearColor(0.f, 0.f, 0.f, 0.4f);
+							BarColor = FLinearColor(0.f, 0.f, 0.f, 0.4f * CenterFade);
 							Canvas->SetLinearDrawColor(BarColor);
 							Canvas->DrawTile(BarTexture, XPos + ArmorWidth, BarY + BarHeight + BarSpacing, BarWidth - ArmorWidth, BarHeight, 185.f, 400.f, 4.f, 4.f);
 						}
@@ -4710,6 +4753,11 @@ void AUTCharacter::SetEyewearVariant(int32 NewEyewearVariant)
 bool AUTCharacter::IsWearingAnyCosmetic()
 {
 	if (Hat != nullptr)
+	{
+		return true;
+	}
+
+	if (LeaderHat != nullptr)
 	{
 		return true;
 	}
@@ -5085,7 +5133,7 @@ void AUTCharacter::FaceRotation(FRotator NewControlRotation, float DeltaTime)
 	Super::FaceRotation(NewControlRotation, DeltaTime);
 }
 
-bool AUTCharacter::IsFeigningDeath()
+bool AUTCharacter::IsFeigningDeath() const
 {
 	return bFeigningDeath;
 }

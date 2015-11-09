@@ -127,7 +127,7 @@ class UMaterialExpressionMaterialFunctionCall : public UMaterialExpression
 	 * Update FunctionInputs and FunctionOutputs from the MaterialFunction.  
 	 * This must be called to keep the inputs and outputs up to date with the function being used. 
 	 */
-	ENGINE_API void UpdateFromFunctionResource();
+	ENGINE_API void UpdateFromFunctionResource(bool bRecreateAndLinkNode = true);
 
 private:
 	

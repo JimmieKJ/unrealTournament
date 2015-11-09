@@ -23,7 +23,8 @@
 
 void SUWindowsLobby::SetInitialPanel()
 {
-	SAssignNew(HomePanel, SULobbyInfoPanel, PlayerOwner);
+	SAssignNew(InfoPanel, SULobbyInfoPanel, PlayerOwner);
+	HomePanel = InfoPanel;
 
 	if (HomePanel.IsValid())
 	{
@@ -152,6 +153,11 @@ TSharedRef<SWidget> SUWindowsLobby::BuildOptionsSubMenu()
 	return SUTMenuBase::BuildOptionsSubMenu();
 }
 
+FReply SUWindowsLobby::OnKeyChar(const FGeometry& MyGeometry, const FCharacterEvent& InCharacterEvent)
+{
+	if (InfoPanel.IsValid()) InfoPanel->FocusChat(InCharacterEvent);
+	return FReply::Unhandled();
+}
 
 
 #endif

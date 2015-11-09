@@ -96,7 +96,7 @@ public:
 	float EndScoreboardDelay;			
 
 	/* How long to display the main scoreboard */
-	UPROPERTY(EditDefaultsOnly, Category = PostMatchTime)
+	UPROPERTY(GlobalConfig, EditDefaultsOnly, Category = PostMatchTime)
 		float MainScoreboardDisplayTime;
 
 	/* How long to display the scoring summary */
@@ -243,6 +243,10 @@ public:
 	/** Offline challenge mode. */
 	UPROPERTY(BlueprintReadOnly, Category = "Game")
 	bool bOfflineChallenge;
+
+	/** If true, is a training mode with no cheats allowed. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Game")
+	bool bBasicTrainingGame;
 
 	/** Tag of the current challenge */
 	UPROPERTY(BlueprintReadOnly, Category = "Game")
@@ -447,7 +451,10 @@ public:
 	virtual void RecreateLobbyBeacon();
 	virtual void DefaultTimer() override;
 	virtual void CheckGameTime();
-	virtual AUTPlayerState* IsThereAWinner(uint32& bTied);
+
+	/**  Used to check when time has run out if there is a winner.  If there is a tie, return NULL to enter overtime. **/	
+	UFUNCTION(BlueprintNativeEvent, BlueprintAuthorityOnly)
+	AUTPlayerState* IsThereAWinner(bool& bTied);
 
 	// Allows gametypes to build their rules settings for the mid game menu.
 	virtual FText BuildServerRules(AUTGameState* GameState);
@@ -498,6 +505,10 @@ public:
 	/** NOTE: return value is a workaround for blueprint bugs involving ref parameters and is not used */
 	UFUNCTION(BlueprintNativeEvent)
 	bool ModifyDamage(UPARAM(ref) int32& Damage, UPARAM(ref) FVector& Momentum, APawn* Injured, AController* InstigatedBy, const FHitResult& HitInfo, AActor* DamageCauser, TSubclassOf<UDamageType> DamageType);
+
+	/** return true to prevent the passed in pawn from dying (i.e. from Died()) */
+	UFUNCTION(BlueprintNativeEvent)
+	bool PreventDeath(APawn* KilledPawn, AController* Killer, TSubclassOf<UDamageType> DamageType, const FHitResult& HitInfo);
 
 	/** used to modify, remove, and replace Actors. Return false to destroy the passed in Actor. Default implementation queries mutators.
 	 * note that certain critical Actors such as PlayerControllers can't be destroyed, but we'll still call this code path to allow mutators

@@ -265,6 +265,9 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 
 	virtual void DropFrom(const FVector& StartLocation, const FVector& TossVelocity) override;
 
+	/** Return true if this weapon should be dropped if held on player death. */
+	virtual bool ShouldDropOnDeath();
+
 	/** first person mesh */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon")
 	USkeletalMeshComponent* Mesh;
@@ -338,6 +341,9 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	/** time to put down the weapon */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
 	float PutDownTime;
+	/** scales refire put down time for the weapon */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
+	float RefirePutDownTimePercent;
 
 	/** Earliest time can fire again (failsafe for weapon swapping). */
 	UPROPERTY()
@@ -694,7 +700,7 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	UFUNCTION(BlueprintCallable, Category = Weapon)
 	virtual float GetCrosshairScale(class AUTHUD* HUD);
 
-	UFUNCTION(BlueprintNativeEvent)
+	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = HUD)
 	void DrawWeaponCrosshair(UUTHUDWidget* WeaponHudWidget, float RenderDelta);
 
 	UFUNCTION()
@@ -768,6 +774,7 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 
 	virtual void GotoEquippingState(float OverflowTime);
 	
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Weapon")
 	virtual bool IsUnEquipping() { return GetCurrentState() == UnequippingState; };
 
 	/** informational function that returns the damage radius that a given fire mode has (used by e.g. bots) */
@@ -865,9 +872,6 @@ protected:
 
 public:
 	float WeaponBarScale;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = Weapon)
-	FLinearColor IconColor;
 
 	// The UV coords for this weapon when displaying it on the weapon bar
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "HUD")

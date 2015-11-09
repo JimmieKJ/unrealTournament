@@ -224,6 +224,8 @@ void SUTQuickMatch::FindHUBToJoin()
 
 void SUTQuickMatch::OnFindSessionsComplete(bool bWasSuccessful)
 {
+	Instances.Empty();
+
 	// Clear this delegate
 	if (OnlineSessionInterface.IsValid())
 	{
@@ -282,9 +284,8 @@ void SUTQuickMatch::PingNextBatch()
 
 	if (ServerList.Num() == 0 && PingTrackers.Num() == 0)
 	{
-		FindBestMatch();
+		CollectInstances();
 	}
-
 }
 
 void SUTQuickMatch::PingServer(TSharedPtr<FServerSearchInfo> ServerToPing)
@@ -366,20 +367,20 @@ void SUTQuickMatch::OnServerBeaconResult(AUTServerBeaconClient* Sender, FServerB
 	PingNextBatch();
 }
 
-bool SUTQuickMatch::HasFriendsInInstances(const TArray<TSharedPtr<FServerInstanceData>>& Instances, TWeakObjectPtr<UUTLocalPlayer> LocalPlayer)
+bool SUTQuickMatch::HasFriendsInInstances(const TArray<TSharedPtr<FServerInstanceData>>& InstancesToCheck, TWeakObjectPtr<UUTLocalPlayer> LocalPlayer)
 {
 	if (PlayerOwner.IsValid())
 	{
 		TArray<FUTFriend> FriendsList;
 		PlayerOwner->GetFriendsList(FriendsList);
 		{
-			for (int32 i = 0; i < Instances.Num(); i++)
+			for (int32 i = 0; i < InstancesToCheck.Num(); i++)
 			{
-				for (int32 p = 0; p < Instances[i]->Players.Num(); p++)
+				for (int32 p = 0; p < InstancesToCheck[i]->Players.Num(); p++)
 				{
 					for (int32 j = 0; j < FriendsList.Num(); j++)
 					{
-						if (Instances[i]->Players[p].PlayerId == FriendsList[j].UserId)
+						if (InstancesToCheck[i]->Players[p].PlayerId == FriendsList[j].UserId)
 						{
 							return true;
 						}
@@ -391,46 +392,88 @@ bool SUTQuickMatch::HasFriendsInInstances(const TArray<TSharedPtr<FServerInstanc
 	return false;
 }
 
+void SUTQuickMatch::CollectInstances()
+{
+	for (int32 i=0; i < FinalList.Num(); i++)
+	{
+		if (FinalList[i]->Beacon.IsValid())
+		{
+			for (int32 j = 0; j < FinalList[i]->Beacon->Instances.Num(); j++)
+			{
+				TSharedPtr<FServerInstanceData> Instance = FinalList[i]->Beacon->Instances[j];
+				if (Instance.IsValid())
+				{
+					// REJECT INSTANCE -- Here is where we want to cull any instances that we don't want to consider.
+
+					// When MatchState is none, the instance is still in the menu.  We do not want to quick match to these
+					// for Quick-play.  So we reject them here.
+					if (Instance->MatchData.MatchState != NAME_None)
+					{
+						// Cull any instances that do not match this quickmatch type or is not joinable as a player.
+						if (Instance->RulesTag.Equals(QuickMatchType, ESearchCase::IgnoreCase) && Instance->bJoinableAsPlayer)
+						{
+							Instances.Add(FInstanceTracker(FinalList[i], FinalList[i]->Beacon->Instances[j]));					
+						}
+					}
+				}
+			}
+		}
+	}
+
+	FindBestMatch();
+}
+
+
 void SUTQuickMatch::FindBestMatch()
 {
+	// At this point, FileList contains a list of hub servers grouped first by beginner (if available), then trust level and then each group is sorted by ping.
+	// Instances contains a full list of active instances available to play.  
+
 	if (FinalList.Num() > 0)
 	{
-		// We know the first server has the best ping and is the oldest server (most likely to have players).  So now search forward to find a server within
-		// 40ms of this ping that has the most players.
+		// Step 1... look to see if there is an instance that is ready to play but not started yet and is within 50ms of the best server.
 
-		TSharedPtr<FServerSearchInfo> BestPlayers = FinalList[0];
-		TSharedPtr<FServerSearchInfo> BestPing = BestPlayers;
-		TSharedPtr<FServerSearchInfo> BestFriendsServer;
-
-		// Find the best ping....
-		for (int32 i=1;i<FinalList.Num();i++)
+		int32 DesiredIndex = INDEX_NONE;
+		for (int32 i = 0; i < Instances.Num(); i++)
 		{
-			if (FinalList[i]->Ping < BestPing->Ping)
+			int32 Ping = Instances[i].GetPing();	
+			if (Ping - FinalList[0]->Ping <= 50)
 			{
-				BestPing = FinalList[i];
+				bool bMatchHasBegun = Instances[i].InstanceData->MatchData.bMatchHasBegun;
+				if (!bMatchHasBegun)
+				{
+					// This is a better choice if the current choice has begun, or if our ping is better.
+					if (DesiredIndex == INDEX_NONE || Instances[DesiredIndex].GetPing() > Ping || Instances[DesiredIndex].InstanceData->MatchData.bMatchHasBegun != bMatchHasBegun)
+					{
+						DesiredIndex = i;
+					}
+				}
+				else if ( !Instances[DesiredIndex].InstanceData->MatchData.bMatchHasBegun )
+				{
+					// THis is a better choice if our ping is better.
+					if (DesiredIndex == INDEX_NONE || Instances[DesiredIndex].GetPing() > Ping)
+					{
+						DesiredIndex = i;
+					}
+				}
 			}
 		}
 
-		// find the best server with friends on it.
-		for (int32 i=1;i<FinalList.Num();i++)
+		if (DesiredIndex != INDEX_NONE)
 		{
-			if (FinalList[i]->bHasFriends && ( !BestFriendsServer.IsValid() || FinalList[i]->Ping < BestFriendsServer->Ping) )
-			{
-				BestFriendsServer = FinalList[i];
-			}
+			AttemptQuickMatch(Instances[DesiredIndex].ServerData, Instances[DesiredIndex].InstanceData);
+			Instances.RemoveAt(DesiredIndex,1);
+			return;
 		}
 
-		for (int32 i=1;i<FinalList.Num();i++)
-		{
-			if (FinalList[i]->Ping <= BestPing->Ping + PING_ALLOWANCE && FinalList[i]->NoPlayers > BestPlayers->NoPlayers)
-			{
-				BestPlayers = FinalList[i];
-			}
-		}
+		// So there were no instances within 50 ms of our best hub, so attempt to join a hub.
 
-		BestServer = BestFriendsServer.IsValid() ? BestFriendsServer : (BestPlayers->NoPlayers > (BestPing->NoPlayers + PLAYER_ALLOWANCE) ? BestPlayers : BestPing);
-		AttemptQuickMatch();
+		TSharedPtr<FServerInstanceData> Empty;
+		Empty.Reset();
+		AttemptQuickMatch(FinalList[0], Empty);
+		FinalList.RemoveAt(0,1);
 	}
+
 	else
 	{
 		UE_LOG(UT,Log,TEXT("No more hubs to try and connect to!"));
@@ -455,11 +498,8 @@ void SUTQuickMatch::Cancel()
 	}
 	PingTrackers.Empty();
 	FinalList.Empty();
+	Instances.Empty();
 
-	if (BestServer.IsValid() && BestServer->Beacon.IsValid())
-	{
-		BestServer->Beacon->DestroyBeacon();
-	}
 
 	if (OnlineSessionInterface.IsValid())
 	{
@@ -560,53 +600,59 @@ void SUTQuickMatch::Tick( const FGeometry& AllottedGeometry, const double InCurr
 
 }
 
-void SUTQuickMatch::AttemptQuickMatch()
+void SUTQuickMatch::AttemptQuickMatch(TSharedPtr<FServerSearchInfo> DesiredServer, TSharedPtr<FServerInstanceData> DesiredInstance)
 {
 	bWaitingForResponseFromHub = true;
 	HubResponseWaitTime = 0.0;
 
-	BestServer->Beacon->OnRequestQuickplay = FServerRequestQuickplayDelegate::CreateSP(this, & SUTQuickMatch::RequestQuickPlayResults);
-	BestServer->Beacon->ServerRequestQuickplay(QuickMatchType, GetPlayerOwner()->GetBaseELORank(), GetPlayerOwner()->IsConsideredABeginnner());
+	ConnectingServer = DesiredServer;
+	ConnectingInstance = DesiredInstance;
+
+	if (DesiredInstance.IsValid())
+	{
+		ConnectingServer->Beacon->OnRequestJoinInstanceResult = FServerRequestJoinInstanceResult::CreateSP(this, &SUTQuickMatch::RequestJoinInstanceResult);
+		ConnectingServer->Beacon->ServerRequestInstanceJoin(DesiredInstance->InstanceId.ToString(), false, PlayerOwner->GetBaseELORank());
+	}
+	else
+	{
+		ConnectingServer->Beacon->OnRequestQuickplay = FServerRequestQuickplayDelegate::CreateSP(this, & SUTQuickMatch::RequestQuickPlayResults);
+		ConnectingServer->Beacon->ServerRequestQuickplay(QuickMatchType, GetPlayerOwner()->GetBaseELORank(), GetPlayerOwner()->IsConsideredABeginnner());
+	}
 }
 
 
-void SUTQuickMatch::RequestQuickPlayResults(AUTServerBeaconClient* Beacon, const FName& CommandCode, const FString& InstanceGuid)
+void SUTQuickMatch::RequestJoinInstanceResult(EInstanceJoinResult::Type Result, const FString& Params)
 {
-
+	ConnectingServer.Reset();
+	ConnectingInstance.Reset();
 	bWaitingForResponseFromHub = false;
 
-	if (CommandCode == EQuickMatchResults::JoinTimeout)
+	if (Result == EInstanceJoinResult::JoinDirectly)
 	{
-		UE_LOG(UT,Log,TEXT("QuickPlay Request to server timed out.  Attempting the next one"));
-		FinalList.Remove(BestServer);
-		if (BestServer.IsValid() && BestServer->Beacon.IsValid())
+		AUTBasePlayerController* UTPlayerController = Cast<AUTBasePlayerController>(PlayerOwner->PlayerController);
+		if (UTPlayerController)
 		{
-			BestServer->Beacon->DestroyBeacon();
+			UTPlayerController->ConnectToServerViaGUID(Params,-1, false, false);
+			return;
 		}
-		// Restart the search
-		FindBestMatch();		
-	
 	}
-	else if ( CommandCode == EQuickMatchResults::CantJoin )
-	{
-		UE_LOG(UT,Log,TEXT("QuickPlay Request to server Failed.  Attempting the next one"));
-		FinalList.Remove(BestServer);
-		if (BestServer.IsValid() && BestServer->Beacon.IsValid())
-		{
-			BestServer->Beacon->DestroyBeacon();
-		}
 
-		// Restart the search
-		FindBestMatch();		
-	}
-	else if (CommandCode == EQuickMatchResults::WaitingForStart || CommandCode == EQuickMatchResults::WaitingForStartNew )
+	// We failed to join, so find the next test
+	FindBestMatch();		
+}
+
+void SUTQuickMatch::RequestQuickPlayResults(AUTServerBeaconClient* Beacon, const FName& CommandCode, const FString& InstanceGuid)
+{
+	bWaitingForResponseFromHub = false;
+
+	if (CommandCode == EQuickMatchResults::WaitingForStart || CommandCode == EQuickMatchResults::WaitingForStartNew )
 	{
 		UE_LOG(UT,Log,TEXT("Quickplay hub is spooling up instance"));
 		bWaitingForMatch = true;
 		if ( CommandCode == EQuickMatchResults::WaitingForStartNew )
 		{
 			FString ServerName;
-			BestServer->SearchResult.Session.SessionSettings.Get(SETTING_SERVERNAME,ServerName);
+			ConnectingServer->SearchResult.Session.SessionSettings.Get(SETTING_SERVERNAME,ServerName);
 
 			PlayerOwner->QuickMatchLimitTime = PlayerOwner->GetWorld()->GetTimeSeconds() + 60.0;
 			MinorStatusText = FText::Format( NSLOCTEXT("QuickMatch","Status_WaitingforMatchMinor","Hub '{0}' is starting a match for you to join."), FText::FromString(ServerName));
@@ -618,7 +664,7 @@ void SUTQuickMatch::RequestQuickPlayResults(AUTServerBeaconClient* Beacon, const
 		AUTBasePlayerController* PC = Cast<AUTBasePlayerController>(GetPlayerOwner()->PlayerController);
 		if (PC)
 		{
-			PC->ConnectToServerViaGUID(InstanceGuid,-1, false, false);
+			PC->ConnectToServerViaGUID(InstanceGuid, -1, false, false);
 		}
 		else
 		{
@@ -634,6 +680,8 @@ void SUTQuickMatch::OnDialogClosed()
 	{
 		FinalList[i]->Beacon->DestroyBeacon();	
 	}
+
+	Instances.Empty();
 
 }
 

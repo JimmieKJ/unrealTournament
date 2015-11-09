@@ -83,7 +83,6 @@ class UNREALTOURNAMENT_API AUTServerBeaconClient : public AOnlineBeaconClient
 	UFUNCTION(client, reliable)
 	virtual void ClientReceivedAllInstancePlayers(int32 InstanceIndex, int32 FinalCount);
 
-
 	// Asks the hub if this client can get added to a quick play session.  This will be called because
 	// the quickplay manager has decided this server is the best match.  The server will respond with one of the 3 functions below.
 	UFUNCTION(server, reliable, withvalidation)

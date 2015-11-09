@@ -46,6 +46,35 @@ public:
 
 };
 
+struct FInstanceTracker
+{
+public:
+	TSharedPtr<FServerSearchInfo> ServerData;
+	TSharedPtr<FServerInstanceData> InstanceData;
+
+	FInstanceTracker(TSharedPtr<FServerSearchInfo> inServerData,TSharedPtr<FServerInstanceData> inInstanceData)
+		: ServerData(inServerData)
+		, InstanceData(inInstanceData)
+	{
+	}
+
+	int32 GetPing()
+	{
+		return ServerData.IsValid() ? ServerData->Ping : MAX_int32;
+	}
+
+	bool HasMatchStarted()
+	{
+		return InstanceData.IsValid() ? InstanceData->MatchData.bMatchHasBegun : false;
+	}
+
+	bool HasMatchEnded()
+	{
+		return InstanceData.IsValid() ? InstanceData->MatchData.bMatchHasBegun : false;
+	}
+
+};
+
 struct FServerSearchPingTracker
 {
 	TSharedPtr<FServerSearchInfo> Server;
@@ -89,7 +118,6 @@ public:
 	virtual void OnDialogClosed();
 
 protected:
-
 	bool bWaitingForMatch;
 
 	/** Holds a reference to the SCanvas widget that makes up the dialog */
@@ -133,11 +161,19 @@ private:
 
 	void OnFindSessionsComplete(bool bWasSuccessful);
 
+	// Hold a list of instances sorted by their server's position.  
+	TArray<FInstanceTracker> Instances;
+
+	// Contains a list of all possible server
 	TArray<TSharedPtr<FServerSearchInfo>> ServerList;
+
+	// Contains a list of servers that returned a ping
 	TArray<TSharedPtr<FServerSearchInfo>> FinalList;
+
 	TArray<FServerSearchPingTracker> PingTrackers;
 
 	void NoAvailableMatches();
+	void CollectInstances();
 	void FindBestMatch();
 
 	virtual bool SupportsKeyboardFocus() const override;
@@ -148,19 +184,20 @@ private:
 	virtual void Tick( const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime );
 
 public:
-	virtual void AttemptQuickMatch();
+	virtual void AttemptQuickMatch(TSharedPtr<FServerSearchInfo> DesiredServer, TSharedPtr<FServerInstanceData> DesiredInstance);
 	void FindHUBToJoin();
 
 protected:
 	virtual void RequestQuickPlayResults(AUTServerBeaconClient* Beacon, const FName& CommandCode, const FString& InstanceGuid);
+	virtual void RequestJoinInstanceResult(EInstanceJoinResult::Type Result, const FString& Params);
 
-	TSharedPtr<FServerSearchInfo> BestServer;
+	TSharedPtr<FServerSearchInfo> ConnectingServer;
+	TSharedPtr<FServerInstanceData> ConnectingInstance;
 
 	bool HasFriendsInInstances(const TArray<TSharedPtr<FServerInstanceData>>& Instances, TWeakObjectPtr<UUTLocalPlayer> LocalPlayer);
 
 	bool bWaitingForResponseFromHub;
 	float HubResponseWaitTime;
-
 };
 
 #endif

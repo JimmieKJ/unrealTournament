@@ -60,7 +60,7 @@ UUTGameEngine::UUTGameEngine(const FObjectInitializer& ObjectInitializer)
 	NormalSmoothingRate = 0.1f;
 	MaximumSmoothedTime = 0.04f;
 
-	ServerMaxPredictionPing = 160.f;
+	ServerMaxPredictionPing = 120.f;
 	VideoRecorder = nullptr;
 
 #if !UE_SERVER

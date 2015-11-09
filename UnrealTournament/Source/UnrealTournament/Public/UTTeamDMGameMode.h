@@ -17,6 +17,6 @@ class UNREALTOURNAMENT_API AUTTeamDMGameMode : public AUTTeamGameMode
 
 	virtual void ScoreKill_Implementation(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType) override;
 	virtual void ScoreTeamKill_Implementation(AController* Killer, AController* Other, APawn* KilledPawn, TSubclassOf<UDamageType> DamageType) override;
-	virtual AUTPlayerState* IsThereAWinner(uint32& bTied);
+	virtual AUTPlayerState* IsThereAWinner_Implementation(bool& bTied) override;
 	virtual void UpdateSkillRating() override;
 };

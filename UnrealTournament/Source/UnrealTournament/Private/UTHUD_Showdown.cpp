@@ -6,106 +6,127 @@
 AUTHUD_Showdown::AUTHUD_Showdown(const FObjectInitializer& OI)
 : Super(OI)
 {
-	ConstructorHelpers::FObjectFinder<UTexture2D> PlayerStartTextureObject(TEXT("/Engine/EditorResources/S_Player"));
-	PlayerStartTexture = PlayerStartTextureObject.Object;
+	ConstructorHelpers::FObjectFinder<UTexture2D> PlayerStartBGTextureObject(TEXT("/Game/RestrictedAssets/UI/MiniMap/minimap_atlas.minimap_atlas"));
+	PlayerStartBGIcon.U = 64;
+	PlayerStartBGIcon.V = 192;
+	PlayerStartBGIcon.UL = 64;
+	PlayerStartBGIcon.VL = 64;
+	PlayerStartBGIcon.Texture = PlayerStartBGTextureObject.Object;
+	ConstructorHelpers::FObjectFinder<UTexture2D> PlayerStartTextureObject(TEXT("/Game/RestrictedAssets/UI/MiniMap/minimap_atlas.minimap_atlas"));
+	PlayerStartIcon.U = 128;
+	PlayerStartIcon.V = 192;
+	PlayerStartIcon.UL = 64;
+	PlayerStartIcon.VL = 64;
+	PlayerStartIcon.Texture = PlayerStartTextureObject.Object;
 	ConstructorHelpers::FObjectFinder<UTexture2D> SelectedSpawnTextureObject(TEXT("/Game/RestrictedAssets/Weapons/Sniper/Assets/TargetCircle.TargetCircle"));
 	SelectedSpawnTexture = SelectedSpawnTextureObject.Object;
+
+	SpawnPreviewCapture = OI.CreateDefaultSubobject<USceneCaptureComponent2D>(this, TEXT("SpawnPreviewCapture"));
+	SpawnPreviewCapture->bCaptureEveryFrame = false;
+	SpawnPreviewCapture->SetHiddenInGame(false);
+	RootComponent = SpawnPreviewCapture; // just to quiet warning, has no relevance
+
+	LastHoveredActorChangeTime = -1000.0f;
 }
 
 void AUTHUD_Showdown::BeginPlay()
 {
 	Super::BeginPlay();
-	if (GetNetMode() != NM_DedicatedServer) // FIXME: shouldn't have HUD on server
-	{
-		MinimapTexture = UCanvasRenderTarget2D::CreateCanvasRenderTarget2D(GetWorld(), UCanvasRenderTarget2D::StaticClass(), 1024, 1024);
-		MinimapTexture->ClearColor = FLinearColor::Black;//FLinearColor(0.0f, 0.0f, 0.0f, 0.0f);
-		MinimapTexture->OnCanvasRenderTargetUpdate.AddDynamic(this, &AUTHUD_Showdown::UpdateMinimapTexture);
-		MinimapTexture->UpdateResource();
-	}
+
+	SpawnPreviewCapture->TextureTarget = NewObject<UTextureRenderTarget2D>(this, UTextureRenderTarget2D::StaticClass());
+	SpawnPreviewCapture->TextureTarget->InitCustomFormat(1280, 720, PF_B8G8R8A8, false);
+	SpawnPreviewCapture->TextureTarget->ClearColor = FLinearColor::Black;
+	SpawnPreviewCapture->RegisterComponent();
 }
 
-void AUTHUD_Showdown::CalcMinimapTransform(const FBox& LevelBox, int32 MapWidth, int32 MapHeight)
+void AUTHUD_Showdown::DrawMinimap(const FColor& DrawColor, float MapSize, FVector2D DrawPos)
 {
-	const bool bLargerXAxis = LevelBox.GetExtent().X > LevelBox.GetExtent().Y;
-	const float LevelRadius = bLargerXAxis ? LevelBox.GetExtent().X : LevelBox.GetExtent().Y;
-	const float ScaleFactor = float(MapWidth) / (LevelRadius * 2.0f);
-	const FVector CenteringAdjust = bLargerXAxis ? FVector(0.0f, (LevelBox.GetExtent().X - LevelBox.GetExtent().Y), 0.0f) : FVector((LevelBox.GetExtent().Y - LevelBox.GetExtent().X), 0.0f, 0.0f);
-	MinimapTransform = FTranslationMatrix(-LevelBox.Min + CenteringAdjust) * FScaleMatrix(FVector(ScaleFactor));
-}
+	AUTShowdownGameState* GS = GetWorld()->GetGameState<AUTShowdownGameState>();
 
-void AUTHUD_Showdown::UpdateMinimapTexture(UCanvas* C, int32 Width, int32 Height)
-{
-	FBox LevelBox(0);
-	AUTRecastNavMesh* NavMesh = GetUTNavData(GetWorld());
-	if (NavMesh != NULL)
+	// draw a border around the map if it's this player's turn
+	if (GS->SpawnSelector == PlayerOwner->PlayerState)
 	{
-		TMap<const UUTPathNode*, FNavMeshTriangleList> TriangleMap;
-		NavMesh->GetNodeTriangleMap(TriangleMap);
-		// calculate a bounding box for the level
-		for (TMap<const UUTPathNode*, FNavMeshTriangleList>::TConstIterator It(TriangleMap); It; ++It)
+		Canvas->DrawColor = WhiteColor;
+		Canvas->K2_DrawBox(FVector2D(DrawPos.X - 4.0f, DrawPos.Y - 4.0f), FVector2D(MapSize + 8.0f, MapSize + 8.0f), 4.0f);
+	}
+
+	Super::DrawMinimap(DrawColor, MapSize, DrawPos);
+
+	const float RenderScale = float(Canvas->SizeY) / 1080.0f;
+	// draw PlayerStart icons
+	for (TActorIterator<APlayerStart> It(GetWorld()); It; ++It)
+	{
+		FVector2D Pos(WorldToMapToScreen(It->GetActorLocation()));
+		AUTPlayerState* OwningPS = NULL;
+		for (APlayerState* PS : GS->PlayerArray)
 		{
-			const FNavMeshTriangleList& TriList = It.Value();
-			for (const FVector& Vert : TriList.Verts)
+			AUTPlayerState* UTPS = Cast<AUTPlayerState>(PS);
+			if (UTPS != NULL && UTPS->RespawnChoiceA == *It && UTPS->Team != NULL)
 			{
-				LevelBox += Vert;
+				OwningPS = UTPS;
+				break;
 			}
 		}
-		if (LevelBox.IsValid)
-		{
-			LevelBox = LevelBox.ExpandBy(LevelBox.GetSize() * 0.01f); // extra so edges aren't right up against the texture
-			CalcMinimapTransform(LevelBox, Width, Height);
-			for (TMap<const UUTPathNode*, FNavMeshTriangleList>::TConstIterator It(TriangleMap); It; ++It)
-			{
-				const FNavMeshTriangleList& TriList = It.Value();
 
-				for (const FNavMeshTriangleList::FTriangle& Tri : TriList.Triangles)
-				{
-					// don't draw triangles in water
-					bool bInWater = false;
-					FVector Verts[3] = { TriList.Verts[Tri.Indices[0]], TriList.Verts[Tri.Indices[1]], TriList.Verts[Tri.Indices[2]] };
-					for (int32 i = 0; i < ARRAY_COUNT(Verts); i++)
-					{
-						UUTPathNode* Node = NavMesh->FindNearestNode(Verts[i], NavMesh->GetHumanPathSize().GetExtent());
-						if (Node != NULL && Node->PhysicsVolume != NULL && Node->PhysicsVolume->bWaterVolume)
-						{
-							bInWater = true;
-							break;
-						}
-						Verts[i] = MinimapTransform.TransformPosition(Verts[i]);
-					}
-					if (!bInWater)
-					{
-						FCanvasTriangleItem Item(FVector2D(Verts[0]), FVector2D(Verts[1]), FVector2D(Verts[2]), C->DefaultTexture->Resource);
-						C->DrawItem(Item);
-					}
-				}
+		if (OwningPS != NULL || GS->IsAllowedSpawnPoint(GS->SpawnSelector, *It))
+		{
+			Canvas->DrawColor = FColor::White;
+		}
+		else
+		{
+			Canvas->DrawColor = FColor(128, 128, 128, 192);
+		}
+		const float IconSize = (LastHoveredActor == *It) ? (40.0f * RenderScale * FMath::InterpEaseOut<float>(1.0f, 1.5f, FMath::Min<float>(0.25f, GetWorld()->RealTimeSeconds - LastHoveredActorChangeTime) * 4.0f, 2.0f)) : (40.0f * RenderScale);
+		const FVector2D NormalizedUV(PlayerStartBGIcon.U / PlayerStartBGIcon.Texture->GetSurfaceWidth(), PlayerStartBGIcon.V / PlayerStartBGIcon.Texture->GetSurfaceHeight());
+		const FVector2D NormalizedULVL(PlayerStartBGIcon.UL / PlayerStartBGIcon.Texture->GetSurfaceWidth(), PlayerStartBGIcon.VL / PlayerStartBGIcon.Texture->GetSurfaceHeight());
+		Canvas->K2_DrawTexture(PlayerStartBGIcon.Texture, Pos - FVector2D(IconSize * 0.5f, IconSize * 0.5f), FVector2D(IconSize, IconSize), NormalizedUV, NormalizedULVL, Canvas->DrawColor, BLEND_Translucent, It->GetActorRotation().Yaw + 90.0f);
+		if (OwningPS != NULL && OwningPS->Team != NULL)
+		{
+			Canvas->DrawColor = OwningPS->Team->TeamColor;
+		}
+		Canvas->DrawTile(PlayerStartIcon.Texture, Pos.X - IconSize * 0.25f, Pos.Y - IconSize * 0.25f, IconSize * 0.5f, IconSize * 0.5f, PlayerStartIcon.U, PlayerStartIcon.V, PlayerStartIcon.UL, PlayerStartIcon.VL);
+		if (OwningPS != NULL)
+		{
+			float XL, YL;
+			Canvas->TextSize(TinyFont, OwningPS->PlayerName, XL, YL);
+			Canvas->DrawText(TinyFont, OwningPS->PlayerName, Pos.X - XL * 0.5f, Pos.Y - IconSize * 0.5f - 2.0f - YL);
+		}
+		Canvas->DrawColor = FColor::White;
+	}
+	// draw pickup icons
+	AUTPickup* NamedPickup = NULL;
+	FVector2D NamedPickupPos = FVector2D::ZeroVector;
+	for (TActorIterator<AUTPickup> It(GetWorld()); It; ++It)
+	{
+		FCanvasIcon Icon = It->GetMinimapIcon();
+		if (Icon.Texture != NULL)
+		{
+			FVector2D Pos(WorldToMapToScreen(It->GetActorLocation()));
+			const float Ratio = Icon.UL / Icon.VL;
+			Canvas->DrawColor = It->IconColor;
+			Canvas->DrawTile(Icon.Texture, Pos.X - 24.0f * Ratio * RenderScale, Pos.Y - 24.0f * RenderScale, 48.0f * Ratio * RenderScale, 48.0f * RenderScale, Icon.U, Icon.V, Icon.UL, Icon.VL);
+			if (LastHoveredActor == *It)
+			{
+				NamedPickup = *It;
+				NamedPickupPos = Pos;
 			}
 		}
 	}
-	if (!LevelBox.IsValid)
+	// draw name last so it is on top of any conflicting icons
+	if (NamedPickup != NULL)
 	{
-		// set minimap scale based on colliding geometry so map has some functionality without a working navmesh
-		for (TActorIterator<AActor> It(GetWorld()); It; ++It)
-		{
-			TArray<UPrimitiveComponent*> Components;
-			It->GetComponents(Components);
-			for (UPrimitiveComponent* Prim : Components)
-			{
-				if (Prim->IsCollisionEnabled())
-				{
-					LevelBox += Prim->Bounds.GetBox();
-				}
-			}
-		}
-		LevelBox = LevelBox.ExpandBy(LevelBox.GetSize() * 0.01f); // extra so edges aren't right up against the texture
-		CalcMinimapTransform(LevelBox, Width, Height);
+		float XL, YL;
+		Canvas->DrawColor = NamedPickup->IconColor;
+		Canvas->TextSize(TinyFont, NamedPickup->GetDisplayName().ToString(), XL, YL);
+		Canvas->DrawText(TinyFont, NamedPickup->GetDisplayName(), NamedPickupPos.X - XL * 0.5f, NamedPickupPos.Y - 26.0f * RenderScale - YL);
 	}
+	Canvas->DrawColor = FColor::White;
 }
 
 void AUTHUD_Showdown::DrawHUD()
 {
 	AUTShowdownGameState* GS = GetWorld()->GetGameState<AUTShowdownGameState>();
-	if (GS != NULL && GS->GetMatchState() == MatchState::MatchIntermission && (GS->SpawnSelector != NULL || GS->bFinalIntermissionDelay))
+	if (GS != NULL && GS->GetMatchState() == MatchState::MatchIntermission && GS->bStartedSpawnSelection)
 	{
 		if (!bLockedLookInput)
 		{
@@ -113,55 +134,83 @@ void AUTHUD_Showdown::DrawHUD()
 			bLockedLookInput = true;
 		}
 
-		const float MapSize = float(Canvas->SizeY) * 0.75f;
-		MapToScreen = FTranslationMatrix(FVector((Canvas->SizeX - MapSize) * 0.5f * (MinimapTexture->GetSurfaceWidth() / MapSize), (Canvas->SizeY - MapSize) * 0.5f, 0.0f)) * FScaleMatrix(FVector(MapSize / MinimapTexture->GetSurfaceWidth(), MapSize / MinimapTexture->GetSurfaceHeight(), 1.0f));
-		if (MinimapTexture != NULL)
+		AActor* NewHoveredActor = FindHoveredIconActor();
+		if (NewHoveredActor != LastHoveredActor)
 		{
-			Canvas->DrawColor = FColor(192, 192, 192, 255);
-			Canvas->DrawTile(MinimapTexture, MapToScreen.GetOrigin().X, MapToScreen.GetOrigin().Y, MapSize, MapSize, 0.0f, 0.0f, MinimapTexture->GetSurfaceWidth(), MinimapTexture->GetSurfaceHeight());
+			LastHoveredActorChangeTime = GetWorld()->RealTimeSeconds;
+			LastHoveredActor = NewHoveredActor;
 		}
-		const float RenderScale = float(Canvas->SizeY) / 1080.0f;
-		// draw PlayerStart icons
-		for (TActorIterator<APlayerStart> It(GetWorld()); It; ++It)
+
+		if (MinimapTexture == NULL)
 		{
-			FVector2D Pos(WorldToMapToScreen(It->GetActorLocation()));
-			AUTTeamInfo* OwningTeam = NULL;
-			for (APlayerState* PS : GS->PlayerArray)
+			CreateMinimapTexture(); // because we're using the size below
+		}
+		const float MapSize = float(Canvas->SizeY) * 0.75f;
+		DrawMinimap(FColor(164, 164, 164, 255), MapSize, FVector2D((Canvas->SizeX - MapSize) * 0.5f, (Canvas->SizeY - MapSize) * 0.5f));
+
+		// draw preview for hovered spawn point
+		if (!GS->bFinalIntermissionDelay)
+		{
+			APlayerStart* HoveredStart = Cast<APlayerStart>(LastHoveredActor);
+			if (HoveredStart == PreviewPlayerStart)
 			{
-				AUTPlayerState* UTPS = Cast<AUTPlayerState>(PS);
-				if (UTPS != NULL && UTPS->RespawnChoiceA == *It && UTPS->Team != NULL)
+				if (HoveredStart != NULL)
 				{
-					OwningTeam = UTPS->Team;
-					break;
+					if (bPendingSpawnPreview)
+					{
+						bPendingSpawnPreview = false;
+					}
+					else
+					{
+						// draw it
+						const float Ratio = float(SpawnPreviewCapture->TextureTarget->SizeX) / float(SpawnPreviewCapture->TextureTarget->SizeY);
+						Canvas->DrawColor = WhiteColor;
+						Canvas->DrawTile(SpawnPreviewCapture->TextureTarget, (Canvas->SizeX + MapSize) * 0.5f, Canvas->SizeY * 0.25f, (Canvas->SizeX - MapSize) * 0.5f, (Canvas->SizeX - MapSize) * 0.5f / Ratio, 0.0f, 0.0f, SpawnPreviewCapture->TextureTarget->SizeX, SpawnPreviewCapture->TextureTarget->SizeY, BLEND_Opaque);
+					}
 				}
-			}
-			
-			if (OwningTeam != NULL || GS->IsAllowedSpawnPoint(GS->SpawnSelector, *It))
-			{
-				Canvas->DrawColor = FColor::White;
 			}
 			else
 			{
-				Canvas->DrawColor = FColor(128, 128, 128, 192);
+				if (HoveredStart != NULL)
+				{
+					SpawnPreviewCapture->SetWorldLocationAndRotation(HoveredStart->GetActorLocation(), HoveredStart->GetActorRotation());
+					bPendingSpawnPreview = true;
+				}
+				PreviewPlayerStart = HoveredStart;
 			}
-			Canvas->DrawTile(PlayerStartTexture, Pos.X - 16.0f * RenderScale, Pos.Y - 16.0f * RenderScale, 32.0f * RenderScale, 32.0f * RenderScale, 0.0f, 0.0f, PlayerStartTexture->GetSurfaceWidth(), PlayerStartTexture->GetSurfaceHeight());
-			// draw circle on selected spawn points
-			if (OwningTeam != NULL)
-			{
-				Canvas->DrawColor = OwningTeam->TeamColor.ToFColor(false);
-				Canvas->DrawTile(SelectedSpawnTexture, Pos.X - 24.0f * RenderScale, Pos.Y - 24.0f * RenderScale, 48.0f * RenderScale, 48.0f * RenderScale, 0.0f, 0.0f, SelectedSpawnTexture->GetSurfaceWidth(), SelectedSpawnTexture->GetSurfaceHeight());
-			}
-			Canvas->DrawColor = FColor::White;
 		}
-		// draw pickup icons
-		Canvas->DrawColor = FColor::White;
-		for (TActorIterator<AUTPickup> It(GetWorld()); It; ++It)
+
+		// draw spawn selection order
+
+		TArray<AUTPlayerState*> LivePlayers;
+		for (APlayerState* PS : GS->PlayerArray)
 		{
-			if (It->HUDIcon.Texture != NULL)
+			AUTPlayerState* UTPS = Cast<AUTPlayerState>(PS);
+			if (UTPS != NULL && UTPS->Team != NULL && !UTPS->bOnlySpectator)
 			{
-				FVector2D Pos(WorldToMapToScreen(It->GetActorLocation()));
-				const float Ratio = It->HUDIcon.UL / It->HUDIcon.VL;
-				Canvas->DrawTile(It->HUDIcon.Texture, Pos.X - 16.0f * Ratio * RenderScale, Pos.Y - 16.0f * RenderScale, 32.0f * Ratio * RenderScale, 32.0f * RenderScale, It->HUDIcon.U, It->HUDIcon.V, It->HUDIcon.UL, It->HUDIcon.VL);
+				LivePlayers.Add(UTPS);
+			}
+		}
+
+		if (LivePlayers.Num() > 2)
+		{
+			LivePlayers.Sort([](AUTPlayerState& A, AUTPlayerState& B){ return A.SelectionOrder < B.SelectionOrder; });
+
+			float YPos = Canvas->ClipY * 0.1f;
+			YPos += Canvas->DrawText(MediumFont, NSLOCTEXT("UnrealTournament", "SelectionOrder", "PICK ORDER"), 1.0f, YPos) * 1.2f;
+			
+			for (AUTPlayerState* UTPS : LivePlayers)
+			{
+				Canvas->DrawColor = UTPS->Team->TeamColor;
+				float XL, YL;
+				Canvas->TextSize(MediumFont, UTPS->PlayerName, XL, YL);
+				Canvas->DrawText(MediumFont, UTPS->PlayerName, 1.0f, YPos);
+				if (UTPS == GS->SpawnSelector)
+				{
+					Canvas->DrawColor = FColorList::Gold;
+					Canvas->DrawText(MediumFont, TEXT("<---"), XL + 30.0f, YPos);
+				}
+				YPos += YL * 1.1f;
 			}
 		}
 	}
@@ -172,7 +221,7 @@ void AUTHUD_Showdown::DrawHUD()
 	}
 
 	if ( GS != NULL && !bShowScores && PlayerOwner->PlayerState != NULL && !PlayerOwner->PlayerState->bOnlySpectator &&
-		((GS->bBroadcastPlayerHealth && GS->IsMatchInProgress()) || (GS->GetMatchState() == MatchState::MatchIntermission && !GS->bFinalIntermissionDelay)) )
+		((GS->bBroadcastPlayerHealth && GS->IsMatchInProgress()) || (GS->GetMatchState() == MatchState::MatchIntermission && !GS->bStartedSpawnSelection)) )
 	{
 		// don't bother displaying if there are no live characters (e.g. match start)
 		bool bAnyPawns = false;
@@ -239,10 +288,10 @@ void AUTHUD_Showdown::DrawHUD()
 	Super::DrawHUD();
 }
 
-EInputMode::Type AUTHUD_Showdown::GetInputMode_Implementation()
+EInputMode::Type AUTHUD_Showdown::GetInputMode_Implementation() const
 {
 	AUTShowdownGameState* GS = GetWorld()->GetGameState<AUTShowdownGameState>();
-	if (GS != NULL && GS->GetMatchState() == MatchState::MatchIntermission && GS->SpawnSelector == PlayerOwner->PlayerState)
+	if (GS != NULL && GS->GetMatchState() == MatchState::MatchIntermission && GS->bStartedSpawnSelection && !GS->bFinalIntermissionDelay)
 	{
 		return EInputMode::EIM_GameAndUI;
 	}
@@ -252,9 +301,9 @@ EInputMode::Type AUTHUD_Showdown::GetInputMode_Implementation()
 	}
 }
 
-bool AUTHUD_Showdown::OverrideMouseClick(FKey Key, EInputEvent EventType)
+AActor* AUTHUD_Showdown::FindHoveredIconActor() const
 {
-	if (Key.GetFName() == EKeys::LeftMouseButton && EventType == IE_Pressed)
+	if (GetInputMode() == EInputMode::EIM_GameAndUI)
 	{
 		FVector2D ClickPos;
 		UTPlayerOwner->GetMousePosition(ClickPos.X, ClickPos.Y);
@@ -262,12 +311,32 @@ bool AUTHUD_Showdown::OverrideMouseClick(FKey Key, EInputEvent EventType)
 		for (TActorIterator<APlayerStart> It(GetWorld()); It; ++It)
 		{
 			FVector2D Pos(WorldToMapToScreen(It->GetActorLocation()));
-			if ((ClickPos - Pos).Size() < 32.0f)
+			if ((ClickPos - Pos).Size() < 40.0f)
 			{
-				ClickedStart = *It;
-				break;
+				return *It;
 			}
 		}
+		for (TActorIterator<AUTPickup> It(GetWorld()); It; ++It)
+		{
+			FCanvasIcon Icon = It->GetMinimapIcon();
+			if (Icon.Texture != NULL)
+			{
+				FVector2D Pos(WorldToMapToScreen(It->GetActorLocation()));
+				if ((ClickPos - Pos).Size() < 40.0f)
+				{
+					return *It;
+				}
+			}
+		}
+	}
+	return NULL;
+}
+
+bool AUTHUD_Showdown::OverrideMouseClick(FKey Key, EInputEvent EventType)
+{
+	if (Key.GetFName() == EKeys::LeftMouseButton && EventType == IE_Pressed)
+	{
+		APlayerStart* ClickedStart = Cast<APlayerStart>(FindHoveredIconActor());
 		if (ClickedStart != NULL)
 		{
 			UTPlayerOwner->ServerSelectSpawnPoint(ClickedStart);

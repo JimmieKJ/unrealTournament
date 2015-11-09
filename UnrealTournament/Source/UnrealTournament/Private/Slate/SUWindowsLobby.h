@@ -10,12 +10,16 @@
 
 #if !UE_SERVER
 
+class SULobbyInfoPanel;
+
 class UNREALTOURNAMENT_API SUWindowsLobby : public SUTInGameMenu
 {
+	FReply OnKeyChar(const FGeometry& MyGeometry, const FCharacterEvent& InCharacterEvent);
 
 protected:
 	
 	TSharedPtr<SButton> MatchButton;
+	TSharedPtr<SULobbyInfoPanel> InfoPanel;
 
 	virtual void SetInitialPanel();
 
