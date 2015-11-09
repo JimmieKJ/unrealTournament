@@ -709,6 +709,13 @@ void AUTPlayerController::SwitchWeaponInSequence(bool bPrev)
 		}
 		else
 		{
+			UUTProfileSettings* ProfileSettings = NULL;
+
+			if (Cast<UUTLocalPlayer>(Player))
+			{
+				ProfileSettings = Cast<UUTLocalPlayer>(Player)->GetProfileSettings();
+			}
+
 			AUTWeapon* Best = NULL;
 			AUTWeapon* WraparoundChoice = NULL;
 			AUTWeapon* CurrentWeapon = (UTCharacter->GetPendingWeapon() != NULL) ? UTCharacter->GetPendingWeapon() : UTCharacter->GetWeapon();
@@ -822,6 +829,13 @@ void AUTPlayerController::SwitchWeaponGroup(int32 Group)
 
 void AUTPlayerController::SwitchWeapon(int32 Group)
 {
+
+	if (!bUseClassicGroups)
+	{
+		SwitchWeaponGroup(Group);
+		return;
+	}
+
 	if (UTCharacter != NULL && IsLocalPlayerController() && UTCharacter->EmoteCount == 0 && !UTCharacter->IsRagdoll())
 	{
 		// if current weapon isn't in the specified group, pick lowest GroupSlot in that group
@@ -3136,6 +3150,22 @@ float AUTPlayerController::GetWeaponAutoSwitchPriority(FString WeaponClassname, 
 	return DefaultPriority;
 }
 
+int32 AUTPlayerController::GetWeaponGroup(FString WeaponClassname, int32 DefaultGroup)
+{
+	if (Cast<UUTLocalPlayer>(Player))
+	{
+		UUTProfileSettings* ProfileSettings = Cast<UUTLocalPlayer>(Player)->GetProfileSettings();
+		if (ProfileSettings)
+		{
+			if (ProfileSettings->WeaponGroupLookup.Contains(WeaponClassname))
+			{
+				return ProfileSettings->WeaponGroupLookup[WeaponClassname].Group;
+			}
+		}
+	}
+
+	return DefaultGroup;
+}
 
 void AUTPlayerController::RconMap(FString NewMap)
 {

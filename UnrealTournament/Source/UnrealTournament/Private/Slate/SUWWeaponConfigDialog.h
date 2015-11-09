@@ -5,11 +5,12 @@
 #include "SUWDialog.h"
 
 #if !UE_SERVER
+
 class UNREALTOURNAMENT_API SUWWeaponConfigDialog : public SUWDialog, public FGCObject
 {
 public:
 	SLATE_BEGIN_ARGS(SUWWeaponConfigDialog)
-		: _DialogSize(FVector2D(1000,1000))
+		: _DialogSize(FVector2D(1800,1000))
 		, _bDialogSizeIsRelative(false)
 		, _DialogPosition(FVector2D(0.5f, 0.5f))
 		, _DialogAnchorPoint(FVector2D(0.5f, 0.5f))
@@ -26,25 +27,31 @@ public:
 
 	void Construct(const FArguments& InArgs);
 
-	/**Holds weapons used in both crosshair and priority list so they don't get GC'd*/
-	TArray<UClass*> WeaponReferenceList;
+	TSharedPtr<class SUTTabWidget> TabWidget;
 
+	TSharedPtr<SCheckBox> ClassicGroups;
+	TSharedPtr<SNumericEntryBox<int32>> GroupEdit;
 	TSharedPtr<SCheckBox> AutoWeaponSwitch;
-	TArray<UClass*> WeaponList;
-	TSharedPtr< SListView<UClass*> > WeaponPriorities;
+
+	TArray<UClass*> WeaponClassList;
+	TArray<TWeakObjectPtr<UClass>> WeakWeaponClassList;
+	TSharedPtr< SListView<TWeakObjectPtr<UClass>> > WeaponList;
+
+	TWeakObjectPtr<UClass> SelectedWeapon;
+	void OnWeaponChanged(TWeakObjectPtr<UClass> NewSelectedWeapon, ESelectInfo::Type SelectInfo);
+	TSharedRef<ITableRow> GenerateWeaponListRow(TWeakObjectPtr<UClass> WeaponClass, const TSharedRef<STableViewBase>& OwningList);
+	FReply WeaponPriorityUp();
+	FReply WeaponPriorityDown();
+
+	TMap<UClass*, int32> WeaponGroups;
 
 	TArray< TSharedPtr<FText> > WeaponHandList;
 	TArray<FText> WeaponHandDesc;
 	TSharedPtr< SComboBox< TSharedPtr<FText> > > WeaponHand;
 	TSharedPtr<STextBlock> SelectedWeaponHand;
 
-	TSharedPtr<class SUTTabWidget> TabWidget;
-
-	TSharedRef<ITableRow> GenerateWeaponListRow(UClass* WeaponType, const TSharedRef<STableViewBase>& OwningList);
 	TSharedRef<SWidget> GenerateHandListWidget(TSharedPtr<FText> InItem);
 	void OnHandSelected(TSharedPtr<FText> NewSelection, ESelectInfo::Type SelectInfo);
-	FReply WeaponPriorityUp();
-	FReply WeaponPriorityDown();
 
 
 	/** render target for the WYSIWYG crosshair */
@@ -66,16 +73,16 @@ public:
 	TSharedPtr<STextBlock> CrosshairText;
 
 	TSharedPtr<FCrosshairInfo> SelectedCrosshairInfo;
+
 	TArray<TSharedPtr<FCrosshairInfo> > CrosshairInfos;
 	TSharedPtr< SListView<TSharedPtr<FCrosshairInfo> > > CrosshairInfosList;
-	void OnCrosshairInfoSelected(TSharedPtr<FCrosshairInfo> NewSelection, ESelectInfo::Type SelectInfo);
-	TSharedRef<ITableRow> GenerateCrosshairListRow(TSharedPtr<FCrosshairInfo> CrosshairInfo, const TSharedRef<STableViewBase>& OwningList);
 
-	TMap<FString, UClass*> WeaponMap;
-	TMap<FString, UClass*> CrosshairMap;
+	TMap<FString, TWeakObjectPtr<UClass>> WeaponMap;
+	TMap<FString, TWeakObjectPtr<UClass>> CrosshairMap;
 
-	TArray<UClass*> CrosshairList;
-	TArray<TWeakObjectPtr<UClass> > WeakCrosshairList;
+	TArray<UClass*> CrosshairClassList;
+	TArray<TWeakObjectPtr<UClass>> WeakCrosshairList;
+
 	TSharedPtr<SComboBox< TWeakObjectPtr<UClass>  > > CrosshairComboBox;
 	void OnCrosshairSelected(TWeakObjectPtr<UClass> NewSelection, ESelectInfo::Type SelectInfo);
 	TSharedRef<SWidget> GenerateCrosshairRow(TWeakObjectPtr<UClass>  CrosshairClass);
@@ -115,5 +122,15 @@ public:
 
 	bool CanMoveWeaponPriorityUp() const;
 	bool CanMoveWeaponPriorityDown() const;
+
+	bool bUseClassicGroups;
+	TOptional<int32> GetWeaponGroup() const;
+	void SetWeaponGroup(int32 NewGroup);
+
+	TSharedPtr<STextBlock> WeaponsInGroupText;
+	void UpdateWeaponsInGroup();
+
+	FReply DefaultGroupsClicked();
+
 };
 #endif

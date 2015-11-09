@@ -260,6 +260,7 @@ void AUTWeapon::ClientGivenTo_Internal(bool bAutoActivate)
 	if (UTPC != NULL)
 	{
 		AutoSwitchPriority = UTPC->GetWeaponAutoSwitchPriority(GetNameSafe(this), AutoSwitchPriority);
+		Group = UTPC->GetWeaponGroup(GetNameSafe(this), GroupSlot);
 	}
 
 	// assign GroupSlot if required

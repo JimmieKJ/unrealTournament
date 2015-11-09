@@ -60,6 +60,31 @@ struct FStoredWeaponPriority
 	{};
 };
 
+USTRUCT()
+struct FStoredWeaponGroupInfo
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY()
+	FString WeaponClassName;
+
+	UPROPERTY()
+	int32 Group;
+
+	FStoredWeaponGroupInfo()
+		: WeaponClassName(TEXT(""))
+		, Group(0)
+	{
+	}
+
+	FStoredWeaponGroupInfo(FString inWeaponClassName, int32 InGroup)
+		: WeaponClassName(inWeaponClassName)
+		, Group(InGroup)
+	{
+	}
+
+};
+
 UCLASS()
 class UNREALTOURNAMENT_API UUTProfileSettings : public UObject
 {
@@ -184,6 +209,16 @@ class UNREALTOURNAMENT_API UUTProfileSettings : public UObject
 
 	UPROPERTY()
 	int32 SkullCount;
+
+	UPROPERTY()
+	TArray<FStoredWeaponGroupInfo> WeaponGroups;
+
+	UPROPERTY()
+	bool bUseClassicWeaponGroups;
+
+	// Yes. the WeaponGroups array holds all of this information.  We use a TMap for
+	// quick lookup.
+	TMap<FString, FStoredWeaponGroupInfo> WeaponGroupLookup;
 
 protected:
 

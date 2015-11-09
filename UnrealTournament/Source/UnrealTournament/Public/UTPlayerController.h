@@ -563,6 +563,7 @@ public:
 	APawn* LastShotTargetGuess;
 
 	virtual float GetWeaponAutoSwitchPriority(FString WeaponClassname, float DefaultPriority);
+	virtual int32 GetWeaponGroup(FString WeaponClassname, int32 DefaultGroup);
 
 	virtual void ClientRequireContentItemListComplete_Implementation() override;
 
