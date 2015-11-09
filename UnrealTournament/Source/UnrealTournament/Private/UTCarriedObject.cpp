@@ -119,15 +119,7 @@ void AUTCarriedObject::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* O
 		AUTCharacter* Character = Cast<AUTCharacter>(OtherActor);
 		if (Character != NULL && !GetWorld()->LineTraceTestByChannel(OtherActor->GetActorLocation(), GetActorLocation(), ECC_Pawn, FCollisionQueryParams(), WorldResponseParams))
 		{
-			// FIXME: hack workaround for instant cap bug
-			if ((Character->GetActorLocation() - GetActorLocation()).Size2D() > (Character->GetSimpleCollisionRadius() + GetSimpleCollisionRadius()) * 4.0f + Character->GetCharacterMovement()->GetMaxSpeed() / 30.0f)
-			{
-				UE_LOG(UT, Error, TEXT("Preventing insta-cap bug! Character location %s my location %s my state %s"), *Character->GetActorLocation().ToString(), *GetActorLocation().ToString(), *ObjectState.ToString());
-			}
-			else
-			{
-				TryPickup(Character);
-			}
+			TryPickup(Character);
 		}
 	}
 }

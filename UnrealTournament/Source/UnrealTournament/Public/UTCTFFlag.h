@@ -73,8 +73,6 @@ class UNREALTOURNAMENT_API AUTCTFFlag : public AUTCarriedObject
 		return Mesh;
 	}
 
-	virtual bool CanBePickedUpBy(AUTCharacter* Character);
-
 	virtual void DetachFrom(USkeletalMeshComponent* AttachToMesh) override;
 	virtual void AttachTo(USkeletalMeshComponent* AttachToMesh) override;
 	virtual void OnObjectStateChanged();

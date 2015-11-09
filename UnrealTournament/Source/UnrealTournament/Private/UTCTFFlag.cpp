@@ -63,24 +63,6 @@ void AUTCTFFlag::PostInitializeComponents()
 	}
 }
 
-bool AUTCTFFlag::CanBePickedUpBy(AUTCharacter* Character)
-{
-	if (Character != NULL)
-	{
-		AUTCTFFlag* CarriedFlag = Cast<AUTCTFFlag>(Character->GetCarriedObject());
-		if (CarriedFlag != NULL && CarriedFlag != this && ObjectState == CarriedObjectState::Home)
-		{
-			if (CarriedFlag->GetTeamNum() != GetTeamNum())
-			{
-				CarriedFlag->Score(FName(TEXT("FlagCapture")), CarriedFlag->HoldingPawn, CarriedFlag->Holder);
-				PlayCaptureEffect();
-				return false;
-			}
-		}
-	}
-	return Super::CanBePickedUpBy(Character);
-}
-
 void AUTCTFFlag::PlayCaptureEffect()
 {
 	if (Role == ROLE_Authority)
