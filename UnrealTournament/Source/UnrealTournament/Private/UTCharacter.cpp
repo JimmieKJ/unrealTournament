@@ -4583,7 +4583,7 @@ void AUTCharacter::PostRenderFor(APlayerController* PC, UCanvas* Canvas, FVector
 				TeamColor.A = 0.2f * CenterFade;
 				Canvas->SetLinearDrawColor(TeamColor);
 				float Border = 2.f*Scale;
-				float TransitionScaling = (BeaconTextScale - MinTextScale) / (1.f - MinTextScale);
+				TransitionScaling = (BeaconTextScale - MinTextScale) / (1.f - MinTextScale);
 				float Height = 0.75*YL + 0.7f * YL * TransitionScaling;
 				Canvas->DrawTile(Canvas->DefaultTexture, XPos - Border, YPos - YL - Border, XL + 2.f*Border, Height + 2.f*Border, 0, 0, 1, 1);
 				FLinearColor BeaconTextColor = FLinearColor::White;
