@@ -478,6 +478,9 @@ public:
 		float MouseButtonPressTime;
 
 	UPROPERTY()
+		float MouseButtonPressCount;
+
+	UPROPERTY()
 	class AUTPlayerState* LastSpectatedPlayerState;
 
 	UPROPERTY()

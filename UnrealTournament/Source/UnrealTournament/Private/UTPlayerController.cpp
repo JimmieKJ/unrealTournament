@@ -550,6 +550,7 @@ bool AUTPlayerController::InputKey(FKey Key, EInputEvent EventType, float Amount
 					SavedMouseCursorLocation = FSlateApplication::Get().GetCursorPos();
 					MouseButtonPressTime = GetWorld()->GetTimeSeconds();
 					bShowMouseCursor = false;
+					MouseButtonPressCount++;
 				}
 			}
 			else if (EventType == EInputEvent::IE_Released)
@@ -559,6 +560,7 @@ bool AUTPlayerController::InputKey(FKey Key, EInputEvent EventType, float Amount
 				{
 					LocalPlayer->GetSlateOperations().ReleaseMouseCapture().SetMousePos(SavedMouseCursorLocation.IntPoint());
 					bShowMouseCursor = (GetWorld()->GetTimeSeconds() - MouseButtonPressTime < 1.f);
+					MouseButtonPressCount--;
 				}
 			}
 		}

@@ -234,7 +234,7 @@ void AUTPlayerCameraManager::UpdateViewTarget(FTViewTarget& OutVT, float DeltaTi
 		bool bGameOver = (UTPC != nullptr && UTPC->GetStateName() == NAME_GameOver);
 		float CameraDistance = bGameOver ? EndGameFreeCamDistance : FreeCamDistance;
 		FVector CameraOffset = bGameOver ? EndGameFreeCamOffset : FreeCamOffset;
-		FRotator Rotator = (!UTPC || !UTPC->bShowMouseCursor) ? PCOwner->GetControlRotation() : UTPC->GetSpectatingRotation(Loc, DeltaTime);
+		FRotator Rotator = (!UTPC || (UTPC->MouseButtonPressCount > 0)) ? PCOwner->GetControlRotation() : UTPC->GetSpectatingRotation(Loc, DeltaTime);
 		if (Cast<AUTProjectile>(TargetActor) && !TargetActor->IsPendingKillPending())
 		{
 			Rotator = TargetActor->GetVelocity().Rotation();
@@ -338,7 +338,8 @@ void AUTPlayerCameraManager::ApplyCameraModifiers(float DeltaTime, FMinimalViewI
 
 void AUTPlayerCameraManager::ProcessViewRotation(float DeltaTime, FRotator& OutViewRotation, FRotator& OutDeltaRot)
 {
-	if (PCOwner && PCOwner->PlayerState && PCOwner->PlayerState->bOnlySpectator && PCOwner->bShowMouseCursor && (GetViewTarget() != PCOwner->GetSpectatorPawn()))
+	AUTPlayerController* UTPC = Cast<AUTPlayerController>(PCOwner);
+	if (UTPC && PCOwner->PlayerState && PCOwner->PlayerState->bOnlySpectator && (UTPC->MouseButtonPressCount == 0) && (GetViewTarget() != PCOwner->GetSpectatorPawn()))
 	{
 		return;
 	}
