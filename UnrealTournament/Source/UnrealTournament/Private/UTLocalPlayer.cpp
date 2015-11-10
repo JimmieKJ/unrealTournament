@@ -1254,6 +1254,18 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 			if (CurrentProfileSettings->SettingsRevisionNum >= VALID_PROFILESETTINGS_VERSION && !bClearProfile)
 			{
 				CurrentProfileSettings->ApplyAllSettings(this);
+
+				// It's possible for the MCP data to get here before the profile, so we havbe to check for daily challenges 
+				// in two places.
+				UUTGameEngine* GameEngine = Cast<UUTGameEngine>(GEngine);
+				if (GameEngine && GameEngine->GetChallengeManager().IsValid())
+				{
+					if ( GameEngine->GetChallengeManager()->CheckDailyChallenge(CurrentProfileSettings) )
+					{
+						SaveProfileSettings();
+					}
+				}
+
 				return;
 			}
 			else
@@ -3303,6 +3315,17 @@ void UUTLocalPlayer::CloseJoinInstanceDialog()
 
 }
 
+bool UUTLocalPlayer::IsDailyChallengeUnlocked(FName ChallengeTag)
+{
+	int32 Index = INDEX_NONE;
+	if (CurrentProfileSettings)
+	{
+		Index = CurrentProfileSettings->UnlockedDailyChallenges.Find(ChallengeTag);
+	}
+
+	return Index != INDEX_NONE;
+}
+
 int32 UUTLocalPlayer::GetTotalChallengeStars()
 {
 	int32 TotalStars = 0;
@@ -3562,10 +3585,21 @@ void UUTLocalPlayer::OnReadTitleFileComplete(bool bWasSuccessful, const FString&
 		FString JsonString = TEXT("");
 		if (bWasSuccessful)
 		{
-			TArray<uint8> FileContents;
-			OnlineTitleFileInterface->GetFileContents(GetMCPStorageFilename(), FileContents);
-			FileContents.Add(0);
-			JsonString = ANSI_TO_TCHAR((char*)FileContents.GetData());
+
+#if !UE_BUILD_TEST
+			if (FParse::Param(FCommandLine::Get(), TEXT("localUTMCPS")))
+			{
+				FString Path = FPaths::GameContentDir() + TEXT("EpicInternal/MCP/UnrealTournmentMCPStorage.json");
+				FFileHelper::LoadFileToString(JsonString, *Path);
+			}
+#endif
+			if (JsonString.IsEmpty())
+			{
+				TArray<uint8> FileContents;
+				OnlineTitleFileInterface->GetFileContents(GetMCPStorageFilename(), FileContents);
+				FileContents.Add(0);
+				JsonString = ANSI_TO_TCHAR((char*)FileContents.GetData());
+			}
 		}
 
 		if (JsonString != TEXT(""))
@@ -3580,6 +3614,12 @@ void UUTLocalPlayer::OnReadTitleFileComplete(bool bWasSuccessful, const FString&
 				if ( GameEngine && GameEngine->GetChallengeManager().IsValid() )
 				{
 					GameEngine->GetChallengeManager()->UpdateChallengeFromMCP(MCPPulledData);
+
+					// Check to see if we have a new daily challenge.  And if we do, update the profile.
+					if (GameEngine->GetChallengeManager()->CheckDailyChallenge(CurrentProfileSettings))
+					{
+						SaveProfileSettings();
+					}
 				}
 			}
 		}

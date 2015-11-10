@@ -205,6 +205,9 @@ class UNREALTOURNAMENT_API UUTProfileSettings : public UObject
 	TArray<FUTChallengeResult> ChallengeResults;
 
 	UPROPERTY()
+	TArray<FName> UnlockedDailyChallenges;
+
+	UPROPERTY()
 	int32 TotalChallengeStars;
 
 	UPROPERTY()
