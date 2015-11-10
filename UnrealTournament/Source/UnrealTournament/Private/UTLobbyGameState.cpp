@@ -1072,17 +1072,31 @@ void AUTLobbyGameState::RequestInstanceJoin(AUTServerBeaconClient* Beacon, const
 	{
 		if (DestinationMatchInfo->SkillTest(Rank,false))
 		{
-			if (!bSpectator || DestinationMatchInfo->bSpectatable)
+			if (!DestinationMatchInfo->bPrivateMatch)
 			{
-				// Add checks for passworded and friends only matches..
-
-				if (DestinationMatchInfo->CurrentState == ELobbyMatchState::InProgress)
+				if (!bSpectator || DestinationMatchInfo->bSpectatable)
 				{
-					Beacon->ClientRequestInstanceResult(EInstanceJoinResult::JoinDirectly, DestinationMatchInfo->GameInstanceGUID);									
+					// Add checks for passworded and friends only matches..
+
+					if (DestinationMatchInfo->CurrentState == ELobbyMatchState::InProgress)
+					{
+						if (DestinationMatchInfo->bJoinAnytime)
+						{
+							Beacon->ClientRequestInstanceResult(EInstanceJoinResult::JoinDirectly, DestinationMatchInfo->GameInstanceGUID);									
+						}
+						else
+						{
+							Beacon->ClientRequestInstanceResult(EInstanceJoinResult::MatchLocked, TEXT(""));
+						}
+					}
+					else
+					{
+						Beacon->ClientRequestInstanceResult(EInstanceJoinResult::JoinViaLobby, DestinationMatchInfo->UniqueMatchID.ToString());									
+					}
 				}
 				else
 				{
-					Beacon->ClientRequestInstanceResult(EInstanceJoinResult::JoinViaLobby, DestinationMatchInfo->UniqueMatchID.ToString());									
+					Beacon->ClientRequestInstanceResult(EInstanceJoinResult::MatchLocked, TEXT(""));
 				}
 			}
 			else

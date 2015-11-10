@@ -881,20 +881,23 @@ TSharedRef<SWidget> SUMatchPanel::OnGetPopupContent(TSharedPtr<SUTPopOverAnchor>
 	}
 
 
-	VertBox->AddSlot()
-	.HAlign(HAlign_Center)
-	.Padding(5.0f,0.0f,5.0f,5.0)
-	[
-		SNew(SHorizontalBox)
-		+SHorizontalBox::Slot()
-		.FillWidth(1.0)
+	if ( TrackedMatch.IsValid() && TrackedMatch->MatchData.IsValid() )
+	{
+		VertBox->AddSlot()
+		.HAlign(HAlign_Center)
+		.Padding(5.0f,0.0f,5.0f,5.0)
 		[
-			SNew(STextBlock)
-			.Text(FText::FromString(TrackedMatch->MatchData->MatchData.MatchState.ToString()))
-			.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Tiny")
-			.AutoWrapText(true)
-		]
-	];
+			SNew(SHorizontalBox)
+			+SHorizontalBox::Slot()
+			.FillWidth(1.0)
+			[
+				SNew(STextBlock)
+				.Text(FText::FromString(TrackedMatch->MatchData->MatchData.MatchState.ToString()))
+				.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Tiny")
+				.AutoWrapText(true)
+			]
+		];
+	}
 
 
 	if (Scores.Num() == 2)
