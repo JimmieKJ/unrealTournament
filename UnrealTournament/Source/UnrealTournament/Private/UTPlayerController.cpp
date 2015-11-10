@@ -2195,7 +2195,7 @@ void AUTPlayerController::ClientReceiveXP_Implementation(FXPBreakdown GainedXP)
 {
 	UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(Player);
 	AUTGameMode* Game = GetWorld()->GetAuthGameMode<AUTGameMode>();
-	if (LP != NULL && ((LP->IsOnTrustedServer() && LP->IsLoggedIn()) || (Game && Game->bOfflineChallenge)))
+	if (LP != NULL && LP->IsEarningXP())
 	{
 		LP->AddOnlineXP(GainedXP.Total());
 		LP->SaveProfileSettings();

@@ -3778,3 +3778,13 @@ FUniqueNetIdRepl UUTLocalPlayer::GetGameAccountId() const
 		return FUniqueNetIdRepl();
 	}
 }
+
+bool UUTLocalPlayer::IsEarningXP() const
+{
+	if (IsOnTrustedServer() && IsLoggedIn())
+	{
+		return true;
+	}
+	AUTGameMode* Game = GetWorld()->GetAuthGameMode<AUTGameMode>();
+	return (Game && Game->bOfflineChallenge);
+}
