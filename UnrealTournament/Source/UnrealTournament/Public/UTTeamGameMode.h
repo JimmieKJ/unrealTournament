@@ -50,6 +50,10 @@ class UNREALTOURNAMENT_API AUTTeamGameMode : public AUTGameMode
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = TeamGame)
 	float TeamMomentumPct;
 
+	/** Addition scaling applied for friendly fire momentum on wall running character. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = TeamGame)
+		float WallRunMomentumPct;
+
 	/** if greater than 0 and any team leads by this many or more, the game ends */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = CTF)
 	int32 MercyScore;
