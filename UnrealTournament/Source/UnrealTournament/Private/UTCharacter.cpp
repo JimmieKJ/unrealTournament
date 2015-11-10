@@ -1277,6 +1277,11 @@ bool AUTCharacter::Died(AController* EventInstigator, const FDamageEvent& Damage
 			AUTRemoteRedeemer* Redeemer = Cast<AUTRemoteRedeemer>(DrivenVehicle);
 			if (Redeemer != nullptr)
 			{
+				AUTPlayerState* PS = Cast<AUTPlayerState>(Redeemer->PlayerState);
+				if (PS != NULL && PS->CarriedObject != NULL)
+				{
+					PS->CarriedObject->Drop(EventInstigator);
+				}
 				Redeemer->DriverLeave(true);
 			}
 
