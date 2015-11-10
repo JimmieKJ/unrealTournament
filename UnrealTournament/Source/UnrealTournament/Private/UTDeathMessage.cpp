@@ -120,7 +120,7 @@ void UUTDeathMessage::ClientReceive(const FClientReceiveData& ClientData) const
 	}
 
 	// Also receive the console message side of this if the user wants.
-	if (UTHUD->bDrawChatKillMsg)
+	if (UTHUD && UTHUD->bDrawChatKillMsg)
 	{
 		Super::ClientReceive(ClientData);
 	}

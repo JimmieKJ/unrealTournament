@@ -71,7 +71,13 @@ protected:
 	const FSlateBrush* GetStarImage() const;
 	const FSlateBrush* GetStarCompletedImage() const;
 
+	int32 ChallengeFilterIndex;
 
+	TArray<TSharedPtr<SUTButton>> ChallengeTabs;
+	virtual FReply TabChanged(int32 Index);
+
+	TSharedPtr<SVerticalBox> GoBox;
+	void BuildGoBox();
 };
 
 #endif

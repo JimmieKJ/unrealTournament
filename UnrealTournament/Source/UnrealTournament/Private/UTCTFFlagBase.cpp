@@ -12,12 +12,41 @@ AUTCTFFlagBase::AUTCTFFlagBase(const FObjectInitializer& ObjectInitializer)
 	Mesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	Mesh->SetStaticMesh(FlagBaseMesh.Object);
 	Mesh->AttachParent = RootComponent;
+
+	Capsule = ObjectInitializer.CreateDefaultSubobject<UCapsuleComponent>(this, TEXT("Capsule"));
+	// overlap Pawns, no other collision
+	Capsule->SetCollisionResponseToAllChannels(ECR_Ignore);
+	Capsule->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
+	Capsule->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+	Capsule->InitCapsuleSize(92.f, 134.0f);
+	Capsule->OnComponentBeginOverlap.AddDynamic(this, &AUTCTFFlagBase::OnOverlapBegin);
+	Capsule->RelativeLocation = FVector(0.0f, 0.0f, 134.0f);
+	Capsule->AttachParent = RootComponent;
 }
 
 void AUTCTFFlagBase::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & OutLifetimeProps) const
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME(AUTCTFFlagBase, MyFlag);
+}
+
+void AUTCTFFlagBase::OnOverlapBegin(AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+{
+	AUTCharacter* Character = Cast<AUTCharacter>(OtherActor);
+	if (Character != NULL)
+	{
+		AUTCTFFlag* CharFlag = Cast<AUTCTFFlag>(Character->GetCarriedObject());
+		if ( CharFlag != NULL && CharFlag != CarriedObject && CarriedObject->ObjectState == CarriedObjectState::Home && CharFlag->GetTeamNum() != GetTeamNum() &&
+			!GetWorld()->LineTraceTestByChannel(OtherActor->GetActorLocation(), Capsule->GetComponentLocation(), ECC_Pawn, FCollisionQueryParams(), WorldResponseParams) )
+		{
+			AUTGameState* GS = GetWorld()->GetGameState<AUTGameState>();
+			if (GS == NULL || (GS->IsMatchInProgress() && !GS->IsMatchAtHalftime()))
+			{
+				CharFlag->Score(FName(TEXT("FlagCapture")), CharFlag->HoldingPawn, CharFlag->Holder);
+				CharFlag->PlayCaptureEffect();
+			}
+		}
+	}
 }
 
 void AUTCTFFlagBase::CreateCarriedObject()

@@ -2,7 +2,7 @@
 #include "UnrealTournament.h"
 #include "UTChallengeManager.h"
 #include "UTBotCharacter.h"
-
+#include "UTProfileSettings.h"
 /*
 rename Kryss (too close to Cryss) - new Solace
 remove Lauren
@@ -197,9 +197,13 @@ UUTChallengeManager::UUTChallengeManager(const FObjectInitializer& ObjectInitial
 
 	RewardCaptions.Add(NAME_REWARD_HalloweenStars, NSLOCTEXT("ChallengeManage","HalloweenStarsCaption","You have earned {0} spooky stars!"));
 	RewardCaptions.Add(NAME_REWARD_GoldStars, NSLOCTEXT("ChallengeManage","GoldStarsCaption","You have earned {0} gold stars!"));
+	RewardCaptions.Add(NAME_REWARD_DailyStars, NSLOCTEXT("ChallengeManage", "DailyStarsCaption", "You have earned {0} daily stars!"));
 
 	RewardInfo.Add(NAME_REWARD_HalloweenStars, FUTRewardInfo(FLinearColor(0.98,0.76,0.23,1.0), NAME_REWARDSTYLE_SCARY, NAME_REWARDSTYLE_SCARY_COMPLETED));
 	RewardInfo.Add(NAME_REWARD_GoldStars, FUTRewardInfo(FLinearColor(0.9,0.9,0.0,1.0), NAME_REWARDSTYLE_STAR, NAME_REWARDSTYLE_STAR_COMPLETED));
+	RewardInfo.Add(NAME_REWARD_DailyStars, FUTRewardInfo(FLinearColor(0.9, 0.9, 0.0, 1.0), NAME_REWARDSTYLE_STAR, NAME_REWARDSTYLE_STAR_COMPLETED));
+
+	bNewDailyUnlocked = false;
 }
 
 UUTBotCharacter* UUTChallengeManager::ChooseBotCharacter(AUTGameMode* CurrentGame, uint8& TeamNum, int32 TotalStars) const
@@ -307,6 +311,71 @@ void UUTChallengeManager::UpdateChallengeFromMCP(const FMCPPulledData& MCPData)
 		RevisionNumber = MCPData.ChallengeRevisionNumber;
 		RewardTags.Empty();
 		RewardTags = MCPData.RewardTags;
+
+		// Look at the Daily Challenge and see if we need to unlock one.
+	}
+}
+
+bool UUTChallengeManager::CheckDailyChallenge(UUTProfileSettings* ProfileSettings)
+{
+
+	if (ProfileSettings == nullptr) return false;
+
+	FDateTime LastChallengeUpdate;
+	FName LastChallenge = NAME_None;
+
+	TArray<FName> DailyChallenges;
+
+	// First we need to find the last challenge added.
+	for (auto It = Challenges.CreateConstIterator(); It; ++It)
+	{
+		FName ChallengeTag = It.Key();
+		const FUTChallengeInfo Challenge = It.Value();
+
+		if (Challenge.bDailyChallenge)
+		{
+			DailyChallenges.Add(ChallengeTag);
+			// Look to see if this challenge is unlocked.
+			int32 Index = (ProfileSettings->UnlockedDailyChallenges.Num() > 0) ? ProfileSettings->UnlockedDailyChallenges.Find(ChallengeTag) : INDEX_NONE;
+			if (Index != INDEX_NONE)
+			{
+				for (int32 i = 0; i < ProfileSettings->ChallengeResults.Num(); i++)
+				{
+					if (ProfileSettings->ChallengeResults[i].Tag == ChallengeTag)
+					{
+						FDateTime LastUpdate = ProfileSettings->ChallengeResults[i].LastUpdate;
+						if (LastChallenge == NAME_None || LastUpdate > LastChallengeUpdate)
+						{
+							LastChallengeUpdate = LastUpdate;
+							LastChallenge = ChallengeTag;
+						}
+						break;
+					}
+				}
+			}
+		}
+	}
+	if (LastChallenge != NAME_None)
+	{
+		int32 HoursSinceCompleted = (FDateTime::Now() - LastChallengeUpdate).GetHours();
+		if (HoursSinceCompleted >= 24)
+		{
+			int32 Index = DailyChallenges.Find(LastChallenge);
+			if (Index != INDEX_NONE && Index < DailyChallenges.Num()-2)
+			{
+				ProfileSettings->UnlockedDailyChallenges.Add(DailyChallenges[Index+1]);
+				bNewDailyUnlocked = true;
+				return true;
+			}
+		}
+	}
+	else if (ProfileSettings->UnlockedDailyChallenges.Num() == 0 && DailyChallenges.Num() > 0)
+	{
+		ProfileSettings->UnlockedDailyChallenges.Add(DailyChallenges[0]);
+		bNewDailyUnlocked = true;
+		return true;
 	}
 
+
+	return false;
 }

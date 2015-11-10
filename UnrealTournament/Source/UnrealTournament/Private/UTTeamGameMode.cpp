@@ -36,6 +36,7 @@ AUTTeamGameMode::AUTTeamGameMode(const FObjectInitializer& ObjectInitializer)
 	TeamNames.Add(NSLOCTEXT("UTTeamGameMode", "Team3Name", "Gold"));
 
 	TeamMomentumPct = 0.75f;
+	WallRunMomentumPct = 0.5f;
 	bTeamGame = true;
 	bHasBroadcastDominating = false;
 	bAnnounceTeam = true;
@@ -439,6 +440,11 @@ bool AUTTeamGameMode::ModifyDamage_Implementation(int32& Damage, FVector& Moment
 	{
 		Damage *= TeamDamagePct;
 		Momentum *= TeamMomentumPct;
+		AUTCharacter* InjuredChar = Cast<AUTCharacter>(Injured);
+		if (InjuredChar && InjuredChar->bApplyWallSlide)
+		{
+			Momentum *= WallRunMomentumPct;
+		}
 		AUTPlayerController* InstigatorPC = Cast<AUTPlayerController>(InstigatedBy);
 		if (InstigatorPC && Cast<AUTPlayerState>(Injured->PlayerState))
 		{

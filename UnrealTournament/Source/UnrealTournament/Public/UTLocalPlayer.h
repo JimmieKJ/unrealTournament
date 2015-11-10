@@ -680,6 +680,8 @@ public:
 		return GetWorld()->GetNetMode() == NM_Client && IsLoggedIn() && CurrentSessionTrustLevel == 0;
 	}
 
+	bool IsEarningXP() const;
+
 	virtual void AttemptJoinInstance(TSharedPtr<FServerData> ServerData, FString InstanceId, bool bSpectate);
 	virtual void CloseJoinInstanceDialog();
 
@@ -711,6 +713,8 @@ public:
 
 	// Marks a challenge as completed.
 	void ChallengeCompleted(FName ChallengeTag, int32 Stars);
+
+	bool IsDailyChallengeUnlocked(FName ChallengeTag);
 
 	void SkullPickedUp();
 

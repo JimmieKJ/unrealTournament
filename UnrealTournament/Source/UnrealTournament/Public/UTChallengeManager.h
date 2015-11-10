@@ -84,11 +84,14 @@ static const FName NAME_Guardian(TEXT("Guardian"));
 
 static const FName NAME_REWARD_GoldStars(TEXT("REWARD_GoldStars"));
 static const FName NAME_REWARD_HalloweenStars(TEXT("REWARD_HalloweenStars"));
+static const FName NAME_REWARD_DailyStars(TEXT("REWARD_DailyStars"));
 
 static const FName NAME_REWARDSTYLE_STAR(TEXT("UT.Star.Outline"));
 static const FName NAME_REWARDSTYLE_STAR_COMPLETED(TEXT("UT.Star"));
 static const FName NAME_REWARDSTYLE_SCARY(TEXT("UT.ScaryStar"));
 static const FName NAME_REWARDSTYLE_SCARY_COMPLETED(TEXT("UT.ScaryStar.Completed"));
+
+class UUTProfileSettings;
 
 UCLASS()
 class UNREALTOURNAMENT_API UUTChallengeManager : public UObject
@@ -113,7 +116,7 @@ class UNREALTOURNAMENT_API UUTChallengeManager : public UObject
 
 	/** XP bonus per star earned on a challenge. */
 	UPROPERTY()
-		float XPBonus;
+	float XPBonus;
 
 	// Holds a list of possible reward tags in sorted order.  In this case however, higher in this list means display first in 
 	// the menu.  This is because we want the original challenge to be at the bottom of the list and since they lack RewardTags they
@@ -144,4 +147,6 @@ class UNREALTOURNAMENT_API UUTChallengeManager : public UObject
 		return NULL;
 	}
 
+	bool bNewDailyUnlocked;
+	bool CheckDailyChallenge(UUTProfileSettings* ProfileSettings);
 };

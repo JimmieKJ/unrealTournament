@@ -1028,6 +1028,12 @@ struct FUTChallengeInfo
 	UPROPERTY()
 	FName RewardTag;
 
+	UPROPERTY()
+	bool bDailyChallenge;
+
+	UPROPERTY()
+	bool bExpiredChallenge;
+
 	FUTChallengeInfo()
 		: Title(TEXT(""))
 		, Map(TEXT(""))
@@ -1042,6 +1048,8 @@ struct FUTChallengeInfo
 		EnemyTeamName[0] = NAME_None;
 		EnemyTeamName[1] = NAME_None;
 		EnemyTeamName[2] = NAME_None;
+		bExpiredChallenge = false;
+		bDailyChallenge = false;
 	}
 
 	FUTChallengeInfo(FString inTitle, FString inMap, FString inGameURL, FString inDescription, int32 inPlayerTeamSize, int32 inEnemyTeamSize, FName EasyEnemyTeam, FName MediumEnemyTeam, FName HardEnemyTeam, FName inSlateUIImageName, FName inRewardTag)
@@ -1057,6 +1065,8 @@ struct FUTChallengeInfo
 		EnemyTeamName[0] = EasyEnemyTeam;
 		EnemyTeamName[1] = MediumEnemyTeam;
 		EnemyTeamName[2] = HardEnemyTeam;
+		bExpiredChallenge = false;
+		bDailyChallenge = false;
 	}
 };
 

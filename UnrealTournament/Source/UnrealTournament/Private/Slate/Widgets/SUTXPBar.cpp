@@ -265,8 +265,7 @@ float SUTXPBar::GetXP() const
 {
 	if (PlayerOwner.IsValid())
 	{
-		AUTGameMode* Game = PlayerOwner->GetWorld()->GetAuthGameMode<AUTGameMode>();
-		if ((PlayerOwner->IsOnTrustedServer() && PlayerOwner->IsLoggedIn()) || (Game && Game->bOfflineChallenge))
+		if (PlayerOwner->IsEarningXP())
 		{
 			return PlayerOwner->GetOnlineXP();
 		}
@@ -331,8 +330,7 @@ void SUTXPBar::OnLevelUp(int32 NewLevel)
 			}
 
 			//show the toast
-			AUTGameMode* Game = PlayerOwner->GetWorld()->GetAuthGameMode<AUTGameMode>();
-			if (UTPC->LevelRewards.IsValidIndex(NewLevel) && UTPC->LevelRewards[NewLevel] != nullptr && ((PlayerOwner->IsOnTrustedServer() && PlayerOwner->IsLoggedIn()) || (Game && Game->bOfflineChallenge)))
+			if (UTPC->LevelRewards.IsValidIndex(NewLevel) && UTPC->LevelRewards[NewLevel] != nullptr && PlayerOwner->IsEarningXP())
 			{
 				PlayerOwner->ShowToast(FText::Format(NSLOCTEXT("UT", "ItemReward", "You earned {0} for reaching level {1}!"), UTPC->LevelRewards[NewLevel]->DisplayName, FText::AsNumber(NewLevel)));
 				UTPC->LevelRewards[NewLevel] = nullptr;

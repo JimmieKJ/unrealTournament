@@ -383,9 +383,10 @@ void AUTLobbyMatchInfo::ServerStartMatch_Implementation()
 			CurrentRuleset->MinPlayersToStart = 1;
 		}
 #endif
-		if (Players.Num() < CurrentRuleset->MinPlayersToStart)
+		if (Players.Num() < CurrentRuleset->MinPlayersToStart && LobbyGameState->GameInstances.Num() > 0 )
 		{
-			if (!bJoinAnytime || (BotSkillLevel < 0 && LobbyGameState->GameInstances.Num() > 1))
+			AUTLobbyGameMode* LobbyGameMode = GetWorld()->GetAuthGameMode<AUTLobbyGameMode>();
+			if (LobbyGameMode == nullptr || !LobbyGameMode->bAllowInstancesToStartWithBots || BotSkillLevel < 0)
 			{
 				GetOwnerPlayerState()->ClientMatchError(NSLOCTEXT("LobbyMessage", "NotEnoughPlayers","There are not enough players in the match to start."));
 				return;

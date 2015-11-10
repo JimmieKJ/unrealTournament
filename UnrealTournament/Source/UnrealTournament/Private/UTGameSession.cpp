@@ -541,7 +541,8 @@ void AUTGameSession::InitHostBeacon(FOnlineSessionSettings* SessionSettings)
 			}
 			else
 			{
-				UE_LOG(UT,Fatal,TEXT("Could not bind to expected beacon port.  Restarting server!!! [%i vs %i]"),BeaconHostListener->GetListenPort(), DesiredPort);
+				UE_LOG(UT,Warning,TEXT("Could not bind to expected beacon port.  Restarting server!!! [%i vs %i]"),BeaconHostListener->GetListenPort(), DesiredPort);
+				FPlatformMisc::RequestExit(true);
 			}
 		}
 
