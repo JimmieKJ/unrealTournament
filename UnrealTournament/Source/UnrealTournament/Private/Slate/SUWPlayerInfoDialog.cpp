@@ -266,7 +266,7 @@ void SUWPlayerInfoDialog::RecreatePlayerPreview()
 			PlayerPreviewMesh->SetEyewearVariant(TargetPlayerState->EyewearVariant);
 
 			PlayerPreviewMesh->GetMesh()->MeshComponentUpdateFlag = EMeshComponentUpdateFlag::AlwaysTickPoseAndRefreshBones;
-			if (TargetPlayerState->IsFemale())
+			if (TargetPlayerState.IsValid() && TargetPlayerState->IsFemale())
 			{
 				if (PlayerPreviewAnimFemaleBlueprint)
 				{
