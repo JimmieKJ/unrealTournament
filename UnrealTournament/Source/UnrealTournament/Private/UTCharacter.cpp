@@ -133,7 +133,7 @@ AUTCharacter::AUTCharacter(const class FObjectInitializer& ObjectInitializer)
 
 	SprintAmbientStartSpeed = 1000.f;
 	FallingAmbientStartSpeed = -1300.f;
-	LandEffectSpeed = 1000.f;
+	LandEffectSpeed = 500.f;
 
 	PrimaryActorTick.bStartWithTickEnabled = true;
 
@@ -2976,28 +2976,34 @@ void AUTCharacter::PlayFootstep(uint8 FootNum)
 	{
 		return;
 	}
+	UParticleSystem* FootStepEffect = NULL;
+	float MaxParticleDist = 1500.f;
 	if (FeetAreInWater())
 	{
 		UUTGameplayStatics::UTPlaySound(GetWorld(), WaterFootstepSound, this, SRT_IfSourceNotReplicated);
-		if (GetMesh() && (GetWorld()->GetTimeSeconds() - GetMesh()->LastRenderTime < 0.05f)
-			&& (GetCachedScalabilityCVars().DetailMode != 0))
-		{
-			AUTWorldSettings* WS = Cast<AUTWorldSettings>(GetWorld()->GetWorldSettings());
-			if (WS->EffectIsRelevant(this, GetActorLocation(), true, true, 5000.f, 0.f, false))
-			{
-				FVector EffectLocation = GetActorLocation();
-				EffectLocation.Z = EffectLocation.Z + 4.f - GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
-				UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), WaterFootstepEffect, EffectLocation, GetActorRotation(), true);
-			}
-		}
+		FootStepEffect = WaterFootstepEffect;
+		MaxParticleDist = 5000.f;
 	}
 	else if (GetLocalViewer())
 	{
 		UUTGameplayStatics::UTPlaySound(GetWorld(), OwnFootstepSound, this, SRT_IfSourceNotReplicated);
+		FootStepEffect = GetLocalViewer()->bCurrentlyBehindView && (GetVelocity().Size() > 500.f) ? GroundFootstepEffect : NULL;
 	}
 	else
 	{
 		UUTGameplayStatics::UTPlaySound(GetWorld(), FootstepSound, this, SRT_IfSourceNotReplicated);
+		FootStepEffect = (GetVelocity().Size() > 500.f) ? GroundFootstepEffect : NULL;
+	}
+	if (FootStepEffect && GetMesh() && (GetWorld()->GetTimeSeconds() - GetMesh()->LastRenderTime < 0.05f)
+		&& (GetCachedScalabilityCVars().DetailMode != 0))
+	{
+		AUTWorldSettings* WS = Cast<AUTWorldSettings>(GetWorld()->GetWorldSettings());
+		if (WS->EffectIsRelevant(this, GetActorLocation(), true, true, MaxParticleDist, 0.f, false))
+		{
+			FVector EffectLocation = GetActorLocation();
+			EffectLocation.Z = EffectLocation.Z + 4.f - GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
+			UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), FootStepEffect, EffectLocation, GetActorRotation(), true);
+		}
 	}
 	LastFoot = FootNum;
 	LastFootstepTime = GetWorld()->TimeSeconds;
@@ -3167,11 +3173,12 @@ void AUTCharacter::Landed(const FHitResult& Hit)
 		else
 		{
 			UUTGameplayStatics::UTPlaySound(GetWorld(), CharacterData.GetDefaultObject()->LandingSound, this, SRT_None);
-			if ((LandEffect != NULL) && (FMath::Abs(GetCharacterMovement()->Velocity.Z) > LandEffectSpeed))
+			UParticleSystem* EffectToPlay = (FMath::Abs(GetCharacterMovement()->Velocity.Z) > LandEffectSpeed) ? LandEffect : NULL;
+			if (EffectToPlay != nullptr)
 			{
 				FRotator EffectRot = Hit.Normal.Rotation();
 				EffectRot.Pitch -= 90.f;
-				UParticleSystemComponent* LandedPSC = UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), LandEffect, GetActorLocation() - FVector(0.f, 0.f, GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight()), EffectRot, true);
+				UParticleSystemComponent* LandedPSC = UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), EffectToPlay, GetActorLocation() - FVector(0.f, 0.f, GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight() - 4.f), EffectRot, true);
 				float EffectScale = FMath::Clamp(FMath::Square(GetCharacterMovement()->Velocity.Z)/(2.f*LandEffectSpeed*LandEffectSpeed), 0.5f, 1.f);
 				LandedPSC->SetRelativeScale3D(FVector(EffectScale, EffectScale, 1.f));
 			}
