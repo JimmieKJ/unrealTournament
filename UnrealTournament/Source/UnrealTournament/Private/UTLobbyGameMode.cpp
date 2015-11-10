@@ -29,7 +29,7 @@ AUTLobbyGameMode::AUTLobbyGameMode(const class FObjectInitializer& ObjectInitial
 	GameMessageClass = UUTGameMessage::StaticClass();
 
 	MaxPlayersInLobby=200;
-
+	bAllowInstancesToStartWithBots=false;
 	DisplayName = NSLOCTEXT("UTLobbyGameMode", "HUB", "HUB");
 }
 
