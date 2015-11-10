@@ -2995,7 +2995,7 @@ void AUTCharacter::PlayFootstep(uint8 FootNum)
 		FootStepEffect = (GetVelocity().Size() > 500.f) ? GroundFootstepEffect : NULL;
 	}
 	if (FootStepEffect && GetMesh() && (GetWorld()->GetTimeSeconds() - GetMesh()->LastRenderTime < 0.05f)
-		&& (GetCachedScalabilityCVars().DetailMode != 0))
+		&& (GetLocalViewer() || (GetCachedScalabilityCVars().DetailMode != 0)))
 	{
 		AUTWorldSettings* WS = Cast<AUTWorldSettings>(GetWorld()->GetWorldSettings());
 		if (WS->EffectIsRelevant(this, GetActorLocation(), true, true, MaxParticleDist, 0.f, false))
