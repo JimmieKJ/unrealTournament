@@ -920,7 +920,7 @@ void AUTPlayerState::SetCharacter(const FString& CharacterPath)
 		SelectedCharacter = (CharacterPath.Len() > 0) ? LoadClass<AUTCharacterContent>(NULL, *CharacterPath, NULL, GetCosmeticLoadFlags(), NULL) : NULL;
 // redirect from blueprint, for easier testing in the editor via C/P
 #if WITH_EDITORONLY_DATA
-		if (SelectedCharacter == NULL)
+		if (SelectedCharacter == NULL && CharacterPath.Len() > 0)
 		{
 			UBlueprint* BP = LoadObject<UBlueprint>(NULL, *CharacterPath, NULL, GetCosmeticLoadFlags(), NULL);
 			if (BP != NULL)
