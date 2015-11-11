@@ -677,7 +677,7 @@ public:
 
 	bool IsOnTrustedServer() const
 	{
-		return GetWorld()->GetNetMode() == NM_Client && IsLoggedIn() && CurrentSessionTrustLevel == 0;
+		return GetWorld()->GetNetMode() == NM_Client && IsLoggedIn() && CurrentSessionTrustLevel <= 1;
 	}
 
 	bool IsEarningXP() const;
