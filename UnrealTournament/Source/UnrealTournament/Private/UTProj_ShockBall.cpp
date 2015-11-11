@@ -51,6 +51,24 @@ float AUTProj_ShockBall::TakeDamage(float Damage, const FDamageEvent& DamageEven
 			AUTPlayerController* UTPC = Cast<AUTPlayerController>(EventInstigator);
 			if (UTPC)
 			{
+				// verify that the beam that hit this was real
+				if ((EventInstigator == InstigatorController) && UTPC->PlayerState)
+				{
+					float ImpliedSpawnTime = CreationTime - 0.001f * (UTPC->PlayerState->ExactPing + UTPC->PredictionFudgeFactor);
+					AUTWeapon* FiringWeapon = Cast <AUTWeapon>(DamageCauser);
+					float FireInterval = FiringWeapon ? FiringWeapon->GetRefireTime(1) : 0.6f;
+					if (GetWorld()->GetTimeSeconds() - ImpliedSpawnTime < FireInterval - 0.1f)
+					{
+						// no combo - this shockball was spawned on the server de-synched from client firing beam
+						Destroy();
+						// let weapon fire again, so this hit doesn't block shot
+						if (FiringWeapon)
+						{
+							FiringWeapon->FireInstantHit();
+						}
+						return Damage;
+					}
+				}
 				UTPC->ServerNotifyProjectileHit(this, GetActorLocation(), DamageCauser, GetWorld()->GetTimeSeconds());
 			}
 		}
