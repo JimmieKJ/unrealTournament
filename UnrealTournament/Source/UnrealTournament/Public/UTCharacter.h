@@ -1082,6 +1082,10 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Effects")
 	TArray< TSubclassOf<class AUTReplicatedEmitter> > TeleportEffect;
 
+	/** particle component for normal ground footstep */
+	UPROPERTY(EditAnywhere, Category = "Effects")
+		UParticleSystem* GroundFootstepEffect;
+
 	/** particle component for water footstep */
 	UPROPERTY(EditAnywhere, Category = "Effects")
 		UParticleSystem* WaterFootstepEffect;

@@ -57,7 +57,7 @@ void AUTPickupHealth::GiveTo_Implementation(APawn* Target)
 
 			//Send the pickup message to the spectators
 			AUTGameMode* UTGameMode = GetWorld()->GetAuthGameMode<AUTGameMode>();
-			if (UTGameMode != nullptr)
+			if ((UTGameMode != nullptr) && (HealAmount > 50))
 			{
 				UTGameMode->BroadcastSpectatorPickup(PS, StatsNameCount, GetClass());
 			}

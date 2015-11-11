@@ -723,9 +723,11 @@ class UnrealTournamentBuildProcess : GUBP.GUBPNodeAdder
 					ConfidentialFilter.Include(String.Format(".../{0}/...", PossiblePlatform.ToString()));
 				}
 			}
-			ConfidentialFilter.Exclude("Engine/Binaries/DotNET/AutomationScripts/NoRedist/UnrealTournament.Automation.dll");
+            ConfidentialFilter.Exclude("Engine/Binaries/DotNET/AutomationScripts/NoRedist/UnrealTournament.Automation.dll");
             ConfidentialFilter.Exclude(".../NotForLicensees/UE4Editor-OnlineSubsystemMcp.dylib");
             ConfidentialFilter.Exclude(".../NotForLicensees/UE4Editor-XMPP.dylib");
+            ConfidentialFilter.Exclude(".../NotForLicensees/UE4Editor-OnlineSubsystemMcp.dll");
+            ConfidentialFilter.Exclude(".../NotForLicensees/UE4Editor-XMPP.dll");
 
 			RequiredFiles.RemoveWhere(x => ConfidentialFilter.Matches(x));
 		}
