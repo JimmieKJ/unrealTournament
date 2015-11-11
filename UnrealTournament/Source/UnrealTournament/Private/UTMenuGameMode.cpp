@@ -14,8 +14,7 @@ AUTMenuGameMode::AUTMenuGameMode(const class FObjectInitializer& ObjectInitializ
 	PlayerStateClass = AUTPlayerState::StaticClass();
 	PlayerControllerClass = AUTPlayerController::StaticClass();
 
-	static ConstructorHelpers::FObjectFinder<USoundBase> DefaultMusicRef[] = { TEXT("/Game/RestrictedAssets/Audio/Music/Music_UTMenu_Classic.Music_UTMenu_Classic"), TEXT("/Game/RestrictedAssets/Audio/Music/Music_FragCenterIntro.Music_FragCenterIntro"),
-		TEXT("/Game/RestrictedAssets/Audio/Music/Music_HaveAnUnrealHalloween.Music_HaveAnUnrealHalloween") };
+	static ConstructorHelpers::FObjectFinder<USoundBase> DefaultMusicRef[] = { TEXT("/Game/RestrictedAssets/Audio/Music/Music_UTMenu_Classic.Music_UTMenu_Classic"), TEXT("/Game/RestrictedAssets/Audio/Music/Music_FragCenterIntro.Music_FragCenterIntro") };
 
 	for (int32 i = 0; i < ARRAY_COUNT(DefaultMusicRef); i++)
 	{
@@ -40,12 +39,10 @@ void AUTMenuGameMode::PostInitializeComponents()
 	WorldSettings = Cast<AUTWorldSettings>(GetWorld()->GetWorldSettings());
 	if (WorldSettings)
 	{
-		FString MenuMusicPath = ((FDateTime().Now().GetMonth() == 10) || ((FDateTime().Now().GetMonth() == 11) && (FDateTime().Now().GetDay() == 1)))
-			? TEXT("SoundWave'/Game/RestrictedAssets/Audio/Music/Music_HaveAnUnrealHalloween.Music_HaveAnUnrealHalloween'") 
-			: MenuMusicAssetName;
+		FString MenuMusicPath = MenuMusicAssetName;
 		// We use a second var to make sure we never write this value back out
 		
-		if ( MenuMusicPath != TEXT("") )
+		if ( MenuMusicAssetName != TEXT("") )
 		{
 
 			MenuMusic = LoadObject<USoundBase>(NULL, *MenuMusicPath, NULL, LOAD_NoWarn | LOAD_Quiet);
