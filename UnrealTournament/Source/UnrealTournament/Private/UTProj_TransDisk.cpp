@@ -34,6 +34,11 @@ void AUTProj_TransDisk::BeginFakeProjectileSynch(AUTProjectile* InFakeProjectile
 	InFakeProjectile->Destroy();
 }
 
+bool AUTProj_TransDisk::CanMatchFake(AUTProjectile* InFakeProjectile, const FVector& VelDir) const
+{
+	return true;
+}
+
 void AUTProj_TransDisk::InitFakeProjectile(AUTPlayerController* OwningPlayer)
 {
 	Super::InitFakeProjectile(OwningPlayer);

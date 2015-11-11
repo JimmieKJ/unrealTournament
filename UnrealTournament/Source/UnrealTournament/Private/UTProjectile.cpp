@@ -268,7 +268,7 @@ void AUTProjectile::BeginPlay()
 				else if (Fake->GetClass() == GetClass())
 				{
 					// must share direction unless falling! 
-					if ((ProjectileMovement->ProjectileGravityScale > 0.f) || ((Fake->GetVelocity().GetSafeNormal() | VelDir) > 0.95f))
+					if (CanMatchFake(Fake, VelDir))
 					{
 						if (BestMatch)
 						{
@@ -314,6 +314,11 @@ void AUTProjectile::BeginPlay()
 			UE_LOG(UT, Warning, TEXT("%s spawned with no local player found!"), *GetName());
 		}
 	}
+}
+
+bool AUTProjectile::CanMatchFake(AUTProjectile* InFakeProjectile, const FVector& VelDir) const
+{
+	return (ProjectileMovement->ProjectileGravityScale > 0.f) || ((InFakeProjectile->GetVelocity().GetSafeNormal() | VelDir) > 0.95f);
 }
 
 void AUTProjectile::CatchupTick(float CatchupTickDelta)
