@@ -585,6 +585,20 @@ void AUTPlayerState::OnRepHat()
 	}
 }
 
+void AUTPlayerState::OnRepHatLeader()
+{
+	AUTCharacter* UTChar = GetUTCharacter();
+	if (UTChar != nullptr)
+	{
+		if (UTChar->LeaderHat && LeaderHatClass != UTChar->LeaderHat->GetClass())
+		{
+			UTChar->LeaderHat->Destroy();
+			UTChar->LeaderHat = nullptr;
+			UTChar->HasHighScoreChanged();
+		}
+	}
+}
+
 void AUTPlayerState::OnRepHatVariant()
 {
 	AUTCharacter* UTChar = GetUTCharacter();
@@ -799,6 +813,7 @@ void AUTPlayerState::CopyProperties(APlayerState* PlayerState)
 		PS->Deaths = Deaths;
 		PS->Assists = Assists;
 		PS->HatClass = HatClass;
+		PS->LeaderHatClass = LeaderHatClass;
 		PS->EyewearClass = EyewearClass;
 		PS->HatVariant = HatVariant;
 		PS->EyewearVariant = EyewearVariant;

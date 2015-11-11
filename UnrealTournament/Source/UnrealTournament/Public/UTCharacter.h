@@ -1099,7 +1099,7 @@ public:
 
 	/** plays a footstep effect; called via animation when anims are active (in vis range and not server), otherwise on interval via Tick() */
 	UFUNCTION(BlueprintCallable, Category = Effects)
-	virtual void PlayFootstep(uint8 FootNum);
+	virtual void PlayFootstep(uint8 FootNum, bool bFirstPerson = false);
 
 	/** play jumping sound/effects; should be called on server and owning client */
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = Effects)

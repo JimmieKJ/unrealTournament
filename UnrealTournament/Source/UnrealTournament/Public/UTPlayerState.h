@@ -409,9 +409,12 @@ public:
 	UFUNCTION()
 	virtual void OnRepHat();
 
-	UPROPERTY(replicated)
+	UPROPERTY(replicatedUsing = OnRepHatLeader)
 	TSubclassOf<AUTHatLeader> LeaderHatClass;
-	
+
+	UFUNCTION()
+	virtual void OnRepHatLeader();
+
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerReceiveHatClass(const FString& NewHatClass);
 

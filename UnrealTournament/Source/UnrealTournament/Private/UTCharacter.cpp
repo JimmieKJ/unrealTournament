@@ -699,7 +699,7 @@ FVector AUTCharacter::GetWeaponBobOffset(float DeltaTime, AUTWeapon* MyWeapon)
 		if (GetCharacterMovement()->MovementMode == MOVE_Walking && Speed > 10.0f && !bIsCrouched && (FMath::FloorToInt(0.5f + 8.f*BobTime / PI) != FMath::FloorToInt(0.5f + 8.f*LastBobTime / PI))
 			&& (GetMesh()->MeshComponentUpdateFlag >= EMeshComponentUpdateFlag::OnlyTickPoseWhenRendered) && !GetMesh()->bRecentlyRendered)
 		{
-			PlayFootstep((LastFoot + 1) & 1);
+			PlayFootstep((LastFoot + 1) & 1, true);
 		}
 	}
 	float JumpYInterp = ((DesiredJumpBob.Y == 0.f) || (DesiredJumpBob.Z == 0.f)) ? FMath::Min(1.f, WeaponJumpBobInterpRate*DeltaTime) : FMath::Min(1.f, WeaponHorizontalBobInterpRate*FMath::Abs(DesiredJumpBob.Y)*DeltaTime);
@@ -2975,12 +2975,21 @@ APlayerCameraManager* AUTCharacter::GetPlayerCameraManager()
 	return PC != NULL ? PC->PlayerCameraManager : NULL;
 }
 
-void AUTCharacter::PlayFootstep(uint8 FootNum)
+void AUTCharacter::PlayFootstep(uint8 FootNum, bool bFirstPerson)
 {
 	if ((GetWorld()->TimeSeconds - LastFootstepTime < 0.1f) || bFeigningDeath || IsDead())
 	{
 		return;
 	}
+
+	// Filter out the case where a local player is in a map with reflections so the third person mesh is rendered along with first person view bob
+	// causing double footstep sounds to play. Just play the first person ones.
+	AUTPlayerController* UTPC = Cast<AUTPlayerController>(Controller);
+	if (UTPC && IsLocallyControlled() && !bFirstPerson && !UTPC->IsBehindView())
+	{
+		return;
+	}
+
 	UParticleSystem* FootStepEffect = NULL;
 	float MaxParticleDist = 1500.f;
 	if (FeetAreInWater())
@@ -3688,7 +3697,7 @@ void AUTCharacter::Tick(float DeltaTime)
 		float Speed = GetCharacterMovement()->Velocity.Size();
 		if (Speed > 0.0f && GetWorld()->TimeSeconds - LastFootstepTime > 0.35f * GetCharacterMovement()->MaxWalkSpeed / Speed)
 		{
-			PlayFootstep((LastFoot + 1) & 1);
+			PlayFootstep((LastFoot + 1) & 1, true);
 		}
 	}
 
@@ -4281,6 +4290,14 @@ void AUTCharacter::NotifyTeamChanged()
 		{
 			WeaponAttachment->NotifyTeamChanged();
 		}
+
+		// Refresh leader hat
+		if (LeaderHat)
+		{
+			LeaderHat->Destroy();
+			LeaderHat = nullptr;
+		}
+		HasHighScoreChanged();
 	}
 }
 
