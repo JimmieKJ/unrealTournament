@@ -106,9 +106,9 @@ void UUTGhostComponent::GhostStartPlaying()
 		OldCompressedFlags = 0;
 		NextMoveTime = 0.0f;
 		
-		//Spawn the GhostControler
+		//Spawn the GhostController
 		FActorSpawnParameters SpawnInfo;
-		SpawnInfo.Owner = UTOwner;
+		SpawnInfo.Owner = nullptr;
 		SpawnInfo.bNoCollisionFail = true;
 		SpawnInfo.ObjectFlags |= RF_Transient;	// We never want to save AI controllers into a map
 		AController* NewController = GetWorld()->SpawnActor<AController>(AUTGhostController::StaticClass(), UTOwner->GetActorLocation(), UTOwner->GetActorRotation(), SpawnInfo);
