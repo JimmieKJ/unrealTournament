@@ -382,7 +382,7 @@ void UUTChallengeManager::GetChallenges(TArray<const FUTChallengeInfo*>& outChal
 			continue;
 		}
 
-		if (Challenge->bExpiredChallenge && (Filter != EChallengeFilterType::Expired || Filter != EChallengeFilterType::All))
+		if (Challenge->bExpiredChallenge && (Filter != EChallengeFilterType::Expired && Filter != EChallengeFilterType::All))
 		{
 			continue;
 		}
@@ -403,8 +403,8 @@ void UUTChallengeManager::GetChallenges(TArray<const FUTChallengeInfo*>& outChal
 				if (ProfileSettings)
 				{
 					// If this challenge has a result, reject it.
-					const FUTChallengeResult* Result = ProfileSettings->ChallengeResults.FindByPredicate([ChallengeTag](const FUTChallengeResult& Result) {return Result.Tag == ChallengeTag;});
-					if (Result != nullptr)
+					const FUTChallengeResult* ChallengeResult = ProfileSettings->ChallengeResults.FindByPredicate([ChallengeTag](const FUTChallengeResult& Result) {return Result.Tag == ChallengeTag;});
+					if (ChallengeResult != nullptr)
 					{
 						continue;
 					}
@@ -415,8 +415,8 @@ void UUTChallengeManager::GetChallenges(TArray<const FUTChallengeInfo*>& outChal
 				if (ProfileSettings)
 				{
 					// If this challenge has a result, reject it.
-					const FUTChallengeResult* Result = ProfileSettings->ChallengeResults.FindByPredicate([ChallengeTag](const FUTChallengeResult& Result) { return Result.Tag == ChallengeTag; });
-					if (Result == nullptr)
+					const FUTChallengeResult* ChallengeResult = ProfileSettings->ChallengeResults.FindByPredicate([ChallengeTag](const FUTChallengeResult& Result) { return Result.Tag == ChallengeTag; });
+					if (ChallengeResult == nullptr)
 					{
 						continue;
 					}
