@@ -66,9 +66,6 @@ void AUTCTFGameMode::InitGame(const FString& MapName, const FString& Options, FS
 	// HalftimeDuration is in seconds and used in seconds,
 	HalftimeDuration = FMath::Max(0, GetIntOption(Options, TEXT("HalftimeDuration"), HalftimeDuration));
 
-	// AdvantageDuration is in seconds 
-	AdvantageDuration = FMath::Max(0, GetIntOption(Options, TEXT("AdvantageDuration"), AdvantageDuration));
-
 	if (TimeLimit > 0)
 	{
 		TimeLimit = uint32(float(TimeLimit) * 0.5);
@@ -401,6 +398,7 @@ void AUTCTFGameMode::EndOfHalf()
 		{
 			if (bAllowOvertime)
 			{
+				CTFGameState->bPlayingAdvantage = false;
 				SetMatchState(MatchState::MatchIsInOvertime);
 			}
 			else
