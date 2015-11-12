@@ -31,10 +31,6 @@ class UNREALTOURNAMENT_API AUTShowdownGameState : public AUTGameState
 	UPROPERTY(BlueprintReadOnly, ReplicatedUsing = OnRep_XRayVision)
 	bool bActivateXRayVision;
 
-	/** required distance between chosen spawn points */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Replicated)
-	float MinSpawnDistance;
-
 	bool IsAllowedSpawnPoint_Implementation(AUTPlayerState* Chooser, APlayerStart* DesiredStart) const override;
 
 	UFUNCTION()

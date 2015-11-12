@@ -2,11 +2,11 @@
 #include "UnrealTournament.h"
 #include "UTShowdownGameState.h"
 #include "UnrealNetwork.h"
+#include "UTPlayerStart.h"
 
 AUTShowdownGameState::AUTShowdownGameState(const FObjectInitializer& OI)
 : Super(OI)
 {
-	MinSpawnDistance = 2000.0f;
 }
 
 void AUTShowdownGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -24,7 +24,7 @@ void AUTShowdownGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>&
 
 bool AUTShowdownGameState::IsAllowedSpawnPoint_Implementation(AUTPlayerState* Chooser, APlayerStart* DesiredStart) const
 {
-	if (DesiredStart == NULL || SpawnSelector != Chooser || Chooser == NULL)
+	if (DesiredStart == NULL || SpawnSelector != Chooser || Chooser == NULL || (Cast<AUTPlayerStart>(DesiredStart) != NULL && ((AUTPlayerStart*)DesiredStart)->bIgnoreInShowdown))
 	{
 		return false;
 	}
@@ -37,7 +37,7 @@ bool AUTShowdownGameState::IsAllowedSpawnPoint_Implementation(AUTPlayerState* Ch
 				AUTPlayerState* UTPS = Cast<AUTPlayerState>(PS);
 				if (UTPS != NULL && UTPS->RespawnChoiceA != NULL)
 				{
-					if (UTPS->RespawnChoiceA == DesiredStart || (UTPS->Team != Chooser->Team && (DesiredStart->GetActorLocation() - UTPS->RespawnChoiceA->GetActorLocation()).Size() < MinSpawnDistance))
+					if (UTPS->RespawnChoiceA == DesiredStart)
 					{
 						return false;
 					}
