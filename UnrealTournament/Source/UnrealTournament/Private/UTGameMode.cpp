@@ -1955,7 +1955,7 @@ void AUTGameMode::TravelToNextMap_Implementation()
 	}
 	UE_LOG(UT,Log,TEXT("TravelToNextMap: %i %i"),bDedicatedInstance,IsGameInstanceServer());
 
-	if (!IsGameInstanceServer() && !bDisableMapVote && GetWorld()->GetNetMode() != NM_Standalone)
+	if ((!IsGameInstanceServer() || bDedicatedInstance) && !bDisableMapVote && GetWorld()->GetNetMode() != NM_Standalone)
 	{
 		// gather maps for map vote
 		TArray<FString> MapPrefixList;
