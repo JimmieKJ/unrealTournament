@@ -3315,16 +3315,6 @@ void UUTLocalPlayer::CloseJoinInstanceDialog()
 
 }
 
-bool UUTLocalPlayer::IsDailyChallengeUnlocked(FName ChallengeTag)
-{
-	int32 Index = INDEX_NONE;
-	if (CurrentProfileSettings)
-	{
-		Index = CurrentProfileSettings->UnlockedDailyChallenges.Find(ChallengeTag);
-	}
-
-	return Index != INDEX_NONE;
-}
 
 int32 UUTLocalPlayer::GetTotalChallengeStars()
 {

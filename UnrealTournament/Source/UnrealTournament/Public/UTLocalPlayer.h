@@ -714,8 +714,6 @@ public:
 	// Marks a challenge as completed.
 	void ChallengeCompleted(FName ChallengeTag, int32 Stars);
 
-	bool IsDailyChallengeUnlocked(FName ChallengeTag);
-
 	void SkullPickedUp();
 
 	void AwardAchievement(FName AchievementName);
