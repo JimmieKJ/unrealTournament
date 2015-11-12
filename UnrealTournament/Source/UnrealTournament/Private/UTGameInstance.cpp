@@ -131,6 +131,7 @@ void UUTGameInstance::HandleGameNetControlMessage(class UNetConnection* Connecti
 	{
 		case UNMT_Redirect:
 		{
+			UE_LOG(UT, Verbose, TEXT("Received redirect request: %s"), *MessageStr);
 			TArray<FString> Pieces;
 			MessageStr.ParseIntoArray(Pieces, TEXT("\n"), false);
 			if (Pieces.Num() == 3)
