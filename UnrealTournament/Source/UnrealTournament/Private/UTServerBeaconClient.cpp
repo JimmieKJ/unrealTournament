@@ -40,14 +40,16 @@ void AUTServerBeaconClient::ServerPing_Implementation()
 {
 	UE_LOG(LogBeacon, Verbose, TEXT("<--- PONG"));
 	// Respond to the client
-	ClientPong();
+
+	ClientPong(GEngine->GetMaxTickRate(0.0f, false));
 }
 
-void AUTServerBeaconClient::ClientPong_Implementation()
+void AUTServerBeaconClient::ClientPong_Implementation(int32 inServerTickRate)
 {
 	Ping = (GetWorld()->RealTimeSeconds - PingStartTime) * 1000.0f;
+	ServerTickRate = inServerTickRate;
 
-	UE_LOG(LogBeacon, Verbose, TEXT("---> Requesting Info %f"), Ping);
+	UE_LOG(LogBeacon, Verbose, TEXT("---> Requesting Info %f [%i]"), Ping, ServerTickRate);
 
 	// Ask for additional server info
 	ServerRequestInfo();
