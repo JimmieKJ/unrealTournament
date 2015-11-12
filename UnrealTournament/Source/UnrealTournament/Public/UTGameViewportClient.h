@@ -123,5 +123,13 @@ public:
 	virtual void RemoveContentDownloadCompleteDelegate(FDelegateHandle DelegateHandle);
 
 	virtual bool HideCursorDuringCapture() override;
+
+	// Will be called when a client connects to a server.
+	void ClientConnectedToServer();
+
+protected:
+	TMap<FString, FString> SavedPasswords;
+	FString LastPasswordAttemptHost;
+
 };
 

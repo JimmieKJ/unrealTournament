@@ -1360,7 +1360,7 @@ void SUWServerBrowser::PingServer(TSharedPtr<FServerData> ServerToPing)
 {
 	// Build the beacon
 	AUTServerBeaconClient* Beacon = PlayerOwner->GetWorld()->SpawnActor<AUTServerBeaconClient>(AUTServerBeaconClient::StaticClass());
-	if (Beacon)
+	if (Beacon && !ServerToPing->BeaconIP.IsEmpty())
 	{
 		Beacon->OnServerRequestResults = FServerRequestResultsDelegate::CreateSP(this, &SUWServerBrowser::OnServerBeaconResult );
 		Beacon->OnServerRequestFailure = FServerRequestFailureDelegate::CreateSP(this, &SUWServerBrowser::OnServerBeaconFailure);

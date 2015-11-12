@@ -48,6 +48,20 @@ void AUTBasePlayerController::InitInputSystem()
 	{
 		LP->ReadProfileItems();
 	}
+
+	// Let the viewport client know we have connected to a server.
+	if (GetWorld()->GetNetMode() == ENetMode::NM_Client)
+	{
+		ULocalPlayer* LP = Cast<ULocalPlayer>(Player);
+		if (LP && LP->ViewportClient)
+		{
+			UUTGameViewportClient* VC = Cast<UUTGameViewportClient>(LP->ViewportClient);
+			if (VC)
+			{
+				VC->ClientConnectedToServer();
+			}
+		}
+	}
 }
 
 void AUTBasePlayerController::SetupInputComponent()
