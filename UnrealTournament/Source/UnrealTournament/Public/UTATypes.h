@@ -1106,8 +1106,8 @@ struct FUTChallengeInfo
 		, EnemyTeamSize(inInfo.EnemyTeamSize)
 		, SlateUIImageName(inInfo.SlateUIImageName)
 		, RewardTag(inInfo.RewardTag)
-		, bExpiredChallenge(inInfo.bExpiredChallenge)
 		, bDailyChallenge(inInfo.bDailyChallenge)
+		, bExpiredChallenge(inInfo.bExpiredChallenge)
 	{
 		EnemyTeamName[0] = inInfo.EnemyTeamName[0];
 		EnemyTeamName[1] = inInfo.EnemyTeamName[1];

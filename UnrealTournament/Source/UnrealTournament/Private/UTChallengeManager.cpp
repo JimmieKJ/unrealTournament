@@ -353,20 +353,20 @@ void UUTChallengeManager::GetChallenges(TArray<const FUTChallengeInfo*>& outChal
 
 		// Quickly reject daily challenges that haven't been unlocked yet.
 
-		FUTDailyChallengeUnlock* Unlock = nullptr;
+		FUTDailyChallengeUnlock* UnlockFound = nullptr;
 		if (Challenge->bDailyChallenge)
 		{
 			if (ProfileSettings)
 			{
 				// Look to see if this challenge is unlocked.  
-				Unlock = ProfileSettings->UnlockedDailyChallenges.FindByPredicate([ChallengeTag](const FUTDailyChallengeUnlock& Unlock) 
+				UnlockFound = ProfileSettings->UnlockedDailyChallenges.FindByPredicate([ChallengeTag](const FUTDailyChallengeUnlock& Unlock) 
 				{
 					return Unlock.Tag == ChallengeTag;
 				});
 			}
 
 			// If we didn't find it, it hasn't been unlocked yet so just reject it
-			if (Unlock == nullptr)
+			if (UnlockFound == nullptr)
 			{
 				// If we are filtering for locked daily challenges, return it here.
 				if (Filter == EChallengeFilterType::DailyLocked)
@@ -394,7 +394,7 @@ void UUTChallengeManager::GetChallenges(TArray<const FUTChallengeInfo*>& outChal
 				if (Challenge->bDailyChallenge)
 				{
 					// Look to see if the unlock time has expired
-					if ( (FDateTime::Now() - Unlock->UnlockTime).GetHours() >= DAILY_STALE_TIME_HOURS)
+					if (UnlockFound && (FDateTime::Now() - UnlockFound->UnlockTime).GetHours() >= DAILY_STALE_TIME_HOURS)
 					{
 						continue;
 					}
@@ -428,7 +428,7 @@ void UUTChallengeManager::GetChallenges(TArray<const FUTChallengeInfo*>& outChal
 				if (Challenge->bDailyChallenge)
 				{
 					// Look to see if the unlock time has expired
-					if ((FDateTime::Now() - Unlock->UnlockTime).GetHours() < DAILY_STALE_TIME_HOURS && !Challenge->bExpiredChallenge)
+					if (UnlockFound && (FDateTime::Now() - UnlockFound->UnlockTime).GetHours() < DAILY_STALE_TIME_HOURS && !Challenge->bExpiredChallenge)
 					{
 						continue;
 					}
@@ -440,7 +440,7 @@ void UUTChallengeManager::GetChallenges(TArray<const FUTChallengeInfo*>& outChal
 			}
 			else if (Filter == EChallengeFilterType::DailyUnlocked)
 			{
-				if (!Challenge->bDailyChallenge || (FDateTime::Now() - Unlock->UnlockTime).GetHours() >= DAILY_STALE_TIME_HOURS)
+				if (!Challenge->bDailyChallenge || (UnlockFound && (FDateTime::Now() - UnlockFound->UnlockTime).GetHours() >= DAILY_STALE_TIME_HOURS))
 				{
 					continue;
 				}
@@ -482,14 +482,14 @@ int32 UUTChallengeManager::TimeUntilExpiration(FName DailyChallengeName, UUTProf
 		const FUTChallengeInfo Challenge = Challenges[DailyChallengeName];
 		if (Challenge.bDailyChallenge)
 		{
-			FUTDailyChallengeUnlock* Unlock = ProfileSettings->UnlockedDailyChallenges.FindByPredicate([DailyChallengeName](const FUTDailyChallengeUnlock& Unlock)
+			FUTDailyChallengeUnlock* UnlockFound = ProfileSettings->UnlockedDailyChallenges.FindByPredicate([DailyChallengeName](const FUTDailyChallengeUnlock& Unlock)
 			{
 				return Unlock.Tag == DailyChallengeName;
 			});
 
-			if (Unlock != nullptr)
+			if (UnlockFound != nullptr)
 			{
-				return DAILY_STALE_TIME_HOURS - (FDateTime::Now() - Unlock->UnlockTime).GetHours();
+				return DAILY_STALE_TIME_HOURS - (FDateTime::Now() - UnlockFound->UnlockTime).GetHours();
 			}
 		}
 	}
