@@ -1236,7 +1236,7 @@ void AUTGameMode::NotifyKilled(AController* Killer, AController* Killed, APawn* 
 		if (It->IsValid())
 		{
 			AUTBot* B = Cast<AUTBot>(It->Get());
-			if (B != NULL)
+			if (B != NULL && !B->bPendingKillPending)
 			{
 				B->UTNotifyKilled(Killer, Killed, KilledPawn, DamageType.GetDefaultObject());
 			}

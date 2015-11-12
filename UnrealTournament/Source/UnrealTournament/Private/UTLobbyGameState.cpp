@@ -321,7 +321,7 @@ void AUTLobbyGameState::JoinMatch(AUTLobbyMatchInfo* MatchInfo, AUTLobbyPlayerSt
 	{
 		if (!MatchInfo->bJoinAnytime)
 		{
-			NewPlayer->ClientMatchError(NSLOCTEXT("LobbyMessage", "MatchIsNotJoinable", "The match you are trying to join is does not allow join in progress."));
+			NewPlayer->ClientMatchError(NSLOCTEXT("LobbyMessage", "MatchIsNotJoinable", "The match you are trying to join does not allow join in progress."));
 			return;
 		}
 		AUTLobbyGameMode* GM = GetWorld()->GetAuthGameMode<AUTLobbyGameMode>();
@@ -1080,7 +1080,7 @@ void AUTLobbyGameState::RequestInstanceJoin(AUTServerBeaconClient* Beacon, const
 
 					if (DestinationMatchInfo->CurrentState == ELobbyMatchState::InProgress)
 					{
-						if (DestinationMatchInfo->bJoinAnytime)
+						if (DestinationMatchInfo->bJoinAnytime || bSpectator)
 						{
 							Beacon->ClientRequestInstanceResult(EInstanceJoinResult::JoinDirectly, DestinationMatchInfo->GameInstanceGUID);									
 						}

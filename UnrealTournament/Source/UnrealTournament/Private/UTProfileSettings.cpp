@@ -77,6 +77,13 @@ void UUTProfileSettings::VersionFixup()
 	{
 		new(CustomBinds) FCustomKeyBinding(EKeys::Pause.GetFName(), IE_Pressed, TEXT("Pause"));
 	}
+
+	// The format has changed during Dev versions.  So in case some people have written out unlocks, clear them here.
+	if (SettingsRevisionNum <= CHALLENGE_FIXUP_VERSION)
+	{
+		UnlockedDailyChallenges.Empty();
+	}
+
 }
 
 void UUTProfileSettings::SetWeaponPriority(FString WeaponClassName, float NewPriority)

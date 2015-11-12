@@ -677,7 +677,7 @@ public:
 
 	bool IsOnTrustedServer() const
 	{
-		return GetWorld()->GetNetMode() == NM_Client && IsLoggedIn() && CurrentSessionTrustLevel == 0;
+		return GetWorld()->GetNetMode() == NM_Client && IsLoggedIn() && CurrentSessionTrustLevel <= 1;
 	}
 
 	bool IsEarningXP() const;
@@ -713,8 +713,6 @@ public:
 
 	// Marks a challenge as completed.
 	void ChallengeCompleted(FName ChallengeTag, int32 Stars);
-
-	bool IsDailyChallengeUnlocked(FName ChallengeTag);
 
 	void SkullPickedUp();
 

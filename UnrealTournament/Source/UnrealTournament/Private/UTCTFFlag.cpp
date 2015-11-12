@@ -205,7 +205,7 @@ void AUTCTFFlag::DelayedDropMessage()
 
 void AUTCTFFlag::PlayReturnedEffects()
 {
-	if (GetNetMode() != NM_DedicatedServer)
+	if (GetNetMode() != NM_DedicatedServer && ReturningMesh == NULL) // don't play a second set if first is still playing (guards against redundant calls to SendHome(), etc)
 	{
 		if (ReturnParamCurve != NULL)
 		{

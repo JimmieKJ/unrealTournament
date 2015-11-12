@@ -219,6 +219,7 @@ void AUTBaseGameMode::GameWelcomePlayer(UNetConnection* Connection, FString& Red
 	for (const FPackageRedirectReference& Redirect : AllRedirects)
 	{
 		FString RedirectInfo = FString::Printf(TEXT("%s\n%s\n%s"), *Redirect.PackageName, *Redirect.ToString(), *Redirect.PackageChecksum);
+		UE_LOG(UT, Verbose, TEXT("Send redirect: %s"), *RedirectInfo);
 		FNetControlMessage<NMT_GameSpecific>::Send(Connection, MessageType, RedirectInfo);
 	}
 

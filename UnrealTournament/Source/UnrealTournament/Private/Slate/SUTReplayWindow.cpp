@@ -1242,23 +1242,23 @@ void SUTReplayWindow::BookmarkDataReady(const TArray<uint8>& Data, bool bSucceed
 				{
 					Parsed[0].ReplaceInline(TEXT("%20"), TEXT(" "));
 
-					if (Parsed[1] == TEXT("0"))
+					if (Parsed[1] == TEXT("1"))
 					{
 						StringData = TEXT("Killing Spree: ") + Parsed[0];
 					}
-					else if (Parsed[1] == TEXT("1"))
+					else if (Parsed[1] == TEXT("2"))
 					{
 						StringData = TEXT("Rampage: ") + Parsed[0];
 					}
-					else if (Parsed[1] == TEXT("2"))
+					else if (Parsed[1] == TEXT("3"))
 					{
 						StringData = TEXT("Dominating: ") + Parsed[0];
 					}
-					else if (Parsed[1] == TEXT("3"))
+					else if (Parsed[1] == TEXT("4"))
 					{
 						StringData = TEXT("Unstoppable: ") + Parsed[0];
 					}
-					else if (Parsed[1] == TEXT("3"))
+					else if (Parsed[1] == TEXT("5"))
 					{
 						StringData = TEXT("Godlike: ") + Parsed[0];
 					}

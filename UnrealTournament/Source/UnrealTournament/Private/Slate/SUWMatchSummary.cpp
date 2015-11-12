@@ -578,7 +578,9 @@ void SUWMatchSummary::BuildInfoPanel()
 						FFormatNamedArguments Args;
 						Args.Add(TEXT("NumStars"), FText::AsNumber(Game->ChallengeDifficulty+1));
 						Args.Add(TEXT("RosterChange"), GetPlayerOwner()->RosterUpgradeText);
-						ChallengeResult = FText::Format(NSLOCTEXT("AUTGameMode", "Won Challenge", "Offline Challenge:  <UT.MatchSummary.HighlightText.Value>{NumStars}</> stars earned. {RosterChange}"), Args);
+						ChallengeResult = GetPlayerOwner()->RosterUpgradeText.IsEmpty()
+											? FText::Format(NSLOCTEXT("AUTGameMode", "Won Challenge", "Offline Challenge: <UT.MatchSummary.HighlightText.Value>{NumStars}</> stars earned."), Args)
+											: FText::Format(NSLOCTEXT("AUTGameMode", "Won Challenge", "<UT.MatchSummary.HighlightText.Value>{NumStars}</> stars earned. {RosterChange}"), Args);
 					}
 
 					VBox->AddSlot()

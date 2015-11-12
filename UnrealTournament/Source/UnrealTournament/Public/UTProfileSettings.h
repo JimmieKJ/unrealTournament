@@ -17,7 +17,8 @@ static const uint32 SPECTATING_FIXUP_PROFILESETTINGS_VERSION = 8;
 static const uint32 SLIDEFROMRUN_FIXUP_PROFILESETTINGS_VERSION = 8;
 static const uint32 HEARTAUNTS_FIXUP_PROFILESETTINGS_VERSION = 10;
 static const uint32 PAUSEKEY_FIXUP_PROFILESETTINGS_VERSION = 11;
-static const uint32 CURRENT_PROFILESETTINGS_VERSION = 12;
+static const uint32 CURRENT_PROFILESETTINGS_VERSION = 13;
+static const uint32 CHALLENGE_FIXUP_VERSION = 12;
 
 namespace AchievementIDs
 {
@@ -205,7 +206,7 @@ class UNREALTOURNAMENT_API UUTProfileSettings : public UObject
 	TArray<FUTChallengeResult> ChallengeResults;
 
 	UPROPERTY()
-	TArray<FName> UnlockedDailyChallenges;
+	TArray<FUTDailyChallengeUnlock> UnlockedDailyChallenges;
 
 	UPROPERTY()
 	int32 TotalChallengeStars;

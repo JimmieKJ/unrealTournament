@@ -102,6 +102,7 @@ class UNREALTOURNAMENT_API AUTProj_TransDisk : public AUTProjectile, public IUTM
 	virtual bool IsAcceptableTranslocationTo(const FVector& DesiredDest);
 
 	virtual void OnBounce(const struct FHitResult& ImpactResult, const FVector& ImpactVelocity) override;
+	virtual bool CanMatchFake(AUTProjectile* InFakeProjectile, const FVector& VelDir) const override;
 
 protected:
 	/** utility to trigger bot translocation and reset translocation related data */

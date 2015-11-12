@@ -212,6 +212,9 @@ class UNREALTOURNAMENT_API AUTProjectile : public AActor, public IUTResetInterfa
 	UPROPERTY()
 	bool bHasSpawnedFully;
 
+	/** Return true if InFakeProjectile is a possible match for this projectile. */
+	virtual bool CanMatchFake(AUTProjectile* InFakeProjectile, const FVector& VelDir) const;
+
 	/** Perform any custom initialization for this projectile as fake client side projectile */
 	virtual void InitFakeProjectile(class AUTPlayerController* OwningPlayer);
 

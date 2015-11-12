@@ -906,6 +906,46 @@ namespace EInstanceJoinResult
 	};
 }
 
+UENUM()
+namespace EChallengeFilterType
+{
+	enum Type
+	{
+		Active,
+		Completed,
+		Expired,
+		All,
+		DailyUnlocked,
+		DailyLocked,
+		MAX,
+	};
+}
+
+
+USTRUCT()
+struct FUTDailyChallengeUnlock
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY()
+	FName Tag;
+
+	UPROPERTY()
+	FDateTime UnlockTime;
+
+	FUTDailyChallengeUnlock()
+		: Tag(NAME_None)
+	{
+	}
+
+	FUTDailyChallengeUnlock(FName inTag)
+		: Tag(inTag)
+		, UnlockTime(FDateTime::Now())
+	{
+	}
+};
+
+
 USTRUCT()
 struct FUTChallengeResult
 {
@@ -1001,6 +1041,10 @@ struct FUTChallengeInfo
 {
 	GENERATED_USTRUCT_BODY()
 
+	// NOTE: The tag will be fixed up at load time and shouldn't be included in the MCP data as it will be overwritten
+	UPROPERTY()
+	FName Tag;
+
 	UPROPERTY()
 	FString Title;
 
@@ -1052,8 +1096,27 @@ struct FUTChallengeInfo
 		bDailyChallenge = false;
 	}
 
-	FUTChallengeInfo(FString inTitle, FString inMap, FString inGameURL, FString inDescription, int32 inPlayerTeamSize, int32 inEnemyTeamSize, FName EasyEnemyTeam, FName MediumEnemyTeam, FName HardEnemyTeam, FName inSlateUIImageName, FName inRewardTag)
-		: Title(inTitle)
+	FUTChallengeInfo(FName inTag, const FUTChallengeInfo& inInfo)
+		: Tag(inTag)
+		, Title(inInfo.Title)
+		, Map(inInfo.Map)
+		, GameURL(inInfo.GameURL)
+		, Description(inInfo.Description)
+		, PlayerTeamSize(inInfo.PlayerTeamSize)
+		, EnemyTeamSize(inInfo.EnemyTeamSize)
+		, SlateUIImageName(inInfo.SlateUIImageName)
+		, RewardTag(inInfo.RewardTag)
+		, bDailyChallenge(inInfo.bDailyChallenge)
+		, bExpiredChallenge(inInfo.bExpiredChallenge)
+	{
+		EnemyTeamName[0] = inInfo.EnemyTeamName[0];
+		EnemyTeamName[1] = inInfo.EnemyTeamName[1];
+		EnemyTeamName[2] = inInfo.EnemyTeamName[2];
+	}
+
+	FUTChallengeInfo(FName inTag, FString inTitle, FString inMap, FString inGameURL, FString inDescription, int32 inPlayerTeamSize, int32 inEnemyTeamSize, FName EasyEnemyTeam, FName MediumEnemyTeam, FName HardEnemyTeam, FName inSlateUIImageName, FName inRewardTag)
+		: Tag(inTag)
+		, Title(inTitle)
 		, Map(inMap)
 		, GameURL(inGameURL)
 		, Description(inDescription)

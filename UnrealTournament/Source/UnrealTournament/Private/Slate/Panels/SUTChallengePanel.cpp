@@ -620,8 +620,6 @@ void SUTChallengePanel::GenerateChallengeList()
 	ChallengeBox->ClearChildren();
 	LastReward = NAME_REWARD_None;
 
-	FName BestChallenge = NAME_None;
-
 	for (int32 i=0; i < ChallengeManager->RewardTags.Num();i++)
 	{
 		if (RewardStars.Contains(ChallengeManager->RewardTags[i]))
@@ -637,88 +635,36 @@ void SUTChallengePanel::GenerateChallengeList()
 			if (PlayerOwner->ChallengeRevisionNumber < ChallengeManager->RevisionNumber)
 			{
 				PlayerOwner->ChallengeRevisionNumber = ChallengeManager->RevisionNumber;
-				//PlayerOwner->SaveConfig();
 			}
 		}
 
-		TArray<FName> Tags;
+		TArray<const FUTChallengeInfo*> Challenges;
+		ChallengeManager->GetChallenges(Challenges, ChallengeFilter, PlayerOwner->GetProfileSettings());
 
-		// Sort the challenges...
-		for (auto It = ChallengeManager->Challenges.CreateConstIterator(); It; ++It)
+		for (int32 i = 0 ; i < Challenges.Num(); i++)
 		{
-			const FUTChallengeInfo Challenge = It.Value();
-			FName ChallengeTag = It.Key();
-
-			int32 RewardPosition = ChallengeManager->RewardTags.Find(Challenge.RewardTag);
+			const FUTChallengeInfo* Challenge = Challenges[i];
+			int32 RewardPosition = ChallengeManager->RewardTags.Find(Challenge->RewardTag);
 
 			// Track it's overall star count....
 
-			int32 Stars = PlayerOwner->GetChallengeStars(ChallengeTag);
-			if (RewardStars.Contains(Challenge.RewardTag))
+			int32 Stars = PlayerOwner->GetChallengeStars(Challenge->Tag);
+			if (RewardStars.Contains(Challenge->RewardTag))
 			{
-				RewardStars[Challenge.RewardTag] = RewardStars[Challenge.RewardTag] + Stars;
+				RewardStars[Challenge->RewardTag] = RewardStars[Challenge->RewardTag] + Stars;
 			}
 			else
 			{
-				RewardStars.Add(Challenge.RewardTag, Stars);
+				RewardStars.Add(Challenge->RewardTag, Stars);
 			}
-
-			// Look to see if we should filter this one..
-
-			if (Challenge.bDailyChallenge && !PlayerOwner->IsDailyChallengeUnlocked(ChallengeTag))
-			{
-				continue;
-			}
-
-			if (ChallengeFilterIndex == 0)
-			{
-				// Look to see if this challenge has been started.
-				if ( !PlayerOwner->GetChallengeDate(ChallengeTag).Equals(TEXT("never"),ESearchCase::IgnoreCase) || Challenge.bExpiredChallenge)
-				{
-					continue;
-				}
-			}
-			else if (ChallengeFilterIndex == 1)
-			{
-				// Look to see if this challenge has been started.
-				if (PlayerOwner->GetChallengeDate(ChallengeTag).Equals(TEXT("never"), ESearchCase::IgnoreCase))
-				{
-					continue;
-				}
-			}
-
-			else if (ChallengeFilterIndex == 2)
-			{
-				if (!Challenge.bExpiredChallenge)
-				{
-					continue;
-				}
-			}
-
-			bool bAdded = false;
-			for (int32 i = 0; i < Tags.Num(); i++)
-			{
-				int32 ChallengeRewardPosition = ChallengeManager->RewardTags.Find(ChallengeManager->Challenges[Tags[i]].RewardTag);
-
-				if ( RewardPosition > ChallengeRewardPosition) 	
-				{
-					Tags.Insert(ChallengeTag, i);
-					bAdded = true;
-					break;
-				}
-			}
-
-			if (!bAdded) Tags.Add(ChallengeTag);
+			AddChallengeButton(Challenges[i]->Tag, *Challenges[i]);
 		}
 		
-		BestChallenge = Tags.Num() > 0 ? Tags[0] : NAME_None;
-		for (int32 i = 0; i < Tags.Num(); i++)
+		if (Challenges.Num() > 0)
 		{
-			AddChallengeButton(Tags[i], ChallengeManager->Challenges[Tags[i]]);
+			ChallengeClicked(Challenges[0]->Tag);
 		}
 	}
-
-	ChallengeClicked(BestChallenge);
 }
 
 void SUTChallengePanel::AddChallengeButton(FName ChallengeTag, const FUTChallengeInfo& Challenge)
@@ -903,6 +849,12 @@ FText SUTChallengePanel::GetCurrentScoreText() const
 
 FText SUTChallengePanel::GetCurrentChallengeData() const
 {
+	if (ChallengeManager->Challenges[SelectedChallenge].bDailyChallenge)
+	{
+		int32 HoursLeft = ChallengeManager->TimeUntilExpiration(SelectedChallenge, PlayerOwner->GetProfileSettings());
+		return FText::Format(NSLOCTEXT("SUTChallengePanel","DateForChallengeFormatDaily","Last Completed: {0}  --  Expires in {1} hours"), FText::FromString(PlayerOwner->GetChallengeDate(SelectedChallenge)), FText::AsNumber(HoursLeft));
+	}
+
 	return FText::Format(NSLOCTEXT("SUTChallengePanel","DateForChallengeFormat","Last Completed: {0}"), FText::FromString(PlayerOwner->GetChallengeDate(SelectedChallenge)));
 }
 
@@ -1086,7 +1038,13 @@ FSlateColor SUTChallengePanel::GetSelectMatchColor() const
 
 FReply SUTChallengePanel::TabChanged(int32 Index)
 {
-	ChallengeFilterIndex = Index;
+	switch (Index)
+	{
+		case 0 : ChallengeFilter = EChallengeFilterType::Active; break;
+		case 1 : ChallengeFilter = EChallengeFilterType::Completed; break;
+		case 2 : ChallengeFilter = EChallengeFilterType::Expired; break;
+		default: ChallengeFilter = EChallengeFilterType::All; break;
+	}
 
 	for (int32 i=0; i< ChallengeTabs.Num(); i++)
 	{
