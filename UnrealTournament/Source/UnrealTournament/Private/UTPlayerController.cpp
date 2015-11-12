@@ -559,8 +559,12 @@ bool AUTPlayerController::InputKey(FKey Key, EInputEvent EventType, float Amount
 				if (LocalPlayer)
 				{
 					LocalPlayer->GetSlateOperations().ReleaseMouseCapture().SetMousePos(SavedMouseCursorLocation.IntPoint());
-					bShowMouseCursor = (GetWorld()->GetTimeSeconds() - MouseButtonPressTime < 1.f);
-					MouseButtonPressCount--;
+					// Due to slate, sometimes we only get the release event
+					if (MouseButtonPressCount > 0)
+					{
+						bShowMouseCursor = (GetWorld()->GetTimeSeconds() - MouseButtonPressTime < 1.f);
+						MouseButtonPressCount--;
+					}
 				}
 			}
 		}
