@@ -1424,7 +1424,6 @@ FReply SUWMatchSummary::OnKeyUp(const FGeometry& MyGeometry, const FKeyEvent& In
 		{
 			if (InKeyEvent.GetKey().GetFName() == MenuKey.Key)
 			{
-				GetPlayerOwner()->CloseMatchSummary();
 				UTPC->execShowMenu();
 				return FReply::Handled();
 			}

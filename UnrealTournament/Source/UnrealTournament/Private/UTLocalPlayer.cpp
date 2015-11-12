@@ -347,7 +347,7 @@ void UUTLocalPlayer::ShowMenu(const FString& Parameters)
 		}
 		if (DesktopSlateWidget.IsValid())
 		{
-			GEngine->GameViewport->AddViewportWidgetContent( SNew(SWeakWidget).PossiblyNullContent(DesktopSlateWidget.ToSharedRef()));
+			GEngine->GameViewport->AddViewportWidgetContent( SNew(SWeakWidget).PossiblyNullContent(DesktopSlateWidget.ToSharedRef()),1);
 		}
 	}
 
@@ -2745,7 +2745,7 @@ void UUTLocalPlayer::OpenMatchSummary(AUTGameState* GameState)
 	UUTGameViewportClient* UTGVC = Cast<UUTGameViewportClient>(GEngine->GameViewport);
 	if (MatchSummaryWindow.IsValid() && UTGVC != nullptr)
 	{
-		UTGVC->AddViewportWidgetContent(MatchSummaryWindow.ToSharedRef(), -1);
+		UTGVC->AddViewportWidgetContent(MatchSummaryWindow.ToSharedRef(), 0);
 		FSlateApplication::Get().SetKeyboardFocus(MatchSummaryWindow.ToSharedRef(), EKeyboardFocusCause::Keyboard);
 	}
 #endif
@@ -2793,7 +2793,7 @@ void UUTLocalPlayer::OpenReplayWindow()
 			UUTGameViewportClient* UTGVC = Cast<UUTGameViewportClient>(GEngine->GameViewport);
 			if (ReplayWindow.IsValid() && UTGVC != nullptr)
 			{
-				UTGVC->AddViewportWidgetContent_NoAspect(ReplayWindow.ToSharedRef(), -1);
+				UTGVC->AddViewportWidgetContent_NoAspect(ReplayWindow.ToSharedRef(), 0);
 				ReplayWindow->SetVisibility(EVisibility::SelfHitTestInvisible);
 			}
 		}
@@ -3720,7 +3720,7 @@ void UUTLocalPlayer::OpenSpectatorWindow()
 
 		if (SpectatorWidget.IsValid())
 		{
-			GEngine->GameViewport->AddViewportWidgetContent( SNew(SWeakWidget).PossiblyNullContent(SpectatorWidget.ToSharedRef()),-1);
+			GEngine->GameViewport->AddViewportWidgetContent( SNew(SWeakWidget).PossiblyNullContent(SpectatorWidget.ToSharedRef()),0);
 		}
 	}
 #endif
