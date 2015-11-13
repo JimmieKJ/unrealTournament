@@ -568,6 +568,7 @@ void UUTCharacterMovement::TickComponent(float DeltaTime, enum ELevelTick TickTy
 	{
 		AdjustProxyCapsuleSize();
 		SimulatedTick(DeltaTime);
+		CharacterOwner->RecalculateBaseEyeHeight();
 	}
 	if (bEnablePhysicsInteraction && !bOwnerIsRagdoll)
 	{
