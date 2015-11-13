@@ -1429,7 +1429,16 @@ FReply SUWMatchSummary::OnKeyUp(const FGeometry& MyGeometry, const FKeyEvent& In
 		{
 			if (InKeyEvent.GetKey().GetFName() == MenuKey.Key)
 			{
-				UTPC->execShowMenu();
+
+				if (GetPlayerOwner()->GetCurrentMenu().IsValid())
+				{
+					GetPlayerOwner()->HideMenu();
+				}
+				else
+				{
+					GetPlayerOwner()->ShowMenu(TEXT(""));
+				}
+
 				return FReply::Handled();
 			}
 		}
