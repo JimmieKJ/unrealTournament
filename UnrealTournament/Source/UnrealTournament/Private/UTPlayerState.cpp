@@ -1793,6 +1793,15 @@ TSharedRef<SWidget> AUTPlayerState::BuildRankInfo()
 		.Padding(10.0f, 10.0f, 10.0f, 5.0f)
 		.AutoHeight()
 		[
+			SNew(STextBlock)
+			.Text(FText::AsNumber(AverageRank))
+			.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
+		];
+
+		VBox->AddSlot()
+		.Padding(10.0f, 10.0f, 10.0f, 5.0f)
+		.AutoHeight()
+		[
 			BuildRank(NSLOCTEXT("Generic", "RankPrompt", "Overall Rank :"), AverageRank)
 		];
 		VBox->AddSlot()
