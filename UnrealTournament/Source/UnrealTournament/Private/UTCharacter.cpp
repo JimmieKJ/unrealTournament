@@ -3023,6 +3023,12 @@ void AUTCharacter::PlayFootstep(uint8 FootNum, bool bFirstPerson)
 	LastFootstepTime = GetWorld()->TimeSeconds;
 }
 
+float AUTCharacter::GetEyeOffsetScaling() const
+{
+	float EyeOffsetGlobalScaling = Cast<AUTPlayerController>(GetController()) ? Cast<AUTPlayerController>(GetController())->EyeOffsetGlobalScaling : 1.f;
+	return FMath::Clamp(EyeOffsetGlobalScaling, 0.f, 1.f);
+}
+
 FVector AUTCharacter::GetTransformedEyeOffset() const
 {
 	FRotationMatrix ViewRotMatrix = FRotationMatrix(GetViewRotation());
@@ -3032,8 +3038,7 @@ FVector AUTCharacter::GetTransformedEyeOffset() const
 		float MaxZ = FMath::Max(0.f, GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight() - 12.f - EyeOffset.Z - BaseEyeHeight - CrouchEyeOffset.Z);
 		XTransform = XTransform * MaxZ / XTransform.Z;
 	}
-	float EyeOffsetGlobalScaling = Cast<AUTPlayerController>(GetController()) ? Cast<AUTPlayerController>(GetController())->EyeOffsetGlobalScaling : 1.f;
-	return FMath::Clamp(EyeOffsetGlobalScaling, 0.f, 1.f) * (XTransform + ViewRotMatrix.GetScaledAxis(EAxis::Y) * EyeOffset.Y + FVector(0.f, 0.f, EyeOffset.Z));
+	return GetEyeOffsetScaling() * (XTransform + ViewRotMatrix.GetScaledAxis(EAxis::Y) * EyeOffset.Y) + FVector(0.f, 0.f, EyeOffset.Z);
 }
 
 FVector AUTCharacter::GetPawnViewLocation() const
@@ -3060,7 +3065,7 @@ void AUTCharacter::CalcCamera(float DeltaTime, FMinimalViewInfo& OutResult)
 void AUTCharacter::PlayJump_Implementation(const FVector& JumpLocation, const FVector& JumpDir)
 {
 	DesiredJumpBob = WeaponJumpBob;
-	TargetEyeOffset.Z = EyeOffsetJumpBob;
+	TargetEyeOffset.Z = EyeOffsetJumpBob * GetEyeOffsetScaling();
 	UUTGameplayStatics::UTPlaySound(GetWorld(), CharacterData.GetDefaultObject()->JumpSound, this, SRT_IfSourceNotReplicated, false, JumpLocation);
 }
 
@@ -3154,7 +3159,7 @@ void AUTCharacter::Landed(const FHitResult& Hit)
 		}
 		if (GetCharacterMovement()->Velocity.Z <= EyeOffsetLandBobThreshold)
 		{
-			TargetEyeOffset.Z = EyeOffsetLandBob * FMath::Min(1.f, (-1.f*GetCharacterMovement()->Velocity.Z - (0.8f*EyeOffsetLandBobThreshold)) / FullEyeOffsetLandBobVelZ);
+			TargetEyeOffset.Z = EyeOffsetLandBob * FMath::Min(1.f, (-1.f*GetCharacterMovement()->Velocity.Z - (0.8f*EyeOffsetLandBobThreshold)) / FullEyeOffsetLandBobVelZ) * GetEyeOffsetScaling();
 		}
 
 		TakeFallingDamage(Hit, GetCharacterMovement()->Velocity.Z);

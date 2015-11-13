@@ -1533,6 +1533,9 @@ public:
 	/** Returns eyeoffset transformed into current view */
 	virtual FVector GetTransformedEyeOffset() const;
 
+	/** Returns amount of eyeoffset scaling for this character's view. */
+	virtual float GetEyeOffsetScaling() const;
+
 	virtual FVector GetPawnViewLocation() const override;
 
 	virtual void CalcCamera(float DeltaTime, FMinimalViewInfo& OutResult) override;
