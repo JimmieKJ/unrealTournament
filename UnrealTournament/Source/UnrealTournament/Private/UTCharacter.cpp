@@ -2266,6 +2266,14 @@ void AUTCharacter::AddAmmo(const FStoredAmmo& AmmoToAdd)
 	}
 }
 
+void AUTCharacter::RestoreAmmoPct(float Pct, bool bPctOfMax)
+{
+	for (TInventoryIterator<AUTWeapon> It(this); It; ++It)
+	{
+		It->AddAmmo(Pct * (bPctOfMax ? It->MaxAmmo : It->Ammo));
+	}
+}
+
 bool AUTCharacter::HasMaxAmmo(TSubclassOf<AUTWeapon> Type) const
 {
 	if (Type != NULL)
