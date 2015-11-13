@@ -417,6 +417,7 @@ void SUWMatchSummary::Construct(const FArguments& InArgs)
 	auto SSRQualityCVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.SSR.Quality"));
 	OldSSRQuality = SSRQualityCVar->GetInt();
 	SSRQualityCVar->Set(4, ECVF_SetByCode);
+	ChatPanel->FocusChat();
 }
 
 SUWMatchSummary::~SUWMatchSummary()
@@ -741,6 +742,9 @@ void SUWMatchSummary::Tick(const FGeometry& AllottedGeometry, const double InCur
 			{
 				ViewAll();
 			}
+
+			ChatPanel->FocusChat();
+
 		}
 	}
 	if (PlayerPreviewWorld != nullptr)
@@ -774,6 +778,7 @@ void SUWMatchSummary::Tick(const FGeometry& AllottedGeometry, const double InCur
 			[
 				SAssignNew(XPBar, SUTXPBar).PlayerOwner(PlayerOwner)
 			];
+			ChatPanel->FocusChat();
 		}
 	}
 }
@@ -1552,6 +1557,7 @@ void SUWMatchSummary::ViewTeam(int32 NewTeam)
 
 	bAutoScrollTeam = true;
 	BuildInfoPanel();
+	ChatPanel->FocusChat();
 }
 
 void SUWMatchSummary::ShowTeam(int32 TeamNum)
@@ -1925,6 +1931,7 @@ FReply SUWMatchSummary::OnSendFriendRequest()
 			FriendStatus = FFriendsStatus::FriendRequestPending;
 		}
 	}
+	ChatPanel->FocusChat();
 	return FReply::Handled();
 }
 
@@ -2020,6 +2027,7 @@ void SUWMatchSummary::BuildFriendPanel()
 			}
 		}
 	}
+	ChatPanel->FocusChat();
 }
 
 #endif

@@ -450,6 +450,9 @@ FReply SUInGameHomePanel::OnKeyDown(const FGeometry& MyGeometry, const FKeyEvent
 
 }
 
-
+void SUInGameHomePanel::FocusChat()
+{
+	FSlateApplication::Get().SetKeyboardFocus(ChatText, EKeyboardFocusCause::SetDirectly);
+}
 
 #endif
