@@ -451,7 +451,12 @@ void SUTextChatPanel::RouteBufferedChat()
 
 void SUTextChatPanel::SetChatText(const FString& NewText)
 {
-	if (ChatEditBox.IsValid()) ChatEditBox->SetText(FText::FromString(NewText));
+	if (ChatEditBox.IsValid())
+	{
+		ChatEditBox->ForceFocus(FCharacterEvent());
+		ChatEditBox->SetText(FText::FromString(NewText));
+		ChatEditBox->JumpToEnd();
+	}
 }
 
 void SUTextChatPanel::FocusChat(const FCharacterEvent& InCharacterEvent)

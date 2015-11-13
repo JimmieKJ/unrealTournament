@@ -90,7 +90,7 @@ class UNREALTOURNAMENT_API SUTEditableTextBox : public SEditableTextBox
 	void Construct(const FArguments& InArgs);
 
 	void ForceFocus(const FCharacterEvent& InCharacterEvent);
-
+	void JumpToEnd();
 protected:
 
 };
