@@ -92,12 +92,9 @@ class UNREALTOURNAMENT_API UUTSpreeMessage : public UUTLocalMessage
 	{
 		Super::ClientReceive(ClientData);
 		AUTPlayerController* PC = Cast<AUTPlayerController>(ClientData.LocalPC);
-		if (ClientData.RelatedPlayerState_1 != NULL && ClientData.LocalPC == ClientData.RelatedPlayerState_1->GetOwner())
+		if ( PC && PC->Announcer && IsLocalForAnnouncement(ClientData, true, false))
 		{
-			if (PC != NULL && PC->Announcer != NULL)
-			{
-				PC->Announcer->PlayAnnouncement(GetClass(), ClientData.MessageIndex, ClientData.RelatedPlayerState_1, ClientData.RelatedPlayerState_2, ClientData.OptionalObject);
-			}
+			PC->Announcer->PlayAnnouncement(GetClass(), ClientData.MessageIndex, ClientData.RelatedPlayerState_1, ClientData.RelatedPlayerState_2, ClientData.OptionalObject);
 		}
 		else if (PC != NULL)
 		{

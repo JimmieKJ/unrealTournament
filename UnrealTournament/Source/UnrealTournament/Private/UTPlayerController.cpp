@@ -149,7 +149,7 @@ void AUTPlayerController::SendPersonalMessage(TSubclassOf<ULocalMessage> Message
 		for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
 		{
 			APlayerController* PC = *Iterator;
-			if (PC && PC->PlayerState && PC->PlayerState->bOnlySpectator && (PC->GetViewTarget() == GetPawn()))
+			if (PC && PC->PlayerState && PC->PlayerState->bOnlySpectator && ((PC->GetViewTarget() == GetPawn()) || (Cast<AUTPlayerState>(PC->PlayerState) && ((AUTPlayerState *)(PC->PlayerState))->bIsDemoRecording)))
 			{
 				PC->ClientReceiveLocalizedMessage(Message, Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
 			}

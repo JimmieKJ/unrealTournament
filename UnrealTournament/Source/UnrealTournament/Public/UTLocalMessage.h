@@ -86,6 +86,9 @@ class UNREALTOURNAMENT_API UUTLocalMessage : public ULocalMessage
 		return false;
 	};
 
+	/** Return true if local player is viewing first or second playerstate. */
+	virtual bool IsLocalForAnnouncement(const FClientReceiveData& ClientData, bool bCheckFirstPS, bool bCheckSecondPS) const;
+
 	/** Return color of displayed message. */
 	UFUNCTION(BlueprintNativeEvent)
 	FLinearColor GetMessageColor(int32 MessageIndex) const;
