@@ -115,11 +115,10 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 		}
 	}
 
-	bool bUseClassicGroups = UTHUDOwner->UTPlayerOwner && UTHUDOwner->UTPlayerOwner->bUseClassicGroups;
 	int32 SelectedGroup = -1;
 	if (SelectedWeapon)
 	{
-		SelectedGroup = bUseClassicGroups ? SelectedWeapon->ClassicGroup : SelectedWeapon->Group;
+		SelectedGroup = SelectedWeapon->Group;
 		if (SelectedGroup != LastGroup || SelectedWeapon->GroupSlot != LastGroupSlot)
 		{
 			// Weapon has changed.. set everything up.
@@ -146,11 +145,6 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 
 		for (int32 GroupIdx = 0; GroupIdx < WeaponGroups.Num(); GroupIdx++)
 		{
-			if (WeaponGroups[GroupIdx].Group == 0)
-			{
-				// skip translocator on weapon bar
-				continue;
-			}
 			// We have now allied all of the animation and we know the biggest anim scale, so we can figure out how wide this group should be.
 			float Y2 = YPosition;
 			float TextXPosition = 0;
@@ -162,7 +156,7 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 				{
 					AUTWeapon* CurrentWeapon = WeaponGroups[GroupIdx].WeaponsInGroup[WeapIdx];
 					bool bSelected = CurrentWeapon == SelectedWeapon;
-					int32 CurrentGroup = bUseClassicGroups ? CurrentWeapon->ClassicGroup : CurrentWeapon->Group;
+					int32 CurrentGroup = CurrentWeapon->Group;
 
 					if (bSelected)
 					{
@@ -237,7 +231,7 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 					}
 				}
 
-				Opacity = bSelectedGroup ? 1.0 : InactiveIconOpacity;
+				Opacity = bSelectedGroup ? 1.f : InactiveIconOpacity;
 				if (UTHUDOwner && UTHUDOwner->UTPlayerOwner)
 				{
 					FString* GroupKey = UTHUDOwner->UTPlayerOwner->WeaponGroupKeys.Find(WeaponGroups[GroupIdx].Group);
@@ -257,8 +251,6 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 						GroupText.Text = (GroupKey->Len() == 1) ? FText::FromString(*GroupKey) : FText::FromString(TEXT(""));
 					}
 				}
-
-				RenderObj_TextAt(GroupText, TextXPosition + GroupText.Position.X, YPosition + ((Y2 - YPosition) * 0.5) + GroupText.Position.Y);
 			}
 			else
 			{
@@ -294,9 +286,8 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 
 				Opacity = UTHUDOwner->HUDWidgetWeaponBarEmptyOpacity * InactiveIconOpacity;
 				GroupText.Text = FText::AsNumber(WeaponGroups[GroupIdx].Group);
-				RenderObj_TextAt(GroupText, TextXPosition + GroupText.Position.X, YPosition + ((Y2 - YPosition) * 0.5) + GroupText.Position.Y);
 			}
-
+			RenderObj_TextAt(GroupText, TextXPosition + GroupText.Position.X, YPosition + ((Y2 - YPosition) * 0.5f) + GroupText.Position.Y);
 			YPosition -= 10;
 		}
 	}
@@ -329,8 +320,7 @@ int32 UUTHUDWidget_WeaponBar::CollectWeaponData(TArray<FWeaponGroup> &WeaponGrou
 	int32 NumWeapons = 0;
 	if (UTCharacterOwner)
 	{
-		bool bUseClassicGroups = UTHUDOwner->UTPlayerOwner && UTHUDOwner->UTPlayerOwner->bUseClassicGroups;
-		int32 ActualRequiredGroups = bUseClassicGroups ? 10 : RequiredGroups;
+		int32 ActualRequiredGroups = RequiredGroups;
 
 		// Parse over the character and see what weapons they have.
 		if (ActualRequiredGroups >= 0)
@@ -346,7 +336,7 @@ int32 UUTHUDWidget_WeaponBar::CollectWeaponData(TArray<FWeaponGroup> &WeaponGrou
 		{
 			NumWeapons++;
 			AUTWeapon* Weapon = *It;
-			int32 WeaponGroup = bUseClassicGroups ? Weapon->ClassicGroup : Weapon->Group;
+			int32 WeaponGroup = Weapon->Group;
 			int32 GroupIndex = -1;
 			for (int32 i=0;i<WeaponGroups.Num();i++)
 			{

@@ -41,5 +41,12 @@ void SUTEditableTextBox::ForceFocus(const FCharacterEvent& InCharacterEvent)
 	}
 }
 
+void SUTEditableTextBox::JumpToEnd()
+{
+	if (EditableText.IsValid())
+	{
+		EditableText->JumpTo(ETextLocation::EndOfDocument,ECursorAction::MoveCursor);
+	}
+}
 
 #endif

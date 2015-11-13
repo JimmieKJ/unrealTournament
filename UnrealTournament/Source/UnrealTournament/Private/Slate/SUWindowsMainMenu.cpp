@@ -754,7 +754,7 @@ void SUWindowsMainMenu::StartGame(bool bLanGame)
 	if (bLanGame)
 	{
 		FString ExecPath = FPlatformProcess::GenerateApplicationPath(FApp::GetName(), FApp::GetBuildConfiguration());
-		FString Options = FString::Printf(TEXT("unrealtournament %s -log -server"), *URL);
+		FString Options = FString::Printf(TEXT("unrealtournament %s -log -server -LAN"), *URL);
 
 		IOnlineSubsystem* OnlineSubsystem = IOnlineSubsystem::Get();
 		if (OnlineSubsystem)

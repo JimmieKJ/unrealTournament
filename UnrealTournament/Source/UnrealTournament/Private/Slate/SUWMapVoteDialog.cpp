@@ -241,7 +241,7 @@ void SUWMapVoteDialog::BuildTopVotes()
 		TSharedPtr<STextBlock> VoteCountText;
 		TSharedPtr<STextBlock> MapTitle;
 		TSharedPtr<SBorder> BorderWidget;
-		TSharedPtr<SUTComboButton> VoteButton;
+		TSharedPtr<SUTButton> VoteButton;
 
 
 		TopPanel->AddSlot(i, 0).Padding(5.0,5.0,5.0,5.0)
@@ -249,15 +249,9 @@ void SUWMapVoteDialog::BuildTopVotes()
 			SNew(SBox).WidthOverride(256)
 			.HeightOverride(158)							
 			[
-				SAssignNew(VoteButton, SUTComboButton)
+				SAssignNew(VoteButton, SUTButton)
 				.OnClicked(this, &SUWMapVoteDialog::OnLeadingMapClick, i)
-				.IsToggleButton(true)
-				.bRightClickOpensMenu(true)
 				.ButtonStyle(SUWindowsStyle::Get(), "UT.ComplexButton")
-				.MenuButtonStyle(SUTStyle::Get(), "UT.ContextMenu.Item")
-				.MenuButtonTextStyle(SUTStyle::Get(), "UT.Font.ContextMenuItem")
-				.HasDownArrow(false)
-				.ButtonContent()
 				[
 					SNew(SVerticalBox)
 					+SVerticalBox::Slot()
@@ -449,7 +443,7 @@ void SUWMapVoteDialog::BuildAllVotes()
 					TSharedPtr<SImage> ImageWidget;
 					TSharedPtr<STextBlock> MapTitle;
 					TSharedPtr<STextBlock> VoteCountText;
-					TSharedPtr<SUTComboButton> VoteButton;
+					TSharedPtr<SUTButton> VoteButton;
 					TSharedPtr<SBorder> BorderWidget;
 
 					FSlateDynamicImageBrush* MapBrush = DefaultLevelScreenshot;
@@ -479,15 +473,9 @@ void SUWMapVoteDialog::BuildAllVotes()
 						.WidthOverride(256)
 						.HeightOverride(158)							
 						[
-							SAssignNew(VoteButton, SUTComboButton)
+							SAssignNew(VoteButton, SUTButton)
 							.OnClicked(this, &SUWMapVoteDialog::OnMapClick, MapVoteInfo)
-							.IsToggleButton(true)
-							.bRightClickOpensMenu(true)
 							.ButtonStyle(SUWindowsStyle::Get(), "UT.ComplexButton")
-							.MenuButtonStyle(SUTStyle::Get(), "UT.ContextMenu.Item")
-							.MenuButtonTextStyle(SUTStyle::Get(), "UT.Font.ContextMenuItem")
-							.HasDownArrow(false)
-							.ButtonContent()
 							[
 								SNew(SVerticalBox)
 								+SVerticalBox::Slot()

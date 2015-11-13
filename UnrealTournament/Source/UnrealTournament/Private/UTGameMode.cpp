@@ -1842,15 +1842,17 @@ void AUTGameMode::EndGame(AUTPlayerState* Winner, FName Reason )
 		}
 	}
 
-	if (bOfflineChallenge && PlayerWonChallenge())
-	{
 		APlayerController* LocalPC = GEngine->GetFirstLocalPlayerController(GetWorld());
 		UUTLocalPlayer* LP = LocalPC ? Cast<UUTLocalPlayer>(LocalPC->Player) : NULL;
 		if (LP)
 		{
-			LP->ChallengeCompleted(ChallengeTag, ChallengeDifficulty+1);
+			LP->EarnedStars = 0;
+			LP->RosterUpgradeText = FText::GetEmpty();
+			if (bOfflineChallenge && PlayerWonChallenge())
+			{
+				LP->ChallengeCompleted(ChallengeTag, ChallengeDifficulty + 1);
+			}
 		}
-	}
 
 	UTGameState->SetWinner(Winner);
 	EndTime = GetWorld()->TimeSeconds;
@@ -1955,7 +1957,7 @@ void AUTGameMode::TravelToNextMap_Implementation()
 	}
 	UE_LOG(UT,Log,TEXT("TravelToNextMap: %i %i"),bDedicatedInstance,IsGameInstanceServer());
 
-	if (!IsGameInstanceServer() && !bDisableMapVote && GetWorld()->GetNetMode() != NM_Standalone)
+	if ((!IsGameInstanceServer() || bDedicatedInstance) && !bDisableMapVote && GetWorld()->GetNetMode() != NM_Standalone)
 	{
 		// gather maps for map vote
 		TArray<FString> MapPrefixList;

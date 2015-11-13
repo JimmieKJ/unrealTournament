@@ -899,6 +899,32 @@ TSharedRef<SWidget> SUMatchPanel::OnGetPopupContent(TSharedPtr<SUTPopOverAnchor>
 		];
 	}
 
+	if ( TrackedMatch.IsValid() )
+	{
+		int32 Flags = TrackedMatch->MatchInfo.IsValid() ? TrackedMatch->MatchInfo->GetMatchFlags() : ( TrackedMatch->MatchData.IsValid() ? TrackedMatch->MatchData->Flags : 0);
+		if ((Flags & MATCH_FLAG_Ranked) == MATCH_FLAG_Ranked)
+		{
+			int32 Rank = TrackedMatch->MatchInfo.IsValid() ? TrackedMatch->MatchInfo->AverageRank : (TrackedMatch->MatchData.IsValid() ? TrackedMatch->MatchData->Rank : 1500);
+			FString RankLockStr = FString::Printf(TEXT("Allowed Ranks %i - %i"), Rank-400, Rank+400);
+			VertBox->AddSlot()
+			.HAlign(HAlign_Center)
+			.AutoHeight()
+			.Padding(5.0f,0.0f,5.0f,5.0)
+			[
+				SNew(SHorizontalBox)
+				+SHorizontalBox::Slot()
+				.FillWidth(1.0)
+				[
+					SNew(STextBlock)
+					.Text(FText::FromString(RankLockStr))
+					.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Tiny")
+					.AutoWrapText(true)
+				]
+			];
+		}
+	}
+
+
 
 	if (Scores.Num() == 2)
 	{

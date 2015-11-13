@@ -68,8 +68,7 @@ FName UUTCTFRewardMessage::GetAnnouncementName_Implementation(int32 Switch, cons
 
 bool UUTCTFRewardMessage::ShouldPlayAnnouncement(const FClientReceiveData& ClientData) const
 {
-	return ((ClientData.RelatedPlayerState_1 != NULL && ClientData.LocalPC == ClientData.RelatedPlayerState_1->GetOwner())
-		|| (ClientData.RelatedPlayerState_2 != NULL && ClientData.LocalPC == ClientData.RelatedPlayerState_2->GetOwner()));
+	return IsLocalForAnnouncement(ClientData, true, true);
 }
 
 FText UUTCTFRewardMessage::GetText(int32 Switch, bool bTargetsPlayerState1, APlayerState* RelatedPlayerState_1, APlayerState* RelatedPlayerState_2, UObject* OptionalObject) const

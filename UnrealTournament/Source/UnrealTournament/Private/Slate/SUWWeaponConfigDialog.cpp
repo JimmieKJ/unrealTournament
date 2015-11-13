@@ -45,13 +45,12 @@ void SUWWeaponConfigDialog::Construct(const FArguments& InArgs)
 					if (!TestClass->GetDefaultObject<AUTWeapon>()->bHideInMenus)
 					{
 						//Add weapons for the priority list
-
-						int32 Group = ProfileSettings && ProfileSettings->WeaponGroupLookup.Contains(*ClassPath) ? ProfileSettings->WeaponGroupLookup[*ClassPath].Group : TestClass->GetDefaultObject<AUTWeapon>()->Group;
+						int32 Group = (TestClass->GetDefaultObject<AUTWeapon>()->Group >= 0) ? TestClass->GetDefaultObject<AUTWeapon>()->Group : TestClass->GetDefaultObject<AUTWeapon>()->DefaultGroup;
+							Group = ProfileSettings && ProfileSettings->WeaponGroupLookup.Contains(*ClassPath) ? ProfileSettings->WeaponGroupLookup[*ClassPath].Group : Group;
 						Group = FMath::Clamp<int32>(Group, 1,10);
 						WeaponClassList.Add(TestClass);
 						WeakWeaponClassList.Add(TestClass);
 						WeaponGroups.Add(TestClass, Group);
-						UE_LOG(UT,Log,TEXT("###### %s"),*GetNameSafe(TestClass));
 					}
 				}
 			}
@@ -242,27 +241,6 @@ void SUWWeaponConfigDialog::Construct(const FArguments& InArgs)
 									.Text(*InitiallySelectedHand.Get())
 									.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.Black")
 								]
-							]
-						]
-					]
-					+SHorizontalBox::Slot().FillWidth(0.33).Padding(FMargin(10.0,0.0,20.0,0.0))
-					[
-						SNew(SVerticalBox)
-						+SVerticalBox::Slot().AutoHeight()			
-						[
-							SNew(SHorizontalBox)
-							+SHorizontalBox::Slot().HAlign(HAlign_Left).AutoWidth()
-							[
-								SNew(STextBlock)
-								.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
-								.Text(NSLOCTEXT("SUWWeaponConfigDialog", "ClassicGroups", "Classic Weapon Groups"))
-							]
-							+ SHorizontalBox::Slot().FillWidth(1.0).HAlign(HAlign_Right)
-							[
-								SAssignNew(ClassicGroups, SCheckBox)
-								.Style(SUWindowsStyle::Get(), "UT.Common.CheckBox")
-								.ForegroundColor(FLinearColor::White)
-								.IsChecked(GetDefault<AUTPlayerController>()->bUseClassicGroups ? ESlateCheckBoxState::Checked : ESlateCheckBoxState::Unchecked)
 							]
 						]
 					]
@@ -782,25 +760,30 @@ FReply SUWWeaponConfigDialog::OKClick()
 	if (UTPlayerController != NULL)
 	{
 		UTPlayerController->bAutoWeaponSwitch = AutoWeaponSwitch->IsChecked();
-		UTPlayerController->bUseClassicGroups = ClassicGroups->GetCheckedState() == ECheckBoxState::Checked;
 		UTPlayerController->SetWeaponHand(NewHand);
 		UTPlayerController->SaveConfig();
 	}
 	else
 	{
 		AUTPlayerController* DefaultPC = AUTPlayerController::StaticClass()->GetDefaultObject<AUTPlayerController>();
-		DefaultPC->bUseClassicGroups = ClassicGroups->GetCheckedState() == ECheckBoxState::Checked;
 		DefaultPC->bAutoWeaponSwitch = AutoWeaponSwitch->IsChecked();
 		DefaultPC->SetWeaponHand(NewHand);
 		DefaultPC->SaveConfig();
 	}
 
 	UUTProfileSettings* ProfileSettings = GetPlayerOwner()->GetProfileSettings();
-
+	if (ProfileSettings)
+	{
+		// Clear out existing data
+		ProfileSettings->WeaponGroups.Empty();
+		ProfileSettings->WeaponGroupLookup.Empty();
+	}
 	// note that the array mirrors the list widget so we can use it directly
 	for (int32 i = 0; i < WeakWeaponClassList.Num(); i++)
 	{
 		float NewPriority = float(WeakWeaponClassList.Num() - i); // top of list is highest priority
+		int32 NewGroup = FMath::Clamp<int32>(WeaponGroups[WeakWeaponClassList[i].Get()], 1, 10);
+		WeakWeaponClassList[i]->GetDefaultObject<AUTWeapon>()->Group = NewGroup;
 		WeakWeaponClassList[i]->GetDefaultObject<AUTWeapon>()->AutoSwitchPriority = NewPriority;
 		WeakWeaponClassList[i]->GetDefaultObject<AUTWeapon>()->SaveConfig();
 		// update instances so changes take effect immediately
@@ -819,15 +802,9 @@ FReply SUWWeaponConfigDialog::OKClick()
 			ProfileSettings->SetWeaponPriority(GetNameSafe(WeakWeaponClassList[i].Get()), WeakWeaponClassList[i]->GetDefaultObject<AUTWeapon>()->AutoSwitchPriority);
 		}
 	}
-	
+
 	if (ProfileSettings)
 	{
-
-		// Clear out existing data
-		ProfileSettings->WeaponGroups.Empty();
-		ProfileSettings->WeaponGroupLookup.Empty();
-
-		// Update it.
 		for (int32 i = 0; i < WeaponClassList.Num(); i++)
 		{
 			int32 NewGroup = FMath::Clamp<int32>(WeaponGroups[WeaponClassList[i]],1,10);
@@ -859,12 +836,25 @@ FReply SUWWeaponConfigDialog::OKClick()
 	DefaultHud->bCustomWeaponCrosshairs = bCustomWeaponCrosshairs;
 	DefaultHud->SaveConfig();
 
-	//Copy crosshair settings to every hud class
-	for (TObjectIterator<AUTHUD> It(EObjectFlags::RF_NoFlags, true); It; ++It)
+	// Copy settings to existing actors
+	if (UTPlayerController)
 	{
-		(*It)->LoadedCrosshairs.Empty();
-		(*It)->CrosshairInfos = DefaultHud->CrosshairInfos;
-		(*It)->bCustomWeaponCrosshairs = DefaultHud->bCustomWeaponCrosshairs;
+		for (FActorIterator It(UTPlayerController->GetWorld()); It; ++It)
+		{
+			AUTWeapon* Weapon = Cast<AUTWeapon>(*It);
+			if (Weapon)
+			{
+				Weapon->Group = Weapon->GetClass()->GetDefaultObject<AUTWeapon>()->Group;
+				Weapon->AutoSwitchPriority = Weapon->GetClass()->GetDefaultObject<AUTWeapon>()->AutoSwitchPriority;
+			}
+			AUTHUD* HUD = Cast<AUTHUD>(*It);
+			if (HUD)
+			{
+				HUD->LoadedCrosshairs.Empty();
+				HUD->CrosshairInfos = DefaultHud->CrosshairInfos;
+				HUD->bCustomWeaponCrosshairs = DefaultHud->bCustomWeaponCrosshairs;
+			}
+		}
 	}
 
 	if (ProfileSettings != nullptr)
@@ -968,17 +958,7 @@ FReply SUWWeaponConfigDialog::DefaultGroupsClicked()
 {
 	for (int i = 0; i < WeaponClassList.Num(); i++)
 	{
-		if (GetNameSafe(WeaponClassList[i]).Equals(TEXT("Enforcer_C"),ESearchCase::IgnoreCase))				WeaponGroups[WeaponClassList[i]] = 4;
-		if (GetNameSafe(WeaponClassList[i]).Equals(TEXT("BP_LinkGun_C"), ESearchCase::IgnoreCase))			WeaponGroups[WeaponClassList[i]] = 1;
-		if (GetNameSafe(WeaponClassList[i]).Equals(TEXT("BP_ImpactHammer_C"), ESearchCase::IgnoreCase))		WeaponGroups[WeaponClassList[i]] = 5;
-		if (GetNameSafe(WeaponClassList[i]).Equals(TEXT("BP_FlakCannon_C"), ESearchCase::IgnoreCase))		WeaponGroups[WeaponClassList[i]] = 2;
-		if (GetNameSafe(WeaponClassList[i]).Equals(TEXT("BP_Minigun_C"), ESearchCase::IgnoreCase))			WeaponGroups[WeaponClassList[i]] = 4;
-		if (GetNameSafe(WeaponClassList[i]).Equals(TEXT("BP_Redeemer_C"), ESearchCase::IgnoreCase))			WeaponGroups[WeaponClassList[i]] = 5;
-		if (GetNameSafe(WeaponClassList[i]).Equals(TEXT("BP_RocketLauncher_C"), ESearchCase::IgnoreCase))	WeaponGroups[WeaponClassList[i]] = 2;
-		if (GetNameSafe(WeaponClassList[i]).Equals(TEXT("ShockRifle_C"), ESearchCase::IgnoreCase))			WeaponGroups[WeaponClassList[i]] = 3;
-		if (GetNameSafe(WeaponClassList[i]).Equals(TEXT("BP_Sniper_C"), ESearchCase::IgnoreCase))			WeaponGroups[WeaponClassList[i]] = 3;
-		if (GetNameSafe(WeaponClassList[i]).Equals(TEXT("BP_Translocator_C"), ESearchCase::IgnoreCase))		WeaponGroups[WeaponClassList[i]] = 4;
-		if (GetNameSafe(WeaponClassList[i]).Equals(TEXT("BP_BioRifle_C"), ESearchCase::IgnoreCase))			WeaponGroups[WeaponClassList[i]] = 1;
+		WeaponGroups[WeaponClassList[i]] = WeaponClassList[i]->GetDefaultObject<AUTWeapon>()->DefaultGroup;
 	}
 
 	return FReply::Handled();

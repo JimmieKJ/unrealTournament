@@ -10,7 +10,7 @@
 AUTWeap_BioRifle::AUTWeap_BioRifle(const class FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer.SetDefaultSubobjectClass<UUTWeaponStateFiringCharged>(TEXT("FiringState1")))
 {
-	ClassicGroup = 3;
+	DefaultGroup = 3;
 	Ammo = 40;
 	MaxAmmo = 100;
 	AmmoCost[0] = 2;

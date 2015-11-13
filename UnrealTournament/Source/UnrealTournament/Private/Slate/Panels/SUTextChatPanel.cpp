@@ -297,6 +297,24 @@ void SUTextChatPanel::RouteChat(UUTLocalPlayer* LocalPlayer, TSharedPtr<FStoredC
 			ChatMessage->Type == ChatDestinations::System || 
 			ChatDestinationList[i]->ChatDestination == ChatMessage->Type)
 		{
+
+			if (ChatMessage->Type == ChatDestinations::Team)
+			{
+				// Look to see if we should reject this based on the player owner's team.
+
+				int32 MyTeamNum = 255;
+				AUTPlayerState* UTPlayerState = Cast<AUTPlayerState>(PlayerOwner->PlayerController->PlayerState);
+				if (UTPlayerState)
+				{
+					MyTeamNum = UTPlayerState->GetTeamNum();
+				}
+
+				if (ChatMessage->TeamNum != MyTeamNum)
+				{
+					return;
+				}
+			}
+
 			ChatDestinationList[i]->HandleChat(ChatMessage);
 		}
 	}
@@ -433,7 +451,12 @@ void SUTextChatPanel::RouteBufferedChat()
 
 void SUTextChatPanel::SetChatText(const FString& NewText)
 {
-	if (ChatEditBox.IsValid()) ChatEditBox->SetText(FText::FromString(NewText));
+	if (ChatEditBox.IsValid())
+	{
+		ChatEditBox->ForceFocus(FCharacterEvent());
+		ChatEditBox->SetText(FText::FromString(NewText));
+		ChatEditBox->JumpToEnd();
+	}
 }
 
 void SUTextChatPanel::FocusChat(const FCharacterEvent& InCharacterEvent)

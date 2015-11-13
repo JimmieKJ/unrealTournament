@@ -28,7 +28,6 @@ UUTProfileSettings::UUTProfileSettings(const FObjectInitializer& ObjectInitializ
 
 	ReplayCustomBloomIntensity = 0.2f;
 	ReplayCustomDOFScale = 1.0f;
-	bUseClassicWeaponGroups = true;
 
 	Avatar = FName("UT.Avatar.0");
 }
@@ -83,7 +82,6 @@ void UUTProfileSettings::VersionFixup()
 	{
 		UnlockedDailyChallenges.Empty();
 	}
-
 }
 
 void UUTProfileSettings::SetWeaponPriority(FString WeaponClassName, float NewPriority)
@@ -142,8 +140,6 @@ void UUTProfileSettings::GatherAllSettings(UUTLocalPlayer* ProfilePlayer)
 		ViewBob = PC->EyeOffsetGlobalScaling;
 		WeaponHand = PC->GetPreferredWeaponHand();
 		FFAPlayerColor = PC->FFAPlayerColor;
-
-		bUseClassicWeaponGroups = PC->bUseClassicGroups;
 
 		PlayerFOV = PC->ConfigDefaultFOV;
 
@@ -221,8 +217,6 @@ void UUTProfileSettings::ApplyAllSettings(UUTLocalPlayer* ProfilePlayer)
 
 	if (PC != NULL)
 	{
-		PC->bUseClassicGroups = bUseClassicWeaponGroups;
-
 		PC->MaxDodgeClickTime = MaxDodgeClickTimeValue;
 		PC->MaxDodgeTapTime = MaxDodgeTapTimeValue;
 		PC->bSingleTapWallDodge = bSingleTapWallDodge;

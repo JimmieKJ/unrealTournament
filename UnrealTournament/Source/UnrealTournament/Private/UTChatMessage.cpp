@@ -32,10 +32,15 @@ void UUTChatMessage::ClientReceiveChat(const FClientReceiveData& ClientData, FNa
 {
 	if (Cast<AUTHUD>(ClientData.LocalPC->MyHUD) != NULL)
 	{
+		int32 TeamNum = 255;
 		FString PlayerName(TEXT("Player"));
 		if (ClientData.RelatedPlayerState_1 != nullptr)
 		{
 			PlayerName = ClientData.RelatedPlayerState_1->PlayerName;
+			if (Cast<AUTPlayerState>(ClientData.RelatedPlayerState_1) != nullptr)
+			{
+				TeamNum = Cast<AUTPlayerState>(ClientData.RelatedPlayerState_1)->GetTeamNum();
+			}
 		}
 
 		FString DestinationTag;
@@ -73,7 +78,7 @@ void UUTChatMessage::ClientReceiveChat(const FClientReceiveData& ClientData, FNa
 			if (LocalPlayer)
 			{
 				FLinearColor ChatColor = (ClientData.MessageIndex && PlayerController->UTPlayerState && PlayerController->UTPlayerState->Team) ? PlayerController->UTPlayerState->Team->TeamColor : FLinearColor::White;
-				LocalPlayer->SaveChat(Destination, PlayerName, ClientData.MessageString, ChatColor, ClientData.RelatedPlayerState_1 == PlayerController->PlayerState);
+				LocalPlayer->SaveChat(Destination, PlayerName, ClientData.MessageString, ChatColor, ClientData.RelatedPlayerState_1 == PlayerController->PlayerState, TeamNum);
 			}
 		}
 	}

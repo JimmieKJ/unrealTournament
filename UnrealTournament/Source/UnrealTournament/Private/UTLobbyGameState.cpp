@@ -312,6 +312,13 @@ void AUTLobbyGameState::JoinMatch(AUTLobbyMatchInfo* MatchInfo, AUTLobbyPlayerSt
 		}
 	}
 
+	if (!MatchInfo->SkillTest(NewPlayer->AverageRank)) // MAKE THIS CONFIG
+	{
+		NewPlayer->ClientMatchError(NSLOCTEXT("LobbyMessage","MatchTooGood","Your skill rating is too high for this match."));	
+		return;
+	}
+
+
 	if (MatchInfo->CurrentState == ELobbyMatchState::Launching)
 	{
 		NewPlayer->ClientMatchError(NSLOCTEXT("LobbyMessage","MatchIsStarting","The match you are trying to join is starting.  Please wait for it to begin before trying to spectate it."));	
@@ -333,12 +340,6 @@ void AUTLobbyGameState::JoinMatch(AUTLobbyMatchInfo* MatchInfo, AUTLobbyPlayerSt
 		}
 
 		NewPlayer->ClientMatchError(NSLOCTEXT("LobbyMessage","MatchIsFull","The match you are trying to join is full."));	
-		return;
-	}
-
-	if (!MatchInfo->SkillTest(NewPlayer->AverageRank)) // MAKE THIS CONFIG
-	{
-		NewPlayer->ClientMatchError(NSLOCTEXT("LobbyMessage","MatchTooGood","Your skill rating is too high for this match."));	
 		return;
 	}
 

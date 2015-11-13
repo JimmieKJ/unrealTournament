@@ -83,7 +83,6 @@ AUTPlayerController::AUTPlayerController(const class FObjectInitializer& ObjectI
 	DesiredPredictionPing = 120.f;
 
 	bIsDebuggingProjectiles = false;
-	bUseClassicGroups = true;
 
 	CastingGuideViewIndex = INDEX_NONE;
 	bRequestingSlideOut = true;
@@ -150,7 +149,7 @@ void AUTPlayerController::SendPersonalMessage(TSubclassOf<ULocalMessage> Message
 		for (FConstPlayerControllerIterator Iterator = GetWorld()->GetPlayerControllerIterator(); Iterator; ++Iterator)
 		{
 			APlayerController* PC = *Iterator;
-			if (PC && PC->PlayerState && PC->PlayerState->bOnlySpectator && (PC->GetViewTarget() == GetPawn()))
+			if (PC && PC->PlayerState && PC->PlayerState->bOnlySpectator && ((PC->GetViewTarget() == GetPawn()) || (Cast<AUTPlayerState>(PC->PlayerState) && ((AUTPlayerState *)(PC->PlayerState))->bIsDemoRecording)))
 			{
 				PC->ClientReceiveLocalizedMessage(Message, Switch, RelatedPlayerState_1, RelatedPlayerState_2, OptionalObject);
 			}
@@ -559,8 +558,12 @@ bool AUTPlayerController::InputKey(FKey Key, EInputEvent EventType, float Amount
 				if (LocalPlayer)
 				{
 					LocalPlayer->GetSlateOperations().ReleaseMouseCapture().SetMousePos(SavedMouseCursorLocation.IntPoint());
-					bShowMouseCursor = (GetWorld()->GetTimeSeconds() - MouseButtonPressTime < 1.f);
-					MouseButtonPressCount--;
+					// Due to slate, sometimes we only get the release event
+					if (MouseButtonPressCount > 0)
+					{
+						bShowMouseCursor = (GetWorld()->GetTimeSeconds() - MouseButtonPressTime < 1.f);
+						MouseButtonPressCount--;
+					}
 				}
 			}
 		}
@@ -662,7 +665,7 @@ void AUTPlayerController::ToggleTranslocator()
 {
 	if (UTCharacter != NULL && UTCharacter->GetWeapon() != NULL && IsLocalPlayerController())
 	{
-		int32 CurrentGroup = bUseClassicGroups ? UTCharacter->GetWeapon()->ClassicGroup : UTCharacter->GetWeapon()->Group;
+		int32 CurrentGroup = UTCharacter->GetWeapon()->Group;
 		if (CurrentGroup == 0)
 		{
 			SwitchWeapon(PreviousWeaponGroup);
@@ -727,15 +730,15 @@ void AUTPlayerController::SwitchWeaponInSequence(bool bPrev)
 				AUTWeapon* Weap = *It;
 				if (Weap != CurrentWeapon && Weap->HasAnyAmmo())
 				{
-					if (Weap->FollowsInList(CurrentWeapon, bUseClassicGroups) == bPrev)
+					if (Weap->FollowsInList(CurrentWeapon) == bPrev)
 					{
 						// remember last weapon in list as possible wraparound choice
-						if (WraparoundChoice == NULL || (Weap->FollowsInList(WraparoundChoice, bUseClassicGroups) == bPrev))
+						if (WraparoundChoice == NULL || (Weap->FollowsInList(WraparoundChoice) == bPrev))
 						{
 							WraparoundChoice = Weap;
 						}
 					}
-					else if (Best == NULL || (Weap->FollowsInList(Best, bUseClassicGroups) == bPrev))
+					else if (Best == NULL || (Weap->FollowsInList(Best) == bPrev))
 					{
 						Best = Weap;
 					}
@@ -790,10 +793,6 @@ void AUTPlayerController::CheckAutoWeaponSwitch(AUTWeapon* TestWeapon)
 
 void AUTPlayerController::SwitchWeaponGroup(int32 Group)
 {
-	if (bUseClassicGroups)
-	{
-		SwitchWeapon(Group);
-	}
 	if (UTCharacter != NULL && IsLocalPlayerController() && UTCharacter->EmoteCount == 0 && !UTCharacter->IsRagdoll())
 	{
 		// if current weapon isn't in the specified group, pick lowest GroupSlot in that group
@@ -832,47 +831,7 @@ void AUTPlayerController::SwitchWeaponGroup(int32 Group)
 
 void AUTPlayerController::SwitchWeapon(int32 Group)
 {
-
-	if (!bUseClassicGroups)
-	{
 		SwitchWeaponGroup(Group);
-		return;
-	}
-
-	if (UTCharacter != NULL && IsLocalPlayerController() && UTCharacter->EmoteCount == 0 && !UTCharacter->IsRagdoll())
-	{
-		// if current weapon isn't in the specified group, pick lowest GroupSlot in that group
-		// if it is, then pick next highest slot, or wrap around to lowest if no higher slot
-		AUTWeapon* CurrWeapon = (UTCharacter->GetPendingWeapon() != NULL) ? UTCharacter->GetPendingWeapon() : UTCharacter->GetWeapon();
-		AUTWeapon* LowestSlotWeapon = NULL;
-		AUTWeapon* NextSlotWeapon = NULL;
-		for (TInventoryIterator<AUTWeapon> It(UTCharacter); It; ++It)
-		{
-			AUTWeapon* Weap = *It;
-			if (Weap != UTCharacter->GetWeapon() && Weap->HasAnyAmmo())
-			{
-				if (Weap->ClassicGroup == Group)
-				{
-					if (LowestSlotWeapon == NULL || LowestSlotWeapon->GroupSlot > Weap->GroupSlot)
-					{
-						LowestSlotWeapon = Weap;
-					}
-					if (CurrWeapon != NULL && CurrWeapon->ClassicGroup == Group && Weap->GroupSlot > CurrWeapon->GroupSlot && (NextSlotWeapon == NULL || NextSlotWeapon->GroupSlot > Weap->GroupSlot))
-					{
-						NextSlotWeapon = Weap;
-					}
-				}
-			}
-		}
-		if (NextSlotWeapon != NULL)
-		{
-			UTCharacter->SwitchWeapon(NextSlotWeapon);
-		}
-		else if (LowestSlotWeapon != NULL)
-		{
-			UTCharacter->SwitchWeapon(LowestSlotWeapon);
-		}
-	}
 }
 
 void AUTPlayerController::DemoRestart()
@@ -3144,21 +3103,20 @@ float AUTPlayerController::GetWeaponAutoSwitchPriority(FString WeaponClassname, 
 	return DefaultPriority;
 }
 
-int32 AUTPlayerController::GetWeaponGroup(FString WeaponClassname, int32 DefaultGroup)
+void AUTPlayerController::SetWeaponGroup(AUTWeapon* InWeapon)
 {
 	if (Cast<UUTLocalPlayer>(Player))
 	{
 		UUTProfileSettings* ProfileSettings = Cast<UUTLocalPlayer>(Player)->GetProfileSettings();
 		if (ProfileSettings)
 		{
-			if (ProfileSettings->WeaponGroupLookup.Contains(WeaponClassname))
+			FString WeaponClassName = GetNameSafe(InWeapon);
+			if (ProfileSettings->WeaponGroupLookup.Contains(WeaponClassName))
 			{
-				return ProfileSettings->WeaponGroupLookup[WeaponClassname].Group;
+				InWeapon->Group = ProfileSettings->WeaponGroupLookup[WeaponClassName].Group;
 			}
 		}
 	}
-
-	return DefaultGroup;
 }
 
 void AUTPlayerController::RconMap(FString NewMap)

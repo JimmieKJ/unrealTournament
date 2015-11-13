@@ -563,7 +563,7 @@ public:
 	APawn* LastShotTargetGuess;
 
 	virtual float GetWeaponAutoSwitchPriority(FString WeaponClassname, float DefaultPriority);
-	virtual int32 GetWeaponGroup(FString WeaponClassname, int32 DefaultGroup);
+	virtual void SetWeaponGroup(class AUTWeapon* InWeapon);
 
 	virtual void ClientRequireContentItemListComplete_Implementation() override;
 
@@ -645,10 +645,6 @@ public:
 	/** Max held time for single tap wall dodge */
 	UPROPERTY(EditAnywhere, GlobalConfig, Category = Dodging)
 	float MaxDodgeTapTime;
-
-	/** Use classic weapon groups. */
-	UPROPERTY(globalconfig)
-		bool bUseClassicGroups;
 
 	/** Switch between teams 0 and 1 */
 	UFUNCTION(Reliable, Server, WithValidation)

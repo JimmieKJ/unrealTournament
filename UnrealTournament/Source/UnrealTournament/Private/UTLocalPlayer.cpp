@@ -1425,9 +1425,9 @@ void UUTLocalPlayer::SetNickname(FString NewName)
 	}
 }
 
-void UUTLocalPlayer::SaveChat(FName Type, FString Sender, FString Message, FLinearColor Color, bool bMyChat)
+void UUTLocalPlayer::SaveChat(FName Type, FString Sender, FString Message, FLinearColor Color, bool bMyChat, uint8 TeamNum)
 {
-	TSharedPtr<FStoredChatMessage> ArchiveMessage = FStoredChatMessage::Make(Type, Sender, Message, Color, int32(GetWorld()->GetRealTimeSeconds()), bMyChat );
+	TSharedPtr<FStoredChatMessage> ArchiveMessage = FStoredChatMessage::Make(Type, Sender, Message, Color, int32(GetWorld()->GetRealTimeSeconds()), bMyChat, TeamNum );
 	ChatArchive.Add( ArchiveMessage );
 	ChatArchiveChanged.Broadcast(this, ArchiveMessage );
 }

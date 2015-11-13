@@ -97,6 +97,7 @@ public:
 	FText GetFlags(TWeakObjectPtr<UUTLocalPlayer> PlayerOwner)
 	{
 		bool bInvited = false;
+		AUTPlayerState* PlayerState = Cast<AUTPlayerState>(PlayerOwner->PlayerController->PlayerState);
 		AUTLobbyPlayerState* OwnerPlayerState = Cast<AUTLobbyPlayerState>(PlayerOwner->PlayerController->PlayerState);
 
 		if (MatchInfo.IsValid())
@@ -120,7 +121,22 @@ public:
 				Final = Final + (Final.IsEmpty() ? TEXT("") : TEXT("\n")) + TEXT("<img src=\"UT.Icon.Lock.Small\"/> Private");
 			}
 		}
-		else if ((Flags & MATCH_FLAG_Ranked) == MATCH_FLAG_Ranked) Final = Final + (Final.IsEmpty() ? TEXT("") : TEXT("\n")) + TEXT("<img src=\"UT.Icon.Lock.Small\"/> Ranked");
+		else if ((Flags & MATCH_FLAG_Ranked) == MATCH_FLAG_Ranked)
+		{
+			int32 AllowedRank = MatchInfo.IsValid() ? MatchInfo->AverageRank : (MatchData.IsValid() ? MatchData->Rank : 1500);
+			int32 PlayerRank = PlayerState ? PlayerState->AverageRank : 1500;
+			if (PlayerRank < AllowedRank - 400 || PlayerRank > AllowedRank + 400)
+			{
+				// Second check.  If both the client, and the match is ranked below beginner (1400) then we want to skip the icon
+				if (PlayerRank > 1400 || AllowedRank > 1400)
+				{
+					Final = Final + (Final.IsEmpty() ? TEXT("") : TEXT("\n")) + TEXT("<img src=\"UT.Icon.Lock.Small\"/> Ranked");
+				}
+			}
+		}
+
+			
+			
 		if ((Flags & MATCH_FLAG_NoJoinInProgress) == MATCH_FLAG_NoJoinInProgress) Final = Final + (Final.IsEmpty() ? TEXT("") : TEXT("\n")) + TEXT("<img src=\"UT.Icon.Lock.Small\"/> No Join in Progress");
 		if (bInvited) Final = Final + (Final.IsEmpty() ? TEXT("") : TEXT("\n")) + TEXT("<UT.Font.NormalText.Tiny.Bold.Gold>!!Invited!!</>");
 

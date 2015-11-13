@@ -1,17 +1,15 @@
 // Copyright 1998-2015 Epic Games, Inc. All Rights Reserved.
 #pragma once
 
+#include "UTPlayerStart.h"
+
 #include "UTTeamPlayerStart.generated.h"
 
-UCLASS(CustomConstructor)
-class UNREALTOURNAMENT_API AUTTeamPlayerStart : public APlayerStart, public IUTTeamInterface
+UCLASS()
+class UNREALTOURNAMENT_API AUTTeamPlayerStart : public AUTPlayerStart, public IUTTeamInterface
 {
-	GENERATED_UCLASS_BODY()
-
-	AUTTeamPlayerStart(const FObjectInitializer& ObjectInitializer)
-	: Super(ObjectInitializer)
-	{}
-
+	GENERATED_BODY()
+public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = PlayerStart)
 	uint8 TeamNum;
 

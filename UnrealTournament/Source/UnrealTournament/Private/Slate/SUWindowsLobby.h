@@ -34,7 +34,7 @@ protected:
 	virtual void BuildExitMenu(TSharedPtr <SUTComboButton> ExitButton);
 	virtual TSharedRef<SWidget> BuildBackground();
 	virtual TSharedRef<SWidget> BuildOptionsSubMenu();
-
+	FReply OpenHUDSettings();
 };
 
 #endif

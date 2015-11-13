@@ -21,7 +21,7 @@ AUTWeap_Minigun::AUTWeap_Minigun(const FObjectInitializer& ObjectInitializer)
 	{
 		AmmoCost.SetNum(2);
 	}
-	ClassicGroup = 6;
+	DefaultGroup = 6;
 	AmmoCost[0] = 1;
 	AmmoCost[1] = 2;
 	FireEffectInterval = 2;

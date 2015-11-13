@@ -436,6 +436,12 @@ class UNREALTOURNAMENT_API AUTCharacter : public ACharacter, public IUTTeamInter
 	UFUNCTION(BlueprintCallable, Category = Pawn)
 	virtual int32 GetAmmoAmount(TSubclassOf<AUTWeapon> Type) const;
 
+	/** grant percentage of ammo for all held weapons
+	 * bPctOfMax : true = percent is relative to weapon's MaxAmmo, false = percent is relative to weapon's starting ammo
+	 */
+	UFUNCTION(BlueprintCallable, Category = Pawn)
+	virtual void RestoreAmmoPct(float Pct, bool bPctOfMax = false);
+
 	// Cheat, only works if called server side
 	UFUNCTION(BlueprintCallable, Category = Pawn)
 	virtual	void AllAmmo();
@@ -1532,6 +1538,9 @@ public:
 	
 	/** Returns eyeoffset transformed into current view */
 	virtual FVector GetTransformedEyeOffset() const;
+
+	/** Returns amount of eyeoffset scaling for this character's view. */
+	virtual float GetEyeOffsetScaling() const;
 
 	virtual FVector GetPawnViewLocation() const override;
 

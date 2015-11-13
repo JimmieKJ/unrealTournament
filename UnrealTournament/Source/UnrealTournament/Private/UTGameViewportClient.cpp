@@ -33,6 +33,9 @@ UUTGameViewportClient::UUTGameViewportClient(const class FObjectInitializer& Obj
 	SplitscreenInfo[9].PlayerData.Add(FPerPlayerSplitscreenData(OneThird, 0.5f, OneThird, 0.5f));
 	SplitscreenInfo[9].PlayerData.Add(FPerPlayerSplitscreenData(OneThird, 0.5f, TwoThirds, 0.0f));
 	SplitscreenInfo[9].PlayerData.Add(FPerPlayerSplitscreenData(OneThird, 0.5f, TwoThirds, 0.5f));
+
+	LastPasswordAttemptHost = TEXT("");
+
 }
 
 void UUTGameViewportClient::AddViewportWidgetContent(TSharedRef<class SWidget> ViewportContent, const int32 ZOrder)
@@ -308,12 +311,36 @@ void UUTGameViewportClient::PeekNetworkFailureMessages(UWorld *World, UNetDriver
 				{
 					LastAttemptedURL = NetDriver->ServerConnection->URL;
 
+					// Look to see if there isn't a cached password for this host.
+					if (SavedPasswords.Contains(LastAttemptedURL.Host))
+					{
+						// Make sure we didn't just try to use it (ie: password is out of data
+						if (LastAttemptedURL.Host != LastPasswordAttemptHost)
+						{
+							FString Password = SavedPasswords[LastAttemptedURL.Host];
+							FString ReconnectCommand = FString::Printf(TEXT("open %s:%i?password=%s"), *LastAttemptedURL.Host, LastAttemptedURL.Port, *Password);
+
+							//add all of the options the client was connecting with
+							for (FString& Option : LastAttemptedURL.Op)
+							{
+								if (!Option.StartsWith(TEXT("password=")))
+								{
+									ReconnectCommand += TEXT("?") + Option;
+								}
+							}
+							FirstPlayer->PlayerController->ConsoleCommand(ReconnectCommand);
+							return;
+						}
+						SavedPasswords.Remove(LastAttemptedURL.Host);
+						LastPasswordAttemptHost = TEXT("");
+					}
+
 					FirstPlayer->OpenDialog(SNew(SUWInputBox)
-											.OnDialogResult( FDialogResultDelegate::CreateUObject(this, &UUTGameViewportClient::ConnectPasswordResult))
-											.PlayerOwner(FirstPlayer)
-											.DialogTitle(NSLOCTEXT("UTGameViewportClient", "PasswordRequireTitle", "Password is Required"))
-											.MessageText(NSLOCTEXT("UTGameViewportClient", "PasswordRequiredText", "This server requires a password:"))
-											);
+						.OnDialogResult( FDialogResultDelegate::CreateUObject(this, &UUTGameViewportClient::ConnectPasswordResult))
+						.PlayerOwner(FirstPlayer)
+						.DialogTitle(NSLOCTEXT("UTGameViewportClient", "PasswordRequireTitle", "Password is Required"))
+						.MessageText(NSLOCTEXT("UTGameViewportClient", "PasswordRequiredText", "This server requires a password:"))
+						);
 				}
 			}
 			else if (ErrorString == TEXT("CANTJOININPROGRESS"))
@@ -643,6 +670,9 @@ void UUTGameViewportClient::ConnectPasswordResult(TSharedPtr<SCompoundWidget> Wi
 						ReconnectCommand += TEXT("?") + Option;
 					}
 				}
+
+				SavedPasswords.Add(LastAttemptedURL.Host, InputText);
+				LastPasswordAttemptHost = LastAttemptedURL.Host;
 
 				FirstPlayer->PlayerController->ConsoleCommand(ReconnectCommand);
 			}
@@ -1056,4 +1086,9 @@ bool UUTGameViewportClient::HideCursorDuringCapture()
 		const TArray<ULocalPlayer*> GamePlayers = GameInstance->GetLocalPlayers();
 		return (GamePlayers.Num() == 0 || GamePlayers[0] == NULL || GamePlayers[0]->PlayerController == NULL || !GamePlayers[0]->PlayerController->ShouldShowMouseCursor());
 	}
+}
+
+void UUTGameViewportClient::ClientConnectedToServer()
+{
+	LastPasswordAttemptHost.Empty();	
 }

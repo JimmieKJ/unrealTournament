@@ -50,6 +50,7 @@ class UNREALTOURNAMENT_API AUTServerBeaconClient : public AOnlineBeaconClient
 
 	float PingStartTime;
 	float Ping;
+	int32 ServerTickRate;
 	
 	/** Send a ping RPC to the host */
 	UFUNCTION(server, reliable, WithValidation)
@@ -57,7 +58,7 @@ class UNREALTOURNAMENT_API AUTServerBeaconClient : public AOnlineBeaconClient
 
 	/** Send a Pong RPC to the client */
 	UFUNCTION(client, reliable)
-	virtual void ClientPong();
+	virtual void ClientPong(int32 inServerTickRate);
 
 	UFUNCTION(server, reliable, WithValidation)
 	virtual void ServerRequestInfo();

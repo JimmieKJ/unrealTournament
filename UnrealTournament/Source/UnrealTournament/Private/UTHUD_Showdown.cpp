@@ -2,6 +2,7 @@
 #include "UnrealTournament.h"
 #include "UTHUD_Showdown.h"
 #include "UTShowdownGameState.h"
+#include "UTPlayerStart.h"
 
 AUTHUD_Showdown::AUTHUD_Showdown(const FObjectInitializer& OI)
 : Super(OI)
@@ -56,42 +57,46 @@ void AUTHUD_Showdown::DrawMinimap(const FColor& DrawColor, float MapSize, FVecto
 	// draw PlayerStart icons
 	for (TActorIterator<APlayerStart> It(GetWorld()); It; ++It)
 	{
-		FVector2D Pos(WorldToMapToScreen(It->GetActorLocation()));
-		AUTPlayerState* OwningPS = NULL;
-		for (APlayerState* PS : GS->PlayerArray)
+		AUTPlayerStart* UTStart = Cast<AUTPlayerStart>(*It);
+		if (UTStart == NULL || !UTStart->bIgnoreInShowdown)
 		{
-			AUTPlayerState* UTPS = Cast<AUTPlayerState>(PS);
-			if (UTPS != NULL && UTPS->RespawnChoiceA == *It && UTPS->Team != NULL)
+			FVector2D Pos(WorldToMapToScreen(It->GetActorLocation()));
+			AUTPlayerState* OwningPS = NULL;
+			for (APlayerState* PS : GS->PlayerArray)
 			{
-				OwningPS = UTPS;
-				break;
+				AUTPlayerState* UTPS = Cast<AUTPlayerState>(PS);
+				if (UTPS != NULL && UTPS->RespawnChoiceA == *It && UTPS->Team != NULL)
+				{
+					OwningPS = UTPS;
+					break;
+				}
 			}
-		}
 
-		if (OwningPS != NULL || GS->IsAllowedSpawnPoint(GS->SpawnSelector, *It))
-		{
+			if (OwningPS != NULL || GS->IsAllowedSpawnPoint(GS->SpawnSelector, *It))
+			{
+				Canvas->DrawColor = FColor::White;
+			}
+			else
+			{
+				Canvas->DrawColor = FColor(128, 128, 128, 192);
+			}
+			const float IconSize = (LastHoveredActor == *It) ? (40.0f * RenderScale * FMath::InterpEaseOut<float>(1.0f, 1.5f, FMath::Min<float>(0.25f, GetWorld()->RealTimeSeconds - LastHoveredActorChangeTime) * 4.0f, 2.0f)) : (40.0f * RenderScale);
+			const FVector2D NormalizedUV(PlayerStartBGIcon.U / PlayerStartBGIcon.Texture->GetSurfaceWidth(), PlayerStartBGIcon.V / PlayerStartBGIcon.Texture->GetSurfaceHeight());
+			const FVector2D NormalizedULVL(PlayerStartBGIcon.UL / PlayerStartBGIcon.Texture->GetSurfaceWidth(), PlayerStartBGIcon.VL / PlayerStartBGIcon.Texture->GetSurfaceHeight());
+			Canvas->K2_DrawTexture(PlayerStartBGIcon.Texture, Pos - FVector2D(IconSize * 0.5f, IconSize * 0.5f), FVector2D(IconSize, IconSize), NormalizedUV, NormalizedULVL, Canvas->DrawColor, BLEND_Translucent, It->GetActorRotation().Yaw + 90.0f);
+			if (OwningPS != NULL && OwningPS->Team != NULL)
+			{
+				Canvas->DrawColor = OwningPS->Team->TeamColor;
+			}
+			Canvas->DrawTile(PlayerStartIcon.Texture, Pos.X - IconSize * 0.25f, Pos.Y - IconSize * 0.25f, IconSize * 0.5f, IconSize * 0.5f, PlayerStartIcon.U, PlayerStartIcon.V, PlayerStartIcon.UL, PlayerStartIcon.VL);
+			if (OwningPS != NULL)
+			{
+				float XL, YL;
+				Canvas->TextSize(TinyFont, OwningPS->PlayerName, XL, YL);
+				Canvas->DrawText(TinyFont, OwningPS->PlayerName, Pos.X - XL * 0.5f, Pos.Y - IconSize * 0.5f - 2.0f - YL);
+			}
 			Canvas->DrawColor = FColor::White;
 		}
-		else
-		{
-			Canvas->DrawColor = FColor(128, 128, 128, 192);
-		}
-		const float IconSize = (LastHoveredActor == *It) ? (40.0f * RenderScale * FMath::InterpEaseOut<float>(1.0f, 1.5f, FMath::Min<float>(0.25f, GetWorld()->RealTimeSeconds - LastHoveredActorChangeTime) * 4.0f, 2.0f)) : (40.0f * RenderScale);
-		const FVector2D NormalizedUV(PlayerStartBGIcon.U / PlayerStartBGIcon.Texture->GetSurfaceWidth(), PlayerStartBGIcon.V / PlayerStartBGIcon.Texture->GetSurfaceHeight());
-		const FVector2D NormalizedULVL(PlayerStartBGIcon.UL / PlayerStartBGIcon.Texture->GetSurfaceWidth(), PlayerStartBGIcon.VL / PlayerStartBGIcon.Texture->GetSurfaceHeight());
-		Canvas->K2_DrawTexture(PlayerStartBGIcon.Texture, Pos - FVector2D(IconSize * 0.5f, IconSize * 0.5f), FVector2D(IconSize, IconSize), NormalizedUV, NormalizedULVL, Canvas->DrawColor, BLEND_Translucent, It->GetActorRotation().Yaw + 90.0f);
-		if (OwningPS != NULL && OwningPS->Team != NULL)
-		{
-			Canvas->DrawColor = OwningPS->Team->TeamColor;
-		}
-		Canvas->DrawTile(PlayerStartIcon.Texture, Pos.X - IconSize * 0.25f, Pos.Y - IconSize * 0.25f, IconSize * 0.5f, IconSize * 0.5f, PlayerStartIcon.U, PlayerStartIcon.V, PlayerStartIcon.UL, PlayerStartIcon.VL);
-		if (OwningPS != NULL)
-		{
-			float XL, YL;
-			Canvas->TextSize(TinyFont, OwningPS->PlayerName, XL, YL);
-			Canvas->DrawText(TinyFont, OwningPS->PlayerName, Pos.X - XL * 0.5f, Pos.Y - IconSize * 0.5f - 2.0f - YL);
-		}
-		Canvas->DrawColor = FColor::White;
 	}
 	// draw pickup icons
 	AUTPickup* NamedPickup = NULL;
@@ -310,10 +315,14 @@ AActor* AUTHUD_Showdown::FindHoveredIconActor() const
 		APlayerStart* ClickedStart = NULL;
 		for (TActorIterator<APlayerStart> It(GetWorld()); It; ++It)
 		{
-			FVector2D Pos(WorldToMapToScreen(It->GetActorLocation()));
-			if ((ClickPos - Pos).Size() < 40.0f)
+			AUTPlayerStart* UTStart = Cast<AUTPlayerStart>(*It);
+			if (UTStart == NULL || !UTStart->bIgnoreInShowdown)
 			{
-				return *It;
+				FVector2D Pos(WorldToMapToScreen(It->GetActorLocation()));
+				if ((ClickPos - Pos).Size() < 40.0f)
+				{
+					return *It;
+				}
 			}
 		}
 		for (TActorIterator<AUTPickup> It(GetWorld()); It; ++It)

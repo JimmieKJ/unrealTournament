@@ -48,7 +48,7 @@ class UNREALTOURNAMENT_API UUTMultiKillMessage : public UUTLocalMessage
 
 	virtual bool ShouldPlayAnnouncement(const FClientReceiveData& ClientData) const override
 	{
-		return true;
+		return IsLocalForAnnouncement(ClientData, true, true);
 	}
 	virtual FName GetAnnouncementName_Implementation(int32 Switch, const UObject* OptionalObject) const override
 	{

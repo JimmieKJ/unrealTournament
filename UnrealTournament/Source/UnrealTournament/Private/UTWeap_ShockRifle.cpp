@@ -9,7 +9,7 @@
 AUTWeap_ShockRifle::AUTWeap_ShockRifle(const FObjectInitializer& ObjectInitializer)
 : Super(ObjectInitializer)
 {
-	ClassicGroup = 4;
+	DefaultGroup = 4;
 	BaseAISelectRating = 0.65f;
 	BasePickupDesireability = 0.65f;
 	ScreenMaterialID = 5;

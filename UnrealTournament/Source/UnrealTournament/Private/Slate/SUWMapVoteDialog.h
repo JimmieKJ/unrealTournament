@@ -6,6 +6,7 @@
 #include "SUWDialog.h"
 #include "Widgets/SUTTabButton.h"
 #include "Widgets/SUTComboButton.h"
+#include "Widgets/SUTButton.h"
 #include "UTLobbyMatchInfo.h"
 #include "UTGameState.h"
 #include "UTAudioSettings.h"
@@ -64,7 +65,7 @@ protected:
 		TSharedPtr<SBorder> BorderWidget;
 		TSharedPtr<STextBlock> MapTitle;
 		TSharedPtr<STextBlock> VoteCountText;
-		TSharedPtr<SUTComboButton> VoteButton;
+		TSharedPtr<SUTButton> VoteButton;
 
 		FVoteButton()
 		{
@@ -73,7 +74,7 @@ protected:
 			MapImage.Reset();
 		}
 
-		FVoteButton(UTexture2D* inMapTexture, TWeakObjectPtr<AUTReplicatedMapInfo> inMapVoteInfo, TSharedPtr<SUTComboButton> inVoteButton, TSharedPtr<SImage> inMapImage, TSharedPtr<STextBlock> inMapTitle, TSharedPtr<STextBlock> inVoteCountText, TSharedPtr<SBorder> inBorderWidget)
+		FVoteButton(UTexture2D* inMapTexture, TWeakObjectPtr<AUTReplicatedMapInfo> inMapVoteInfo, TSharedPtr<SUTButton> inVoteButton, TSharedPtr<SImage> inMapImage, TSharedPtr<STextBlock> inMapTitle, TSharedPtr<STextBlock> inVoteCountText, TSharedPtr<SBorder> inBorderWidget)
 			: MapTexture(inMapTexture)
 			, MapVoteInfo(inMapVoteInfo)
 			, MapImage(inMapImage)

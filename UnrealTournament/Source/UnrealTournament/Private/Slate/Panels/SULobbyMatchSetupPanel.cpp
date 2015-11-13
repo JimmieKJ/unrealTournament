@@ -547,7 +547,7 @@ FText SULobbyMatchSetupPanel::GetStartMatchText() const
 		if (MatchInfo->CurrentRuleset.IsValid())
 		{
 			AUTLobbyGameState* LobbyGameState = GWorld->GetGameState<AUTLobbyGameState>();
-			if (!MatchInfo->bJoinAnytime || (LobbyGameState && LobbyGameState->NumGameInstances > 1 &&  MatchInfo->BotSkillLevel < 0))
+			if (!MatchInfo->bJoinAnytime || (LobbyGameState && LobbyGameState->AvailableMatches.Num() > 1 &&  MatchInfo->BotSkillLevel < 0))
 			{
 				int32 NumPlayersNeeded = MatchInfo->CurrentRuleset->MinPlayersToStart - MatchInfo->Players.Num();
 				if (NumPlayersNeeded > 0)

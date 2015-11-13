@@ -123,7 +123,6 @@ public:
 	bool CanMoveWeaponPriorityUp() const;
 	bool CanMoveWeaponPriorityDown() const;
 
-	bool bUseClassicGroups;
 	TOptional<int32> GetWeaponGroup() const;
 	void SetWeaponGroup(int32 NewGroup);
 

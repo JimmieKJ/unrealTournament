@@ -159,5 +159,10 @@ FReply SUWindowsLobby::OnKeyChar(const FGeometry& MyGeometry, const FCharacterEv
 	return FReply::Unhandled();
 }
 
+FReply SUWindowsLobby::OpenHUDSettings()
+{
+	PlayerOwner->ShowHUDSettings();
+	return FReply::Handled();
+}
 
 #endif

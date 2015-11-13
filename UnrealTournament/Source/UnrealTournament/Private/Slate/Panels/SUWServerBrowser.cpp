@@ -1360,7 +1360,7 @@ void SUWServerBrowser::PingServer(TSharedPtr<FServerData> ServerToPing)
 {
 	// Build the beacon
 	AUTServerBeaconClient* Beacon = PlayerOwner->GetWorld()->SpawnActor<AUTServerBeaconClient>(AUTServerBeaconClient::StaticClass());
-	if (Beacon)
+	if (Beacon && !ServerToPing->BeaconIP.IsEmpty())
 	{
 		Beacon->OnServerRequestResults = FServerRequestResultsDelegate::CreateSP(this, &SUWServerBrowser::OnServerBeaconResult );
 		Beacon->OnServerRequestFailure = FServerRequestFailureDelegate::CreateSP(this, &SUWServerBrowser::OnServerBeaconFailure);
@@ -1514,6 +1514,8 @@ void SUWServerBrowser::OnServerBeaconResult(AUTServerBeaconClient* Sender, FServ
 
 			if (PingTrackers[i].Server->GameModePath == LOBBY_GAME_PATH)
 			{
+
+				PingTrackers[i].Server->Ping = int32(float(PingTrackers[i].Beacon->Ping) - 0.5 * float(PingTrackers[i].Beacon->ServerTickRate) + (1.0/120.0));
 				AddHub(PingTrackers[i].Server);
 			}
 			else

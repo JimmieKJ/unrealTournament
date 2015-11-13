@@ -21,6 +21,8 @@ public:
 	FText GetChatDestinationText() const;
 	FText GetChatDestinationTag(FName Destination);
 
+	void FocusChat();
+
 protected:
 
 	FName ChatDestination;
