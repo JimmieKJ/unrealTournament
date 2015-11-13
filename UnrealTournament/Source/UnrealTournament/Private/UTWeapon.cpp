@@ -41,6 +41,7 @@ AUTWeapon::AUTWeapon(const FObjectInitializer& ObjectInitializer)
 	Ammo = 20;
 	MaxAmmo = 50;
 
+	Group = -1;
 	BringUpTime = 0.37f;
 	PutDownTime = 0.3f;
 	RefirePutDownTimePercent = 1.0f;
@@ -104,6 +105,10 @@ void AUTWeapon::PostInitProperties()
 {
 	Super::PostInitProperties();
 
+	if (Group == -1)
+	{
+		Group = DefaultGroup;
+	}
 	WeaponBarScale = 0.0f;
 
 	if (DisplayName.IsEmpty() || (GetClass() != AUTWeapon::StaticClass() && DisplayName.EqualTo(GetClass()->GetSuperClass()->GetDefaultObject<AUTWeapon>()->DisplayName) && GetClass()->GetSuperClass()->GetDefaultObject<AUTWeapon>()->DisplayName.EqualTo(FText::FromName(GetClass()->GetSuperClass()->GetFName()))))
@@ -260,7 +265,7 @@ void AUTWeapon::ClientGivenTo_Internal(bool bAutoActivate)
 	if (UTPC != NULL)
 	{
 		AutoSwitchPriority = UTPC->GetWeaponAutoSwitchPriority(GetNameSafe(this), AutoSwitchPriority);
-		Group = UTPC->GetWeaponGroup(GetNameSafe(this), GroupSlot);
+		UTPC->SetWeaponGroup(this);
 	}
 
 	// assign GroupSlot if required
@@ -349,7 +354,7 @@ void AUTWeapon::ClientRemoved_Implementation()
 	}
 }
 
-bool AUTWeapon::FollowsInList(AUTWeapon* OtherWeapon, bool bUseClassicGroups)
+bool AUTWeapon::FollowsInList(AUTWeapon* OtherWeapon)
 {
 	// return true if this weapon is after OtherWeapon in the weapon list
 	if (!OtherWeapon)
@@ -357,14 +362,7 @@ bool AUTWeapon::FollowsInList(AUTWeapon* OtherWeapon, bool bUseClassicGroups)
 		return true;
 	}
 	// if same group, order by slot, else order by group number
-	if (bUseClassicGroups)
-	{
-		return (ClassicGroup == OtherWeapon->ClassicGroup) ? (GroupSlot > OtherWeapon->GroupSlot) : (ClassicGroup > OtherWeapon->ClassicGroup);
-	}
-	else
-	{
-		return (Group == OtherWeapon->Group) ? (GroupSlot > OtherWeapon->GroupSlot) : (Group > OtherWeapon->Group);
-	}
+	return (Group == OtherWeapon->Group) ? (GroupSlot > OtherWeapon->GroupSlot) : (Group > OtherWeapon->Group);
 }
 
 void AUTWeapon::StartFire(uint8 FireModeNum)

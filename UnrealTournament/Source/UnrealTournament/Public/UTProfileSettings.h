@@ -217,9 +217,6 @@ class UNREALTOURNAMENT_API UUTProfileSettings : public UObject
 	UPROPERTY()
 	TArray<FStoredWeaponGroupInfo> WeaponGroups;
 
-	UPROPERTY()
-	bool bUseClassicWeaponGroups;
-
 	// Yes. the WeaponGroups array holds all of this information.  We use a TMap for
 	// quick lookup.
 	TMap<FString, FStoredWeaponGroupInfo> WeaponGroupLookup;
