@@ -212,6 +212,11 @@ UUTBotCharacter* UUTChallengeManager::ChooseBotCharacter(AUTGameMode* CurrentGam
 	{
 		const FUTChallengeInfo* Challenge = Challenges.Find(CurrentGame->ChallengeTag);
 
+		// daily challenges have fixed teams regardless of stars earned
+		if (Challenge->bDailyChallenge)
+		{
+			TotalStars = CurrentGame->ChallengeDifficulty * 20;
+		}
 		int32 EnemyIndex = CurrentGame->NumBots;
 		if (CurrentGame->bTeamGame)
 		{
