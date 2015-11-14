@@ -326,7 +326,7 @@ void AUTLobbyGameState::JoinMatch(AUTLobbyMatchInfo* MatchInfo, AUTLobbyPlayerSt
 	}
 	else if (MatchInfo->CurrentState == ELobbyMatchState::InProgress)
 	{
-		if (!MatchInfo->bJoinAnytime)
+		if (!MatchInfo->bJoinAnytime && !bAsSpectator)
 		{
 			NewPlayer->ClientMatchError(NSLOCTEXT("LobbyMessage", "MatchIsNotJoinable", "The match you are trying to join does not allow join in progress."));
 			return;
