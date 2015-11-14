@@ -96,7 +96,7 @@ static const int32 MAX_ACTIVE_DAILY_CHALLENGES = 1;
 
 class UUTProfileSettings;
 
-UCLASS()
+UCLASS(config = Game)
 class UNREALTOURNAMENT_API UUTChallengeManager : public UObject
 {
 	GENERATED_UCLASS_BODY()
@@ -130,8 +130,11 @@ class UNREALTOURNAMENT_API UUTChallengeManager : public UObject
 	UPROPERTY()
 	TMap<FName, FText> RewardCaptions;
 
-	TMap<FName, FUTRewardInfo> RewardInfo;
+	// For testing, not valid in release builds
+	UPROPERTY(globalconfig)
+		bool bTestDailyChallenges;
 
+	TMap<FName, FUTRewardInfo> RewardInfo;
 
 	// update the challenge information from the MCP
 	void UpdateChallengeFromMCP(const FMCPPulledData& MCPData);
