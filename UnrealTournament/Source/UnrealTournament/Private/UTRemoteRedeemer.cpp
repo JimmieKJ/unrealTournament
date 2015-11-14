@@ -392,6 +392,18 @@ void AUTRemoteRedeemer::ServerBlowUp_Implementation()
 	BlowUp();
 }
 
+void AUTRemoteRedeemer::OnRep_PlayerState()
+{
+	for (FLocalPlayerIterator It(GEngine, GetWorld()); It; ++It)
+	{
+		AUTPlayerController* UTPC = Cast<AUTPlayerController>(It->PlayerController);
+		if (UTPC && UTPC->LastSpectatedPlayerState == PlayerState)
+		{
+			UTPC->ViewPawn(this);
+		}
+	}
+}
+
 void AUTRemoteRedeemer::ExplodeStage(float RangeMultiplier)
 {
 	AUTProj_Redeemer *DefaultRedeemer = RedeemerProjectileClass->GetDefaultObject<AUTProj_Redeemer>();
