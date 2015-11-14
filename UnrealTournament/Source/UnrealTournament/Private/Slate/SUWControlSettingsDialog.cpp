@@ -303,37 +303,37 @@ void SUWControlSettingsDialog::CreateBinds()
 	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Throw Weapon", "Throw Weapon")))
 		->AddActionMapping("ThrowWeapon")
 		->AddDefaults(EKeys::M)));
-	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Select Translocator", "Select Translocator")))
+	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Select Translocator", "Toggle Translocator")))
 		->AddCustomBinding("ToggleTranslocator")
 		->AddDefaults(EKeys::Q)));
-	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Select Impact Hammer", "Select Impact Hammer")))
+	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Select WeaponGroup1", "Select Group 1")))
 		->AddCustomBinding("SwitchWeapon 1")
 		->AddDefaults(EKeys::One)));
-	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Select Enforcer", "Select Enforcer")))
+	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Select WeaponGroup2", "Select Group 2")))
 		->AddCustomBinding("SwitchWeapon 2")
 		->AddDefaults(EKeys::Two)));
-	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Select Bio Rifle", "Select Bio Rifle")))
+	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Select WeaponGroup3", "Select Group 3")))
 		->AddCustomBinding("SwitchWeapon 3")
 		->AddDefaults(EKeys::Three)));
-	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Select Shock Rifle", "Select Shock Rifle")))
+	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Select WeaponGroup4", "Select Group 4")))
 		->AddCustomBinding("SwitchWeapon 4")
 		->AddDefaults(EKeys::Four)));
-	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Select Link Gun", "Select Link Gun")))
+	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Select WeaponGroup5", "Select Group 5")))
 		->AddCustomBinding("SwitchWeapon 5")
 		->AddDefaults(EKeys::Five)));
-	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Select Stinger", "Select Stinger")))
+	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Select WeaponGroup6", "Select Group 6")))
 		->AddCustomBinding("SwitchWeapon 6")
 		->AddDefaults(EKeys::Six)));
-	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Select Flak Cannon", "Select Flak Cannon")))
+	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Select WeaponGroup7", "Select Group 7")))
 		->AddCustomBinding("SwitchWeapon 7")
 		->AddDefaults(EKeys::Seven)));
-	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Select Rocket Launcher", "Select Rocket Launcher")))
+	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Select WeaponGroup8", "Select Group 8")))
 		->AddCustomBinding("SwitchWeapon 8")
 		->AddDefaults(EKeys::Eight)));
-	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Select Sniper Rifle", "Select Sniper Rifle")))
+	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Select WeaponGroup9", "Select Group 9")))
 		->AddCustomBinding("SwitchWeapon 9")
 		->AddDefaults(EKeys::Nine)));
-	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Select Superweapon", "Select Superweapon")))
+	Binds.Add(MakeShareable((new FSimpleBind(NSLOCTEXT("KeyBinds", "Select WeaponGroup10", "Select Group 10")))
 		->AddCustomBinding("SwitchWeapon 10")
 		->AddDefaults(EKeys::Zero)));
 	//Taunts

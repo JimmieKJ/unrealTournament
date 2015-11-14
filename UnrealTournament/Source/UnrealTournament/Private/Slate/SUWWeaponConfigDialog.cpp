@@ -42,7 +42,7 @@ void SUWWeaponConfigDialog::Construct(const FArguments& InArgs)
 				UClass* TestClass = LoadObject<UClass>(NULL, **ClassPath);
 				if (TestClass != NULL && !TestClass->HasAnyClassFlags(CLASS_Abstract) && TestClass->IsChildOf(AUTWeapon::StaticClass()))
 				{
-					if (!TestClass->GetDefaultObject<AUTWeapon>()->bHideInMenus)
+					if (!TestClass->GetDefaultObject<AUTWeapon>()->bHideInMenus && (TestClass->GetDefaultObject<AUTWeapon>()->DefaultGroup > 0))
 					{
 						//Add weapons for the priority list
 						int32 Group = (TestClass->GetDefaultObject<AUTWeapon>()->Group >= 0) ? TestClass->GetDefaultObject<AUTWeapon>()->Group : TestClass->GetDefaultObject<AUTWeapon>()->DefaultGroup;
