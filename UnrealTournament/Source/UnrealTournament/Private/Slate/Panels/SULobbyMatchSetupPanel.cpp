@@ -484,7 +484,7 @@ TSharedRef<SWidget> SULobbyMatchSetupPanel::AddActionButtons()
 			+SHorizontalBox::Slot()
 			.AutoWidth()
 			[
-				SNew(SBox).WidthOverride(200).HeightOverride(32)
+				SNew(SBox).WidthOverride(220).HeightOverride(32)
 				[
 					SNew(SButton)
 					.ButtonStyle(SUTStyle::Get(),"UT.SimpleButton")
@@ -498,7 +498,7 @@ TSharedRef<SWidget> SULobbyMatchSetupPanel::AddActionButtons()
 			.AutoWidth()
 			.Padding(5.0f,0.0f,10.0f,0.0f)
 			[
-				SNew(SBox).WidthOverride(200).HeightOverride(32)
+				SNew(SBox).WidthOverride(220).HeightOverride(32)
 				[
 					SNew(SButton)
 					.ButtonStyle(SUTStyle::Get(),"UT.SimpleButton")
@@ -547,7 +547,7 @@ FText SULobbyMatchSetupPanel::GetStartMatchText() const
 		if (MatchInfo->CurrentRuleset.IsValid())
 		{
 			AUTLobbyGameState* LobbyGameState = GWorld->GetGameState<AUTLobbyGameState>();
-			if (!MatchInfo->bJoinAnytime || (LobbyGameState && LobbyGameState->AvailableMatches.Num() > 1 &&  MatchInfo->BotSkillLevel < 0))
+			if (!MatchInfo->bJoinAnytime || (LobbyGameState && LobbyGameState->NumMatchesInProgress() > 0 && MatchInfo->BotSkillLevel < 0 && LobbyGameState->bAllowInstancesToStartWithBots))
 			{
 				int32 NumPlayersNeeded = MatchInfo->CurrentRuleset->MinPlayersToStart - MatchInfo->Players.Num();
 				if (NumPlayersNeeded > 0)

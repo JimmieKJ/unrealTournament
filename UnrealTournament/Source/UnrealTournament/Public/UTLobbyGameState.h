@@ -250,6 +250,12 @@ public:
 	UPROPERTY(replicated)
 	bool bCustomContentAvailable;
 
+	UPROPERTY(replicated)
+	bool bAllowInstancesToStartWithBots;
+
+	// Returns the # of matches available.  Not it ignores matches that are in the non-setup/dying state
+	int32 NumMatchesInProgress();
+
 };
 
 
