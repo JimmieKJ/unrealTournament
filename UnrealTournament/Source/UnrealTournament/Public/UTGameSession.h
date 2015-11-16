@@ -44,7 +44,7 @@ public:
 
 	// The base engine ApproveLogin doesn't pass the Address and UniqueId to the approve login process.  So we have
 	// a second layer.
-	void ValidatePlayer(const FString& Address, const TSharedPtr<class FUniqueNetId>& UniqueId, FString& ErrorMessage);
+	void ValidatePlayer(const FString& Address, const TSharedPtr<class FUniqueNetId>& UniqueId, FString& ErrorMessage, bool bValidateAsSpectator);
 
 	// Cached reference to the Game Mode
 	UPROPERTY()
