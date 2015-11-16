@@ -408,7 +408,7 @@ void AUTShowdownGame::HandleMatchIntermission()
 	}
 
 	// give players spawn point selection
-	TArray<AUTPlayerState*> UnsortedPicks;
+	TMultiMap<AUTTeamInfo*, AUTPlayerState*> TeamPlayers;
 	for (FConstControllerIterator It = GetWorld()->GetControllerIterator(); It; ++It)
 	{
 		AController* C = It->Get();
@@ -429,7 +429,7 @@ void AUTShowdownGame::HandleMatchIntermission()
 			{
 				PS->RespawnChoiceA = NULL;
 				PS->RespawnChoiceB = NULL;
-				UnsortedPicks.Add(PS);
+				TeamPlayers.Add(PS->Team, PS);
 				// make sure players that were spectating while dead go back to dead state
 				AUTPlayerController* PC = Cast<AUTPlayerController>(C);
 				if (PC != NULL && PC->IsInState(NAME_Spectating))
@@ -440,8 +440,21 @@ void AUTShowdownGame::HandleMatchIntermission()
 			}
 		}
 	}
-	// sort players by score (highest first)
-	UnsortedPicks.Sort([&](const AUTPlayerState& A, const AUTPlayerState& B){ return A.Score > B.Score; });
+	// sort players by previous selection
+	TeamPlayers.ValueSort([&](const AUTPlayerState& A, const AUTPlayerState& B){ return A.SelectionOrder > B.SelectionOrder; });
+	// rotate players
+	for (AUTTeamInfo* Team : Teams)
+	{
+		TArray<AUTPlayerState*> Players;
+		TeamPlayers.MultiFind(Team, Players);
+		if (Players.Num() > 1)
+		{
+			// remove and re-add the last player, which puts it at the front of the list
+			AUTPlayerState* LastPlayer = Players.Last();
+			TeamPlayers.Remove(Team, LastPlayer);
+			TeamPlayers.Add(Team, LastPlayer);
+		}
+	}
 	// sort team pick order by: winner of previous round last, others sorted by lowest score to highest score
 	TArray<AUTTeamInfo*> SortedTeams = Teams;
 	SortedTeams.Sort([&](const AUTTeamInfo& A, const AUTTeamInfo& B)
@@ -460,28 +473,29 @@ void AUTShowdownGame::HandleMatchIntermission()
 		}
 	});
 
-	while (UnsortedPicks.Num() > 0)
+	while (TeamPlayers.Num() > 0)
 	{
 		bool bFoundAny = false;
 		for (int32 i = 0; i < SortedTeams.Num(); i++)
 		{
-			for (AUTPlayerState* Pick : UnsortedPicks)
+			AUTPlayerState* NextPlayer = TeamPlayers.FindRef(SortedTeams[i]);
+			if (NextPlayer != NULL)
 			{
-				if (Pick->Team == SortedTeams[i])
-				{
-					RemainingPicks.Add(Pick);
-					UnsortedPicks.Remove(Pick);
-					bFoundAny = true;
-					break;
-				}
+				RemainingPicks.Add(NextPlayer);
+				TeamPlayers.Remove(SortedTeams[i], NextPlayer);
+				bFoundAny = true;
 			}
 		}
 		if (!bFoundAny)
 		{
 			// sanity check so we don't infinitely recurse
-			UE_LOG(UT, Warning, TEXT("Showdown spawn selection sorting error with %s on team %s"), *UnsortedPicks[0]->PlayerName, *UnsortedPicks[0]->Team->TeamName.ToString());
-			RemainingPicks.Add(UnsortedPicks[0]);
-			UnsortedPicks.RemoveAt(0);
+			for (TMultiMap<AUTTeamInfo*, AUTPlayerState*>::TIterator It(TeamPlayers); It; ++It)
+			{
+				UE_LOG(UT, Warning, TEXT("Showdown spawn selection sorting error with %s on team %s"), *It.Value()->PlayerName, *It.Value()->Team->TeamName.ToString());
+				RemainingPicks.Add(It.Value());
+				It.RemoveCurrent();
+				break;
+			}
 		}
 	}
 	for (int32 i = 0; i < RemainingPicks.Num(); i++)
