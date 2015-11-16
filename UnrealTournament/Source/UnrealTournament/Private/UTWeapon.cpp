@@ -1908,6 +1908,7 @@ void AUTWeapon::UpdateOverlaysShared(AActor* WeaponActor, AUTCharacter* InOwner,
 				if (PSC == NULL)
 				{
 					PSC = NewObject<UParticleSystemComponent>(InOverlayMesh);
+					PSC->SetAbsolute(false, false, true);
 					PSC->RegisterComponent();
 				}
 				PSC->AttachTo(InOverlayMesh, TopOverlay.ParticleAttachPoint);
