@@ -22,6 +22,7 @@ AUTLift::AUTLift(const FObjectInitializer& ObjectInitializer)
 	NavmeshScale = 0.75f;
 	NetPriority = 2.7f;
 	bReplicates = true;
+	bCanBeDamaged = false;
 }
 
 void AUTLift::SetEncroachComponent(class UPrimitiveComponent* NewEncroachComponent)
