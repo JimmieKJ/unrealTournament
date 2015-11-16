@@ -257,6 +257,9 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	UPROPERTY(EditDefaultsOnly, Category="Weapon")
 	FVector FOVOffset;
 
+	UPROPERTY()
+	UUTWeaponSkin* WeaponSkin;
+
 	UFUNCTION()
 	virtual void AttachToHolster();
 
@@ -264,6 +267,8 @@ class UNREALTOURNAMENT_API AUTWeapon : public AUTInventory
 	virtual void DetachFromHolster();
 
 	virtual void DropFrom(const FVector& StartLocation, const FVector& TossVelocity) override;
+
+	virtual void InitializeDroppedPickup(class AUTDroppedPickup* Pickup);
 
 	/** Return true if this weapon should be dropped if held on player death. */
 	virtual bool ShouldDropOnDeath();

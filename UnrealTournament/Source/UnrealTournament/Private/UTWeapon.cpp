@@ -320,6 +320,12 @@ void AUTWeapon::DropFrom(const FVector& StartLocation, const FVector& TossVeloci
 	}
 }
 
+void AUTWeapon::InitializeDroppedPickup(class AUTDroppedPickup* Pickup)
+{
+	Super::InitializeDroppedPickup(Pickup);
+	Pickup->SetWeaponSkin(WeaponSkin);
+}
+
 void AUTWeapon::Removed()
 {
 	GotoState(InactiveState);

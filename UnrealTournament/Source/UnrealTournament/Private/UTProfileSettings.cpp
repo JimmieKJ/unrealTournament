@@ -352,6 +352,8 @@ void UUTProfileSettings::ApplyAllSettings(UUTLocalPlayer* ProfilePlayer)
 	}
 
 	TokensCommit();
+
+	WeaponSkins.Remove(nullptr);
 }
 
 bool UUTProfileSettings::HasTokenBeenPickedUpBefore(FName TokenUniqueID)

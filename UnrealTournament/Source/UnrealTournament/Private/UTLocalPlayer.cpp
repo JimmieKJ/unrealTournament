@@ -1242,7 +1242,7 @@ void UUTLocalPlayer::OnReadUserFileComplete(bool bWasSuccessful, const FUniqueNe
 			
 			// Serialize the object
 			FMemoryReader MemoryReader(FileContents, true);
-			FObjectAndNameAsStringProxyArchive Ar(MemoryReader, false);
+			FObjectAndNameAsStringProxyArchive Ar(MemoryReader, true);
 			CurrentProfileSettings->Serialize(Ar);
 			CurrentProfileSettings->VersionFixup();
 

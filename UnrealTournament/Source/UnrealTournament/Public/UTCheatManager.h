@@ -49,6 +49,9 @@ class UNREALTOURNAMENT_API UUTCheatManager : public UCheatManager
 	virtual void ImpartEyewear(const FString& Eyewear);
 
 	UFUNCTION(exec)
+	virtual void ImpartWeaponSkin(const FString& Skin);
+
+	UFUNCTION(exec)
 	virtual void Ann(int32 Switch);
 
 	UFUNCTION(exec)

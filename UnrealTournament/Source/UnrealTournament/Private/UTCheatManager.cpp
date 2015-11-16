@@ -186,6 +186,23 @@ void UUTCheatManager::ImpartHats(const FString& Hat)
 	}
 }
 
+void UUTCheatManager::ImpartWeaponSkin(const FString& Skin)
+{
+	FString SkinPackageName;
+	if (FPackageName::SearchForPackageOnDisk(Skin, &SkinPackageName))
+	{
+		AUTGameState* GS = GetOuterAPlayerController()->GetWorld()->GetGameState<AUTGameState>();
+		for (int32 i = 0; i < GS->PlayerArray.Num(); i++)
+		{
+			AUTPlayerState* PS = Cast<AUTPlayerState>(GS->PlayerArray[i]);
+			if (PS)
+			{
+				PS->ServerReceiveWeaponSkin(SkinPackageName);
+			}
+		}
+	}
+}
+
 void UUTCheatManager::SetEyewear(const FString& Eyewear)
 {
 	AUTPlayerState* PS = Cast<AUTPlayerState>(GetOuterAPlayerController()->PlayerState);

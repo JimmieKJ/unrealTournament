@@ -99,6 +99,7 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	DOREPLIFETIME(AUTPlayerState, SelectedCharacter);
 	DOREPLIFETIME(AUTPlayerState, TauntClass);
 	DOREPLIFETIME(AUTPlayerState, Taunt2Class);
+	DOREPLIFETIME(AUTPlayerState, WeaponSkins);
 	DOREPLIFETIME(AUTPlayerState, HatClass);
 	DOREPLIFETIME(AUTPlayerState, LeaderHatClass);
 	DOREPLIFETIME(AUTPlayerState, EyewearClass);
@@ -574,6 +575,76 @@ AUTCharacter* AUTPlayerState::GetUTCharacter()
 	}
 
 	return CachedCharacter;
+}
+
+void AUTPlayerState::OnRepWeaponSkin()
+{
+	AUTCharacter* Char = GetUTCharacter();
+	if (Char)
+	{
+		Char->UpdateWeaponSkin();
+	}
+}
+
+void AUTPlayerState::UpdateWeaponSkinPrefFromProfile(TSubclassOf<AUTWeapon> Weapon)
+{
+	AUTBasePlayerController* PC = Cast<AUTBasePlayerController>(GetOwner());
+	if (PC)
+	{
+		UUTLocalPlayer* LP = Cast<UUTLocalPlayer>(PC->Player);
+		if (LP)
+		{
+			UUTProfileSettings* ProfileSettings = LP->GetProfileSettings();
+			if (ProfileSettings)
+			{
+				FString WeaponPathName = Weapon->GetPathName();
+				for (int32 i = 0; i < ProfileSettings->WeaponSkins.Num(); i++)
+				{
+					if (ProfileSettings->WeaponSkins[i] && ProfileSettings->WeaponSkins[i]->WeaponType.AssetLongPathname == WeaponPathName)
+					{
+						if (!WeaponSkins.Contains(ProfileSettings->WeaponSkins[i]))
+						{
+							ServerReceiveWeaponSkin(ProfileSettings->WeaponSkins[i]->GetPathName());
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+void AUTPlayerState::ServerReceiveWeaponSkin_Implementation(const FString& NewWeaponSkin)
+{
+	if (!bOnlySpectator)
+	{
+		UUTWeaponSkin* WeaponSkin = LoadObject<UUTWeaponSkin>(NULL, *NewWeaponSkin, NULL, GetCosmeticLoadFlags(), NULL);
+		
+		if (WeaponSkin != nullptr && ValidateEntitlementSingleObject(WeaponSkin))
+		{
+			bool bAlreadyAssigned = false;
+			// Verify we don't already have a skin for this weapon
+			for (int32 i = 0; i < WeaponSkins.Num(); i++)
+			{
+				if (WeaponSkins[i]->WeaponType == WeaponSkin->WeaponType)
+				{
+					WeaponSkins[i] = WeaponSkin;
+					bAlreadyAssigned = true;
+				}
+			}
+
+			if (!bAlreadyAssigned)
+			{
+				WeaponSkins.Add(WeaponSkin);
+			}
+			
+			OnRepWeaponSkin();
+		}
+	}
+}
+
+bool AUTPlayerState::ServerReceiveWeaponSkin_Validate(const FString& NewWeaponSkin)
+{
+	return true;
 }
 
 void AUTPlayerState::OnRepHat()
@@ -1595,6 +1666,29 @@ bool AUTPlayerState::HasRightsFor(UObject* Obj) const
 			return !NeedsProfileItem(Obj) || OwnsItemFor(Obj->GetPathName());
 		}
 	}
+}
+
+bool AUTPlayerState::ValidateEntitlementSingleObject(UObject* Object)
+{
+	if (IOnlineSubsystem::Get() != NULL && UniqueId.IsValid() && !IsProfileItemListPending())
+	{
+		IOnlineEntitlementsPtr EntitlementInterface = IOnlineSubsystem::Get()->GetEntitlementsInterface();
+		if (EntitlementInterface.IsValid())
+		{
+			// we assume that any successful entitlement query is going to return at least one - the entitlement to play the game
+			TArray< TSharedRef<FOnlineEntitlement> > AllEntitlements;
+			EntitlementInterface->GetAllEntitlements(*UniqueId.GetUniqueNetId().Get(), TEXT("ut"), AllEntitlements);
+			if (AllEntitlements.Num() > 0)
+			{
+				if (!HasRightsFor(Object))
+				{
+					return false;
+				}
+			}
+		}
+	}
+
+	return true;
 }
 
 void AUTPlayerState::ValidateEntitlements()

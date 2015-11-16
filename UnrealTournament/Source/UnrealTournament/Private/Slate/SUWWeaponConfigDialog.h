@@ -113,6 +113,15 @@ public:
 		}
 	}
 
+	TSharedPtr<SComboBox< TSharedPtr<FString>  > > WeaponSkinComboBox;
+	TSharedPtr<STextBlock> WeaponSkinText;
+	TArray<TSharedPtr<FString>> WeaponSkinList;
+	TMap< FString, TArray<UUTWeaponSkin*> > WeaponToSkinListMap;
+	TMap< FString, FString > WeaponSkinSelection;
+	void OnWeaponSkinSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo);
+	TSharedRef<SWidget> GenerateStringListWidget(TSharedPtr<FString> InItem);
+	void UpdateAvailableWeaponSkins();
+
 	virtual void Tick(const FGeometry& AllottedGeometry, const double InCurrentTime, const float InDeltaTime) override;
 	virtual void AddReferencedObjects(FReferenceCollector& Collector) override;
 

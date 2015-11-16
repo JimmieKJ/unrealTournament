@@ -99,6 +99,28 @@ void SUWWeaponConfigDialog::Construct(const FArguments& InArgs)
 			}
 		}
 	}
+	
+	{//Gather all the weapon skin classes
+		TArray<FAssetData> AssetList;
+		GetAllAssetData(UUTWeaponSkin::StaticClass(), AssetList);
+		for (const FAssetData& Asset : AssetList)
+		{
+			UUTWeaponSkin* EligibleWeaponSkin = Cast<UUTWeaponSkin>(Asset.GetAsset());
+			if (EligibleWeaponSkin)
+			{
+				TArray<UUTWeaponSkin*>* WeaponSkinArray = WeaponToSkinListMap.Find(EligibleWeaponSkin->WeaponType.AssetLongPathname);
+				if (WeaponSkinArray == nullptr)
+				{
+					WeaponSkinArray = &(WeaponToSkinListMap.Add(EligibleWeaponSkin->WeaponType.AssetLongPathname));
+				}
+
+				if (WeaponSkinArray)
+				{
+					(*WeaponSkinArray).Add(EligibleWeaponSkin);
+				}
+			}
+		}
+	}
 
 	//Set up the Crosshair WYSIWYG view
 	//Just set to some samll size to satisfy hooking everything up. Will resize the rendertarget once we know the size Slate gives us for the crosshair image
@@ -556,13 +578,44 @@ void SUWWeaponConfigDialog::Construct(const FArguments& InArgs)
 		]);
 	
 		WeaponList->SetSelection(WeakWeaponClassList[0]);
+		
+		WeaponSkinList.Add(MakeShareable(new FString(TEXT("No Skins Available"))));
 
 		TabWidget->AddTab(FText::FromString(TEXT("Weapon Skins")),
 		SNew(SOverlay)
 		+ SOverlay::Slot()
 		[
-			SNew(SCanvas)
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot()
+			.AutoWidth()
+			.Padding(10.0f, 0.0f, 0.0f, 0.0f)
+			.VAlign(VAlign_Center)
+			.HAlign(HAlign_Right)
+			[
+				SNew(SVerticalBox)
+				+ SVerticalBox::Slot()
+				.Padding(0.0f, 10.0f, 0.0f, 5.0f)
+				.AutoHeight()
+				.VAlign(VAlign_Fill)
+				.HAlign(HAlign_Fill)
+				[
+					SAssignNew(WeaponSkinComboBox, SComboBox< TSharedPtr<FString> >)
+					.InitiallySelectedItem(nullptr)
+					.ComboBoxStyle(SUWindowsStyle::Get(), "UT.ComboBox")
+					.ButtonStyle(SUWindowsStyle::Get(), "UT.Button.White")
+					.OptionsSource(&WeaponSkinList)
+					.OnSelectionChanged(this, &SUWWeaponConfigDialog::OnWeaponSkinSelected)
+					.OnGenerateWidget(this, &SUWWeaponConfigDialog::GenerateStringListWidget)
+					.Content()
+					[
+						SAssignNew(WeaponSkinText, STextBlock)
+						.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.Black")
+					]
+				]
+			]
 		]);
+
+		WeaponSkinText->SetText(*WeaponSkinList[0].Get());
 
 		SetCustomWeaponCrosshairs(bCustomWeaponCrosshairs ? ECheckBoxState::Checked : ECheckBoxState::Unchecked);
 
@@ -604,6 +657,7 @@ void SUWWeaponConfigDialog::OnWeaponChanged(TWeakObjectPtr<UClass> NewSelectedWe
 
 	UpdateWeaponsInGroup();
 
+	UpdateAvailableWeaponSkins();
 }
 
 void SUWWeaponConfigDialog::UpdateCrosshairRender(UCanvas* C, int32 Width, int32 Height)
@@ -657,6 +711,11 @@ void SUWWeaponConfigDialog::AddReferencedObjects(FReferenceCollector& Collector)
 	Collector.AddReferencedObjects(CrosshairClassList);
 	Collector.AddReferencedObject(CrosshairPreviewTexture);
 	Collector.AddReferencedObject(CrosshairPreviewMID);
+
+	for (auto WeaponToSkinListMapPair : WeaponToSkinListMap)
+	{
+		Collector.AddReferencedObjects(WeaponToSkinListMapPair.Value);
+	}
 }
 
 void SUWWeaponConfigDialog::OnCrosshairSelected(TWeakObjectPtr<UClass> NewSelection, ESelectInfo::Type SelectInfo)
@@ -861,6 +920,40 @@ FReply SUWWeaponConfigDialog::OKClick()
 	{
 		ProfileSettings->CrosshairInfos = AUTHUD::StaticClass()->GetDefaultObject<AUTHUD>()->CrosshairInfos;
 		ProfileSettings->bCustomWeaponCrosshairs = bCustomWeaponCrosshairs;
+
+		for (auto& Selection : WeaponSkinSelection)
+		{
+			// Find the weapon skin pointer for this selection
+			TArray<UUTWeaponSkin*>& SkinArray = WeaponToSkinListMap[Selection.Key];
+			UUTWeaponSkin* Skin = nullptr;
+			for (int32 SkinIter = 0; SkinIter < SkinArray.Num(); SkinIter++)
+			{
+				if (SkinArray[SkinIter]->DisplayName.ToString() == Selection.Value)
+				{
+					Skin = SkinArray[SkinIter];
+					break;
+				}
+			}
+
+			if (Skin)
+			{
+				// First check for an existing entry in profile
+				bool bFoundInProfile = false;
+				for (int i = 0; i < ProfileSettings->WeaponSkins.Num(); i++)
+				{
+					if (ProfileSettings->WeaponSkins[i] && ProfileSettings->WeaponSkins[i]->WeaponType == Selection.Key)
+					{
+						ProfileSettings->WeaponSkins[i] = Skin;
+						bFoundInProfile = true;
+						break;
+					}
+				}
+				if (!bFoundInProfile)
+				{
+					ProfileSettings->WeaponSkins.Add(Skin);
+				}
+			}
+		}
 	}
 
 	GetPlayerOwner()->SaveProfileSettings();
@@ -963,4 +1056,91 @@ FReply SUWWeaponConfigDialog::DefaultGroupsClicked()
 
 	return FReply::Handled();
 }
+
+void SUWWeaponConfigDialog::OnWeaponSkinSelected(TSharedPtr<FString> NewSelection, ESelectInfo::Type SelectInfo)
+{
+	if (NewSelection.IsValid())
+	{
+		WeaponSkinText->SetText(*NewSelection.Get());
+		if (SelectedWeapon.IsValid())
+		{
+			WeaponSkinSelection.Add(SelectedWeapon->GetPathName(), *NewSelection.Get());
+		}
+	}
+}
+
+TSharedRef<SWidget> SUWWeaponConfigDialog::GenerateStringListWidget(TSharedPtr<FString> InItem)
+{
+	return SNew(SBox)
+		.Padding(5)
+		[
+			SNew(STextBlock)
+			.ColorAndOpacity(FLinearColor::White)
+			.Text(FText::FromString(*InItem.Get()))
+		];
+}
+
+void SUWWeaponConfigDialog::UpdateAvailableWeaponSkins()
+{
+	// We have not been initialized yet
+	if (!WeaponSkinComboBox.IsValid())
+	{
+		return;
+	}
+
+	WeaponSkinList.Empty();
+	WeaponSkinList.Add(MakeShareable(new FString(TEXT("No Skin"))));
+
+	if (SelectedWeapon.IsValid())
+	{
+		FString SelectedWeaponPath = SelectedWeapon->GetPathName();
+		TArray<UUTWeaponSkin*>* AvailableSkins = WeaponToSkinListMap.Find(SelectedWeaponPath);
+		if (AvailableSkins)
+		{
+			for (auto Skin : *AvailableSkins)
+			{
+				WeaponSkinList.Add(MakeShareable(new FString(Skin->DisplayName.ToString())));
+			}
+		}
+
+		// Check if we have an assigned skin in the pre-confirmation cache
+		FString* SelectedSkin = WeaponSkinSelection.Find(SelectedWeaponPath);
+		if (SelectedSkin)
+		{
+			for (int i = 0; i < WeaponSkinList.Num(); i++)
+			{
+				if (*WeaponSkinList[i].Get() == *SelectedSkin)
+				{
+					WeaponSkinComboBox->SetSelectedItem(WeaponSkinList[i]);
+					return;
+				}
+			}
+		}
+		else
+		{
+			// If haven't picked one this session, highlight the one that was in profile settings
+			UUTProfileSettings* ProfileSettings = GetPlayerOwner()->GetProfileSettings();
+			if (ProfileSettings)
+			{
+				for (int32 j = 0; j < ProfileSettings->WeaponSkins.Num(); j++)
+				{
+					if (ProfileSettings->WeaponSkins[j] && ProfileSettings->WeaponSkins[j]->WeaponType.AssetLongPathname == SelectedWeaponPath)
+					{
+						for (int i = 0; i < WeaponSkinList.Num(); i++)
+						{
+							if (*WeaponSkinList[i].Get() == ProfileSettings->WeaponSkins[j]->DisplayName.ToString())
+							{
+								WeaponSkinComboBox->SetSelectedItem(WeaponSkinList[i]);
+								return;
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	WeaponSkinComboBox->SetSelectedItem(WeaponSkinList[0]);
+}
+
 #endif

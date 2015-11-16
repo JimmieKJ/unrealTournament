@@ -244,6 +244,15 @@ void AUTDroppedPickup::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & Ou
 {
 	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 	DOREPLIFETIME_CONDITION(AUTDroppedPickup, InventoryType, COND_None);
+	DOREPLIFETIME_CONDITION(AUTDroppedPickup, WeaponSkin, COND_None);
+}
+
+void AUTDroppedPickup::OnRepWeaponSkin()
+{
+	if (WeaponSkin)
+	{
+		Mesh->CreateAndSetMaterialInstanceDynamicFromMaterial(0, WeaponSkin->Material);
+	}
 }
 
 float AUTDroppedPickup::BotDesireability_Implementation(APawn* Asker, float PathDistance)

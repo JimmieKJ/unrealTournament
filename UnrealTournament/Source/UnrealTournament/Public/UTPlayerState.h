@@ -15,6 +15,7 @@
 #include "SHyperlink.h"
 #include "UTCharacterVoice.h"
 #include "StatManager.h"
+#include "UTWeaponSkin.h"
 
 #include "UTPlayerState.generated.h"
 
@@ -403,6 +404,18 @@ public:
 	UFUNCTION()
 	AUTCharacter* GetUTCharacter();
 
+	UPROPERTY(replicatedUsing = OnRepWeaponSkin)
+	TArray<UUTWeaponSkin*> WeaponSkins;
+
+	UFUNCTION(Server, Reliable, WithValidation)
+	virtual void ServerReceiveWeaponSkin(const FString& NewWeaponSkin);
+
+	UFUNCTION()
+	virtual void OnRepWeaponSkin();
+
+	UFUNCTION()
+	virtual void UpdateWeaponSkinPrefFromProfile(TSubclassOf<AUTWeapon> Weapon);
+
 	UPROPERTY(replicatedUsing = OnRepHat)
 	TSubclassOf<AUTHat> HatClass;
 
@@ -523,6 +536,7 @@ protected:
 	virtual bool HasRightsFor(UObject* Obj) const;
 public:
 	virtual void ValidateEntitlements();
+	virtual bool ValidateEntitlementSingleObject(UObject* Object);
 
 	void WriteStatsToCloud();
 	void StatsWriteComplete(FHttpRequestPtr HttpRequest, FHttpResponsePtr HttpResponse, bool bSucceeded);

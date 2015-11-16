@@ -1589,6 +1589,9 @@ public:
 	UFUNCTION()
 	virtual void UpdateWeaponAttachment();
 
+	UFUNCTION()
+	virtual void UpdateWeaponSkinPrefFromProfile();
+
 	/** spawn/destroy/replace the current holstered weapon attachment to represent the equipped weapon (through WeaponClass) */
 	UFUNCTION()
 	virtual void UpdateHolsteredWeaponAttachment();
@@ -1617,6 +1620,8 @@ public:
 	/** sets walking movement reduction */
 	UFUNCTION(BlueprintCallable, Category = Movement)
 	virtual void SetWalkMovementReduction(float InPct, float InDuration);
+
+	virtual void UpdateWeaponSkin();
 
 protected:
 

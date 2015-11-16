@@ -32,6 +32,7 @@
 #include "UTTimedPowerup.h"
 #include "UTWaterVolume.h"
 #include "UTLift.h"
+#include "UTWeaponSkin.h"
 
 static FName NAME_HatSocket(TEXT("HatSocket"));
 
@@ -2635,6 +2636,7 @@ void AUTCharacter::WeaponChanged(float OverflowTime)
 		WeaponClass = Weapon->GetClass();
 		WeaponAttachmentClass = Weapon->AttachmentType;
 		Weapon->BringUp(OverflowTime);
+		UpdateWeaponSkinPrefFromProfile();
 		UpdateWeaponAttachment();
 	}
 	else if (Weapon != NULL && Weapon->GetUTOwner() == this)
@@ -2702,6 +2704,18 @@ void AUTCharacter::SwitchToBestWeapon()
 	}
 }
 
+void AUTCharacter::UpdateWeaponSkinPrefFromProfile()
+{
+	if (Weapon && IsLocallyControlled())
+	{
+		AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
+		if (PS)
+		{
+			PS->UpdateWeaponSkinPrefFromProfile(WeaponClass);
+		}
+	}
+}
+
 void AUTCharacter::UpdateWeaponAttachment()
 {
 	if (GetNetMode() != NM_DedicatedServer)
@@ -2727,6 +2741,8 @@ void AUTCharacter::UpdateWeaponAttachment()
 				WeaponAttachment->AttachToOwner();
 			}
 		}
+
+		UpdateWeaponSkin();
 	}
 }
 
@@ -5528,5 +5544,46 @@ void AUTCharacter::MovementEventReplicated()
 	else if (MovementEvent.EventType == EME_Slide)
 	{
 		OnSlide(MovementEvent.EventLocation, MovementEventDir);
+	}
+}
+
+void AUTCharacter::UpdateWeaponSkin()
+{
+	if (WeaponClass == nullptr)
+	{
+		return;
+	}
+
+	UUTWeaponSkin* WeaponSkin = nullptr;
+	FString WeaponPathName = WeaponClass->GetPathName();
+	// See if playerstate has a weapon skin override for us
+	AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
+	if (PS)
+	{
+		for (int32 i = 0; i < PS->WeaponSkins.Num(); i++)
+		{
+			if (PS->WeaponSkins[i] && PS->WeaponSkins[i]->WeaponType.AssetLongPathname == WeaponPathName)
+			{
+				WeaponSkin = PS->WeaponSkins[i];
+				break;
+			}
+		}
+	}
+
+	if (WeaponSkin)
+	{
+		if (WeaponAttachment && WeaponAttachment->Mesh)
+		{
+			WeaponAttachment->Mesh->CreateAndSetMaterialInstanceDynamicFromMaterial(0, WeaponSkin->Material);
+		}
+		if (Weapon)
+		{
+			Weapon->WeaponSkin = WeaponSkin;
+
+			if (Weapon->Mesh)
+			{
+				Weapon->Mesh->CreateAndSetMaterialInstanceDynamicFromMaterial(0, WeaponSkin->FPSMaterial);
+			}
+		}
 	}
 }
