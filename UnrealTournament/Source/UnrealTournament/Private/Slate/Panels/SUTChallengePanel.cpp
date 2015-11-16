@@ -641,10 +641,10 @@ void SUTChallengePanel::GenerateChallengeList()
 		TArray<const FUTChallengeInfo*> Challenges;
 		ChallengeManager->GetChallenges(Challenges, ChallengeFilter, PlayerOwner->GetProfileSettings());
 
+		// First count the stars
 		for (int32 i = 0 ; i < Challenges.Num(); i++)
 		{
 			const FUTChallengeInfo* Challenge = Challenges[i];
-			int32 RewardPosition = ChallengeManager->RewardTags.Find(Challenge->RewardTag);
 
 			// Track it's overall star count....
 
@@ -657,6 +657,12 @@ void SUTChallengePanel::GenerateChallengeList()
 			{
 				RewardStars.Add(Challenge->RewardTag, Stars);
 			}
+		}
+
+		// Now create the buttons
+		for (int32 i = 0 ; i < Challenges.Num(); i++)
+		{
+			const FUTChallengeInfo* Challenge = Challenges[i];
 			AddChallengeButton(Challenges[i]->Tag, *Challenges[i]);
 		}
 		
