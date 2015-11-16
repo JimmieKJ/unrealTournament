@@ -33,7 +33,7 @@ void AUTGameSession::InitOptions( const FString& Options )
 	bNoJoinInProgress = UTGameMode->HasOption(Options,"NoJIP");
 }
 
-void AUTGameSession::ValidatePlayer(const FString& Address, const TSharedPtr<class FUniqueNetId>& UniqueId, FString& ErrorMessage)
+void AUTGameSession::ValidatePlayer(const FString& Address, const TSharedPtr<class FUniqueNetId>& UniqueId, FString& ErrorMessage, bool bValidateAsSpectator)
 {
 	UNetDriver* NetDriver = NULL;
 	if (GetWorld())
@@ -41,7 +41,7 @@ void AUTGameSession::ValidatePlayer(const FString& Address, const TSharedPtr<cla
 		NetDriver = GetWorld()->GetNetDriver();
 	}
 
-	if ( (UniqueId.IsValid() && AllowedAdmins.Find(UniqueId->ToString()) == INDEX_NONE) && bNoJoinInProgress && UTGameMode->HasMatchStarted() )
+	if ( !bValidateAsSpectator && (UniqueId.IsValid() && AllowedAdmins.Find(UniqueId->ToString()) == INDEX_NONE) && bNoJoinInProgress && UTGameMode->HasMatchStarted() )
 	{
 		ErrorMessage = TEXT("CANTJOININPROGRESS");
 		return;

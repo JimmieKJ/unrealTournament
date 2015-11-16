@@ -118,7 +118,8 @@ void AUTBaseGameMode::PreLogin(const FString& Options, const FString& Address, c
 	AUTGameSession* UTGameSession = Cast<AUTGameSession>(GameSession);
 	if (ErrorMessage.IsEmpty() && UTGameSession)
 	{
-		UTGameSession->ValidatePlayer(Address, UniqueId, ErrorMessage);
+		bool bJoinAsSpectator = FCString::Stricmp(*ParseOption(Options, TEXT("SpectatorOnly")), TEXT("1")) == 0;
+		UTGameSession->ValidatePlayer(Address, UniqueId, ErrorMessage, bJoinAsSpectator);
 	}
 
 	if (ErrorMessage.IsEmpty() && UniqueId.IsValid())
