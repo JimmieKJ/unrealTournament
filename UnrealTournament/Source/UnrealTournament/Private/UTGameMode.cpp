@@ -4191,6 +4191,14 @@ void AUTGameMode::GatherRequiredRedirects(TArray<FPackageRedirectReference>& Red
 			Redirects.Add(Redirect);
 		}
 	}
+	// item paks (might be replaced via generic mutator that doesn't reference it directly)
+	for (TObjectIterator<UClass> It; It; ++It)
+	{
+		if (It->IsChildOf(AUTInventory::StaticClass()) && !It->HasAnyClassFlags(CLASS_Native) && FindRedirect(GetModPakFilenameFromPkg(It->GetOutermost()->GetName()), Redirect))
+		{
+			Redirects.Add(Redirect);
+		}
+	}
 }
 
 void AUTGameMode::GetGood()
