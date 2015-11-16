@@ -67,9 +67,14 @@ namespace EpicGames.MCP.Automation
     public enum MCPPlatform
     {
         /// <summary>
-        /// MCP doesn't care about Win32 vs. Win64
+        /// Win64 platform
         /// </summary>
         Windows,
+
+		/// <summary>
+		/// Win32 platform
+		/// </summary>
+		Win32,
 
         /// <summary>
         /// Mac platform.
@@ -165,9 +170,13 @@ namespace EpicGames.MCP.Automation
                 throw new AutomationException("Platform {0} is not properly supported by the MCP backend yet", TargetPlatform);
             }
 
-			if (TargetPlatform == UnrealTargetPlatform.Win64 || TargetPlatform == UnrealTargetPlatform.Win32)
+			if (TargetPlatform == UnrealTargetPlatform.Win64)
 			{
 				return MCPPlatform.Windows;
+			}
+			else if(TargetPlatform == UnrealTargetPlatform.Win32)
+			{
+				return MCPPlatform.Win32;
 			}
 			else if (TargetPlatform == UnrealTargetPlatform.Mac)
 			{
@@ -181,7 +190,7 @@ namespace EpicGames.MCP.Automation
         /// </summary>
         static public UnrealTargetPlatform FromMCPPlatform(MCPPlatform TargetPlatform)
         {
-            if (TargetPlatform != MCPPlatform.Windows && TargetPlatform != MCPPlatform.Mac && TargetPlatform != MCPPlatform.Linux)
+			if (TargetPlatform != MCPPlatform.Windows && TargetPlatform != MCPPlatform.Win32 && TargetPlatform != MCPPlatform.Mac && TargetPlatform != MCPPlatform.Linux)
             {
                 throw new AutomationException("Platform {0} is not properly supported by the MCP backend yet", TargetPlatform);
             }
@@ -189,6 +198,10 @@ namespace EpicGames.MCP.Automation
 			if (TargetPlatform == MCPPlatform.Windows)
 			{
 				return UnrealTargetPlatform.Win64;
+			}
+			if (TargetPlatform == MCPPlatform.Win32)
+			{
+				return UnrealTargetPlatform.Win32;
 			}
 			else if (TargetPlatform == MCPPlatform.Mac)
 			{
