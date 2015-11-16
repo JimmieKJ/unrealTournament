@@ -30,6 +30,7 @@ void AUTLobbyGameState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > &
 	DOREPLIFETIME(AUTLobbyGameState, AllMapsOnServer);
 	DOREPLIFETIME(AUTLobbyGameState, NumGameInstances);
 	DOREPLIFETIME(AUTLobbyGameState, bCustomContentAvailable);
+	DOREPLIFETIME_CONDITION(AUTLobbyGameState, bAllowInstancesToStartWithBots, COND_InitialOnly);
 }
 
 void AUTLobbyGameState::PostInitializeComponents()
@@ -1177,4 +1178,19 @@ bool AUTLobbyGameState::SendSayToInstance(const FString& User, const FString& Fi
 	}
 
 	return bSent;
+}
+
+int32 AUTLobbyGameState::NumMatchesInProgress()
+{
+	int32 Count = 0;
+	for (int32 i=0; i < AvailableMatches.Num(); i++)
+	{
+		if (AvailableMatches[i]->CurrentState == ELobbyMatchState::InProgress || AvailableMatches[i]->CurrentState == ELobbyMatchState::Launching)
+		{
+			Count++;
+		}
+	}
+
+	return Count;
+
 }

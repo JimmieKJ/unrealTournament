@@ -79,6 +79,7 @@ void AUTLobbyGameMode::InitGameState()
 	UTLobbyGameState = Cast<AUTLobbyGameState>(GameState);
 	if (UTLobbyGameState != NULL)
 	{
+		UTLobbyGameState->bAllowInstancesToStartWithBots = bAllowInstancesToStartWithBots;
 		UTLobbyGameState->bTrainingGround = bTrainingGround;
 		UTLobbyGameState->HubGuid = ServerInstanceGUID;
 
