@@ -2570,7 +2570,15 @@ void AUTPlayerController::PlayerTick( float DeltaTime )
 					AUTPlayerState* PS = Cast<AUTPlayerState>(Pawn->PlayerState);
 					if (PS && PS->SpectatingID == LastSpectatedPlayerId)
 					{
-						ViewPawn(*Iterator);
+						AUTCharacter* TargetChar = Cast<AUTCharacter>(Pawn);
+						if (TargetChar && TargetChar->DrivenVehicle && !TargetChar->DrivenVehicle->IsPendingKillPending())
+						{
+							ViewPawn(TargetChar->DrivenVehicle);
+						}
+						else
+						{
+							ViewPawn(*Iterator);
+						}
 						break;
 					}
 				}

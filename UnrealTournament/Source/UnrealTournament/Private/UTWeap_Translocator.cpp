@@ -26,10 +26,16 @@ AUTWeap_Translocator::AUTWeap_Translocator(const class FObjectInitializer& Objec
 	FOVOffset = FVector(1.2f, 1.f, 3.f);
 	ShotPitchUp = 0.f;
 	DiskGravity = 1.f;
-
+	DefaultGroup = 0;
 	KillStatsName = NAME_TelefragKills;
 	DeathStatsName = NAME_TelefragDeaths;
 	DisplayName = NSLOCTEXT("UTWeap_Translocator", "DisplayName", "Telefrag");
+}
+
+void AUTWeap_Translocator::PostInitProperties()
+{
+	Super::PostInitProperties();
+	Group = DefaultGroup;
 }
 
 FText AUTWeap_Translocator::GetHUDText()

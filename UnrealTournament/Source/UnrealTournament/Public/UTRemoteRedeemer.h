@@ -34,6 +34,7 @@ class UNREALTOURNAMENT_API AUTRemoteRedeemer : public APawn, public IUTTeamInter
 	virtual void PostNetReceiveVelocity(const FVector& NewVelocity) override;
 	virtual void Destroyed() override;
 	virtual void Tick(float DeltaSeconds) override;
+	virtual void OnRep_PlayerState() override;
 
 	UPROPERTY(BlueprintReadOnly, Category = Vehicle)
 	APawn* Driver;

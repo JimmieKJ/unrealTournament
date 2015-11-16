@@ -204,6 +204,7 @@ UUTChallengeManager::UUTChallengeManager(const FObjectInitializer& ObjectInitial
 	RewardInfo.Add(NAME_REWARD_DailyStars, FUTRewardInfo(FLinearColor(0.9, 0.9, 0.0, 1.0), NAME_REWARDSTYLE_STAR, NAME_REWARDSTYLE_STAR_COMPLETED));
 
 	bNewDailyUnlocked = false;
+	bTestDailyChallenges = false;
 }
 
 UUTBotCharacter* UUTChallengeManager::ChooseBotCharacter(AUTGameMode* CurrentGame, uint8& TeamNum, int32 TotalStars) const
@@ -212,6 +213,11 @@ UUTBotCharacter* UUTChallengeManager::ChooseBotCharacter(AUTGameMode* CurrentGam
 	{
 		const FUTChallengeInfo* Challenge = Challenges.Find(CurrentGame->ChallengeTag);
 
+		// daily challenges have fixed player teams regardless of stars earned
+		if (Challenge->bDailyChallenge)
+		{
+			TotalStars = CurrentGame->ChallengeDifficulty * 20;
+		}
 		int32 EnemyIndex = CurrentGame->NumBots;
 		if (CurrentGame->bTeamGame)
 		{
@@ -345,36 +351,42 @@ bool UUTChallengeManager::CheckDailyChallenge(UUTProfileSettings* ProfileSetting
 
 void UUTChallengeManager::GetChallenges(TArray<const FUTChallengeInfo*>& outChallengeList, EChallengeFilterType::Type Filter, UUTProfileSettings* ProfileSettings)
 {
-	// Itterate over all of the challenges and fter out those we do not want
+	// Iterate over all of the challenges and filter out those we do not want
 	for (auto It = Challenges.CreateConstIterator(); It; ++It)
 	{
 		FName ChallengeTag = It.Key();
 		const FUTChallengeInfo* Challenge = &It.Value();
 
 		// Quickly reject daily challenges that haven't been unlocked yet.
-
 		FUTDailyChallengeUnlock* UnlockFound = nullptr;
 		if (Challenge->bDailyChallenge)
 		{
-			if (ProfileSettings)
+			bool bLimitDailyChallenges = true;
+#if !(UE_BUILD_SHIPPING || UE_BUILD_TEST)
+			bLimitDailyChallenges = !bTestDailyChallenges;
+#endif
+			if (bLimitDailyChallenges)
 			{
-				// Look to see if this challenge is unlocked.  
-				UnlockFound = ProfileSettings->UnlockedDailyChallenges.FindByPredicate([ChallengeTag](const FUTDailyChallengeUnlock& Unlock) 
+				if (ProfileSettings)
 				{
-					return Unlock.Tag == ChallengeTag;
-				});
-			}
-
-			// If we didn't find it, it hasn't been unlocked yet so just reject it
-			if (UnlockFound == nullptr)
-			{
-				// If we are filtering for locked daily challenges, return it here.
-				if (Filter == EChallengeFilterType::DailyLocked)
-				{
-					outChallengeList.Add(Challenge);
+					// Look to see if this challenge is unlocked.  
+					UnlockFound = ProfileSettings->UnlockedDailyChallenges.FindByPredicate([ChallengeTag](const FUTDailyChallengeUnlock& Unlock)
+					{
+						return Unlock.Tag == ChallengeTag;
+					});
 				}
 
-				continue;
+				// If we didn't find it, it hasn't been unlocked yet so just reject it
+				if (UnlockFound == nullptr)
+				{
+					// If we are filtering for locked daily challenges, return it here.
+					if (Filter == EChallengeFilterType::DailyLocked)
+					{
+						outChallengeList.Add(Challenge);
+					}
+
+					continue;
+				}
 			}
 		}
 		else if (Filter == EChallengeFilterType::DailyLocked)
@@ -422,7 +434,6 @@ void UUTChallengeManager::GetChallenges(TArray<const FUTChallengeInfo*>& outChal
 					}
 				}
 			}
-
 			else if (Filter == EChallengeFilterType::Expired)
 			{
 				if (Challenge->bDailyChallenge)
@@ -493,6 +504,5 @@ int32 UUTChallengeManager::TimeUntilExpiration(FName DailyChallengeName, UUTProf
 			}
 		}
 	}
-
 	return 0;
 }

@@ -166,9 +166,17 @@ static TMap<FName, FString> HackedEntitlementTable = []()
 
 FString GetRequiredEntitlementFromAsset(const FAssetData& Asset)
 {
-	// FIXME: total temp hack since we don't have any way to embed entitlement IDs with the asset yet...
-	FString* Found = HackedEntitlementTable.Find(Asset.AssetName);
-	return (Found != NULL) ? *Found : FString();
+	const FString* ReqEntitlementId = Asset.TagsAndValues.Find(TEXT("Entitlement"));
+	if (ReqEntitlementId != NULL && !ReqEntitlementId->IsEmpty())
+	{
+		return *ReqEntitlementId;
+	}
+	else
+	{
+		// FIXME: total temp hack since we don't have any way to embed entitlement IDs with the asset yet...
+		FString* Found = HackedEntitlementTable.Find(Asset.AssetName);
+		return (Found != NULL) ? *Found : FString();
+	}
 }
 FString GetRequiredEntitlementFromObj(UObject* Asset)
 {
@@ -178,9 +186,35 @@ FString GetRequiredEntitlementFromObj(UObject* Asset)
 	}
 	else
 	{
-		// FIXME: total temp hack since we don't have any way to embed entitlement IDs with the asset yet...
-		FString* Found = HackedEntitlementTable.Find(Asset->GetFName());
-		return (Found != NULL) ? *Found : FString();
+		FString Result;
+
+		UClass* BPClass = Cast<UClass>(Asset);
+		if (BPClass != NULL)
+		{
+			UStrProperty* EntitlementProp = FindField<UStrProperty>(BPClass, TEXT("Entitlement"));
+			if (EntitlementProp != NULL)
+			{
+				Result = EntitlementProp->GetPropertyValue_InContainer(BPClass->GetDefaultObject());
+			}
+		}
+		else
+		{
+			UStrProperty* EntitlementProp = FindField<UStrProperty>(Asset->GetClass(), TEXT("Entitlement"));
+			if (EntitlementProp != NULL)
+			{
+				Result = EntitlementProp->GetPropertyValue_InContainer(Asset);
+			}
+		}
+		if (!Result.IsEmpty())
+		{
+			return Result;
+		}
+		else
+		{
+			// FIXME: total temp hack since we don't have any way to embed entitlement IDs with the asset yet...
+			FString* Found = HackedEntitlementTable.Find(Asset->GetFName());
+			return (Found != NULL) ? *Found : FString();
+		}
 	}
 }
 FString GetRequiredEntitlementFromPackageName(FName PackageName)

@@ -145,6 +145,11 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 
 		for (int32 GroupIdx = 0; GroupIdx < WeaponGroups.Num(); GroupIdx++)
 		{
+			if (WeaponGroups[GroupIdx].Group == 0)
+			{
+				// skip translocator on weapon bar
+				continue;
+			}
 			// We have now allied all of the animation and we know the biggest anim scale, so we can figure out how wide this group should be.
 			float Y2 = YPosition;
 			float TextXPosition = 0;
@@ -235,16 +240,9 @@ void UUTHUDWidget_WeaponBar::Draw_Implementation(float DeltaTime)
 				if (UTHUDOwner && UTHUDOwner->UTPlayerOwner)
 				{
 					FString* GroupKey = UTHUDOwner->UTPlayerOwner->WeaponGroupKeys.Find(WeaponGroups[GroupIdx].Group);
-					if (*GroupKey == TEXT(""))
+					if ((GroupKey == nullptr) ||GroupKey->IsEmpty())
 					{
-						if (WeaponGroups[GroupIdx].Group == 10)
-						{
-							GroupText.Text = FText::FromString(TEXT("0"));
-						}
-						else
-						{
-							GroupText.Text = FText::AsNumber(WeaponGroups[GroupIdx].Group);
-						}
+						GroupText.Text = (WeaponGroups[GroupIdx].Group == 10) ? FText::FromString(TEXT("0")) : FText::AsNumber(WeaponGroups[GroupIdx].Group);
 					}
 					else
 					{

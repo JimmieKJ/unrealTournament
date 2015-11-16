@@ -79,6 +79,9 @@ public:
 	 */
 	UPROPERTY(EditDefaultsOnly, AssetRegistrySearchable, Meta = (DisplayName = "Required Offline Achievement"))
 	FName RequiredAchievement;
+	/** if set this marketplace entitlement ID is required */
+	UPROPERTY(EditDefaultsOnly, AssetRegistrySearchable)
+	FString Entitlement;
 	
 	inline USkeletalMeshComponent* GetMesh() const
 	{

@@ -148,6 +148,7 @@ void UUTAnnouncer::PlayNextAnnouncement()
 				}
 				if (Audio == NULL)
 				{
+					//UE_LOG(UT, Warning, TEXT("Audio not precached for %s is status %d"), *SoundName.ToString(), Next.MessageClass.GetDefaultObject()->bIsStatusAnnouncement);
 					if (Next.MessageClass.GetDefaultObject()->bIsStatusAnnouncement)
 					{
 						for (int32 i = 0; i < StatusAudioList.Num(); i++)
