@@ -130,9 +130,12 @@ void AUTHUD_Showdown::DrawMinimap(const FColor& DrawColor, float MapSize, FVecto
 
 void AUTHUD_Showdown::DrawHUD()
 {
+	bool bRealDrawMinimap = bDrawMinimap;
+	bool bDrewSpawnMap = false;
 	AUTShowdownGameState* GS = GetWorld()->GetGameState<AUTShowdownGameState>();
 	if (GS != NULL && GS->GetMatchState() == MatchState::MatchIntermission && GS->bStartedSpawnSelection)
 	{
+		bDrewSpawnMap = true;
 		if (!bLockedLookInput)
 		{
 			PlayerOwner->SetIgnoreLookInput(true);
@@ -289,8 +292,9 @@ void AUTHUD_Showdown::DrawHUD()
 			}
 		}
 	}
-
+	bDrawMinimap = bDrawMinimap && !bDrewSpawnMap;
 	Super::DrawHUD();
+	bDrawMinimap = bRealDrawMinimap;
 }
 
 EInputMode::Type AUTHUD_Showdown::GetInputMode_Implementation() const
