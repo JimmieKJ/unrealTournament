@@ -547,12 +547,15 @@ FText SULobbyMatchSetupPanel::GetStartMatchText() const
 		if (MatchInfo->CurrentRuleset.IsValid())
 		{
 			AUTLobbyGameState* LobbyGameState = GWorld->GetGameState<AUTLobbyGameState>();
-			if (!MatchInfo->bJoinAnytime || (LobbyGameState && LobbyGameState->NumMatchesInProgress() > 0 && MatchInfo->BotSkillLevel < 0 && LobbyGameState->bAllowInstancesToStartWithBots))
+			if (LobbyGameState)
 			{
-				int32 NumPlayersNeeded = MatchInfo->CurrentRuleset->MinPlayersToStart - MatchInfo->Players.Num();
-				if (NumPlayersNeeded > 0)
+				if (!MatchInfo->bJoinAnytime || !LobbyGameState->bAllowInstancesToStartWithBots || (LobbyGameState->NumMatchesInProgress() > 0 && MatchInfo->BotSkillLevel < 0))
 				{
-					return FText::Format(NSLOCTEXT("HUB","StartMatchFormat"," Need {0} Player(s)"), FText::AsNumber(NumPlayersNeeded));
+					int32 NumPlayersNeeded = MatchInfo->CurrentRuleset->MinPlayersToStart - MatchInfo->Players.Num();
+					if (NumPlayersNeeded > 0)
+					{
+						return FText::Format(NSLOCTEXT("HUB","StartMatchFormat"," Need {0} Player(s)"), FText::AsNumber(NumPlayersNeeded));
+					}
 				}
 			}
 		}
