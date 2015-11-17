@@ -60,7 +60,7 @@ void FUTOnlineGameSettingsBase::ApplyGameSettings(AUTBaseGameMode* CurrentGame)
 	Set(SETTING_GAMEINSTANCE, bGameInstanceServer, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
 
 	int32 ServerFlags = 0x0;
-	if (CurrentGame->bRequirePassword) ServerFlags = ServerFlags | SERVERFLAG_RequiresPassword;			// Passworded
+	if (CurrentGame->bRequirePassword && !CurrentGame->ServerPassword.IsEmpty()) ServerFlags = ServerFlags | SERVERFLAG_RequiresPassword;			// Passworded
 
 	Set(SETTING_SERVERFLAGS, ServerFlags, EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
 
