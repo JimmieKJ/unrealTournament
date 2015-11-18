@@ -447,11 +447,7 @@ void SUTQuickMatch::FindBestMatch()
 					{
 						DesiredIndex = i;
 					}
-				}
-				else if ( !Instances[DesiredIndex].InstanceData->MatchData.bMatchHasBegun )
-				{
-					// THis is a better choice if our ping is better.
-					if (DesiredIndex == INDEX_NONE || Instances[DesiredIndex].GetPing() > Ping)
+					else if ((DesiredIndex == INDEX_NONE) || !Instances[DesiredIndex].InstanceData->MatchData.bMatchHasBegun || (Instances[DesiredIndex].GetPing() > Ping))
 					{
 						DesiredIndex = i;
 					}
