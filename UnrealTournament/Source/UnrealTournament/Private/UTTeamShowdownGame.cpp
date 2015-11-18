@@ -10,6 +10,9 @@
 #include "UTDroppedPickup.h"
 #include "UTGameEngine.h"
 #include "UTChallengeManager.h"
+#include "Slate/SlateGameResources.h"
+#include "Slate/SUWindowsStyle.h"
+#include "SNumericEntryBox.h"
 
 AUTTeamShowdownGame::AUTTeamShowdownGame(const FObjectInitializer& OI)
 	: Super(OI)
@@ -254,3 +257,75 @@ void AUTTeamShowdownGame::ScoreExpiredRoundTime()
 		BroadcastLocalized(NULL, UUTTeamShowdownGameMessage::StaticClass(), (BestNumIndex != INDEX_NONE) ? 0 : 1, NULL, NULL, LastRoundWinner);
 	}
 }
+
+void AUTTeamShowdownGame::GetGameURLOptions(const TArray<TSharedPtr<TAttributePropertyBase>>& MenuProps, TArray<FString>& OptionsList, int32& DesiredPlayerCount)
+{
+	Super::GetGameURLOptions(MenuProps, OptionsList, DesiredPlayerCount);
+	DesiredPlayerCount = BotFillCount;
+}
+void AUTTeamShowdownGame::CreateGameURLOptions(TArray<TSharedPtr<TAttributePropertyBase>>& MenuProps)
+{
+	Super::CreateGameURLOptions(MenuProps);
+	MenuProps.Add(MakeShareable(new TAttributeProperty<int32>(this, &BotFillCount, TEXT("BotFill"))));
+}
+#if !UE_SERVER
+void AUTTeamShowdownGame::CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, bool bCreateReadOnly, TArray< TSharedPtr<TAttributePropertyBase> >& ConfigProps)
+{
+	CreateGameURLOptions(ConfigProps);
+
+	TSharedPtr< TAttributeProperty<int32> > CombatantsAttr = StaticCastSharedPtr<TAttributeProperty<int32>>(FindGameURLOption(ConfigProps, TEXT("BotFill")));
+
+	if (CombatantsAttr.IsValid())
+	{
+		MenuSpace->AddSlot()
+		.AutoHeight()
+		.VAlign(VAlign_Top)
+		.Padding(0.0f,0.0f,0.0f,5.0f)
+		[
+			SNew(SHorizontalBox)
+			+ SHorizontalBox::Slot()
+			.AutoWidth()
+			.Padding(0.0f, 5.0f, 0.0f, 0.0f)
+			[
+				SNew(SBox)
+				.WidthOverride(350)
+				[
+					SNew(STextBlock)
+					.TextStyle(SUWindowsStyle::Get(), "UT.Common.NormalText")
+					.Text(NSLOCTEXT("UTGameMode", "NumCombatants", "Number of Combatants"))
+				]
+			]
+			+ SHorizontalBox::Slot()
+			.AutoWidth()
+			.Padding(20.0f,0.0f,0.0f,0.0f)
+			[
+				SNew(SBox)
+				.WidthOverride(300)
+				[
+					bCreateReadOnly ?
+					StaticCastSharedRef<SWidget>(
+						SNew(STextBlock)
+						.TextStyle(SUWindowsStyle::Get(), "UT.Common.ButtonText.White")
+						.Text(CombatantsAttr.ToSharedRef(), &TAttributeProperty<int32>::GetAsText)
+					) :
+					StaticCastSharedRef<SWidget>(
+						SNew(SNumericEntryBox<int32>)
+						.Value(CombatantsAttr.ToSharedRef(), &TAttributeProperty<int32>::GetOptional)
+						.OnValueChanged(CombatantsAttr.ToSharedRef(), &TAttributeProperty<int32>::Set)
+						.AllowSpin(true)
+						.Delta(1)
+						.MinValue(1)
+						.MaxValue(32)
+						.MinSliderValue(1)
+						.MaxSliderValue(32)
+						.EditableTextBoxStyle(SUWindowsStyle::Get(), "UT.Common.NumEditbox.White")
+
+					)
+				]
+			]
+		];
+	}
+
+	Super::CreateConfigWidgets(MenuSpace, bCreateReadOnly, ConfigProps);
+}
+#endif

@@ -27,4 +27,10 @@ public:
 	virtual void ScoreExpiredRoundTime() override;
 	virtual bool CheckRelevance_Implementation(AActor* Other) override;
 	virtual void DiscardInventory(APawn* Other, AController* Killer) override;
+
+	virtual void GetGameURLOptions(const TArray<TSharedPtr<TAttributePropertyBase>>& MenuProps, TArray<FString>& OptionsList, int32& DesiredPlayerCount) override;
+	virtual void CreateGameURLOptions(TArray<TSharedPtr<TAttributePropertyBase>>& MenuProps) override;
+#if !UE_SERVER
+	virtual void CreateConfigWidgets(TSharedPtr<class SVerticalBox> MenuSpace, bool bCreateReadOnly, TArray< TSharedPtr<TAttributePropertyBase> >& ConfigProps) override;
+#endif
 };
