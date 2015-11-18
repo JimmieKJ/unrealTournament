@@ -385,18 +385,21 @@ void SUWGameSetupDialog::BuildMapList()
 		MapPlayList.Empty();
 		for (int32 i=0; i< SelectedRuleset->MapList.Num(); i++)
 		{
-			MapPlayList.Add(FMapPlayListInfo(SelectedRuleset->MapList[i], false));
-
-			if (SelectedRuleset->MapList[i]->MapScreenshotReference!= TEXT(""))
+			if (SelectedRuleset->MapList[i] != NULL)
 			{
-				FString Package = SelectedRuleset->MapList[i]->MapScreenshotReference;
-				const int32 Pos = Package.Find(TEXT("."), ESearchCase::CaseSensitive, ESearchDir::FromStart);
-				if ( Pos != INDEX_NONE )
-				{
-					Package = Package.Left(Pos);
-				}
+				MapPlayList.Add(FMapPlayListInfo(SelectedRuleset->MapList[i], false));
 
-				LoadPackageAsync(Package, FLoadPackageAsyncDelegate::CreateSP(this, &SUWGameSetupDialog::TextureLoadComplete), 0);
+				if (SelectedRuleset->MapList[i]->MapScreenshotReference != TEXT(""))
+				{
+					FString Package = SelectedRuleset->MapList[i]->MapScreenshotReference;
+					const int32 Pos = Package.Find(TEXT("."), ESearchCase::CaseSensitive, ESearchDir::FromStart);
+					if (Pos != INDEX_NONE)
+					{
+						Package = Package.Left(Pos);
+					}
+
+					LoadPackageAsync(Package, FLoadPackageAsyncDelegate::CreateSP(this, &SUWGameSetupDialog::TextureLoadComplete), 0);
+				}
 			}
 		}
 
