@@ -229,7 +229,7 @@ class UnrealTournamentProto_ChunkBuild : BuildCommand
                 LatestLabelName = BuildInfoPublisherBase.Get().GetLabelWithPlatform("Production-Latest", MCPPlatform.Windows);
                 BuildInfoPublisherBase.Get().LabelBuild(StagingInfo, LatestLabelName, McpConfigName);
             }
-            /*
+            
             // Win32 GAME BUILD
             {
                 // verify the files we need exist first
@@ -265,7 +265,7 @@ class UnrealTournamentProto_ChunkBuild : BuildCommand
                 // For backwards compatibility, also label as Production-Latest
                 LatestLabelName = BuildInfoPublisherBase.Get().GetLabelWithPlatform("Production-Latest", MCPPlatform.Win32);
                 BuildInfoPublisherBase.Get().LabelBuild(StagingInfo, LatestLabelName, McpConfigName);
-            }*/
+            }
         }
 
         PrintRunTime();
