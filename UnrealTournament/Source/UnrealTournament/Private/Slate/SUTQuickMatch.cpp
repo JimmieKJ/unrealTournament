@@ -432,28 +432,30 @@ void SUTQuickMatch::FindBestMatch()
 	if (FinalList.Num() > 0)
 	{
 		// Step 1... look to see if there is an instance that is ready to play but not started yet and is within 50ms of the best server.
-
 		int32 DesiredIndex = INDEX_NONE;
 		for (int32 i = 0; i < Instances.Num(); i++)
 		{
-			int32 Ping = Instances[i].GetPing();	
-			if (Ping - FinalList[0]->Ping <= 50)
+			if (Instances[i].InstanceData.IsValid())
 			{
-				bool bMatchHasBegun = Instances[i].InstanceData->MatchData.bMatchHasBegun;
-				if (!bMatchHasBegun)
+				int32 Ping = Instances[i].GetPing();
+				if (Ping - FinalList[0]->Ping <= 50)
 				{
-					// This is a better choice if the current choice has begun, or if our ping is better.
-					if (DesiredIndex == INDEX_NONE || Instances[DesiredIndex].GetPing() > Ping || Instances[DesiredIndex].InstanceData->MatchData.bMatchHasBegun != bMatchHasBegun)
+					bool bMatchHasBegun = Instances[i].InstanceData->MatchData.bMatchHasBegun;
+					if (!bMatchHasBegun)
 					{
-						DesiredIndex = i;
+						// This is a better choice if the current choice has begun, or if our ping is better.
+						if (DesiredIndex == INDEX_NONE || Instances[DesiredIndex].GetPing() > Ping || Instances[DesiredIndex].InstanceData->MatchData.bMatchHasBegun != bMatchHasBegun)
+						{
+							DesiredIndex = i;
+						}
 					}
-				}
-				else if ( !Instances[DesiredIndex].InstanceData->MatchData.bMatchHasBegun )
-				{
-					// THis is a better choice if our ping is better.
-					if (DesiredIndex == INDEX_NONE || Instances[DesiredIndex].GetPing() > Ping)
+					else if ((DesiredIndex == INDEX_NONE) || !Instances[DesiredIndex].InstanceData->MatchData.bMatchHasBegun)
 					{
-						DesiredIndex = i;
+						// This is a better choice if our ping is better.
+						if (DesiredIndex == INDEX_NONE || Instances[DesiredIndex].GetPing() > Ping)
+						{
+							DesiredIndex = i;
+						}
 					}
 				}
 			}
