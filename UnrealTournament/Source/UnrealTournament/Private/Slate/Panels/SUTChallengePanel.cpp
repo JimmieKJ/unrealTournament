@@ -855,7 +855,11 @@ FText SUTChallengePanel::GetCurrentScoreText() const
 
 FText SUTChallengePanel::GetCurrentChallengeData() const
 {
-	if (ChallengeManager->Challenges[SelectedChallenge].bDailyChallenge)
+	if (!ChallengeManager->Challenges.Contains(SelectedChallenge))
+	{
+		UE_LOG(UT, Warning, TEXT("SelectedChallenge not in list of Challenges"));
+	}
+	else if (ChallengeManager->Challenges[SelectedChallenge].bDailyChallenge)
 	{
 		int32 HoursLeft = ChallengeManager->TimeUntilExpiration(SelectedChallenge, PlayerOwner->GetProfileSettings());
 		return FText::Format(NSLOCTEXT("SUTChallengePanel","DateForChallengeFormatDaily","Last Completed: {0}  --  Expires in {1} hours"), FText::FromString(PlayerOwner->GetChallengeDate(SelectedChallenge)), FText::AsNumber(HoursLeft));
