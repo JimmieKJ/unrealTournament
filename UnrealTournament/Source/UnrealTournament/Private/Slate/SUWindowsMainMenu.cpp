@@ -198,7 +198,9 @@ TSharedRef<SWidget> SUWindowsMainMenu::AddPlayNow()
 	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUWindowsDesktop", "MenuBar_QuickMatch_PlayDM", "QuickPlay Deathmatch"), FOnClicked::CreateSP(this, &SUWindowsMainMenu::OnPlayQuickMatch,	EEpicDefaultRuleTags::Deathmatch));
 	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUWindowsDesktop", "MenuBar_QuickMatch_PlayCTF", "QuickPlay Capture the Flag"), FOnClicked::CreateSP(this, &SUWindowsMainMenu::OnPlayQuickMatch, EEpicDefaultRuleTags::CTF));
 	DropDownButton->AddSpacer();
-	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUWindowsDesktop", "MenuBar_CreateGame", "Create a Game"), FOnClicked::CreateSP(this, &SUWindowsMainMenu::OnShowGamePanel));
+	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUWindowsDesktop", "MenuBar_ChallengesGame", "Challenges"), FOnClicked::CreateSP(this, &SUWindowsMainMenu::OnShowGamePanel));
+	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUWindowsDesktop", "MenuBar_CreateGame", "Create a Game"), FOnClicked::CreateSP(this, &SUWindowsMainMenu::OnShowCustomGamePanel));
+
 	DropDownButton->AddSpacer();
 	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUWindowsDesktop", "MenuBar_QuickMatch_FindGame", "Find a Game..."), FOnClicked::CreateSP(this, &SUTMenuBase::OnShowServerBrowserPanel),true);
 
@@ -226,6 +228,13 @@ FReply SUWindowsMainMenu::OnShowGamePanel()
 	ShowGamePanel();
 	return FReply::Handled();
 }
+
+FReply SUWindowsMainMenu::OnShowCustomGamePanel()
+{
+	ShowCustomGamePanel();
+	return FReply::Handled();
+}
+
 
 void SUWindowsMainMenu::ShowGamePanel()
 {
@@ -337,6 +346,7 @@ void SUWindowsMainMenu::OpenDelayedMenu()
 			SAssignNew(CreateGameDialog, SUWGameSetupDialog)
 			.PlayerOwner(PlayerOwner)
 			.GameRuleSets(AvailableGameRulesets)
+			.DialogSize(FVector2D(1920,1080))
 			.ButtonMask(UTDIALOG_BUTTON_PLAY | UTDIALOG_BUTTON_CANCEL | UTDIALOG_BUTTON_LAN)
 			.OnDialogResult(this, &SUWindowsMainMenu::OnGameChangeDialogResult);
 		

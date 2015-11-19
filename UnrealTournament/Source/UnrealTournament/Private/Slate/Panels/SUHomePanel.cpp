@@ -475,7 +475,7 @@ TSharedRef<SWidget> SUHomePanel::BuildHomePanel()
 											.HAlign(HAlign_Center)
 											[
 												SNew(STextBlock)
-												.Text(FText::FromString(TEXT("OFFLINE ACTION")))
+												.Text(FText::FromString(TEXT("CHALLENGES")))
 												.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
 											]
 										]

@@ -48,6 +48,7 @@ protected:
 
 	virtual FReply OnPlayQuickMatch(FString QuickMatchType);
 	virtual FReply OnShowGamePanel();
+	virtual FReply OnShowCustomGamePanel();
 		
 	virtual void OpenDelayedMenu();
 	virtual bool ShouldShowBrowserIcon();
