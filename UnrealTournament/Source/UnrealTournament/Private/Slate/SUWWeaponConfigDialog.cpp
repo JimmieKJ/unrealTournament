@@ -924,33 +924,38 @@ FReply SUWWeaponConfigDialog::OKClick()
 		for (auto& Selection : WeaponSkinSelection)
 		{
 			// Find the weapon skin pointer for this selection
-			TArray<UUTWeaponSkin*>& SkinArray = WeaponToSkinListMap[Selection.Key];
-			UUTWeaponSkin* Skin = nullptr;
-			for (int32 SkinIter = 0; SkinIter < SkinArray.Num(); SkinIter++)
+			TArray<UUTWeaponSkin*>* SkinArrayPtr = WeaponToSkinListMap.Find(Selection.Key);
+			if (SkinArrayPtr)
 			{
-				if (SkinArray[SkinIter]->DisplayName.ToString() == Selection.Value)
-				{
-					Skin = SkinArray[SkinIter];
-					break;
-				}
-			}
+				TArray<UUTWeaponSkin*>& SkinArray = *SkinArrayPtr;
 
-			if (Skin)
-			{
-				// First check for an existing entry in profile
-				bool bFoundInProfile = false;
-				for (int i = 0; i < ProfileSettings->WeaponSkins.Num(); i++)
+				UUTWeaponSkin* Skin = nullptr;
+				for (int32 SkinIter = 0; SkinIter < SkinArray.Num(); SkinIter++)
 				{
-					if (ProfileSettings->WeaponSkins[i] && ProfileSettings->WeaponSkins[i]->WeaponType == Selection.Key)
+					if (SkinArray[SkinIter]->DisplayName.ToString() == Selection.Value)
 					{
-						ProfileSettings->WeaponSkins[i] = Skin;
-						bFoundInProfile = true;
+						Skin = SkinArray[SkinIter];
 						break;
 					}
 				}
-				if (!bFoundInProfile)
+
+				if (Skin)
 				{
-					ProfileSettings->WeaponSkins.Add(Skin);
+					// First check for an existing entry in profile
+					bool bFoundInProfile = false;
+					for (int i = 0; i < ProfileSettings->WeaponSkins.Num(); i++)
+					{
+						if (ProfileSettings->WeaponSkins[i] && ProfileSettings->WeaponSkins[i]->WeaponType == Selection.Key)
+						{
+							ProfileSettings->WeaponSkins[i] = Skin;
+							bFoundInProfile = true;
+							break;
+						}
+					}
+					if (!bFoundInProfile)
+					{
+						ProfileSettings->WeaponSkins.Add(Skin);
+					}
 				}
 			}
 		}
