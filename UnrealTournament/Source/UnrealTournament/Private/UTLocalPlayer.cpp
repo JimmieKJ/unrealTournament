@@ -2041,10 +2041,13 @@ void UUTLocalPlayer::CancelJoinSession()
 	// There currently isn't a way to cancel a join session call.  So we just flag it as we are not joining and ignore any successful JoinSessionComplete calls
 
 	bCancelJoinSession = true;
+#if !UE_SERVER
 	if (ServerBrowserWidget.IsValid())
 	{
 		ServerBrowserWidget->SetBrowserState(EBrowserState::BrowserIdle);
 	}
+#endif
+
 }
 
 
@@ -2052,10 +2055,12 @@ void UUTLocalPlayer::OnJoinSessionComplete(FName SessionName, EOnJoinSessionComp
 {
 	bPendingSession = false;
 
+#if !UE_SERVER
 	if (ServerBrowserWidget.IsValid())
 	{
 		ServerBrowserWidget->SetBrowserState(EBrowserState::BrowserIdle);
 	}
+#endif
 
 	UE_LOG(UT,Log, TEXT("----------- [OnJoinSessionComplete %i"), (Result == EOnJoinSessionCompleteResult::Success));
 
