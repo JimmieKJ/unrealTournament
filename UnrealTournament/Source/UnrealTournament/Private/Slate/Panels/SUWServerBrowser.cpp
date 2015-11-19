@@ -2302,17 +2302,13 @@ FText SUWServerBrowser::GetShowServerButtonText() const
 
 FSlateColor SUWServerBrowser::GetButtonSlateColor(int32 TabIndex) const
 {
-	return ( (TabIndex == 0 && bShowingHubs) || (TabIndex == 1 && !bShowingHubs)) ? FSlateColor(FLinearColor::Black) : FSlateColor(FLinearColor::White);
+	TSharedPtr<SUTButton> Button = TabIndex == 0 ? HubButton : ServerButton;
+	return ( (TabIndex == 0 && bShowingHubs) || (TabIndex == 1 && !bShowingHubs) || (Button.IsValid() && Button->IsHovered())) ? FSlateColor(FLinearColor::Black) : FSlateColor(FLinearColor::White);
 }
 
 
-bool SUWServerBrowser::JoinEnable(int32 ButtonId) const
+EVisibility SUWServerBrowser::JoinEnable() const
 {
-	if (ButtonId == 2)
-	{
-		return BrowserState == EBrowserState::ConnectInProgress;
-	}
-
 	if (BrowserState == EBrowserState::BrowserIdle) 
 	{
 		TArray<TSharedPtr<FServerData>> Selected;
@@ -2321,11 +2317,33 @@ bool SUWServerBrowser::JoinEnable(int32 ButtonId) const
 
 		if ( Selected.Num() > 0 && Selected[0].IsValid() && (Selected[0]->Flags & SERVERFLAG_Restricted) == 0 )
 		{
-			return true;
+			return EVisibility::Visible;
 		}
 	}
-	return false;
+	return EVisibility::Hidden;
 }
+
+EVisibility SUWServerBrowser::SpectateEnable() const
+{
+	if (!bShowingHubs && BrowserState == EBrowserState::BrowserIdle) 
+	{
+		TArray<TSharedPtr<FServerData>> Selected;
+		if (bShowingHubs && HUBServerList.IsValid() && HUBServerList->GetNumItemsSelected() > 0) Selected = HUBServerList->GetSelectedItems();
+		else if (!bShowingHubs && InternetServerList.IsValid() && InternetServerList->GetNumItemsSelected() > 0) Selected = InternetServerList->GetSelectedItems();
+
+		if ( Selected.Num() > 0 && Selected[0].IsValid() && (Selected[0]->Flags & SERVERFLAG_Restricted) == 0 )
+		{
+			return EVisibility::Visible;
+		}
+	}
+	return EVisibility::Hidden;
+}
+
+EVisibility SUWServerBrowser::AbortEnable() const
+{
+	return BrowserState == EBrowserState::ConnectInProgress ? EVisibility::Visible : EVisibility::Hidden;
+}
+
 
 void SUWServerBrowser::BuildConnectBox()
 {
@@ -2346,7 +2364,7 @@ void SUWServerBrowser::BuildConnectBox()
 				.Text(NSLOCTEXT("SUWServerBrowser", "Spectate", "Spectate"))
 				.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
 				.OnClicked(this, &SUWServerBrowser::OnJoinClick, true)
-				.IsEnabled(this, &SUWServerBrowser::JoinEnable, 1)
+				.Visibility(this, &SUWServerBrowser::SpectateEnable)
 			];
 
 			ConnectBox->AddSlot()
@@ -2360,7 +2378,8 @@ void SUWServerBrowser::BuildConnectBox()
 				.Text(NSLOCTEXT("SUWServerBrowser", "Join", "Join"))
 				.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
 				.OnClicked(this, &SUWServerBrowser::OnJoinClick, false)
-				.IsEnabled(this, &SUWServerBrowser::JoinEnable, 0)
+				.Visibility(this, &SUWServerBrowser::JoinEnable)
+
 			];
 		}
 		else
@@ -2387,7 +2406,7 @@ void SUWServerBrowser::BuildConnectBox()
 				.Text(NSLOCTEXT("SUWServerBrowser", "CancelJoin", "Abort"))
 				.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
 				.OnClicked(this, &SUWServerBrowser::OnCancelJoinClick)
-				.IsEnabled(this, &SUWServerBrowser::JoinEnable, 2)
+				.Visibility(this, &SUWServerBrowser::AbortEnable)
 			];
 		}
 	}

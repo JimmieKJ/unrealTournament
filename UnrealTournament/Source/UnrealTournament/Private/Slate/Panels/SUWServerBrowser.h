@@ -829,7 +829,9 @@ protected:
 
 	TSharedPtr<SUTButton> HubButton;
 	TSharedPtr<SUTButton> ServerButton;
-	bool JoinEnable(int32 ButtonId) const;
+	EVisibility JoinEnable() const;
+	EVisibility SpectateEnable() const;
+	EVisibility AbortEnable() const;
 
 	TSharedPtr<SHorizontalBox> ConnectBox;
 	void BuildConnectBox();
