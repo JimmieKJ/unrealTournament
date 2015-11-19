@@ -723,45 +723,56 @@ struct FServerInstanceData
 {
 	GENERATED_USTRUCT_BODY()
 
+	// The Unique GUID that describes this instance.  It's sent to the MCP in the SETTING_SERVERINSTANCEGUID.
 	UPROPERTY()
 	FGuid InstanceId;
 
+	// The human readable name for the ruleset in use.  
 	UPROPERTY()
 	FString RulesTitle;
 
+	// The actual rules tag.  We can't use the rules title because of custom rules and this is typically used
+	// during the quickmatch portion.
 	UPROPERTY()
 	FString RulesTag;
 
+	// The name of the map being played.  It will be the friendly name if possible
 	UPROPERTY()
 	FString MapName;
 	
+	// Max # of players desired for this instance
 	UPROPERTY()
 	int32 MaxPlayers;
 
+	// A Collection of flags that describe this instance.  See UTOnlineGameSettingsBase.h for a list
 	UPROPERTY()
 	uint32 Flags;
 
+	// The current average rank of this sever.  If it's range lock, then the average rank will be +/- 400 points of this
 	UPROPERTY()
 	int32 Rank;
 
+	// Will be true if this is a team game
 	UPROPERTY()
 	bool bTeamGame;
 
+	// Will be true if this instance is joinable as a player.  Equates to UTLobbyMatchInfo.bJoinAnytime
 	UPROPERTY()
 	bool bJoinableAsPlayer;
 
+	// Will be true if this instance is joinable as a spectator.  Equates to UTLobbyMatchInfo.bSpectatable
 	UPROPERTY()
 	bool bJoinableAsSpectator;
 
+	// Holds a list of mutators running on this instance.
 	UPROPERTY()
 	FString MutatorList;
 
-	UPROPERTY()
-	FString Score;
-
+	// Holds the most up to date match data regarding this instance
 	UPROPERTY()
 	FMatchUpdate MatchData;
 
+	// Holds the list of players in this instance
 	UPROPERTY(NotReplicated)
 	TArray<FMatchPlayerListStruct> Players;
 
@@ -779,13 +790,12 @@ struct FServerInstanceData
 		, bJoinableAsPlayer(false)
 		, bJoinableAsSpectator(false)
 		, MutatorList(TEXT(""))
-		, Score(TEXT(""))
 		, bQuickplayMatch(false)
 	{
 		MatchData = FMatchUpdate();
 	}
 
-	FServerInstanceData(FGuid inInstanceId, const FString& inRulesTitle, const FString& inRulesTag, const FString& inMapName, int32 inMaxPlayers, uint32 inFlags, int32 inRank, bool inbTeamGame, bool inbJoinableAsPlayer, bool inbJoinableAsSpectator, const FString& inMutatorList, const FString& inScore, bool inbQuickplayMatch)
+	FServerInstanceData(FGuid inInstanceId, const FString& inRulesTitle, const FString& inRulesTag, const FString& inMapName, int32 inMaxPlayers, uint32 inFlags, int32 inRank, bool inbTeamGame, bool inbJoinableAsPlayer, bool inbJoinableAsSpectator, const FString& inMutatorList, bool inbQuickplayMatch)
 		: InstanceId(inInstanceId)
 		, RulesTitle(inRulesTitle)
 		, RulesTag(inRulesTag)
@@ -797,7 +807,6 @@ struct FServerInstanceData
 		, bJoinableAsPlayer(inbJoinableAsPlayer)
 		, bJoinableAsSpectator(inbJoinableAsSpectator)
 		, MutatorList(inMutatorList)
-		, Score(inScore)
 		, bQuickplayMatch(inbQuickplayMatch)
 	{
 		MatchData = FMatchUpdate();
@@ -809,9 +818,9 @@ struct FServerInstanceData
 	void SetNumPlayers(int32 NewNumPlayers)			{ MatchData.NumPlayers = NewNumPlayers; }
 	void SetNumSpectators(int32 NewNumSpectators)	{ MatchData.NumSpectators = NewNumSpectators; }
 
-	static TSharedRef<FServerInstanceData> Make(FGuid inInstanceId, const FString& inRulesTitle, const FString& inRulesTag, const FString& inMapName, int32 inMaxPlayers, uint32 inFlags, int32 inRank, bool inbTeamGame, bool inbJoinableAsPlayer, bool inbJoinableAsSpectator, const FString& inMutatorList, const FString& inScore, bool inbQuickplayMatch)
+	static TSharedRef<FServerInstanceData> Make(FGuid inInstanceId, const FString& inRulesTitle, const FString& inRulesTag, const FString& inMapName, int32 inMaxPlayers, uint32 inFlags, int32 inRank, bool inbTeamGame, bool inbJoinableAsPlayer, bool inbJoinableAsSpectator, const FString& inMutatorList, bool inbQuickplayMatch)
 	{
-		return MakeShareable(new FServerInstanceData(inInstanceId, inRulesTitle, inRulesTag, inMapName, inMaxPlayers, inFlags, inRank, inbTeamGame, inbJoinableAsPlayer, inbJoinableAsSpectator, inMutatorList, inScore, inbQuickplayMatch));
+		return MakeShareable(new FServerInstanceData(inInstanceId, inRulesTitle, inRulesTag, inMapName, inMaxPlayers, inFlags, inRank, inbTeamGame, inbJoinableAsPlayer, inbJoinableAsSpectator, inMutatorList, inbQuickplayMatch));
 	}
 	static TSharedRef<FServerInstanceData> Make(const FServerInstanceData& Other)
 	{
