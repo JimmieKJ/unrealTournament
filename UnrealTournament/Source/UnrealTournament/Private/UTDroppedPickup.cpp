@@ -249,7 +249,7 @@ void AUTDroppedPickup::GetLifetimeReplicatedProps(TArray<FLifetimeProperty> & Ou
 
 void AUTDroppedPickup::OnRepWeaponSkin()
 {
-	if (WeaponSkin)
+	if (WeaponSkin && Mesh)
 	{
 		Mesh->CreateAndSetMaterialInstanceDynamicFromMaterial(0, WeaponSkin->Material);
 	}
