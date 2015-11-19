@@ -21,7 +21,7 @@ FUTReplayStreamer::FUTReplayStreamer()
 	const bool bCmdGamedevEnvironment		= McpConfigOverride.Equals( TEXT( "gamedev" ), ESearchCase::IgnoreCase );
 	const bool bCmdLocalhostEnvironment		= McpConfigOverride.Equals( TEXT( "localhost" ), ESearchCase::IgnoreCase );
 
-	const TCHAR* ProdURL	= TEXT( "https://replay-public-service-prod10.ol.epicgames.com/replay/" );
+	const TCHAR* ProdURL	= TEXT( "https://utreplay-public-service-prod10.ol.epicgames.com/replay/" );
 	const TCHAR* GamedevURL	= TEXT( "https://replay-public-service-gamedev.ol.epicgames.net/replay/" );
 	const TCHAR* LocalURL	= TEXT( "http://localhost:8080/replay/" );
 
