@@ -639,9 +639,9 @@ void SUTChallengePanel::GenerateChallengeList()
 		}
 
 		TArray<const FUTChallengeInfo*> Challenges;
-		ChallengeManager->GetChallenges(Challenges, ChallengeFilter, PlayerOwner->GetProfileSettings());
 
 		// First count the stars
+		ChallengeManager->GetChallenges(Challenges, EChallengeFilterType::All, PlayerOwner->GetProfileSettings());
 		for (int32 i = 0 ; i < Challenges.Num(); i++)
 		{
 			const FUTChallengeInfo* Challenge = Challenges[i];
@@ -658,6 +658,11 @@ void SUTChallengePanel::GenerateChallengeList()
 				RewardStars.Add(Challenge->RewardTag, Stars);
 			}
 		}
+
+		// Now build the list.
+		Challenges.Empty();
+		ChallengeManager->GetChallenges(Challenges, ChallengeFilter, PlayerOwner->GetProfileSettings());
+
 
 		// Now create the buttons
 		for (int32 i = 0 ; i < Challenges.Num(); i++)
