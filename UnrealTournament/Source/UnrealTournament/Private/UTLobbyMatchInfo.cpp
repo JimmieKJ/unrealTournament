@@ -364,6 +364,7 @@ void AUTLobbyMatchInfo::ServerManageUser_Implementation(int32 CommandID, AUTLobb
 	{
 		// Right now we only have kicks and bans.
 		RemovePlayer(Target);
+		AllowedPlayerList.Remove(Target->UniqueId.ToString());
 		Target->UninviteFromMatch(this);
 		if (CommandID == 3)
 		{
