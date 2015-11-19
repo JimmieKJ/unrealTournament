@@ -678,11 +678,6 @@ void UUTGameViewportClient::ConnectPasswordResult(TSharedPtr<SCompoundWidget> Wi
 			}
 		}
 	}
-	else
-	{
-		UUTLocalPlayer* FirstPlayer = Cast<UUTLocalPlayer>(GEngine->GetLocalPlayerFromControllerId(this, 0));
-		FirstPlayer->PlayerController->ConsoleCommand(TEXT("Disconnect"));
-	}
 #endif
 }
 
