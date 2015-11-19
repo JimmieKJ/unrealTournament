@@ -48,10 +48,7 @@ protected:
 
 	virtual FReply OnPlayQuickMatch(FString QuickMatchType);
 	virtual FReply OnShowGamePanel();
-
-	virtual FReply OnConnectIP();
-	virtual void ConnectIPDialogResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
-
+		
 	virtual void OpenDelayedMenu();
 	virtual bool ShouldShowBrowserIcon();
 

@@ -1084,11 +1084,11 @@ void SUWServerBrowser::SetBrowserState(FName NewBrowserState)
 	}
 	else if (BrowserState == EBrowserState::AuthInProgress) 
 	{
-		RefreshButton->SetVisibility(EVisibility::Hidden);
+		RefreshButton->SetVisibility(EVisibility::Collapsed);
 	}
 	else if (BrowserState == EBrowserState::RefreshInProgress) 
 	{
-		RefreshButton->SetVisibility(EVisibility::Hidden);
+		RefreshButton->SetVisibility(EVisibility::Collapsed);
 	}
 	
 	BuildConnectBox();
@@ -2320,7 +2320,7 @@ EVisibility SUWServerBrowser::JoinEnable() const
 			return EVisibility::Visible;
 		}
 	}
-	return EVisibility::Hidden;
+	return EVisibility::Collapsed;
 }
 
 EVisibility SUWServerBrowser::SpectateEnable() const
@@ -2336,12 +2336,12 @@ EVisibility SUWServerBrowser::SpectateEnable() const
 			return EVisibility::Visible;
 		}
 	}
-	return EVisibility::Hidden;
+	return EVisibility::Collapsed;
 }
 
 EVisibility SUWServerBrowser::AbortEnable() const
 {
-	return BrowserState == EBrowserState::ConnectInProgress ? EVisibility::Visible : EVisibility::Hidden;
+	return BrowserState == EBrowserState::ConnectInProgress ? EVisibility::Visible : EVisibility::Collapsed;
 }
 
 
@@ -2352,6 +2352,20 @@ void SUWServerBrowser::BuildConnectBox()
 		ConnectBox->ClearChildren();
 		if (BrowserState != EBrowserState::ConnectInProgress)
 		{
+			ConnectBox->AddSlot()
+			.AutoWidth()
+			.VAlign(VAlign_Center)
+			.Padding(0.0f,0.0f,10.0f,0.0f)
+			[
+				// Press rebuild to clear out the old data items and create the new ones (however many are specified by SEditableTextBox)
+				SAssignNew(SpectateButton, SUTButton)
+				.ButtonStyle(SUTStyle::Get(), "UT.Button.MenuBar")
+				.ContentPadding(FMargin(10.0f, 5.0f, 10.0f, 5.0))
+				.Text(NSLOCTEXT("SUWServerBrowser", "IP", "Connect via IP"))
+				.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
+				.OnClicked(this, &SUWServerBrowser::OnIPClick)
+			];
+
 			ConnectBox->AddSlot()
 			.AutoWidth()
 			.VAlign(VAlign_Center)
@@ -2416,5 +2430,43 @@ FReply SUWServerBrowser::OnCancelJoinClick()
 {
 	return FReply::Handled();
 }
+
+
+FReply SUWServerBrowser::OnIPClick()
+{
+	PlayerOwner->OpenDialog(
+		SNew(SUWInputBox)
+		.DefaultInput(PlayerOwner->LastConnectToIP)
+		.DialogSize(FVector2D(700, 300))
+		.OnDialogResult(this, &SUWServerBrowser::ConnectIPDialogResult)
+		.PlayerOwner(PlayerOwner)
+		.DialogTitle(NSLOCTEXT("SUWServerBrowser", "ConnectToIP", "Connect to IP"))
+		.MessageText(NSLOCTEXT("SUWServerBrowser", "ConnecToIPDesc", "Enter address to connect to:"))
+		.ButtonMask(UTDIALOG_BUTTON_OK | UTDIALOG_BUTTON_CANCEL)
+		.IsScrollable(false)
+	);
+	return FReply::Handled();
+}
+
+void SUWServerBrowser::ConnectIPDialogResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID)
+{
+	if (ButtonID != UTDIALOG_BUTTON_CANCEL)
+	{
+		TSharedPtr<SUWInputBox> Box = StaticCastSharedPtr<SUWInputBox>(Widget);
+		if (Box.IsValid())
+		{
+			FString InputText = Box->GetInputText();
+			if (InputText.Len() > 0 && PlayerOwner.IsValid())
+			{
+				FString AdjustedText = InputText.Replace(TEXT("://"), TEXT(""));
+				PlayerOwner->LastConnectToIP = AdjustedText;
+				PlayerOwner->SaveConfig();
+				PlayerOwner->ViewportClient->ConsoleCommand(*FString::Printf(TEXT("open %s"), *AdjustedText));
+				PlayerOwner->ShowConnectingDialog();
+			}
+		}
+	}
+}
+
 
 #endif

@@ -200,8 +200,7 @@ TSharedRef<SWidget> SUWindowsMainMenu::AddPlayNow()
 	DropDownButton->AddSpacer();
 	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUWindowsDesktop", "MenuBar_CreateGame", "Create a Game"), FOnClicked::CreateSP(this, &SUWindowsMainMenu::OnShowGamePanel));
 	DropDownButton->AddSpacer();
-	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUWindowsDesktop", "MenuBar_QuickMatch_FindGame", "Find a Game..."), FOnClicked::CreateSP(this, &SUTMenuBase::OnShowServerBrowserPanel));
-	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUWindowsDesktop", "MenuBar_QuickMatch_IPConnect", "Connect via IP"), FOnClicked::CreateSP(this, &SUWindowsMainMenu::OnConnectIP), true);
+	DropDownButton->AddSubMenuItem(NSLOCTEXT("SUWindowsDesktop", "MenuBar_QuickMatch_FindGame", "Find a Game..."), FOnClicked::CreateSP(this, &SUTMenuBase::OnShowServerBrowserPanel),true);
 
 	return DropDownButton.ToSharedRef();
 }
@@ -552,42 +551,6 @@ void SUWindowsMainMenu::ShowCommunity()
 			ActivatePanel(WebPanel);
 		}
 		WebPanel->Browse(CommunityVideoURL);
-	}
-}
-
-FReply SUWindowsMainMenu::OnConnectIP()
-{
-	PlayerOwner->OpenDialog(
-							SNew(SUWInputBox)
-							.DefaultInput(PlayerOwner->LastConnectToIP)
-							.DialogSize(FVector2D(700, 300))
-							.OnDialogResult(this, &SUWindowsMainMenu::ConnectIPDialogResult)
-							.PlayerOwner(PlayerOwner)
-							.DialogTitle(NSLOCTEXT("SUWindowsDesktop", "ConnectToIP", "Connect to IP"))
-							.MessageText(NSLOCTEXT("SUWindowsDesktop", "ConnecToIPDesc", "Enter address to connect to:"))
-							.ButtonMask(UTDIALOG_BUTTON_OK | UTDIALOG_BUTTON_CANCEL)
-							.IsScrollable(false)
-							);
-	return FReply::Handled();
-}
-
-void SUWindowsMainMenu::ConnectIPDialogResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID)
-{
-	if (ButtonID != UTDIALOG_BUTTON_CANCEL)
-	{
-		TSharedPtr<SUWInputBox> Box = StaticCastSharedPtr<SUWInputBox>(Widget);
-		if (Box.IsValid())
-		{
-			FString InputText = Box->GetInputText();
-			if (InputText.Len() > 0 && PlayerOwner.IsValid())
-			{
-				FString AdjustedText = InputText.Replace(TEXT("://"), TEXT(""));
-				PlayerOwner->LastConnectToIP = AdjustedText;
-				PlayerOwner->SaveConfig();
-				PlayerOwner->ViewportClient->ConsoleCommand(*FString::Printf(TEXT("open %s"), *AdjustedText));
-				PlayerOwner->ShowConnectingDialog();
-			}
-		}
 	}
 }
 

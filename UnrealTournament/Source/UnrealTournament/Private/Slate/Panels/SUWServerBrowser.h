@@ -837,6 +837,8 @@ protected:
 	void BuildConnectBox();
 	FText ConnectToServerName;
 	FReply OnCancelJoinClick();
+	FReply OnIPClick();
+	void ConnectIPDialogResult(TSharedPtr<SCompoundWidget> Widget, uint16 ButtonID);
 };
 
 #endif
