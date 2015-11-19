@@ -159,6 +159,16 @@ void SUTStyle::SetIcons(TSharedRef<FSlateStyleSet> StyleRef)
 	Style.Set("UT.Icon.SortUpX2", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.SortDownX2", FVector2D(16,4), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
 
 	Style.Set("UT.Icon.Alert", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.Alert", FVector2D(64,64), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+
+	Style.Set("UT.Icon.Server.Epic", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.Server.Epic", FVector2D(54, 54), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+	Style.Set("UT.Icon.Server.Trusted", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.Server.Trusted", FVector2D(54, 54), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+	Style.Set("UT.Icon.Server.Untrusted", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.Server.Untrusted", FVector2D(54, 54), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+
+	Style.Set("UT.Icon.Star.24x24", new IMAGE_BRUSH("UTStyle/Icons/UT.Icon.Star.24x24", FVector2D(24, 24), FLinearColor(1.0f, 1.0f, 1.0f, 1.0f)));
+	
+
+
+
 }
 
 

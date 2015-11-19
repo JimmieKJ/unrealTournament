@@ -1998,9 +1998,8 @@ bool UUTLocalPlayer::JoinSession(const FOnlineSessionSearchResult& SearchResult,
 	bWantsToFindMatch = bFindMatch;
 
 	ConnectDesiredTeam = DesiredTeam;
-
+	bCancelJoinSession = false;
 	PendingJoinMatchId =  MatchId;
-
 
 	FUniqueNetIdRepl UniqueId = OnlineIdentityInterface->GetUniquePlayerId(0);
 
@@ -2037,15 +2036,33 @@ void UUTLocalPlayer::JoinPendingSession()
 	}
 }
 
+void UUTLocalPlayer::CancelJoinSession()
+{
+	// There currently isn't a way to cancel a join session call.  So we just flag it as we are not joining and ignore any successful JoinSessionComplete calls
+
+	bCancelJoinSession = true;
+	if (ServerBrowserWidget.IsValid())
+	{
+		ServerBrowserWidget->SetBrowserState(EBrowserState::BrowserIdle);
+	}
+}
+
+
 void UUTLocalPlayer::OnJoinSessionComplete(FName SessionName, EOnJoinSessionCompleteResult::Type Result)
 {
 	bPendingSession = false;
+
+	if (ServerBrowserWidget.IsValid())
+	{
+		ServerBrowserWidget->SetBrowserState(EBrowserState::BrowserIdle);
+	}
 
 	UE_LOG(UT,Log, TEXT("----------- [OnJoinSessionComplete %i"), (Result == EOnJoinSessionCompleteResult::Success));
 
 	// If we are trying to be crammed in to an existing session, we can just exit.
 	if (bAttemptingForceJoin)
 	{
+		bCancelJoinSession = false;
 		bAttemptingForceJoin = false;
 		return;
 	}
@@ -2055,6 +2072,12 @@ void UUTLocalPlayer::OnJoinSessionComplete(FName SessionName, EOnJoinSessionComp
 	// If we successed, nothing else needs to be done.
 	if (Result == EOnJoinSessionCompleteResult::Success)
 	{
+		if (bCancelJoinSession)
+		{
+			bCancelJoinSession = false;
+			return;
+		}
+
 		FString ConnectionString;
 		if ( OnlineSessionInterface->GetResolvedConnectString(SessionName, ConnectionString) )
 		{
@@ -2094,6 +2117,8 @@ void UUTLocalPlayer::OnJoinSessionComplete(FName SessionName, EOnJoinSessionComp
 
 		}
 	}
+
+	bCancelJoinSession = false;
 
 	// Any failures, return to the main menu.
 	bWantsToConnectAsSpectator = false;

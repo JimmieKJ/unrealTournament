@@ -435,6 +435,7 @@ public:
 
 	// Connect to a server via the session id.  Returns TRUE if the join continued, or FALSE if it failed to start
 	virtual bool JoinSession(const FOnlineSessionSearchResult& SearchResult, bool bSpectate, bool bFindMatch = false, int32 DesiredTeam = -1, FString MatchId=TEXT(""));
+	virtual void CancelJoinSession();
 	virtual void LeaveSession();
 	virtual void ReturnToMainMenu();
 
@@ -773,5 +774,6 @@ protected:
 	UPROPERTY(Config)
 	int32 FragCenterCounter;
 	
+	bool bCancelJoinSession;
 
 };

@@ -2,7 +2,6 @@
 #pragma once
 
 #include "Slate/SlateGameResources.h"
-#include "../SUWindowsStyle.h"
 #include "../SUWPanel.h"
 #include "../Widgets/SUTButton.h"
 #include "SUMatchPanel.h"
@@ -612,6 +611,7 @@ namespace EBrowserState
 	static FName BrowserIdle = TEXT("BrowserIdle");
 	static FName AuthInProgress = TEXT("AuthInProgress");
 	static FName RefreshInProgress = TEXT("RefreshInProgress");
+	static FName ConnectInProgress = TEXT("ConnectInProgress");
 }
 
 class UNREALTOURNAMENT_API SUWServerBrowser : public SUWPanel
@@ -625,6 +625,8 @@ public:
 	{
 		return BrowserState == EBrowserState::RefreshInProgress;
 	}
+
+	virtual void SetBrowserState(FName NewBrowserState);
 
 private:
 
@@ -695,7 +697,6 @@ protected:
 	void OnFindSessionsComplete(bool bWasSuccessful);
 	void OnFindLANSessionsComplete(bool bWasSuccessful);
 
-	virtual void SetBrowserState(FName NewBrowserState);
 	virtual void CleanupQoS();
 
 	virtual void OnListMouseButtonDoubleClick(TSharedPtr<FServerData> SelectedServer);
@@ -761,7 +762,7 @@ protected:
 	virtual TSharedRef<SWidget> BuildLobbyBrowser();
 
 	virtual void OnQuickFilterTextCommited(const FText& NewText, ETextCommit::Type CommitType);
-	virtual FReply BrowserTypeChanged();
+	virtual FReply BrowserTypeChanged(int32 TabIndex);
 	
 	// Walk over both the lists and expire out any servers not available on the MCP
 	virtual void ExpireDeadServers(bool bLANServers);
@@ -780,7 +781,6 @@ protected:
 
 	virtual void AddHUBInfo(TSharedPtr<FServerData> HUB);
 	virtual void BuildServerListControlBox();
-
 	virtual void TallyInternetServers(int32& Players, int32& Spectators, int32& Friends);
 
 private:
@@ -803,6 +803,9 @@ private:
 	TSharedPtr<SHorizontalBox> ServerListControlBox;
 
 	virtual FText GetStatusText() const;
+	
+	virtual FText GetShowHubButtonText() const;
+	virtual FText GetShowServerButtonText() const;
 
 protected:
 	ECheckBoxState ShouldHideUnresponsiveServers() const;
@@ -822,6 +825,16 @@ protected:
 
 	TSharedPtr<STextBlock> FilterMsg;
 	void OnFilterTextChanged(const FText& NewText);
+	FSlateColor GetButtonSlateColor(int32 TabIndex) const;
+
+	TSharedPtr<SUTButton> HubButton;
+	TSharedPtr<SUTButton> ServerButton;
+	bool JoinEnable(int32 ButtonId) const;
+
+	TSharedPtr<SHorizontalBox> ConnectBox;
+	void BuildConnectBox();
+	FText ConnectToServerName;
+	FReply OnCancelJoinClick();
 };
 
 #endif

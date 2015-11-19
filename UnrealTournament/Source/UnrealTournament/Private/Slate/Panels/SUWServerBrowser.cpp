@@ -7,7 +7,6 @@
 #include "Slate/SlateGameResources.h"
 #include "../SUWPanel.h"
 #include "../SUWindowsDesktop.h"
-#include "../SUWindowsStyle.h"
 #include "../SUTStyle.h"
 #include "SUWServerBrowser.h"
 #include "Online.h"
@@ -70,12 +69,28 @@ struct FCompareHub
 {
 	FORCEINLINE bool operator()	( const TSharedPtr< FServerData > A, const TSharedPtr< FServerData > B ) const 
 	{
-		// Sorts like this.. First by trust level (where Epic = 0, Trusted = 1 and wild west = 2.. grr)
-		// then by ping.  So an Epic hub with Ping of 35ms vs a trusted hub with a ping of 250ms vs a wild west hub with a ping of 11ms would be
-		// 0.035 vs 100.250 vs 1000.011
+		// Sort works like this. There are 4 categories, Ping Group, Trust Level, Emptiness and actual ping.  
+		// Ping group is worth 1000 - 3000
+		// Trust Level is worth hundreds 100-300
+		// Emptiness is worth 20 - 99
+		// Actual ping is the decimal (so Ping / 1000.0)
 
-		float AValue = ( (A->TrustLevel == 0) ? 0.0f : ( (A->TrustLevel == 1) ? 100.0f : 1000.0f) ) + (float(A->Ping) / 1000.0f);
-		float BValue = ( (B->TrustLevel == 0) ? 0.0f : ( (B->TrustLevel == 1) ? 100.0f : 1000.0f) ) + (float(B->Ping) / 1000.0f);
+		// Lower numbers are better!
+
+		float AValue = ( 	
+							(A->Ping <= 80) ? 1000 : ( (A->Ping <= 200) ? 2000 : 3000) ) +
+							(A->TrustLevel == 0 ? 100.0f : ( (A->TrustLevel == 1) ? 200.0f : 300.0f)) + 
+							(A->NumFriends > 0 ? 20 : ((int32(1.0 - FMath::Clamp<float>( float(A->NumPlayers) / 600.0, 0.0f, 1.0f)) * 79) + 20) +
+							(float(A->Ping) / 1000.0f) 
+						);
+
+		float BValue = (	
+							(B->Ping <= 80) ? 1000 : ((B->Ping <= 200) ? 2000 : 3000)) +
+							(B->TrustLevel == 0 ? 100.0f : ((B->TrustLevel == 1) ? 200.0f : 300.0f)) +
+							(B->NumFriends > 0 ? 20 : ((int32(1.0 - FMath::Clamp<float>(float(B->NumPlayers) / 600.0, 0.0f, 1.0f)) * 79) + 20) +
+							(float(B->Ping) / 1000.0f)
+						);
+
 		return AValue < BValue;
 	}
 };
@@ -135,8 +150,78 @@ void SUWServerBrowser::ConstructPanel(FVector2D ViewportSize)
 					.Padding(0.0f,0.0f,15.0f,0.0f)
 					.AutoWidth()
 					[
-						SAssignNew( ServerListControlBox, SHorizontalBox )
-						.Visibility(EVisibility::Collapsed)
+						SNew(SBox).WidthOverride(300)
+						[
+							SNew(SHorizontalBox)
+							+SHorizontalBox::Slot()
+							.VAlign(VAlign_Center)
+							.Padding(0.0f, 0.0f, 15.0f, 0.0f)
+							.AutoWidth()
+							[
+								SAssignNew(HubButton, SUTButton)
+								.ContentPadding(FMargin(10.0f, 5.0f, 15.0f, 5.0))
+								.ButtonStyle(SUTStyle::Get(), "UT.Button.MenuBar")
+								.OnClicked(this, &SUWServerBrowser::BrowserTypeChanged, 0)
+								.IsToggleButton(true)
+								[
+									SNew(SHorizontalBox)
+									+ SHorizontalBox::Slot()
+									.VAlign(VAlign_Center)
+									.AutoWidth()
+									.Padding(0.0f, 0.0f, 5.0f, 0.0f)
+									[
+										SNew(STextBlock)
+										.Text(NSLOCTEXT("SUWServerBrowser", "HubList", "Hubs"))
+										.ColorAndOpacity(this, &SUWServerBrowser::GetButtonSlateColor, 0)
+										.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
+									]
+									+ SHorizontalBox::Slot()
+									.VAlign(VAlign_Top)
+									.AutoWidth()
+									[
+										SNew(STextBlock)
+										.Text(this, &SUWServerBrowser::GetShowHubButtonText)
+										.ColorAndOpacity(this, &SUWServerBrowser::GetButtonSlateColor, 0)
+										.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small")
+									]
+
+								]
+							]
+
+							+SHorizontalBox::Slot()
+							.VAlign(VAlign_Center)
+							.Padding(0.0f, 0.0f, 15.0f, 0.0f)
+							.AutoWidth()
+							[
+								SAssignNew(ServerButton, SUTButton)
+								.ContentPadding(FMargin(10.0f, 5.0f, 15.0f, 5.0))
+								.ButtonStyle(SUTStyle::Get(), "UT.Button.MenuBar")
+								.OnClicked(this, &SUWServerBrowser::BrowserTypeChanged, 1)
+								.IsToggleButton(true)
+								[
+									SNew(SHorizontalBox)
+									+ SHorizontalBox::Slot()
+									.VAlign(VAlign_Center)
+									.AutoWidth()
+									.Padding(0.0f, 0.0f, 5.0f, 0.0f)
+									[
+										SNew(STextBlock)
+										.Text(NSLOCTEXT("SUWServerBrowser", "ServerList", "Servers"))
+										.ColorAndOpacity(this, &SUWServerBrowser::GetButtonSlateColor, 1)
+										.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
+									]
+									+ SHorizontalBox::Slot()
+									.VAlign(VAlign_Top)
+									.AutoWidth()
+									[
+										SNew(STextBlock)
+										.Text(this, &SUWServerBrowser::GetShowServerButtonText)
+										.ColorAndOpacity(this, &SUWServerBrowser::GetButtonSlateColor, 1)
+										.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small")
+									]
+								]
+							]
+						]
 					]
 
 					+SHorizontalBox::Slot()
@@ -154,6 +239,12 @@ void SUWServerBrowser::ConstructPanel(FVector2D ViewportSize)
 							.Padding(15.0f, 0.0f, 16.0f, 0.0f)
 							[
 								SNew(SHorizontalBox)
+								+SHorizontalBox::Slot()
+								.VAlign(VAlign_Center)
+								.AutoWidth()
+								[
+									SAssignNew(ServerListControlBox, SHorizontalBox)
+								]
 								+SHorizontalBox::Slot()
 								.VAlign(VAlign_Center)
 								.AutoWidth()
@@ -283,32 +374,15 @@ void SUWServerBrowser::ConstructPanel(FVector2D ViewportSize)
 					+SHorizontalBox::Slot().AutoWidth()
 					.VAlign(VAlign_Center)
 					[
-						// Press rebuild to clear out the old data items and create the new ones (however many are specified by SEditableTextBox)
-						SAssignNew(SpectateButton, SUTButton)
-						.ButtonStyle(SUTStyle::Get(), "UT.Button.MenuBar")
-						.ContentPadding(FMargin(10.0f, 5.0f, 10.0f, 5.0))
-						.Text(NSLOCTEXT("SUWServerBrowser","Spectate","Spectate"))
-						.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
-						.OnClicked(this, &SUWServerBrowser::OnJoinClick,true)
-					]
-
-
-					+SHorizontalBox::Slot().AutoWidth() .VAlign(VAlign_Center)
-					.VAlign(VAlign_Center)
-					[
-						// Press rebuild to clear out the old data items and create the new ones (however many are specified by SEditableTextBox)
-						SAssignNew(JoinButton, SUTButton)
-						.ButtonStyle(SUTStyle::Get(), "UT.Button.MenuBar")
-						.ContentPadding(FMargin(10.0f, 5.0f, 10.0f, 5.0))
-						.Text(NSLOCTEXT("SUWServerBrowser","Join","Join"))
-						.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
-						.OnClicked(this, &SUWServerBrowser::OnJoinClick,false)
+						SAssignNew(ConnectBox,SHorizontalBox)
 					]
 				]
 			]
 		]
 
 	];
+
+	BuildConnectBox();
 
 	bDescendingSort = false;
 	CurrentSortColumn = FName(TEXT("ServerPing"));
@@ -375,7 +449,7 @@ void SUWServerBrowser::ConstructPanel(FVector2D ViewportSize)
 		}
 	}	
 
-	BrowserTypeChanged();
+	BrowserTypeChanged(0);
 	AddGameFilters();
 }
 
@@ -978,13 +1052,20 @@ FText SUWServerBrowser::GetStatusText() const
 
 		Args.Add( TEXT("PlayerCount"), FText::AsNumber(PlayerCount) );
 
-		if (PingCount > 0)
+		if (BrowserState == EBrowserState::RefreshInProgress)
 		{
-			return FText::Format( NSLOCTEXT("SUWServerBrowser","PingingStatusMsg","Showing {FilteredHubCount} of {HubCount} Hubs, {FilteredServerCount} of {ServerCount} Servers - Pinging {PingCount} Servers..."), Args);
+			return FText::Format( NSLOCTEXT("SUWServerBrowser","RefreshingStatusMsg","Getting new Server list from MCP -- Showing {FilteredHubCount} of {HubCount} Hubs, {FilteredServerCount} of {ServerCount} Servers"), Args);
 		}
 		else
 		{
-			return FText::Format( NSLOCTEXT("SUWServerBrowser","IdleStatusMsg","Showing {FilteredHubCount} of {HubCount} Hubs, {FilteredServerCount} of {ServerCount} Servers -- {PlayerCount} of {TotalPlayers} Players"), Args);
+			if (PingCount > 0)
+			{
+				return FText::Format( NSLOCTEXT("SUWServerBrowser","PingingStatusMsg","Pinging {PingCount} Servers -- Showing {FilteredHubCount} of {HubCount} Hubs, {FilteredServerCount} of {ServerCount} Servers"), Args);
+			}
+			else
+			{
+				return FText::Format( NSLOCTEXT("SUWServerBrowser","IdleStatusMsg","Showing {FilteredHubCount} of {HubCount} Hubs, {FilteredServerCount} of {ServerCount} Servers -- {PlayerCount} of {TotalPlayers} Players"), Args);
+			}
 		}
 	}
 }
@@ -996,10 +1077,6 @@ void SUWServerBrowser::SetBrowserState(FName NewBrowserState)
 	{
 		RefreshButton->SetContent( SNew(STextBlock).Text(NSLOCTEXT("SUWServerBrowser","Login","Login")).TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium"));
 		RefreshButton->SetVisibility(EVisibility::All);
-
-		JoinButton->SetEnabled(false);
-		SpectateButton->SetEnabled(false);
-
 	}
 	else if (BrowserState == EBrowserState::BrowserIdle) 
 	{
@@ -1008,16 +1085,13 @@ void SUWServerBrowser::SetBrowserState(FName NewBrowserState)
 	else if (BrowserState == EBrowserState::AuthInProgress) 
 	{
 		RefreshButton->SetVisibility(EVisibility::Hidden);
-
-		JoinButton->SetEnabled(false);
-		SpectateButton->SetEnabled(false);
 	}
 	else if (BrowserState == EBrowserState::RefreshInProgress) 
 	{
 		RefreshButton->SetVisibility(EVisibility::Hidden);
-		JoinButton->SetEnabled(false);
-		SpectateButton->SetEnabled(false);
 	}
+	
+	BuildConnectBox();
 }
 
 FReply SUWServerBrowser::OnRefreshClick()
@@ -1571,7 +1645,8 @@ void SUWServerBrowser::ConnectTo(FServerData ServerData,bool bSpectate)
 		return;
 	}
 
-	SetBrowserState(EBrowserState::BrowserIdle);	
+	ConnectToServerName = FText::Format(NSLOCTEXT("SUWServerBrowser","ConnectToFormat","Connecting to {0}... "), ServerData.GetBrowserName());
+	SetBrowserState(EBrowserState::ConnectInProgress);	
 
 	// Flag the browser as needing a refresh the next time it is shown
 	bNeedsRefresh = true;
@@ -1737,13 +1812,8 @@ void SUWServerBrowser::Tick( const FGeometry& AllottedGeometry, const double InC
 		}
 	}
 
-	if (BrowserState != EBrowserState::BrowserIdle) 
-	{
-		JoinButton->SetEnabled(false);
-		SpectateButton->SetEnabled(false);
-	}
 	
-
+/*
 	if (!RandomHUB.IsValid() && AllInternetServers.Num() > 0)
 	{
 		int32 NumPlayers = 0;
@@ -1777,7 +1847,7 @@ void SUWServerBrowser::Tick( const FGeometry& AllottedGeometry, const double InC
 		FilterAllHUBs();
 		HUBServerList->RequestListRefresh();
 	}		
-
+*/
 }
 
 void SUWServerBrowser::TallyInternetServers(int32& Players, int32& Spectators, int32& Friends)
@@ -1851,9 +1921,6 @@ void SUWServerBrowser::OnServerListSelectionChanged(TSharedPtr<FServerData> Sele
 			}
 		}
 		PlayersList->RequestListRefresh();
-
-		JoinButton->SetEnabled(true);
-		SpectateButton->SetEnabled(true);
 	}
 }
 
@@ -1879,15 +1946,20 @@ void SUWServerBrowser::OnFilterTextChanged(const FText& NewText)
 }
 
 
-FReply SUWServerBrowser::BrowserTypeChanged()
+FReply SUWServerBrowser::BrowserTypeChanged(int32 TabIndex)
 {
-	ShowHUBs();
+	if (TabIndex == 0 && !bShowingHubs) ShowHUBs();
+	if (TabIndex == 1 && bShowingHubs) ShowServers(TEXT("ALL"));
 	return FReply::Handled();
 }
 
 void SUWServerBrowser::ShowServers(FString InitialGameType)
 {
 	bShowingHubs = false;
+
+	HubButton->UnPressed();
+	ServerButton->BePressed();
+
 	BuildServerListControlBox();
 	LobbyBrowser->SetVisibility(EVisibility::Hidden);
 	InternetServerBrowser->SetVisibility(EVisibility::All);
@@ -1900,6 +1972,10 @@ void SUWServerBrowser::ShowServers(FString InitialGameType)
 void SUWServerBrowser::ShowHUBs()
 {
 	bShowingHubs = true;
+
+	HubButton->BePressed();
+	ServerButton->UnPressed();
+
 	BuildServerListControlBox();
 	LobbyBrowser->SetVisibility(EVisibility::All);
 	InternetServerBrowser->SetVisibility(EVisibility::Hidden);
@@ -1942,7 +2018,7 @@ TSharedRef<ITableRow> SUWServerBrowser::OnGenerateWidgetForHUBList(TSharedPtr<FS
 						[
 							SNew(STextBlock)
 							.Text(FText::FromString(InItem->Name))
-							.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.HUBBrowser.TitleText")
+							.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Large")
 						]
 						+SVerticalBox::Slot()
 						.FillHeight(1.0)
@@ -1983,7 +2059,7 @@ TSharedRef<ITableRow> SUWServerBrowser::OnGenerateWidgetForHUBList(TSharedPtr<FS
 										.Text(InItem->bFakeHUB ? 
 											TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateSP(InItem.Get(), &FServerData::GetNumServers)) :
 											TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateSP(InItem.Get(), &FServerData::GetNumMatches)))
-										.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.HUBBrowser.NormalText")
+										.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
 									]
 
 									+SHorizontalBox::Slot()
@@ -1993,7 +2069,7 @@ TSharedRef<ITableRow> SUWServerBrowser::OnGenerateWidgetForHUBList(TSharedPtr<FS
 									[
 										SNew(STextBlock)
 										.Text(TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateSP(InItem.Get(), &FServerData::GetNumPlayers)))
-										.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.HUBBrowser.NormalText")
+										.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
 									]
 
 									+SHorizontalBox::Slot()
@@ -2003,7 +2079,7 @@ TSharedRef<ITableRow> SUWServerBrowser::OnGenerateWidgetForHUBList(TSharedPtr<FS
 									[
 										SNew(STextBlock)
 										.Text(TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateSP(InItem.Get(), &FServerData::GetNumFriends)))
-										.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.HUBBrowser.NormalText")
+										.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
 									]
 									+ SHorizontalBox::Slot()
 									.FillWidth(1.0)
@@ -2032,7 +2108,7 @@ TSharedRef<ITableRow> SUWServerBrowser::OnGenerateWidgetForHUBList(TSharedPtr<FS
 										[
 											SNew(STextBlock)
 											.Text(TAttribute<FText>::Create(TAttribute<FText>::FGetter::CreateSP(InItem.Get(), &FServerData::GetHubPing)))
-											.TextStyle(SUWindowsStyle::Get(), "UWindows.Standard.HUBBrowser.SmallText")
+											.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
 										]
 									]
 								]
@@ -2055,7 +2131,7 @@ TSharedRef<SWidget> SUWServerBrowser::AddHUBBadge(TSharedPtr<FServerData> HUB)
 			.WidthOverride(54)
 			[
 				SNew(SImage)
-				.Image(SUWindowsStyle::Get().GetBrush("UT.Icon.Globe"))
+				.Image(SUTStyle::Get().GetBrush("UT.Icon.Server.Untrusted"))
 			];
 	}
 	else
@@ -2065,7 +2141,7 @@ TSharedRef<SWidget> SUWServerBrowser::AddHUBBadge(TSharedPtr<FServerData> HUB)
 			return 	SNew(SBox).HeightOverride(54).WidthOverride(54)
 				[
 					SNew(SImage)
-					.Image(SUWindowsStyle::Get().GetBrush("UT.Icon.Epic"))
+					.Image(SUTStyle::Get().GetBrush("UT.Icon.Server.Epic"))
 				];
 		}
 		else
@@ -2073,7 +2149,7 @@ TSharedRef<SWidget> SUWServerBrowser::AddHUBBadge(TSharedPtr<FServerData> HUB)
 			return 	SNew(SBox).HeightOverride(54).WidthOverride(54)
 				[
 					SNew(SImage)
-					.Image(SUWindowsStyle::Get().GetBrush("UT.Icon.Raxxy"))
+					.Image(SUTStyle::Get().GetBrush("UT.Icon.Server.Trusted"))
 				];
 		}
 	
@@ -2099,7 +2175,7 @@ TSharedRef<SWidget> SUWServerBrowser::AddStars(TSharedPtr<FServerData> HUB)
 				.HeightOverride(24)
 				[
 					SNew(SImage)
-					.Image(SUWindowsStyle::Get().GetBrush("UWindows.Standard.Star24"))
+					.Image(SUTStyle::Get().GetBrush("UT.Icon.Star.24x24"))
 				]
 			];
 		}
@@ -2137,22 +2213,11 @@ void SUWServerBrowser::BuildServerListControlBox()
 {
 	if (ServerListControlBox.IsValid())
 	{
+		TSharedPtr<SUTButton> Button;
 		ServerListControlBox->ClearChildren();
+
 		if (!bShowingHubs)
 		{
-			ServerListControlBox->AddSlot()
-				.VAlign(VAlign_Center)
-				.Padding(0.0f,0.0f,15.0f,0.0f)
-				.AutoWidth()
-				[
-					SNew(SUTButton)
-					.ContentPadding(FMargin(10.0f, 5.0f, 15.0f, 5.0))
-					.ButtonStyle(SUTStyle::Get(), "UT.Button.MenuBar")
-					.Text(NSLOCTEXT("SUWServerBrowser","ShowLobbies","Return to hub list..."))
-					.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
-					.OnClicked(this, &SUWServerBrowser::BrowserTypeChanged)
-				];
-
 			ServerListControlBox->AddSlot()
 				.AutoWidth()
 				[
@@ -2171,18 +2236,19 @@ void SUWServerBrowser::BuildServerListControlBox()
 							[
 								SNew(STextBlock)
 								.Text(NSLOCTEXT("SUWServerBrowser","GameFilter","Game Mode:"))
-								.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
+								.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small")
 							]
 						]
 						+SHorizontalBox::Slot()
 						.AutoWidth()
+						.Padding(0.0f, 0.0f, 15.0f,0.0f)
 						[
 							SAssignNew(GameFilter, SUTComboButton)
 							.HasDownArrow(false)
 							.ButtonStyle(SUTStyle::Get(), "UT.Button.MenuBar")
 							.ContentPadding(FMargin(10.0f, 0.0f, 10.0f, 0.0))
 							.Text(this, &SUWServerBrowser::GetGameFilterText)
-							.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium.Bold")
+							.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small.Bold")
 						]
 					]
 				];
@@ -2220,6 +2286,116 @@ void SUWServerBrowser::JoinQuickInstance(const FString& InstanceGuid, bool bAsSp
 		PlayerOwner->AttemptJoinInstance(SelectedHubs[0], InstanceGuid, bAsSpectator);
 	}
 
+}
+
+FText SUWServerBrowser::GetShowHubButtonText() const
+{
+	FText Count = FText::AsNumber(FilteredHubsSource.Num() > 0 ? FilteredHubsSource.Num() : AllHubServers.Num());
+	return FText::Format(NSLOCTEXT("SUWServerBrowser","HubButtonFormat","({0})"), Count);
+}
+
+FText SUWServerBrowser::GetShowServerButtonText() const
+{
+	FText Count = FText::AsNumber(FilteredServersSource.Num() > 0 ? FilteredServersSource.Num() : AllInternetServers.Num());
+	return FText::Format(NSLOCTEXT("SUWServerBrowser", "HubButtonFormat", "({0})"), Count);
+}
+
+FSlateColor SUWServerBrowser::GetButtonSlateColor(int32 TabIndex) const
+{
+	return ( (TabIndex == 0 && bShowingHubs) || (TabIndex == 1 && !bShowingHubs)) ? FSlateColor(FLinearColor::Black) : FSlateColor(FLinearColor::White);
+}
+
+
+bool SUWServerBrowser::JoinEnable(int32 ButtonId) const
+{
+	if (ButtonId == 2)
+	{
+		return BrowserState == EBrowserState::ConnectInProgress;
+	}
+
+	if (BrowserState == EBrowserState::BrowserIdle) 
+	{
+		TArray<TSharedPtr<FServerData>> Selected;
+		if (bShowingHubs && HUBServerList.IsValid() && HUBServerList->GetNumItemsSelected() > 0) Selected = HUBServerList->GetSelectedItems();
+		else if (!bShowingHubs && InternetServerList.IsValid() && InternetServerList->GetNumItemsSelected() > 0) Selected = InternetServerList->GetSelectedItems();
+
+		if ( Selected.Num() > 0 && Selected[0].IsValid() && (Selected[0]->Flags & SERVERFLAG_Restricted) == 0 )
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+void SUWServerBrowser::BuildConnectBox()
+{
+	if (ConnectBox.IsValid())
+	{
+		ConnectBox->ClearChildren();
+		if (BrowserState != EBrowserState::ConnectInProgress)
+		{
+			ConnectBox->AddSlot()
+			.AutoWidth()
+			.VAlign(VAlign_Center)
+			.Padding(0.0f,0.0f,10.0f,0.0f)
+			[
+				// Press rebuild to clear out the old data items and create the new ones (however many are specified by SEditableTextBox)
+				SAssignNew(SpectateButton, SUTButton)
+				.ButtonStyle(SUTStyle::Get(), "UT.Button.MenuBar")
+				.ContentPadding(FMargin(10.0f, 5.0f, 10.0f, 5.0))
+				.Text(NSLOCTEXT("SUWServerBrowser", "Spectate", "Spectate"))
+				.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
+				.OnClicked(this, &SUWServerBrowser::OnJoinClick, true)
+				.IsEnabled(this, &SUWServerBrowser::JoinEnable, 1)
+			];
+
+			ConnectBox->AddSlot()
+			.AutoWidth()
+			.VAlign(VAlign_Center)
+			[
+				// Press rebuild to clear out the old data items and create the new ones (however many are specified by SEditableTextBox)
+				SAssignNew(JoinButton, SUTButton)
+				.ButtonStyle(SUTStyle::Get(), "UT.Button.MenuBar")
+				.ContentPadding(FMargin(10.0f, 5.0f, 10.0f, 5.0))
+				.Text(NSLOCTEXT("SUWServerBrowser", "Join", "Join"))
+				.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
+				.OnClicked(this, &SUWServerBrowser::OnJoinClick, false)
+				.IsEnabled(this, &SUWServerBrowser::JoinEnable, 0)
+			];
+		}
+		else
+		{
+			ConnectBox->AddSlot()
+			.AutoWidth()
+			.VAlign(VAlign_Center)
+			.Padding(0.0f, 0.0f, 10.0f, 0.0f)
+			[
+				SNew(STextBlock)
+				.Text(ConnectToServerName)
+				.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Small")
+			];
+
+			ConnectBox->AddSlot()
+			.AutoWidth()
+			.VAlign(VAlign_Center)
+			.Padding(0.0f, 0.0f, 10.0f, 0.0f)
+			[
+				// Press rebuild to clear out the old data items and create the new ones (however many are specified by SEditableTextBox)
+				SAssignNew(SpectateButton, SUTButton)
+				.ButtonStyle(SUTStyle::Get(), "UT.Button.MenuBar")
+				.ContentPadding(FMargin(10.0f, 5.0f, 10.0f, 5.0))
+				.Text(NSLOCTEXT("SUWServerBrowser", "CancelJoin", "Abort"))
+				.TextStyle(SUTStyle::Get(), "UT.Font.NormalText.Medium")
+				.OnClicked(this, &SUWServerBrowser::OnCancelJoinClick)
+				.IsEnabled(this, &SUWServerBrowser::JoinEnable, 2)
+			];
+		}
+	}
+}
+
+FReply SUWServerBrowser::OnCancelJoinClick()
+{
+	return FReply::Handled();
 }
 
 #endif
