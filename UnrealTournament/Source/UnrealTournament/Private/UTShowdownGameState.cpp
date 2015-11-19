@@ -2,7 +2,7 @@
 #include "UnrealTournament.h"
 #include "UTShowdownGameState.h"
 #include "UnrealNetwork.h"
-#include "UTPlayerStart.h"
+#include "UTTeamPlayerStart.h"
 
 AUTShowdownGameState::AUTShowdownGameState(const FObjectInitializer& OI)
 : Super(OI)
@@ -30,21 +30,29 @@ bool AUTShowdownGameState::IsAllowedSpawnPoint_Implementation(AUTPlayerState* Ch
 	}
 	else
 	{
-		for (APlayerState* PS : PlayerArray)
+		AUTTeamPlayerStart* TeamStart = Cast<AUTTeamPlayerStart>(DesiredStart);
+		if (TeamStart != NULL && TeamStart->TeamNum != Chooser->GetTeamNum())
 		{
-			if (PS != Chooser && !PS->bOnlySpectator)
+			return false;
+		}
+		else
+		{
+			for (APlayerState* PS : PlayerArray)
 			{
-				AUTPlayerState* UTPS = Cast<AUTPlayerState>(PS);
-				if (UTPS != NULL && UTPS->RespawnChoiceA != NULL)
+				if (PS != Chooser && !PS->bOnlySpectator)
 				{
-					if (UTPS->RespawnChoiceA == DesiredStart)
+					AUTPlayerState* UTPS = Cast<AUTPlayerState>(PS);
+					if (UTPS != NULL && UTPS->RespawnChoiceA != NULL)
 					{
-						return false;
+						if (UTPS->RespawnChoiceA == DesiredStart)
+						{
+							return false;
+						}
 					}
 				}
 			}
+			return true;
 		}
-		return true;
 	}
 }
 
