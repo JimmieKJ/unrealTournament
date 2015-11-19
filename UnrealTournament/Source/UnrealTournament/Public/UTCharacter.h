@@ -1592,6 +1592,14 @@ public:
 	UFUNCTION()
 	virtual void UpdateWeaponSkinPrefFromProfile();
 
+	UPROPERTY(replicatedUsing = OnRepWeaponSkin)
+	TArray<UUTWeaponSkin*> WeaponSkins;
+
+	UFUNCTION()
+	virtual void OnRepWeaponSkin();
+
+	virtual void SetSkinForWeapon(UUTWeaponSkin* WeaponSkin);
+
 	/** spawn/destroy/replace the current holstered weapon attachment to represent the equipped weapon (through WeaponClass) */
 	UFUNCTION()
 	virtual void UpdateHolsteredWeaponAttachment();

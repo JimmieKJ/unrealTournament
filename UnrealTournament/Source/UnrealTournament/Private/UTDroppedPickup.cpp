@@ -177,6 +177,48 @@ void AUTDroppedPickup::GiveTo_Implementation(APawn* Target)
 			if (Duplicate == NULL || !Duplicate->StackPickup(Inventory))
 			{
 				C->AddInventory(Inventory, true);
+
+				AUTWeapon* WeaponInv = Cast<AUTWeapon>(Inventory);
+				if (WeaponInv)
+				{
+					if (WeaponSkin)
+					{
+						C->SetSkinForWeapon(WeaponSkin);
+					}
+					else
+					{
+						FString WeaponPathName = WeaponInv->GetPathName();
+
+						bool bFoundSkin = false;
+						// Set character's skin back to what the UTPlayerState has
+						AUTPlayerState* PS = Cast<AUTPlayerState>(C->PlayerState);
+						if (PS)
+						{
+							for (int32 i = 0; i < PS->WeaponSkins.Num(); i++)
+							{
+								if (PS->WeaponSkins[i]->WeaponType == WeaponPathName)
+								{
+									C->SetSkinForWeapon(PS->WeaponSkins[i]);
+									bFoundSkin = true;
+									break;
+								}
+							}
+						}
+
+						if (!bFoundSkin)
+						{
+							for (int32 i = 0; i < C->WeaponSkins.Num(); i++)
+							{
+								if (C->WeaponSkins[i]->WeaponType == WeaponPathName)
+								{
+									C->WeaponSkins.RemoveAt(i);
+									break;
+								}
+							}
+						}
+					}
+				}
+
 				if (Cast<APlayerController>(Target->GetController()) && (!Cast<AUTWeapon>(Inventory) || !C->GetPendingWeapon() ||(C->GetPendingWeapon()->GetClass() != Inventory->GetClass())))
 				{
 					Cast<APlayerController>(Target->GetController())->ClientReceiveLocalizedMessage(UUTPickupMessage::StaticClass(), 0, NULL, NULL, Inventory->GetClass());

@@ -99,7 +99,6 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	DOREPLIFETIME(AUTPlayerState, SelectedCharacter);
 	DOREPLIFETIME(AUTPlayerState, TauntClass);
 	DOREPLIFETIME(AUTPlayerState, Taunt2Class);
-	DOREPLIFETIME(AUTPlayerState, WeaponSkins);
 	DOREPLIFETIME(AUTPlayerState, HatClass);
 	DOREPLIFETIME(AUTPlayerState, LeaderHatClass);
 	DOREPLIFETIME(AUTPlayerState, EyewearClass);
@@ -128,6 +127,7 @@ void AUTPlayerState::GetLifetimeReplicatedProps(TArray< FLifetimeProperty > & Ou
 	DOREPLIFETIME(AUTPlayerState, MatchHighlightData);
 	DOREPLIFETIME(AUTPlayerState, EmoteReplicationInfo);
 	DOREPLIFETIME(AUTPlayerState, EmoteSpeed);
+	DOREPLIFETIME_CONDITION(AUTPlayerState, WeaponSkins, COND_OwnerOnly);
 }
 
 void AUTPlayerState::Destroyed()
@@ -577,15 +577,6 @@ AUTCharacter* AUTPlayerState::GetUTCharacter()
 	return CachedCharacter;
 }
 
-void AUTPlayerState::OnRepWeaponSkin()
-{
-	AUTCharacter* Char = GetUTCharacter();
-	if (Char)
-	{
-		Char->UpdateWeaponSkin();
-	}
-}
-
 void AUTPlayerState::UpdateWeaponSkinPrefFromProfile(TSubclassOf<AUTWeapon> Weapon)
 {
 	AUTBasePlayerController* PC = Cast<AUTBasePlayerController>(GetOwner());
@@ -636,8 +627,12 @@ void AUTPlayerState::ServerReceiveWeaponSkin_Implementation(const FString& NewWe
 			{
 				WeaponSkins.Add(WeaponSkin);
 			}
-			
-			OnRepWeaponSkin();
+
+			AUTCharacter* UTChar = GetUTCharacter();
+			if (UTChar != nullptr)
+			{
+				UTChar->SetSkinForWeapon(WeaponSkin);
+			}
 		}
 	}
 }

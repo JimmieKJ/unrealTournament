@@ -2704,6 +2704,24 @@ void AUTCharacter::SwitchToBestWeapon()
 	}
 }
 
+void AUTCharacter::SetSkinForWeapon(UUTWeaponSkin* WeaponSkin)
+{
+	bool bAlreadyAssigned = false;
+	for (int32 i = 0; i < WeaponSkins.Num(); i++)
+	{
+		if (WeaponSkins[i]->WeaponType == WeaponSkin->WeaponType)
+		{
+			WeaponSkins[i] = WeaponSkin;
+			bAlreadyAssigned = true;
+		}
+	}
+
+	if (!bAlreadyAssigned)
+	{
+		WeaponSkins.Add(WeaponSkin);
+	}
+}
+
 void AUTCharacter::UpdateWeaponSkinPrefFromProfile()
 {
 	if (Weapon && IsLocallyControlled())
@@ -2836,7 +2854,8 @@ void AUTCharacter::GetLifetimeReplicatedProps(TArray<class FLifetimeProperty>& O
 	DOREPLIFETIME_CONDITION(AUTCharacter, bIsWearingHelmet, COND_SkipOwner);
 	DOREPLIFETIME_CONDITION(AUTCharacter, CosmeticFlashCount, COND_Custom);
 	DOREPLIFETIME_CONDITION(AUTCharacter, CosmeticSpreeCount, COND_None);
-	DOREPLIFETIME_CONDITION(AUTCharacter, ArmorAmount, COND_None); 
+	DOREPLIFETIME_CONDITION(AUTCharacter, ArmorAmount, COND_None);
+	DOREPLIFETIME_CONDITION(AUTCharacter, WeaponSkins, COND_None);
 }
 
 static AUTWeapon* SavedWeapon = NULL;
@@ -5547,6 +5566,11 @@ void AUTCharacter::MovementEventReplicated()
 	}
 }
 
+void AUTCharacter::OnRepWeaponSkin()
+{
+	UpdateWeaponSkin();
+}
+
 void AUTCharacter::UpdateWeaponSkin()
 {
 	if (WeaponClass == nullptr)
@@ -5556,17 +5580,13 @@ void AUTCharacter::UpdateWeaponSkin()
 
 	UUTWeaponSkin* WeaponSkin = nullptr;
 	FString WeaponPathName = WeaponClass->GetPathName();
-	// See if playerstate has a weapon skin override for us
-	AUTPlayerState* PS = Cast<AUTPlayerState>(PlayerState);
-	if (PS)
+
+	for (int32 i = 0; i < WeaponSkins.Num(); i++)
 	{
-		for (int32 i = 0; i < PS->WeaponSkins.Num(); i++)
+		if (WeaponSkins[i] && WeaponSkins[i]->WeaponType.AssetLongPathname == WeaponPathName)
 		{
-			if (PS->WeaponSkins[i] && PS->WeaponSkins[i]->WeaponType.AssetLongPathname == WeaponPathName)
-			{
-				WeaponSkin = PS->WeaponSkins[i];
-				break;
-			}
+			WeaponSkin = WeaponSkins[i];
+			break;
 		}
 	}
 

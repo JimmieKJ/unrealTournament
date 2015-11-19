@@ -404,15 +404,12 @@ public:
 	UFUNCTION()
 	AUTCharacter* GetUTCharacter();
 
-	UPROPERTY(replicatedUsing = OnRepWeaponSkin)
+	UPROPERTY(replicated)
 	TArray<UUTWeaponSkin*> WeaponSkins;
 
 	UFUNCTION(Server, Reliable, WithValidation)
 	virtual void ServerReceiveWeaponSkin(const FString& NewWeaponSkin);
-
-	UFUNCTION()
-	virtual void OnRepWeaponSkin();
-
+	
 	UFUNCTION()
 	virtual void UpdateWeaponSkinPrefFromProfile(TSubclassOf<AUTWeapon> Weapon);
 
