@@ -33,6 +33,34 @@ struct FDamageHudIndicator
 	}
 };
 
+USTRUCT()
+struct FEnemyDamageNumber
+{
+	GENERATED_USTRUCT_BODY()
+
+	UPROPERTY()
+	APawn* DamagedPawn;
+
+	UPROPERTY()
+		float DamageTime;
+
+	UPROPERTY()
+	uint8 DamageAmount;
+
+	UPROPERTY()
+	FVector WorldPosition;
+
+	UPROPERTY()
+	float Scale;
+
+	FEnemyDamageNumber()
+		: DamagedPawn(NULL), DamageTime(0.f), DamageAmount(0), WorldPosition(FVector(0.f)), Scale(1.f)
+	{
+	}
+
+	FEnemyDamageNumber(APawn* InPawn, float InTime, uint8 InDamage, FVector InLoc, float InScale) : DamagedPawn(InPawn), DamageTime(InTime), DamageAmount(InDamage), WorldPosition(InLoc), Scale(InScale) {};
+};
+
 UCLASS(Config=Game)
 class UNREALTOURNAMENT_API AUTHUD : public AHUD
 {
@@ -107,7 +135,16 @@ public:
 
 	class UUTHUDWidget_SpectatorSlideOut* GetSpectatorSlideOut() { return SpectatorSlideOutWidget; }
 
-	// The Global Opacity for Hud Widgets
+	/** Damage values caused by viewed player recently. */
+	UPROPERTY(BlueprintReadWrite, Category = HUD)
+		TArray<FEnemyDamageNumber> DamageNumbers;
+
+	UPROPERTY()
+		bool bDrawDamageNumbers;
+
+	/** Draw in screen space damage recently applied by this player to other characters. */
+	virtual void DrawDamageNumbers();
+
 	UPROPERTY(BlueprintReadWrite, Category = HUD)
 	float LastPickupTime;
 

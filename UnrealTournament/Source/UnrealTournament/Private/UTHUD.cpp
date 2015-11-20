@@ -516,6 +516,10 @@ void AUTHUD::DrawHUD()
 					const float MapSize = float(Canvas->SizeY) * 0.75f;
 					DrawMinimap(FColor(192, 192, 192, 210), MapSize, FVector2D(Canvas->SizeX - MapSize + MapSize*MinimapOffset.X, MapSize*MinimapOffset.Y));
 				}
+				if (bDrawDamageNumbers)
+				{
+					DrawDamageNumbers();
+				}
 			}
 		}
 	}
@@ -555,7 +559,6 @@ FText AUTHUD::ConvertTime(FText Prefix, FText Suffix, int32 Seconds, bool bForce
 		return FText::Format(NSLOCTEXT("UTHUD", "TIMERHOURS", "{Prefix}{Seconds}{Suffix}"), Args);
 	}
 }
-
 
 void AUTHUD::DrawString(FText Text, float X, float Y, ETextHorzPos::Type HorzAlignment, ETextVertPos::Type VertAlignment, UFont* Font, FLinearColor Color, float Scale, bool bOutline)
 {
@@ -666,6 +669,48 @@ void AUTHUD::CausedDamage(APawn* HitPawn, int32 Damage)
 	if (GS == NULL || !GS->OnSameTeam(HitPawn, PlayerOwner))
 	{
 		LastConfirmedHitTime = GetWorld()->TimeSeconds;
+	}
+	if (bDrawDamageNumbers && (HitPawn != nullptr))
+	{
+		// add to current hit if there
+		for (int32 i = 0; i < DamageNumbers.Num(); i++)
+		{
+			if ((DamageNumbers[i].DamagedPawn == HitPawn) && (GetWorld()->GetTimeSeconds() - DamageNumbers[i].DamageTime < 0.05f))
+			{
+				DamageNumbers[i].DamageAmount = FMath::Min(255, Damage + int32(DamageNumbers[i].DamageAmount));
+				return;
+			}
+		}
+		// save amount, scale , 2D location
+		float HalfHeight = Cast<ACharacter>(HitPawn) ? 1.1f * ((ACharacter *)(HitPawn))->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight() : 0.f;
+		DamageNumbers.Add(FEnemyDamageNumber(HitPawn, GetWorld()->GetTimeSeconds(), FMath::Min(Damage, 255), HitPawn->GetActorLocation() + FVector(0.f, 0.f, HalfHeight), 0.75f));
+	}
+}
+
+void AUTHUD::DrawDamageNumbers()
+{
+//	UE_LOG(UT, Warning, TEXT("DrawDamageNumbers, numbers %d"), DamageNumbers.Num());
+	FFontRenderInfo TextRenderInfo;
+	TextRenderInfo.bEnableShadow = true;
+	Canvas->DrawColor = FColor::Red;
+
+	for (int32 i = 0; i < DamageNumbers.Num(); i++)
+	{
+		DamageNumbers[i].Scale = DamageNumbers[i].Scale + 2.5f * GetWorld()->DeltaTimeSeconds;
+		if (DamageNumbers[i].Scale > 1.5f)
+		{
+			DamageNumbers.RemoveAt(i, 1);
+			i--;
+		}
+		else
+		{
+			Canvas->DrawColor.A = 255.f * (1.f - 0.45f * DamageNumbers[i].Scale);
+			FVector ScreenPosition = Canvas->Project(DamageNumbers[i].WorldPosition);
+			float XL, YL;
+			FString DamageString = FString::Printf(TEXT("%d"), DamageNumbers[i].DamageAmount);
+			Canvas->TextSize(MediumFont, DamageString, XL, YL, DamageNumbers[i].Scale, DamageNumbers[i].Scale);
+			Canvas->DrawText(MediumFont, DamageString, ScreenPosition.X - 0.5f*XL, ScreenPosition.Y - 0.5f*YL, DamageNumbers[i].Scale, DamageNumbers[i].Scale, TextRenderInfo);
+		}
 	}
 }
 
