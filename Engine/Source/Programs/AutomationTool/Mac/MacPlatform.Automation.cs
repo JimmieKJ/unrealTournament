@@ -64,46 +64,11 @@ public class MacPlatform : Platform
 
 	public override void GetFilesToDeployOrStage(ProjectParams Params, DeploymentContext SC)
 	{
-		// the first app is the "main" one, the rest are marked as debug files for exclusion from chunking/distribution
-		StagedFileType WorkingFileType = StagedFileType.NonUFS;
-
-		List<string> Exes = GetExecutableNames(SC);
-		foreach (var Exe in Exes)
-		{
-			string AppBundlePath = "";
-			if (Exe.StartsWith(CombinePaths(SC.RuntimeProjectRootDir, "Binaries", SC.PlatformDir)))
-			{
-				AppBundlePath = CombinePaths(SC.ShortProjectName, "Binaries", SC.PlatformDir, Path.GetFileNameWithoutExtension(Exe) + ".app");
-				StageAppBundle(SC, WorkingFileType, CombinePaths(SC.ProjectRoot, "Binaries", SC.PlatformDir, Path.GetFileNameWithoutExtension(Exe) + ".app"), AppBundlePath);
-			}
-			else if (Exe.StartsWith(CombinePaths(SC.RuntimeRootDir, "Engine/Binaries", SC.PlatformDir)))
-			{
-				AppBundlePath = CombinePaths("Engine/Binaries", SC.PlatformDir, Path.GetFileNameWithoutExtension(Exe) + ".app");
-
-				string AbsoluteBundlePath = CombinePaths (SC.LocalRoot, AppBundlePath);
-				// ensure the ue4game binary exists, if applicable
-				if (!SC.IsCodeBasedProject && !Directory.Exists(AbsoluteBundlePath) && !SC.bIsCombiningMultiplePlatforms)
-				{
-					LogError("Failed to find app bundle " + AbsoluteBundlePath);
-					throw new AutomationException(ExitCode.Error_MissingExecutable, "Could not find app bundle {0}. You may need to build the UE4 project with your target configuration and platform.", AbsoluteBundlePath);
-				}
-
-				StageAppBundle(SC, WorkingFileType, CombinePaths(SC.LocalRoot, "Engine/Binaries", SC.PlatformDir, Path.GetFileNameWithoutExtension(Exe) + ".app"), AppBundlePath);
-			}
-
-			if (!string.IsNullOrEmpty(AppBundlePath))
-			{
-				SC.StageFiles(WorkingFileType, CombinePaths(SC.ProjectRoot, "Build/Mac"), "Application.icns", false, null, CombinePaths(AppBundlePath, "Contents/Resources"), true);
-
-				if (Params.bUsesSteam)
-				{
-					SC.StageFiles(StagedFileType.NonUFS, CombinePaths(SC.LocalRoot, "Engine/Source/ThirdParty/Steamworks/Steamv132/sdk/redistributable_bin/osx32"), "libsteam_api.dylib", false, null, CombinePaths(AppBundlePath, "Contents/MacOS"), true);
-				}
-			}
-
-			// the first app is the "main" one, the rest are marked as debug files for exclusion from chunking/distribution
-			WorkingFileType = StagedFileType.DebugNonUFS;
-		}
+        // Stage all the build products
+        foreach (StageTarget Target in SC.StageTargetReceipts)
+        {
+            SC.StageBuildProductsFromReceipt(Target.Receipt, Target.RequireFilesExist);
+        }
 
 		if (SC.bStageCrashReporter)
 		{
