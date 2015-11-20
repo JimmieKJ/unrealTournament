@@ -1347,7 +1347,7 @@ class UnrealTournament_PromoteBuild : BuildCommand
 							, DestinationLabelWithPlatform);
 					}
 				}
-				if (bShouldPromoteEditor)
+				if (bShouldPromoteEditor && Platform != MCPPlatform.Win32)
 				{
 					BuildPatchToolStagingInfo StagingInfo = UnrealTournamentBuild.GetUTEditorBuildPatchToolStagingInfo(this, BuildVersion, Platform, EditorAppName);
 
@@ -1408,7 +1408,7 @@ class UnrealTournament_PromoteBuild : BuildCommand
 							Log("DONE Promoting game chunks to S3 origin");
 						}
 					}
-					if (bShouldPromoteEditor)
+					if (bShouldPromoteEditor && Platform != MCPPlatform.Win32)
 					{
 						BuildPatchToolStagingInfo StagingInfo = UnrealTournamentBuild.GetUTEditorBuildPatchToolStagingInfo(this, BuildVersion, Platform, EditorAppName);
 						// Publish staging info up to production BuildInfo service
@@ -1466,7 +1466,7 @@ class UnrealTournament_PromoteBuild : BuildCommand
 							throw new AutomationException("Current live game buildversion: {0} doesn't appear to end with platform: {1} as it should!", LiveBuildVersionString, Platform);
 						}
 					}
-					if (bShouldPromoteEditor)
+					if (bShouldPromoteEditor && Platform != MCPPlatform.Win32)
 					{
 						BuildPatchToolStagingInfo StagingInfo = UnrealTournamentBuild.GetUTEditorBuildPatchToolStagingInfo(this, BuildVersion, Platform, EditorAppName);
 						string LiveLabelWithPlatform = "Live" + "-" + Platform;
@@ -1546,7 +1546,8 @@ class UnrealTournament_PromoteBuild : BuildCommand
 					string DateFormatString = "yyyy.MM.dd.HH.mm";
 					string ArchiveDateString = DateTime.Now.ToString(DateFormatString);
 					string ArchiveLabel = "Archived" + ArchiveDateString;
-					LabelBuildForBackwardsCompat(BuildVersion, ArchiveLabel, Platforms, LabelInMcpConfigs, EditorAppName);
+					List<MCPPlatform> EditorPlatforms = Platforms.Where(x => x != MCPPlatform.Win32).ToList();
+					LabelBuildForBackwardsCompat(BuildVersion, ArchiveLabel, EditorPlatforms, LabelInMcpConfigs, EditorAppName);
 				}
 			}
 		}
