@@ -859,8 +859,9 @@ public:
 	UFUNCTION()
 	virtual void HeadScaleUpdated();
 
-	/** sends notification to any other server-side Actors (controller, etc) that need to know about being hit */
-	virtual void NotifyTakeHit(AController* InstigatedBy, int32 Damage, FVector Momentum, AUTInventory* HitArmor, const FDamageEvent& DamageEvent);
+	/** sends notification to any other server-side Actors (controller, etc) that need to know about being hit 
+	AppliedDamage is the damage inflicted, Damage is the net damage taken after armor, etc. reductions. */
+	virtual void NotifyTakeHit(AController* InstigatedBy, int32 AppliedDamage, int32 Damage, FVector Momentum, AUTInventory* HitArmor, const FDamageEvent& DamageEvent);
 
 	/** Set LastTakeHitInfo from a damage event and call PlayTakeHitEffects() */
 	virtual void SetLastTakeHitInfo(int32 AttemptedDamage, int32 Damage, const FVector& Momentum, AUTInventory* HitArmor, const FDamageEvent& DamageEvent);
@@ -1648,12 +1649,12 @@ protected:
 	 * NOTE: return value is a workaround for blueprint bugs involving ref parameters and is not used
 	 */
 	UFUNCTION(BlueprintNativeEvent)
-	bool ModifyDamageTaken(UPARAM(ref) int32& Damage, UPARAM(ref) FVector& Momentum, UPARAM(ref) AUTInventory*& HitArmor, const FHitResult& HitInfo, AController* EventInstigator, AActor* DamageCauser, TSubclassOf<UDamageType> DamageType);
+		bool ModifyDamageTaken(UPARAM(ref) int32& AppliedDamage, UPARAM(ref) int32& Damage, UPARAM(ref) FVector& Momentum, UPARAM(ref) AUTInventory*& HitArmor, const FHitResult& HitInfo, AController* EventInstigator, AActor* DamageCauser, TSubclassOf<UDamageType> DamageType);
 	/** hook to modify damage CAUSED by this Pawn - note that EventInstigator may not be equal to Controller if we're in a vehicle, etc
 	 * NOTE: return value is a workaround for blueprint bugs involving ref parameters and is not used
 	 */
 	UFUNCTION(BlueprintNativeEvent)
-	bool ModifyDamageCaused(UPARAM(ref) int32& Damage, UPARAM(ref) FVector& Momentum, const FHitResult& HitInfo, AActor* Victim, AController* EventInstigator, AActor* DamageCauser, TSubclassOf<UDamageType> DamageType);
+		bool ModifyDamageCaused(UPARAM(ref) int32& AppliedDamage, UPARAM(ref) int32& Damage, UPARAM(ref) FVector& Momentum, const FHitResult& HitInfo, AActor* Victim, AController* EventInstigator, AActor* DamageCauser, TSubclassOf<UDamageType> DamageType);
 
 	/** switches weapon locally, must execute independently on both server and client */
 	virtual void LocalSwitchWeapon(AUTWeapon* NewWeapon);
