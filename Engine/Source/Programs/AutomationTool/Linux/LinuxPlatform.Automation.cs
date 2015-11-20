@@ -45,7 +45,7 @@ public abstract class BaseLinuxPlatform : Platform
 		}
 
         // Stage all the build products
-        foreach (StageTarget Target in SC.StageTargetReceipts)
+        foreach (StageTarget Target in SC.StageTargets)
         {
             SC.StageBuildProductsFromReceipt(Target.Receipt, Target.RequireFilesExist);
         }
