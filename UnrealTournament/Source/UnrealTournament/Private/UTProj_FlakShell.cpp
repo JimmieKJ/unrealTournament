@@ -46,7 +46,7 @@ void AUTProj_FlakShell::Explode_Implementation(const FVector& HitLocation, const
 					// no shards, just give the damage directly to the pawn
 					FUTPointDamageEvent Event;
 					float AdjustedMomentum = DefaultShard->Momentum;
-					Event.Damage = DefaultShard->GetDamageParams(ImpactedActor, HitLocation, AdjustedMomentum).BaseDamage;
+					Event.Damage = DefaultShard->DamageParams.BaseDamage;
 					Event.DamageTypeClass = DefaultShard->MyDamageType;
 					Event.HitInfo = FHitResult(ImpactedActor, HitComp, HitLocation, HitNormal);
 					Event.ShotDirection = GetVelocity().GetSafeNormal();
