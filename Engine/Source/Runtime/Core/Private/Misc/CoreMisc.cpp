@@ -819,8 +819,6 @@ void SetIsServerForOnlineSubsystemsDelegate(FQueryIsRunningServer NewDelegate)
 	GIsServerDelegate = NewDelegate;
 }
 
-#if UE_EDITOR
-
 /** Checks the command line for the presence of switches to indicate running as "dedicated server only" */
 int32 CORE_API StaticDedicatedServerCheck()
 {
@@ -838,6 +836,8 @@ int32 CORE_API StaticDedicatedServerCheck()
 	}
 	return HasServerSwitch;
 }
+
+#if UE_EDITOR
 
 /** Checks the command line for the presence of switches to indicate running as "game only" */
 int32 CORE_API StaticGameCheck()

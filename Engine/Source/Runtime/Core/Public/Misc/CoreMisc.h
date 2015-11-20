@@ -266,17 +266,8 @@ FORCEINLINE bool IsRunningDedicatedServer()
 		return true;
 	}
 
-	if (FPlatformProperties::IsGameOnly())
-	{
-		return false;
-	}
-
-#if UE_EDITOR
 	extern CORE_API int32 StaticDedicatedServerCheck();
 	return (StaticDedicatedServerCheck() == 1);
-#else
-	return false;
-#endif
 }
 
 /**
