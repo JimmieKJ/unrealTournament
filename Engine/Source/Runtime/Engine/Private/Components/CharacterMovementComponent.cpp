@@ -3054,11 +3054,17 @@ void UCharacterMovementComponent::PhysSwimming(float deltaTime, int32 Iterations
 	float NetFluidFriction  = 0.f;
 	float Depth = ImmersionDepth();
 	float NetBuoyancy = Buoyancy * Depth;
-	if( !HasAnimRootMotion() && !CurrentRootMotion.HasOverrideVelocity() && (Velocity.Z > 0.5f*GetMaxSpeed()) && (NetBuoyancy != 0.f) )
+
+	if (!HasAnimRootMotion() && (Velocity.Z > 0.33f * MaxSwimSpeed) && (NetBuoyancy != 0.f))
 	{
 		//damp positive Z out of water
-		Velocity.Z = Velocity.Z * Depth;
+		Velocity.Z = FMath::Max(0.33f * MaxSwimSpeed, Velocity.Z * Depth*Depth);
 	}
+	else if (Depth < 0.65f)
+	{
+		Acceleration.Z = FMath::Min(0.1f, Acceleration.Z);
+	}
+
 	Iterations++;
 	FVector OldLocation = UpdatedComponent->GetComponentLocation();
 	bJustTeleported = false;
