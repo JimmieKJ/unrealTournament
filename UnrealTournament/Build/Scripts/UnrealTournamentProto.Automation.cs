@@ -1556,21 +1556,18 @@ class UnrealTournament_PromoteBuild : BuildCommand
 	}
 
 
-    private void LabelBuildForBackwardsCompat(string BuildVersion, string DestinationLabel, List<MCPPlatform> Platforms, string McpConfigNames, UnrealTournamentBuild.UnrealTournamentAppName FromApp)
+    private void LabelBuildForBackwardsCompat(string BuildVersion, string DestinationLabel, List<MCPPlatform> Platforms, string McpConfigNames, UnrealTournamentBuild.UnrealTournamentAppName AppName)
 	{
 		// Label it normally
-		LabelBuild(BuildVersion, DestinationLabel, Platforms, McpConfigNames, FromApp);
+		LabelBuild(BuildVersion, DestinationLabel, Platforms, McpConfigNames, AppName);
 
 		// Apply the label again with entitlement prefix for backwards-compat until this can be deprecated
-		string Label = "Production-" + DestinationLabel;
-		// Don't do backwards compat labeling until/unless we determine this is still needed
-		//LabelBuild(BuildVersion, Label, Platforms, McpConfigNames);
-
-		// If the label is Live, also apply the empty label for backwards-compat until this can be deprecated in favor of "Live"
-		if (DestinationLabel.Equals("Live"))
+		if (!DestinationLabel.StartsWith("Archived"))
 		{
-			Label = "Production";
-			LabelBuild(BuildVersion, Label, Platforms, McpConfigNames, FromApp);
+			string Label = DestinationLabel.Equals("Live")
+				? "Production"
+				: "Production-" + DestinationLabel;
+			LabelBuild(BuildVersion, Label, Platforms, McpConfigNames, AppName);
 		}
 	}
 
@@ -1582,14 +1579,14 @@ class UnrealTournament_PromoteBuild : BuildCommand
 	/// <param name="DestinationLabel">Label, WITHOUT platform embedded, to apply</param>
 	/// <param name="Platforms">Array of platform strings to post labels for</param>
 	/// <param name="McpConfigNames">Which BuildInfo backends to label the build in.</param>
-	/// <param name="FromApp">Which appname is associated with this build</param>
-    private void LabelBuild(string BuildVersion, string DestinationLabel, List<MCPPlatform> Platforms, string McpConfigNames, UnrealTournamentBuild.UnrealTournamentAppName FromApp)
+	/// <param name="AppName">Which appname is associated with this build</param>
+	private void LabelBuild(string BuildVersion, string DestinationLabel, List<MCPPlatform> Platforms, string McpConfigNames, UnrealTournamentBuild.UnrealTournamentAppName AppName)
 	{
 		foreach (string McpConfigName in McpConfigNames.Split(','))
 		{
 			foreach (var Platform in Platforms)
 			{
-                BuildPatchToolStagingInfo StagingInfo = UnrealTournamentBuild.GetUTBuildPatchToolStagingInfo(this, BuildVersion, Platform, FromApp);
+				BuildPatchToolStagingInfo StagingInfo = UnrealTournamentBuild.GetUTBuildPatchToolStagingInfo(this, BuildVersion, Platform, AppName);
 				string LabelWithPlatform = BuildInfoPublisherBase.Get().GetLabelWithPlatform(DestinationLabel, Platform);
 				BuildInfoPublisherBase.Get().LabelBuild(StagingInfo, LabelWithPlatform, McpConfigName);
 			}
@@ -1602,10 +1599,12 @@ class UnrealTournament_PromoteBuild : BuildCommand
 		// Label it normally
 		LabelBuild(BuildVersion, DestinationLabel, Platforms, McpConfigNames, AppName);
 
-		// If the label is Live, also apply the empty label for backwards-compat until this can be deprecated in favor of "Live"
-		if (DestinationLabel.Equals("Live"))
+		// Apply the label again with entitlement prefix for backwards-compat until this can be deprecated
+		if (!DestinationLabel.StartsWith("Archived"))
 		{
-			string Label = "Production";
+			string Label = DestinationLabel.Equals("Live")
+				? "Production"
+				: "Production-" + DestinationLabel;
 			LabelBuild(BuildVersion, Label, Platforms, McpConfigNames, AppName);
 		}
 	}
